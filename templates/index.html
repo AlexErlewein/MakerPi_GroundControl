@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛰️ MakerPi GroundControl</h1>
+            <div class="status" id="status">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Stats Cards -->
+            <section class="stats">
+                <div class="stat-card">
+                    <h3>Devices</h3>
+                    <p class="stat-value" id="device-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Messages</h3>
+                    <p class="stat-value" id="message-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Topics</h3>
+                    <p class="stat-value" id="topic-count">-</p>
+                </div>
+            </section>
+
+            <!-- Devices Section -->
+            <section class="section">
+                <h2>Devices</h2>
+                <div class="table-container">
+                    <table id="devices-table">
+                        <thead>
+                            <tr>
+                                <th>Device ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devices-body">
+                            <tr><td colspan="4">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Messages Section -->
+            <section class="section">
+                <h2>Recent Messages</h2>
+                <div class="filter-bar">
+                    <input type="text" id="topic-filter" placeholder="Filter by topic...">
+                    <button id="refresh-btn">Refresh</button>
+                </div>
+                <div class="messages-container" id="messages-container">
+                    <p>Loading messages...</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
