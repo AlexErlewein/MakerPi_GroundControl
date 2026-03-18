@@ -32,10 +32,7 @@ apt install -y \
     mosquitto-clients \
     sqlite3
 
-# Create project directory
-PROJECT_DIR="/opt/makerpi-groundcontrol"
-echo -e "${YELLOW}Creating project directory at $PROJECT_DIR...${NC}"
-mkdir -p $PROJECT_DIR
+PROJECT_DIR="$HOME/MakerPi_GroundControl"
 
 SERVICE_USER=${SUDO_USER:-$USER}
 
