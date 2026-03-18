@@ -37,13 +37,20 @@ PROJECT_DIR="/opt/makerpi-groundcontrol"
 echo -e "${YELLOW}Creating project directory at $PROJECT_DIR...${NC}"
 mkdir -p $PROJECT_DIR
 
-# Copy config files
-echo -e "${YELLOW}Configuring Mosquitto...${NC}"
-cp config/mosquitto.conf /etc/mosquitto/mosquitto.conf
+SERVICE_USER=${SUDO_USER:-$USER}
+
+# Configure Mosquitto (v2+ requires main config)
+cat > /etc/mosquitto/mosquitto.conf << MOSQEOF
+listener 1883
+allow_anonymous true
+persistence true
+persistence_location /var/lib/mosquitto/
+log_dest file /var/log/mosquitto/mosquitto.log
+MOSQEOF
 
 # Ensure Mosquitto can write to its directories
-chown mosquitto:mosquitto /var/lib/mosquitto
-chown mosquitto:mosquitto /var/log/mosquitto
+mkdir -p /var/lib/mosquitto /var/log/mosquitto
+chown mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
 
 # Create Python virtual environment
 echo -e "${YELLOW}Setting up Python environment...${NC}"
@@ -64,7 +71,7 @@ After=network.target mosquitto.service
 
 [Service]
 Type=simple
-User=pi
+User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
 Environment="PATH=$PROJECT_DIR/venv/bin"
 ExecStart=$PROJECT_DIR/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
