@@ -79,7 +79,14 @@ async function loadDevices() {
             <tr>
                 <td><code>${escapeHtml(device.device_id)}</code></td>
                 <td>${escapeHtml(device.name)}</td>
-                <td><span class="status-badge ${device.status}">${device.status}</span></td>
+                <td>
+                    <span class="status-badge ${device.status}">${device.status}</span>
+                    ${device.nfc_ok !== null && device.nfc_ok !== undefined ? `
+                        <span class="nfc-badge ${device.nfc_ok ? 'nfc-ok' : 'nfc-error'}" title="${device.nfc_error || 'NFC OK'}">
+                            NFC: ${device.nfc_ok ? '✓' : '✗'}
+                        </span>
+                    ` : '<span class="nfc-badge nfc-unknown">NFC: ?</span>'}
+                </td>
                 <td>${formatTime(device.last_seen)}</td>
             </tr>
         `).join('');

@@ -56,8 +56,10 @@ MakerPi_GroundControl/
 ├── config/
 │   └── mosquitto.conf   # MQTT broker configuration
 ├── scripts/
-│   ├── setup.sh         # Initial setup script for Pi
-│   └── deploy.sh        # Deploy updates from dev machine
+│   ├── setup.sh               # Initial setup script for Pi
+│   ├── deploy.sh              # Deploy updates from dev machine
+│   ├── migrate_add_nfc_status.py  # Database migration script
+│   └── reset_database.py       # Reset database (fresh start)
 ├── static/
 │   ├── css/
 │   │   └── style.css    # Dashboard styles
@@ -150,6 +152,8 @@ SQLite database located at: `/opt/makerpi-groundcontrol/groundcontrol.db`
 - `name` - Device name
 - `last_seen` - Last activity timestamp
 - `status` - Current status (online/offline/unknown)
+- `nfc_ok` - NFC hardware status (1=OK, 0=Error, NULL=Unknown)
+- `nfc_error` - NFC error message if applicable
 
 **mqtt_messages** table:
 - `id` - Primary key
@@ -158,6 +162,24 @@ SQLite database located at: `/opt/makerpi-groundcontrol/groundcontrol.db`
 - `qos` - Quality of Service level
 - `retained` - Retained flag
 - `timestamp` - Message timestamp
+
+### Database Migrations
+
+When updating to a new version with schema changes, you have two options:
+
+**Option 1: Migrate existing data** (preserves messages and devices):
+```bash
+cd /opt/makerpi-groundcontrol
+python3 scripts/migrate_add_nfc_status.py
+sudo systemctl restart groundcontrol
+```
+
+**Option 2: Reset database** (fresh start, all data lost):
+```bash
+cd /opt/makerpi-groundcontrol
+python3 scripts/reset_database.py
+sudo systemctl restart groundcontrol
+```
 
 ## Requirements
 

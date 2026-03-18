@@ -67,6 +67,8 @@ class Device(Base):
     name = Column(String)
     last_seen = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="unknown")
+    nfc_ok = Column(Integer, default=None)  # NULL = unknown, 1 = OK, 0 = error
+    nfc_error = Column(String, default=None)
 
     def to_dict(self):
         return {
@@ -75,6 +77,8 @@ class Device(Base):
             "name": self.name,
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "status": self.status,
+            "nfc_ok": self.nfc_ok,
+            "nfc_error": self.nfc_error,
         }
 
 
@@ -134,11 +138,53 @@ class MQTTHandler:
                 if len(topic_parts) > 0:
                     device_id = topic_parts[0]
                     device = db.query(Device).filter(Device.device_id == device_id).first()
-                    if device:
+
+                    # Handle heartbeat messages (extract NFC status)
+                    if len(topic_parts) > 1 and topic_parts[1] == "heartbeat":
+                        try:
+                            heartbeat_data = json.loads(payload)
+                            if device:
+                                device.last_seen = datetime.utcnow()
+                                # Update NFC status from heartbeat
+                                device.nfc_ok = 1 if heartbeat_data.get("nfc_ok") else 0
+                                device.nfc_error = heartbeat_data.get("nfc_error")
+                                device.status = heartbeat_data.get("status", "online")
+                            else:
+                                # Create new device from heartbeat
+                                device = Device(
+                                    device_id=device_id,
+                                    name=device_id,
+                                    status=heartbeat_data.get("status", "online"),
+                                    nfc_ok=1 if heartbeat_data.get("nfc_ok") else 0,
+                                    nfc_error=heartbeat_data.get("nfc_error")
+                                )
+                                db.add(device)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid heartbeat JSON from {device_id}")
+
+                    # Handle status messages
+                    elif len(topic_parts) > 1 and topic_parts[1] == "status":
+                        try:
+                            status_data = json.loads(payload)
+                            if device:
+                                device.last_seen = datetime.utcnow()
+                                device.status = status_data.get("status", "unknown")
+                            else:
+                                device = Device(
+                                    device_id=device_id,
+                                    name=device_id,
+                                    status=status_data.get("status", "unknown")
+                                )
+                                db.add(device)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid status JSON from {device_id}")
+
+                    # Generic device update (any message from device)
+                    elif device:
                         device.last_seen = datetime.utcnow()
                         device.status = "online"
                     else:
-                        # Create new device
+                        # Create new device from generic message
                         device = Device(device_id=device_id, name=device_id, status="online")
                         db.add(device)
 
