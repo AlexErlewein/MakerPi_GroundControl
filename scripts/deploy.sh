@@ -2,10 +2,10 @@
 # Deploy script to sync files to the Pi and restart the service
 # Usage: ./scripts/deploy.sh <pi-hostname-or-ip> [--update-deps]
 
-PI_HOST=${1:-"raspberrypi.local"}
+PI_HOST=${1:-"192.168.178.47"}
 UPDATE_DEPS=${2:-""}
-PI_USER="pi"
-PROJECT_DIR="/opt/makerpi-groundcontrol"
+PI_USER="alex"
+PROJECT_DIR="home/alex/MakerPi_GroundControl"
 
 echo "🚀 Deploying to $PI_HOST..."
 

@@ -16,7 +16,7 @@ WIFI_SSID = "YourWiFiName"
 WIFI_PASSWORD = "YourWiFiPassword"
 
 # MQTT Broker Configuration (your Pi's IP)
-MQTT_BROKER = "192.168.1.100"  # Change to your Pi's IP
+MQTT_BROKER = "192.168.178.47"  # Change to your Pi's IP
 MQTT_PORT = 1883
 
 # Unique client ID (use last 4 chars of MAC)
