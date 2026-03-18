@@ -1,8 +1,9 @@
 #!/bin/bash
 # Deploy script to sync files to the Pi and restart the service
-# Usage: ./scripts/deploy.sh <pi-hostname-or-ip>
+# Usage: ./scripts/deploy.sh <pi-hostname-or-ip> [--update-deps]
 
 PI_HOST=${1:-"raspberrypi.local"}
+UPDATE_DEPS=${2:-""}
 PI_USER="pi"
 PROJECT_DIR="/opt/makerpi-groundcontrol"
 
@@ -17,6 +18,12 @@ rsync -av --progress \
     --exclude='.git/' \
     --exclude='.gitignore' \
     ./ $PI_USER@$PI_HOST:$PROJECT_DIR/
+
+# Update dependencies if requested
+if [ "$UPDATE_DEPS" = "--update-deps" ]; then
+    echo "Updating Python dependencies..."
+    ssh $PI_USER@$PI_HOST "cd $PROJECT_DIR && source venv/bin/activate && if command -v uv &> /dev/null; then uv pip install -r requirements.txt; else pip install -r requirements.txt; fi"
+fi
 
 # Restart service on Pi
 echo "Restarting GroundControl service..."

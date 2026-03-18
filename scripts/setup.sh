@@ -56,8 +56,19 @@ source $PROJECT_DIR/venv/bin/activate
 
 # Install Python dependencies
 echo -e "${YELLOW}Installing Python packages...${NC}"
-pip install --upgrade pip
-pip install -r requirements.txt
+
+# Try uv first, fall back to pip
+if command -v uv &> /dev/null; then
+    echo "Using uv for fast installation..."
+    uv pip install -r requirements.txt
+else
+    echo "uv not found, using pip..."
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    echo ""
+    echo "💡 Tip: Install uv for faster installs:"
+    echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
+fi
 
 # Create systemd service for FastAPI app
 echo -e "${YELLOW}Creating systemd service...${NC}"

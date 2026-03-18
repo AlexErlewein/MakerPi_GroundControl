@@ -40,6 +40,11 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 ```bash
 git clone https://github.com/AlexErlewein/MakerPi_GroundControl.git
 cd MakerPi_GroundControl
+
+# Optional: Install uv for faster package installs
+bash scripts/install_uv.sh
+
+# Run setup
 sudo bash scripts/setup.sh
 ```
 
@@ -58,8 +63,9 @@ MakerPi_GroundControl/
 ├── scripts/
 │   ├── setup.sh               # Initial setup script for Pi
 │   ├── deploy.sh              # Deploy updates from dev machine
+│   ├── install_uv.sh          # Install uv (fast package manager)
 │   ├── migrate_add_nfc_status.py  # Database migration script
-│   └── reset_database.py       # Reset database (fresh start)
+│   └── reset_database.py      # Reset database (fresh start)
 ├── static/
 │   ├── css/
 │   │   └── style.css    # Dashboard styles
@@ -90,10 +96,21 @@ uvicorn backend.main:app --reload
 ### Deploying to Pi
 
 ```bash
-# From your development machine, sync changes to Pi
+# Sync code only
 ./scripts/deploy.sh raspberrypi.local
-# or use IP
-./scripts/deploy.sh 192.168.1.100
+
+# Sync code + update dependencies
+./scripts/deploy.sh raspberrypi.local --update-deps
+```
+
+### Using uv (Faster Package Management)
+
+The setup scripts optionally use [`uv`](https://github.com/astral-sh/uv) for fast Python package installation.
+
+Install on Pi:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc
 ```
 
 ## API Endpoints
