@@ -22,7 +22,7 @@ rsync -av --progress \
 # Update dependencies if requested
 if [ "$UPDATE_DEPS" = "--update-deps" ]; then
     echo "Updating Python dependencies..."
-    ssh $PI_USER@$PI_HOST "cd $PROJECT_DIR && source venv/bin/activate && if command -v uv &> /dev/null; then uv pip install -r requirements.txt; else pip install -r requirements.txt; fi"
+    ssh $PI_USER@$PI_HOST "cd $PROJECT_DIR && if command -v uv &> /dev/null; then uv sync; else source venv/bin/activate && pip install -r requirements.txt; fi"
 fi
 
 # Restart service on Pi

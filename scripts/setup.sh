@@ -60,7 +60,7 @@ echo -e "${YELLOW}Installing Python packages...${NC}"
 # Try uv first, fall back to pip
 if command -v uv &> /dev/null; then
     echo "Using uv for fast installation..."
-    uv pip install -r requirements.txt
+    uv sync
 else
     echo "uv not found, using pip..."
     pip install --upgrade pip
