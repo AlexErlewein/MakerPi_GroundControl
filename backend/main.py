@@ -228,6 +228,21 @@ class MQTTHandler:
         self.client.loop_stop()
         self.client.disconnect()
 
+    def publish_command(self, device_id: str, command: str, payload: str = ""):
+        """Publish a command to a device via MQTT"""
+        topic = f"{device_id}/command"
+        try:
+            result = self.client.publish(topic, payload.encode("utf-8") if payload else b"", qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                logger.info(f"Command sent: {topic} -> {command}")
+                return True
+            else:
+                logger.error(f"Failed to send command: {result.rc}")
+                return False
+        except Exception as e:
+            logger.error(f"Error sending command: {e}")
+            return False
+
 
 # Lifespan manager for FastAPI
 @asynccontextmanager
@@ -436,6 +451,19 @@ async def get_device_messages(device_id: str, limit: int = 100, topic: str = Non
         return [m.to_dict() for m in messages]
     finally:
         db.close()
+
+
+@app.post("/api/devices/{device_id}/commands")
+async def send_device_command(device_id: str, command: str):
+    """Send a command to a device via MQTT"""
+    if not mqtt_client:
+        return JSONResponse(status_code=503, content={"success": False, "error": "MQTT not connected"})
+
+    if not mqtt_client.connected:
+        return JSONResponse(status_code=503, content={"success": False, "error": "MQTT not connected"})
+
+    success = mqtt_client.publish_command(device_id, command)
+    return {"success": success, "command": command, "device_id": device_id}
 
 
 @app.get("/api/export/devices")

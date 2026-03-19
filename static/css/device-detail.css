@@ -298,6 +298,101 @@
     font-size: 1rem;
 }
 
+/* Actions Card */
+.actions-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.actions-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.actions-description {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+}
+
+.action-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.action-icon {
+    font-size: 1.5rem;
+}
+
+.action-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Command Status */
+.command-status {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    min-height: 20px;
+}
+
+.status-loading {
+    color: var(--text-secondary);
+}
+
+.status-success {
+    color: var(--success);
+    background: rgba(63, 185, 80, 0.1);
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.status-error {
+    color: var(--danger);
+    background: rgba(248, 81, 73, 0.1);
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .header-left {

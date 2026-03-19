@@ -219,6 +219,58 @@ function exportMessages() {
     }
 }
 
+// Send command to device
+async function sendCommand(buttonElement) {
+    const command = buttonElement.dataset.command;
+    const statusEl = getElement('command-status');
+    const actionBtns = document.querySelectorAll('.action-btn');
+
+    // Disable buttons during request
+    actionBtns.forEach(btn => btn.disabled = true);
+
+    // Show loading state
+    if (statusEl) {
+        statusEl.innerHTML = `<span class="status-loading">Sending "${command}"...</span>`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}/commands`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ command }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="status-success">✓ Command "${command}" sent successfully</span>`;
+            }
+        } else {
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="status-error">✗ Failed to send command: ${result.error || 'Unknown error'}</span>`;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to send command:', error);
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="status-error">✗ Error: ${error.message}</span>`;
+        }
+    } finally {
+        // Re-enable buttons
+        actionBtns.forEach(btn => btn.disabled = false);
+
+        // Clear status after 3 seconds
+        setTimeout(() => {
+            if (statusEl) {
+                statusEl.innerHTML = '';
+            }
+        }, 3000);
+    }
+}
+
 // Auto-refresh
 function startAutoRefresh() {
     if (refreshTimer) {
