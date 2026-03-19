@@ -10,10 +10,21 @@ let refreshTimer = null;
 let allMessages = [];
 let allTopics = [];
 
-// DOM Elements
-const refreshBtn = document.getElementById('refresh-btn');
-const topicFilter = document.getElementById('topic-filter');
-const exportBtn = document.getElementById('export-btn');
+function getElement(id) {
+    const el = document.getElementById(id);
+    if (!el) console.warn(`Element not found: ${id}`);
+    return el;
+}
+
+function safeSetText(id, text) {
+    const el = getElement(id);
+    if (el) el.textContent = text;
+}
+
+function safeSetHTML(id, html) {
+    const el = getElement(id);
+    if (el) el.innerHTML = html;
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,24 +35,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 function setupEventListeners() {
-    refreshBtn.addEventListener('click', loadAllData);
-    topicFilter.addEventListener('change', filterMessages);
-    exportBtn.addEventListener('click', exportMessages);
+    const refreshBtn = getElement('refresh-btn');
+    const topicFilter = getElement('topic-filter');
+    const exportBtn = getElement('export-btn');
 
-    // Topic card clicks
-    document.getElementById('topics-grid').addEventListener('click', (e) => {
-        const topicCard = e.target.closest('.topic-card');
-        if (topicCard) {
-            const topic = topicCard.dataset.topic;
-            topicFilter.value = topic;
-            filterMessages();
+    if (refreshBtn) refreshBtn.addEventListener('click', loadAllData);
+    if (topicFilter) topicFilter.addEventListener('change', filterMessages);
+    if (exportBtn) exportBtn.addEventListener('click', exportMessages);
 
-            // Update active state
-            document.querySelectorAll('.topic-card').forEach(card => {
-                card.classList.toggle('active', card.dataset.topic === topic);
-            });
-        }
-    });
+    const topicsGrid = getElement('topics-grid');
+    if (topicsGrid) {
+        topicsGrid.addEventListener('click', (e) => {
+            const topicCard = e.target.closest('.topic-card');
+            if (topicCard && topicFilter) {
+                const topic = topicCard.dataset.topic;
+                topicFilter.value = topic;
+                filterMessages();
+
+                document.querySelectorAll('.topic-card').forEach(card => {
+                    card.classList.toggle('active', card.dataset.topic === topic);
+                });
+            }
+        });
+    }
 }
 
 // Load all data
@@ -56,54 +72,58 @@ async function loadAllData() {
 
         renderDeviceInfo(data.device);
         renderTopics(data.topic_counts);
-        allMessages = data.recent_messages;
-        allTopics = data.topic_counts.map(t => t.topic.replace(`${DEVICE_ID}/`, ''));
+        allMessages = data.recent_messages || [];
+        allTopics = (data.topic_counts || []).map(t => t.topic.replace(`${DEVICE_ID}/`, ''));
         populateTopicFilter();
         filterMessages();
     } catch (error) {
         console.error('Failed to load device data:', error);
-        document.getElementById('device-status').textContent = 'Error';
-        document.getElementById('topics-grid').innerHTML = 
-            `<p class="error-text">Failed to load: ${escapeHtml(error.message)}</p>`;
-        document.getElementById('messages-container').innerHTML = 
-            `<div class="empty-state"><p class="error-text">Error: ${escapeHtml(error.message)}</p></div>`;
+        safeSetText('device-status', 'Error');
+        safeSetText('device-id', DEVICE_ID);
+        safeSetText('device-name', 'Error');
+        safeSetText('device-last-seen', '-');
+        safeSetHTML('topics-grid', `<p class="error-text">Failed to load: ${escapeHtml(error.message)}</p>`);
+        safeSetHTML('messages-container', `<div class="empty-state"><p class="error-text">Error: ${escapeHtml(error.message)}</p></div>`);
     }
 }
 
 // Render device info
 function renderDeviceInfo(device) {
-    document.getElementById('device-id').textContent = device.device_id;
-    document.getElementById('device-name').textContent = device.name || 'Unnamed';
-    document.getElementById('device-last-seen').textContent = formatDateTime(device.last_seen);
+    safeSetText('device-id', device.device_id);
+    safeSetText('device-name', device.name || 'Unnamed');
+    safeSetText('device-last-seen', formatDateTime(device.last_seen));
 
-    // Status badge
-    const statusBadge = document.getElementById('device-status');
-    statusBadge.textContent = device.status;
-    statusBadge.className = `status-badge ${device.status}`;
+    const statusBadge = getElement('device-status');
+    if (statusBadge) {
+        statusBadge.textContent = device.status;
+        statusBadge.className = `status-badge ${device.status}`;
+    }
 
-    // NFC status
-    const nfcStatus = document.getElementById('device-nfc-status');
-    const nfcErrorContainer = document.getElementById('nfc-error-container');
-    const nfcError = document.getElementById('device-nfc-error');
+    const nfcStatus = getElement('device-nfc-status');
+    const nfcErrorContainer = getElement('nfc-error-container');
+    const nfcError = getElement('device-nfc-error');
 
-    if (device.nfc_ok === 1) {
-        nfcStatus.innerHTML = '<span class="nfc-badge nfc-ok">✓ Working</span>';
-        nfcErrorContainer.style.display = 'none';
-    } else if (device.nfc_ok === 0) {
-        nfcStatus.innerHTML = '<span class="nfc-badge nfc-error">✗ Error</span>';
-        nfcErrorContainer.style.display = 'flex';
-        nfcError.textContent = device.nfc_error || 'Unknown error';
-    } else {
-        nfcStatus.innerHTML = '<span class="nfc-badge nfc-unknown">? Unknown</span>';
-        nfcErrorContainer.style.display = 'none';
+    if (nfcStatus) {
+        if (device.nfc_ok === 1) {
+            nfcStatus.innerHTML = '<span class="nfc-badge nfc-ok">✓ Working</span>';
+            if (nfcErrorContainer) nfcErrorContainer.style.display = 'none';
+        } else if (device.nfc_ok === 0) {
+            nfcStatus.innerHTML = '<span class="nfc-badge nfc-error">✗ Error</span>';
+            if (nfcErrorContainer) nfcErrorContainer.style.display = 'flex';
+            if (nfcError) nfcError.textContent = device.nfc_error || 'Unknown error';
+        } else {
+            nfcStatus.innerHTML = '<span class="nfc-badge nfc-unknown">? Unknown</span>';
+            if (nfcErrorContainer) nfcErrorContainer.style.display = 'none';
+        }
     }
 }
 
 // Render topics grid
 function renderTopics(topicCounts) {
-    const grid = document.getElementById('topics-grid');
+    const grid = getElement('topics-grid');
+    if (!grid) return;
 
-    if (topicCounts.length === 0) {
+    if (!topicCounts || topicCounts.length === 0) {
         grid.innerHTML = '<p>No topics found for this device</p>';
         return;
     }
@@ -111,7 +131,7 @@ function renderTopics(topicCounts) {
     grid.innerHTML = topicCounts.map(t => {
         const shortTopic = t.topic.replace(`${DEVICE_ID}/`, '');
         return `
-            <div class="topic-card" data-topic="${shortTopic}">
+            <div class="topic-card" data-topic="${escapeHtml(shortTopic)}">
                 <div class="topic-name">${escapeHtml(shortTopic)}</div>
                 <div class="topic-count"><strong>${t.count}</strong> messages</div>
             </div>
@@ -121,20 +141,23 @@ function renderTopics(topicCounts) {
 
 // Populate topic filter dropdown
 function populateTopicFilter() {
-    // Clear existing options except "All Topics"
-    topicFilter.innerHTML = '<option value="">All Topics</option>';
+    const tf = getElement('topic-filter');
+    if (!tf) return;
+    
+    tf.innerHTML = '<option value="">All Topics</option>';
 
     allTopics.forEach(topic => {
         const option = document.createElement('option');
         option.value = topic;
         option.textContent = topic;
-        topicFilter.appendChild(option);
+        tf.appendChild(option);
     });
 }
 
 // Filter messages
 function filterMessages() {
-    const topic = topicFilter.value;
+    const tf = getElement('topic-filter');
+    const topic = tf ? tf.value : '';
     let filtered = allMessages;
 
     if (topic) {
@@ -146,9 +169,10 @@ function filterMessages() {
 
 // Render messages
 function renderMessages(messages) {
-    const container = document.getElementById('messages-container');
+    const container = getElement('messages-container');
+    if (!container) return;
 
-    if (messages.length === 0) {
+    if (!messages || messages.length === 0) {
         container.innerHTML = '<div class="empty-state"><p>No messages to display</p></div>';
         return;
     }
@@ -174,7 +198,8 @@ function renderMessages(messages) {
 // Export messages as CSV
 function exportMessages() {
     try {
-        const topic = topicFilter.value;
+        const tf = getElement('topic-filter');
+        const topic = tf ? tf.value : '';
         let url = `${API_BASE}/api/export/messages?limit=1000&topic=${encodeURIComponent(DEVICE_ID)}`;
         if (topic) {
             url += `/${encodeURIComponent(topic)}`;

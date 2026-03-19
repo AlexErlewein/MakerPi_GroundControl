@@ -45,6 +45,9 @@ async function loadAllData() {
 async function loadDatabaseStats() {
     try {
         const response = await fetch(`${API_BASE}/api/database/stats`);
+        if (!response.ok) {
+            throw new Error(`API error ${response.status}`);
+        }
         const stats = await response.json();
 
         // Database info
@@ -86,12 +89,17 @@ async function loadDatabaseStats() {
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE}/api/devices`);
+        if (!response.ok) {
+            throw new Error(`API error ${response.status}`);
+        }
         allDevices = await response.json();
         filterDevices();
     } catch (error) {
         console.error('Failed to load devices:', error);
-        document.getElementById('devices-body').innerHTML =
-            '<tr><td colspan="6">Error loading devices</td></tr>';
+        const tbody = document.getElementById('devices-body');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="error-text">Error loading devices: ${escapeHtml(error.message)}</td></tr>`;
+        }
     }
 }
 
