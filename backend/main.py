@@ -300,6 +300,214 @@ async def get_topics():
         db.close()
 
 
+@app.get("/api/database/stats")
+async def get_database_stats():
+    """Get database statistics"""
+    from sqlalchemy import func
+    import os
+
+    db: Session = SessionLocal()
+    try:
+        # Count records
+        device_count = db.query(Device).count()
+        message_count = db.query(MQTTMessage).count()
+        topic_count = db.query(MQTTMessage.topic).distinct().count()
+
+        # Online devices
+        online_count = db.query(Device).filter(Device.status == "online").count()
+
+        # NFC status counts
+        nfc_ok = db.query(Device).filter(Device.nfc_ok == 1).count()
+        nfc_error = db.query(Device).filter(Device.nfc_ok == 0).count()
+        nfc_unknown = db.query(Device).filter(Device.nfc_ok.is_(None)).count()
+
+        # Timestamp ranges
+        oldest_message = db.query(func.min(MQTTMessage.timestamp)).scalar()
+        newest_message = db.query(func.max(MQTTMessage.timestamp)).scalar()
+        oldest_device = db.query(func.min(Device.last_seen)).scalar()
+        newest_device = db.query(func.max(Device.last_seen)).scalar()
+
+        # Database file size
+        db_path = Path("groundcontrol.db")
+        db_size = db_path.stat().st_size if db_path.exists() else 0
+
+        return {
+            "devices": {
+                "total": device_count,
+                "online": online_count,
+                "offline": device_count - online_count,
+                "nfc_ok": nfc_ok,
+                "nfc_error": nfc_error,
+                "nfc_unknown": nfc_unknown,
+            },
+            "messages": {
+                "total": message_count,
+                "topics": topic_count,
+                "oldest": oldest_message.isoformat() if oldest_message else None,
+                "newest": newest_message.isoformat() if newest_message else None,
+            },
+            "database": {
+                "size_bytes": db_size,
+                "size_human": _human_readable_size(db_size),
+                "file_path": str(db_path),
+            },
+            "devices_oldest_seen": oldest_device.isoformat() if oldest_device else None,
+            "devices_newest_seen": newest_device.isoformat() if newest_device else None,
+        }
+    finally:
+        db.close()
+
+
+def _human_readable_size(size_bytes: int) -> str:
+    """Convert bytes to human readable format"""
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} TB"
+
+
+@app.get("/api/devices/{device_id}")
+async def get_device_detail(device_id: str):
+    """Get detailed information about a specific device"""
+    db: Session = SessionLocal()
+    try:
+        device = db.query(Device).filter(Device.device_id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        # Get recent messages for this device
+        messages = (
+            db.query(MQTTMessage)
+            .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+            .order_by(MQTTMessage.timestamp.desc())
+            .limit(100)
+            .all()
+        )
+
+        # Get message count per topic
+        from sqlalchemy import func
+        topic_counts = (
+            db.query(MQTTMessage.topic, func.count(MQTTMessage.id))
+            .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+            .group_by(MQTTMessage.topic)
+            .all()
+        )
+
+        return {
+            "device": device.to_dict(),
+            "recent_messages": [m.to_dict() for m in messages],
+            "topic_counts": [{"topic": t[0], "count": t[1]} for t in topic_counts],
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/devices/{device_id}/messages")
+async def get_device_messages(device_id: str, limit: int = 100, topic: str = None):
+    """Get messages for a specific device"""
+    db: Session = SessionLocal()
+    try:
+        query = db.query(MQTTMessage).filter(MQTTMessage.topic.like(f"{device_id}/%"))
+        if topic:
+            query = query.filter(MQTTMessage.topic.like(f"{device_id}/{topic}%"))
+        messages = (
+            query.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
+        )
+        return [m.to_dict() for m in messages]
+    finally:
+        db.close()
+
+
+@app.get("/api/export/devices")
+async def export_devices():
+    """Export all devices as CSV"""
+    import csv
+    from fastapi.responses import Response
+
+    db: Session = SessionLocal()
+    try:
+        devices = db.query(Device).all()
+
+        output = []
+        output.append("device_id,name,status,last_seen,nfc_ok,nfc_error")
+
+        for device in devices:
+            nfc_status = "OK" if device.nfc_ok == 1 else "Error" if device.nfc_ok == 0 else "Unknown"
+            output.append(
+                f'"{device.device_id}","{device.name}","{device.status}",'
+                f'"{device.last_seen.isoformat() if device.last_seen else ""}",'
+                f'"{nfc_status}","{device.nfc_error or ""}"'
+            )
+
+        csv_content = "\n".join(output)
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=devices.csv"},
+        )
+    finally:
+        db.close()
+
+
+@app.get("/api/export/messages")
+async def export_messages(limit: int = 1000):
+    """Export messages as CSV"""
+    from fastapi.responses import Response
+
+    db: Session = SessionLocal()
+    try:
+        messages = (
+            db.query(MQTTMessage)
+            .order_by(MQTTMessage.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+
+        output = []
+        output.append("id,topic,payload,qos,retained,timestamp")
+
+        for msg in messages:
+            escaped_payload = msg.payload.replace('"', '""') if msg.payload else ""
+            output.append(
+                f'{msg.id},"{msg.topic}","{escaped_payload}",'
+                f'{msg.qos},{msg.retained},'
+                f'"{msg.timestamp.isoformat() if msg.timestamp else ""}"'
+            )
+
+        csv_content = "\n".join(output)
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=messages_{limit}.csv"},
+        )
+    finally:
+        db.close()
+
+
+@app.get("/database", response_class=HTMLResponse)
+async def database_page(request: Request):
+    """Render database overview page"""
+    return templates.TemplateResponse("database.html", {"request": request})
+
+
+@app.get("/devices/{device_id}", response_class=HTMLResponse)
+async def device_detail_page(request: Request, device_id: str):
+    """Render device detail page"""
+    db: Session = SessionLocal()
+    try:
+        device = db.query(Device).filter(Device.device_id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+        return templates.TemplateResponse(
+            "device-detail.html", {"request": request, "device_id": device_id}
+        )
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -43,9 +43,41 @@ header {
     margin-bottom: 30px;
 }
 
+.header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 header h1 {
     font-size: 1.8rem;
     font-weight: 600;
+}
+
+/* Navigation */
+.nav {
+    display: flex;
+    gap: 5px;
+}
+
+.nav-link {
+    padding: 8px 16px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.nav-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.nav-link.active {
+    background: var(--accent);
+    color: white;
 }
 
 .status {

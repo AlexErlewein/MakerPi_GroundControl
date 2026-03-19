@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/database.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>🛰️ MakerPi GroundControl</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link active">Database</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn btn-primary">
+                    <span class="btn-icon">↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Database Info Card -->
+            <section class="db-info-card">
+                <div class="db-info-header">
+                    <h2>Database File</h2>
+                    <span class="db-badge" id="db-status">Loading...</span>
+                </div>
+                <div class="db-info-grid">
+                    <div class="info-item">
+                        <span class="info-label">File Path</span>
+                        <span class="info-value" id="db-path">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Size</span>
+                        <span class="info-value" id="db-size">-</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Grid -->
+            <section class="stats-grid">
+                <!-- Devices Stats -->
+                <div class="stat-card stat-card-devices">
+                    <div class="stat-header">
+                        <h3>Devices</h3>
+                        <button class="export-btn" data-type="devices" title="Export as CSV">⬇</button>
+                    </div>
+                    <div class="stat-main">
+                        <p class="stat-value" id="device-count">-</p>
+                        <p class="stat-label">Total Devices</p>
+                    </div>
+                    <div class="stat-breakdown">
+                        <div class="stat-row">
+                            <span class="dot dot-green"></span>
+                            <span>Online:</span>
+                            <strong id="online-count">-</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span class="dot dot-red"></span>
+                            <span>Offline:</span>
+                            <strong id="offline-count">-</strong>
+                        </div>
+                    </div>
+                    <div class="stat-breakdown">
+                        <div class="stat-row">
+                            <span class="nfc-badge nfc-ok">✓</span>
+                            <span>NFC OK:</span>
+                            <strong id="nfc-ok-count">-</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span class="nfc-badge nfc-error">✗</span>
+                            <span>NFC Error:</span>
+                            <strong id="nfc-error-count">-</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span class="nfc-badge nfc-unknown">?</span>
+                            <span>NFC Unknown:</span>
+                            <strong id="nfc-unknown-count">-</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Stats -->
+                <div class="stat-card stat-card-messages">
+                    <div class="stat-header">
+                        <h3>Messages</h3>
+                        <button class="export-btn" data-type="messages" title="Export as CSV">⬇</button>
+                    </div>
+                    <div class="stat-main">
+                        <p class="stat-value" id="message-count">-</p>
+                        <p class="stat-label">Total Messages</p>
+                    </div>
+                    <div class="stat-breakdown">
+                        <div class="stat-row">
+                            <span>Topics:</span>
+                            <strong id="topic-count">-</strong>
+                        </div>
+                    </div>
+                    <div class="stat-time-range">
+                        <div class="time-item">
+                            <span class="time-label">Oldest:</span>
+                            <span class="time-value" id="oldest-message">-</span>
+                        </div>
+                        <div class="time-item">
+                            <span class="time-label">Newest:</span>
+                            <span class="time-value" id="newest-message">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Stats -->
+                <div class="stat-card stat-card-activity">
+                    <h3>Device Activity</h3>
+                    <div class="stat-time-range">
+                        <div class="time-item">
+                            <span class="time-label">First Seen:</span>
+                            <span class="time-value" id="oldest-device">-</span>
+                        </div>
+                        <div class="time-item">
+                            <span class="time-label">Last Seen:</span>
+                            <span class="time-value" id="newest-device">-</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Device Table with Filters -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>All Devices</h2>
+                    <div class="filters">
+                        <select id="status-filter" class="filter-select">
+                            <option value="">All Statuses</option>
+                            <option value="online">Online</option>
+                            <option value="offline">Offline</option>
+                            <option value="unknown">Unknown</option>
+                        </select>
+                        <select id="nfc-filter" class="filter-select">
+                            <option value="">All NFC States</option>
+                            <option value="ok">NFC OK</option>
+                            <option value="error">NFC Error</option>
+                            <option value="unknown">NFC Unknown</option>
+                        </select>
+                        <input type="text" id="device-search" class="filter-input" placeholder="Search devices...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="devices-table">
+                        <thead>
+                            <tr>
+                                <th>Device ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>NFC Status</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devices-body">
+                            <tr><td colspan="6">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0 - Database Overview</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/database.js"></script>
+</body>
+</html>
