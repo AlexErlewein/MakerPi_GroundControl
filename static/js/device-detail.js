@@ -1,8 +1,8 @@
 // Device Detail Page JavaScript
 
 const API_BASE = '';
-const DEVICE_ID = typeof DEVICE_ID !== 'undefined' ? DEVICE_ID :
-    window.location.pathname.split('/').pop();
+
+// DEVICE_ID is defined in the HTML template script tag
 
 const REFRESH_INTERVAL = 10000; // 10 seconds
 
