@@ -28,6 +28,7 @@ function safeSetHTML(id, html) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[DeviceDetail] Page loaded, DEVICE_ID:', DEVICE_ID);
     loadAllData();
     setupEventListeners();
     startAutoRefresh();
@@ -62,22 +63,30 @@ function setupEventListeners() {
 
 // Load all data
 async function loadAllData() {
+    console.log('[DeviceDetail] loadAllData() called, DEVICE_ID:', DEVICE_ID);
     try {
-        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}`);
+        const url = `${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}`;
+        console.log('[DeviceDetail] Fetching:', url);
+        const response = await fetch(url);
+        console.log('[DeviceDetail] Response status:', response.status);
+        
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('[DeviceDetail] API error:', response.status, errorText);
             throw new Error(`API error ${response.status}: ${errorText}`);
         }
         const data = await response.json();
+        console.log('[DeviceDetail] Data received:', data);
 
         renderDeviceInfo(data.device);
         renderTopics(data.topic_counts);
         allMessages = data.recent_messages || [];
         allTopics = (data.topic_counts || []).map(t => t.topic.replace(`${DEVICE_ID}/`, ''));
+        console.log('[DeviceDetail] Topics:', allTopics, 'Messages:', allMessages.length);
         populateTopicFilter();
         filterMessages();
     } catch (error) {
-        console.error('Failed to load device data:', error);
+        console.error('[DeviceDetail] Failed to load device data:', error);
         safeSetText('device-status', 'Error');
         safeSetText('device-id', DEVICE_ID);
         safeSetText('device-name', 'Error');
