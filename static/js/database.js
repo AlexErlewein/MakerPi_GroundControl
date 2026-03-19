@@ -180,6 +180,8 @@ function formatTime(timestamp) {
     if (!timestamp) return 'Unknown';
 
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Invalid';
+    
     const now = new Date();
     const diff = now - date;
 
@@ -198,6 +200,7 @@ function formatTime(timestamp) {
 function formatDateTime(timestamp) {
     if (!timestamp) return 'Unknown';
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Invalid';
     return date.toLocaleString();
 }
 

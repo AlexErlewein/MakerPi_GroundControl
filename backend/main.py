@@ -8,7 +8,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -37,7 +37,18 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# Database Models
+def _utcnow():
+    """Get current UTC time as timezone-aware datetime"""
+    return datetime.now(timezone.utc)
+
+
+def _naive_to_utc(dt):
+    """Convert naive datetime to UTC-aware datetime"""
+    if dt and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 class MQTTMessage(Base):
     __tablename__ = "mqtt_messages"
 
@@ -46,16 +57,17 @@ class MQTTMessage(Base):
     payload = Column(Text)
     qos = Column(Integer)
     retained = Column(Integer, default=0)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), default=_utcnow)
 
     def to_dict(self):
+        ts = _naive_to_utc(self.timestamp) if self.timestamp else None
         return {
             "id": self.id,
             "topic": self.topic,
             "payload": self.payload,
             "qos": self.qos,
             "retained": bool(self.retained),
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": ts.isoformat() if ts else None,
         }
 
 
@@ -65,17 +77,18 @@ class Device(Base):
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(String, unique=True, index=True)
     name = Column(String)
-    last_seen = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime(timezone=True), default=_utcnow)
     status = Column(String, default="unknown")
     nfc_ok = Column(Integer, default=None)  # NULL = unknown, 1 = OK, 0 = error
     nfc_error = Column(String, default=None)
 
     def to_dict(self):
+        ts = _naive_to_utc(self.last_seen) if self.last_seen else None
         return {
             "id": self.id,
             "device_id": self.device_id,
             "name": self.name,
-            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+            "last_seen": ts.isoformat() if ts else None,
             "status": self.status,
             "nfc_ok": self.nfc_ok,
             "nfc_error": self.nfc_error,
@@ -137,14 +150,16 @@ class MQTTHandler:
                 topic_parts = msg.topic.split("/")
                 if len(topic_parts) > 0:
                     device_id = topic_parts[0]
-                    device = db.query(Device).filter(Device.device_id == device_id).first()
+                    device = (
+                        db.query(Device).filter(Device.device_id == device_id).first()
+                    )
 
                     # Handle heartbeat messages (extract NFC status)
                     if len(topic_parts) > 1 and topic_parts[1] == "heartbeat":
                         try:
                             heartbeat_data = json.loads(payload)
                             if device:
-                                device.last_seen = datetime.utcnow()
+                                device.last_seen = _utcnow()
                                 # Update NFC status from heartbeat
                                 device.nfc_ok = 1 if heartbeat_data.get("nfc_ok") else 0
                                 device.nfc_error = heartbeat_data.get("nfc_error")
@@ -156,7 +171,7 @@ class MQTTHandler:
                                     name=device_id,
                                     status=heartbeat_data.get("status", "online"),
                                     nfc_ok=1 if heartbeat_data.get("nfc_ok") else 0,
-                                    nfc_error=heartbeat_data.get("nfc_error")
+                                    nfc_error=heartbeat_data.get("nfc_error"),
                                 )
                                 db.add(device)
                         except json.JSONDecodeError:
@@ -167,13 +182,13 @@ class MQTTHandler:
                         try:
                             status_data = json.loads(payload)
                             if device:
-                                device.last_seen = datetime.utcnow()
+                                device.last_seen = _utcnow()
                                 device.status = status_data.get("status", "unknown")
                             else:
                                 device = Device(
                                     device_id=device_id,
                                     name=device_id,
-                                    status=status_data.get("status", "unknown")
+                                    status=status_data.get("status", "unknown"),
                                 )
                                 db.add(device)
                         except json.JSONDecodeError:
@@ -181,11 +196,13 @@ class MQTTHandler:
 
                     # Generic device update (any message from device)
                     elif device:
-                        device.last_seen = datetime.utcnow()
+                        device.last_seen = _utcnow()
                         device.status = "online"
                     else:
                         # Create new device from generic message
-                        device = Device(device_id=device_id, name=device_id, status="online")
+                        device = Device(
+                            device_id=device_id, name=device_id, status="online"
+                        )
                         db.add(device)
 
                 db.commit()
@@ -260,7 +277,7 @@ async def get_status():
     return {
         "mqtt_connected": mqtt_client.connected if mqtt_client else False,
         "broker": f"{MQTT_BROKER}:{MQTT_PORT}",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": _utcnow().isoformat(),
     }
 
 
@@ -374,7 +391,7 @@ async def get_device_detail(device_id: str):
     try:
         device = db.query(Device).filter(Device.device_id == device_id).first()
         if not device:
-            raise HTTPException(status_code=404, detail="Device not found")
+            return JSONResponse(status_code=404, content={"detail": "Device not found"})
 
         # Get recent messages for this device
         messages = (
@@ -387,6 +404,7 @@ async def get_device_detail(device_id: str):
 
         # Get message count per topic
         from sqlalchemy import func
+
         topic_counts = (
             db.query(MQTTMessage.topic, func.count(MQTTMessage.id))
             .filter(MQTTMessage.topic.like(f"{device_id}/%"))
@@ -399,6 +417,9 @@ async def get_device_detail(device_id: str):
             "recent_messages": [m.to_dict() for m in messages],
             "topic_counts": [{"topic": t[0], "count": t[1]} for t in topic_counts],
         }
+    except Exception as e:
+        logger.error(f"Error fetching device {device_id}: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
     finally:
         db.close()
 
@@ -411,9 +432,7 @@ async def get_device_messages(device_id: str, limit: int = 100, topic: str = Non
         query = db.query(MQTTMessage).filter(MQTTMessage.topic.like(f"{device_id}/%"))
         if topic:
             query = query.filter(MQTTMessage.topic.like(f"{device_id}/{topic}%"))
-        messages = (
-            query.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
-        )
+        messages = query.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
         return [m.to_dict() for m in messages]
     finally:
         db.close()
@@ -433,7 +452,13 @@ async def export_devices():
         output.append("device_id,name,status,last_seen,nfc_ok,nfc_error")
 
         for device in devices:
-            nfc_status = "OK" if device.nfc_ok == 1 else "Error" if device.nfc_ok == 0 else "Unknown"
+            nfc_status = (
+                "OK"
+                if device.nfc_ok == 1
+                else "Error"
+                if device.nfc_ok == 0
+                else "Unknown"
+            )
             output.append(
                 f'"{device.device_id}","{device.name}","{device.status}",'
                 f'"{device.last_seen.isoformat() if device.last_seen else ""}",'
@@ -472,7 +497,7 @@ async def export_messages(limit: int = 1000):
             escaped_payload = msg.payload.replace('"', '""') if msg.payload else ""
             output.append(
                 f'{msg.id},"{msg.topic}","{escaped_payload}",'
-                f'{msg.qos},{msg.retained},'
+                f"{msg.qos},{msg.retained},"
                 f'"{msg.timestamp.isoformat() if msg.timestamp else ""}"'
             )
 
@@ -481,7 +506,9 @@ async def export_messages(limit: int = 1000):
         return Response(
             content=csv_content,
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=messages_{limit}.csv"},
+            headers={
+                "Content-Disposition": f"attachment; filename=messages_{limit}.csv"
+            },
         )
     finally:
         db.close()

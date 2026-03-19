@@ -48,6 +48,10 @@ function setupEventListeners() {
 async function loadAllData() {
     try {
         const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API error ${response.status}: ${errorText}`);
+        }
         const data = await response.json();
 
         renderDeviceInfo(data.device);
@@ -58,11 +62,11 @@ async function loadAllData() {
         filterMessages();
     } catch (error) {
         console.error('Failed to load device data:', error);
-        if (error.message?.includes('404') || error.status === 404) {
-            document.querySelector('main').innerHTML =
-                '<div class="empty-state"><div class="empty-state-icon">🔍</div>' +
-                '<p class="empty-state-text">Device not found</p></div>';
-        }
+        document.getElementById('device-status').textContent = 'Error';
+        document.getElementById('topics-grid').innerHTML = 
+            `<p class="error-text">Failed to load: ${escapeHtml(error.message)}</p>`;
+        document.getElementById('messages-container').innerHTML = 
+            `<div class="empty-state"><p class="error-text">Error: ${escapeHtml(error.message)}</p></div>`;
     }
 }
 
@@ -193,6 +197,7 @@ function startAutoRefresh() {
 function formatDateTime(timestamp) {
     if (!timestamp) return 'Unknown';
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleString();
 }
 
