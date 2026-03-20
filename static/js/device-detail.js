@@ -104,8 +104,9 @@ function renderDeviceInfo(device) {
 
     const statusBadge = getElement('device-status');
     if (statusBadge) {
-        statusBadge.textContent = device.status;
-        statusBadge.className = `status-badge ${device.status}`;
+        const effectiveStatus = getEffectiveStatus(device.last_seen);
+        statusBadge.textContent = effectiveStatus;
+        statusBadge.className = `status-badge ${effectiveStatus}`;
     }
 
     const nfcStatus = getElement('device-nfc-status');
@@ -234,12 +235,8 @@ async function sendCommand(buttonElement) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}/commands`, {
+        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(DEVICE_ID)}/commands?command=${encodeURIComponent(command)}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ command }),
         });
 
         const result = await response.json();
@@ -277,6 +274,24 @@ function startAutoRefresh() {
         clearInterval(refreshTimer);
     }
     refreshTimer = setInterval(loadAllData, REFRESH_INTERVAL);
+}
+
+// Get effective status based on last_seen timestamp
+function getEffectiveStatus(lastSeen) {
+    if (!lastSeen) return 'unknown';
+
+    const lastSeenDate = new Date(lastSeen);
+    if (isNaN(lastSeenDate.getTime())) return 'unknown';
+
+    const now = new Date();
+    const diff = now - lastSeenDate;
+
+    // Offline if no heartbeat for 5 minutes
+    if (diff > 300000) {
+        return 'offline';
+    }
+
+    return 'online';
 }
 
 // Utility functions

@@ -142,14 +142,16 @@ function renderDevices(devices) {
         return;
     }
 
-    tbody.innerHTML = devices.map(device => `
+    tbody.innerHTML = devices.map(device => {
+        const effectiveStatus = getEffectiveStatus(device.last_seen);
+        return `
         <tr>
             <td><a href="/devices/${encodeURIComponent(device.device_id)}" class="device-link">
                 <code>${escapeHtml(device.device_id)}</code>
             </a></td>
             <td>${escapeHtml(device.name || 'Unnamed')}</td>
             <td>
-                <span class="status-badge ${device.status}">${device.status}</span>
+                <span class="status-badge ${effectiveStatus}">${effectiveStatus}</span>
             </td>
             <td>
                 ${device.nfc_ok === 1 ? '<span class="nfc-badge nfc-ok">✓ OK</span>'
@@ -162,7 +164,7 @@ function renderDevices(devices) {
                    class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">View</a>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 // Export data
@@ -181,6 +183,24 @@ function startAutoRefresh() {
         clearInterval(refreshTimer);
     }
     refreshTimer = setInterval(loadAllData, REFRESH_INTERVAL);
+}
+
+// Get effective status based on last_seen timestamp
+function getEffectiveStatus(lastSeen) {
+    if (!lastSeen) return 'unknown';
+
+    const lastSeenDate = new Date(lastSeen);
+    if (isNaN(lastSeenDate.getTime())) return 'unknown';
+
+    const now = new Date();
+    const diff = now - lastSeenDate;
+
+    // Offline if no heartbeat for 5 minutes
+    if (diff > 300000) {
+        return 'offline';
+    }
+
+    return 'online';
 }
 
 // Utility functions

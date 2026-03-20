@@ -75,12 +75,14 @@ async function loadDevices() {
             return;
         }
 
-        devicesBody.innerHTML = devices.map(device => `
+        devicesBody.innerHTML = devices.map(device => {
+            const effectiveStatus = getEffectiveStatus(device.last_seen);
+            return `
             <tr>
                 <td><code>${escapeHtml(device.device_id)}</code></td>
                 <td>${escapeHtml(device.name)}</td>
                 <td>
-                    <span class="status-badge ${device.status}">${device.status}</span>
+                    <span class="status-badge ${effectiveStatus}">${effectiveStatus}</span>
                     ${device.nfc_ok !== null && device.nfc_ok !== undefined ? `
                         <span class="nfc-badge ${device.nfc_ok ? 'nfc-ok' : 'nfc-error'}" title="${device.nfc_error || 'NFC OK'}">
                             NFC: ${device.nfc_ok ? '✓' : '✗'}
@@ -89,7 +91,7 @@ async function loadDevices() {
                 </td>
                 <td>${formatTime(device.last_seen)}</td>
             </tr>
-        `).join('');
+        `}).join('');
     } catch (error) {
         console.error('Failed to load devices:', error);
         devicesBody.innerHTML = '<tr><td colspan="4">Error loading devices</td></tr>';
@@ -145,6 +147,24 @@ function startAutoRefresh() {
         clearInterval(refreshTimer);
     }
     refreshTimer = setInterval(loadAllData, REFRESH_INTERVAL);
+}
+
+// Get effective status based on last_seen timestamp
+function getEffectiveStatus(lastSeen) {
+    if (!lastSeen) return 'unknown';
+
+    const lastSeenDate = new Date(lastSeen);
+    if (isNaN(lastSeenDate.getTime())) return 'unknown';
+
+    const now = new Date();
+    const diff = now - lastSeenDate;
+
+    // Offline if no heartbeat for 5 minutes
+    if (diff > 300000) {
+        return 'offline';
+    }
+
+    return 'online';
 }
 
 // Utility functions
