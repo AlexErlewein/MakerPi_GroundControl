@@ -162,8 +162,8 @@ function getEffectiveStatus(lastSeen) {
     // Debug logging
     console.log(`[Status] Device last seen: ${lastSeenDate.toISOString()}, Now: ${now.toISOString()}, Diff: ${Math.floor(diff/1000)}s`);
 
-    // Offline if no heartbeat for 5 minutes
-    if (diff > 300000) {
+    // Offline if no heartbeat for 2 minutes
+    if (diff > 120000) {
         return 'offline';
     }
 

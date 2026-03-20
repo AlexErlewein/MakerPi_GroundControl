@@ -40,6 +40,15 @@
     border: 1px solid var(--border-color);
 }
 
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #d63b33;
+}
+
 .btn-icon {
     font-size: 1.1rem;
 }

@@ -286,8 +286,8 @@ function getEffectiveStatus(lastSeen) {
     const now = new Date();
     const diff = now - lastSeenDate;
 
-    // Offline if no heartbeat for 5 minutes
-    if (diff > 300000) {
+    // Offline if no heartbeat for 2 minutes
+    if (diff > 120000) {
         return 'offline';
     }
 

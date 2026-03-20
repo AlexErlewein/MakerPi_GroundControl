@@ -159,12 +159,39 @@ function renderDevices(devices) {
                   : '<span class="nfc-badge nfc-unknown">? Unknown</span>'}
             </td>
             <td>${formatTime(device.last_seen)}</td>
-            <td>
+            <td class="actions-cell">
                 <a href="/devices/${encodeURIComponent(device.device_id)}"
                    class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">View</a>
+                <button onclick="deleteDevice('${escapeHtml(device.device_id)}')"
+                        class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; margin-left: 4px;">Delete</button>
             </td>
         </tr>
     `}).join('');
+}
+
+// Delete device
+async function deleteDevice(deviceId) {
+    if (!confirm(`Are you sure you want to delete device "${deviceId}"?\n\nThis will remove the device from the database. The device will reappear if it sends a new heartbeat.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`, {
+            method: 'DELETE',
+        });
+
+        if (response.ok) {
+            // Reload devices after successful deletion
+            await loadDevices();
+            await loadDatabaseStats();
+        } else {
+            const error = await response.json();
+            alert(`Failed to delete device: ${error.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Failed to delete device:', error);
+        alert(`Error deleting device: ${error.message}`);
+    }
 }
 
 // Export data
@@ -195,8 +222,8 @@ function getEffectiveStatus(lastSeen) {
     const now = new Date();
     const diff = now - lastSeenDate;
 
-    // Offline if no heartbeat for 5 minutes
-    if (diff > 300000) {
+    // Offline if no heartbeat for 2 minutes
+    if (diff > 120000) {
         return 'offline';
     }
 

@@ -468,6 +468,27 @@ async def send_device_command(device_id: str, command: str = Query(..., descript
     return {"success": success, "command": command, "device_id": device_id}
 
 
+@app.delete("/api/devices/{device_id}")
+async def delete_device(device_id: str):
+    """Delete a device from the database"""
+    db: Session = SessionLocal()
+    try:
+        device = db.query(Device).filter(Device.device_id == device_id).first()
+        if not device:
+            return JSONResponse(status_code=404, content={"detail": "Device not found"})
+
+        db.delete(device)
+        db.commit()
+        logger.info(f"Device deleted: {device_id}")
+        return {"success": True, "message": f"Device '{device_id}' deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting device {device_id}: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
 @app.get("/api/export/devices")
 async def export_devices():
     """Export all devices as CSV"""
