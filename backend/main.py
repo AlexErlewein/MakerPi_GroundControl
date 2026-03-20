@@ -231,10 +231,12 @@ class MQTTHandler:
     def publish_command(self, device_id: str, command: str, payload: str = ""):
         """Publish a command to a device via MQTT"""
         topic = f"{device_id}/command"
+        # Use command as payload if no explicit payload provided
+        payload_to_send = payload if payload else command
         try:
-            result = self.client.publish(topic, payload.encode("utf-8") if payload else b"", qos=1)
+            result = self.client.publish(topic, payload_to_send.encode("utf-8"), qos=1)
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                logger.info(f"Command sent: {topic} -> {command}")
+                logger.info(f"Command sent: {topic} -> {payload_to_send}")
                 return True
             else:
                 logger.error(f"Failed to send command: {result.rc}")
