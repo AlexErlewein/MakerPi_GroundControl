@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import paho.mqtt.client as mqtt
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -456,7 +456,7 @@ async def get_device_messages(device_id: str, limit: int = 100, topic: str = Non
 
 
 @app.post("/api/devices/{device_id}/commands")
-async def send_device_command(device_id: str, command: str):
+async def send_device_command(device_id: str, command: str = Query(..., description="Command to send to device")):
     """Send a command to a device via MQTT"""
     if not mqtt_client:
         return JSONResponse(status_code=503, content={"success": False, "error": "MQTT not connected"})
