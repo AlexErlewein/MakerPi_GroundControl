@@ -8,6 +8,7 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 - **Web Dashboard**: Real-time monitoring of connected devices and messages
 - **Data Storage**: SQLite database for message history
 - **Device Tracking**: Automatic device discovery and status tracking
+- **RFID Tag Management**: Register tags, validate scans, view scan history, and register unknown tags directly from scan results
 - **REST API**: Full API for integration with other services
 
 ## Architecture
@@ -57,23 +58,32 @@ Open your browser: `http://<pi-ip>:8000`
 ```
 MakerPi_GroundControl/
 ├── backend/
-│   └── main.py          # FastAPI application with MQTT client
+│   └── main.py              # FastAPI application with MQTT client
 ├── config/
-│   └── mosquitto.conf   # MQTT broker configuration
+│   └── mosquitto.conf       # MQTT broker configuration
 ├── scripts/
-│   ├── setup.sh               # Initial setup script for Pi
-│   ├── deploy.sh              # Deploy updates from dev machine
-│   ├── install_uv.sh          # Install uv (fast package manager)
+│   ├── setup.sh                   # Initial setup script for Pi
+│   ├── deploy.sh                  # Deploy updates from dev machine
+│   ├── install_uv.sh              # Install uv (fast package manager)
 │   ├── migrate_add_nfc_status.py  # Database migration script
-│   └── reset_database.py      # Reset database (fresh start)
+│   └── reset_database.py          # Reset database (fresh start)
 ├── static/
 │   ├── css/
-│   │   └── style.css    # Dashboard styles
+│   │   ├── style.css        # Shared styles
+│   │   ├── database.css     # Database page styles
+│   │   ├── device-detail.css
+│   │   └── tags.css         # Tags page styles
 │   └── js/
-│       └── app.js       # Dashboard frontend logic
+│       ├── app.js           # Dashboard frontend logic
+│       ├── database.js
+│       ├── device-detail.js
+│       └── tags.js          # Tags page frontend logic
 ├── templates/
-│   └── index.html       # Main dashboard template
-├── requirements.txt     # Python dependencies
+│   ├── index.html           # Main dashboard
+│   ├── database.html        # Database overview
+│   ├── device-detail.html   # Per-device view
+│   └── tags.html            # RFID tag management
+├── pyproject.toml           # Dependencies and project config (use uv)
 └── README.md
 ```
 
@@ -82,15 +92,11 @@ MakerPi_GroundControl/
 ### Local Development
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
 # Install dependencies
-pip install -r requirements.txt
+uv sync
 
 # Run locally (requires MQTT broker)
-uvicorn backend.main:app --reload
+uv run uvicorn backend.main:app --reload
 ```
 
 ### Deploying to Pi
@@ -105,7 +111,7 @@ uvicorn backend.main:app --reload
 
 ### Using uv (Faster Package Management)
 
-The setup scripts optionally use [`uv`](https://github.com/astral-sh/uv) for fast Python package installation.
+The project uses [`uv`](https://github.com/astral-sh/uv) for package management. All dependencies are declared in `pyproject.toml`.
 
 Install on Pi:
 ```bash
@@ -113,21 +119,54 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.bashrc
 ```
 
+Common commands:
+```bash
+uv sync                                    # install all dependencies
+uv run uvicorn backend.main:app --reload   # run the app
+uv run sqlite_web -H 0.0.0.0 groundcontrol.db  # run DB browser (see below)
+```
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Web dashboard |
+| `/database` | GET | Database overview page |
+| `/tags` | GET | RFID tag management page |
 | `/api/status` | GET | System status (MQTT connection) |
 | `/api/devices` | GET | List all registered devices |
-| `/api/messages` | GET | Recent messages (query: `?limit=100&topic=xyz`) |
+| `/api/devices/{id}` | GET | Device detail + recent messages |
+| `/api/devices/{id}` | DELETE | Delete a device |
+| `/api/devices/{id}/commands` | POST | Send command to device via MQTT |
+| `/api/messages` | GET | Recent messages (`?limit=100&topic=xyz`) |
 | `/api/topics` | GET | List all active topics |
+| `/api/tags` | GET | List all registered RFID tags |
+| `/api/tags` | POST | Register a new tag |
+| `/api/tags/{uid}` | PUT | Update a tag |
+| `/api/tags/{uid}` | DELETE | Delete a tag |
+| `/api/tags/scans` | GET | Recent tag scan events (`?limit=100`) |
+| `/api/database/stats` | GET | Database statistics |
+| `/api/export/devices` | GET | Export devices as CSV |
+| `/api/export/messages` | GET | Export messages as CSV |
 
 ## MQTT Configuration
 
 - **Host**: `localhost` (on Pi) or Pi's IP address
 - **Port**: `1883`
 - **Anonymous access**: Enabled (for local network)
+
+### Expected MQTT Topic Structure
+
+| Topic | Description |
+|-------|-------------|
+| `{device_id}/heartbeat` | Device heartbeat with NFC hardware status |
+| `{device_id}/status` | Device online/offline status |
+| `{device_id}/tag` | RFID tag scan event (also accepts `/nfc`) |
+
+NFC scan payload example:
+```json
+{"timestamp": "1609464117", "atqa": "0x0004", "sak": "0x08", "uid_dec": 2633114887, "tag_type": "MIFARE Classic", "uid": "9CF22507"}
+```
 
 ### Example MQTT Publish (PicoW)
 
@@ -180,6 +219,39 @@ SQLite database located at: `/opt/makerpi-groundcontrol/groundcontrol.db`
 - `retained` - Retained flag
 - `timestamp` - Message timestamp
 
+**rfid_tags** table:
+- `id` - Primary key
+- `uid` - Tag UID (e.g. `9CF22507`), unique
+- `owner_name` - Name of the tag owner
+- `owner_email` - Owner email (optional)
+- `notes` - Free-text notes (optional)
+- `active` - 1=active, 0=disabled
+- `created_at` - Registration timestamp
+
+**tag_scans** table:
+- `id` - Primary key
+- `uid` - Scanned tag UID
+- `device_id` - Device that performed the scan
+- `timestamp` - Scan timestamp
+- `validated` - 1=known tag, 0=unknown
+- `owner_name` - Owner name if tag was found in registry
+- `tag_type` - e.g. `MIFARE Classic`
+- `atqa` - ATQA value from scan payload
+- `sak` - SAK value from scan payload
+
+### Browsing the Database
+
+Use `sqlite-web` for a web-based read/write UI:
+
+```bash
+# Bind to all interfaces so you can access it from another machine on the network
+uv run sqlite_web -H 0.0.0.0 groundcontrol.db
+```
+
+Then open `http://<pi-ip>:8080` in your browser.
+
+> Note: stop the GroundControl service first if port conflicts occur, or run sqlite-web on a different port with `-p <port>`.
+
 ### Database Migrations
 
 When updating to a new version with schema changes, you have two options:
@@ -197,6 +269,26 @@ cd /opt/makerpi-groundcontrol
 python3 scripts/reset_database.py
 sudo systemctl restart groundcontrol
 ```
+
+## RFID Tag Management
+
+The `/tags` page lets you manage a registry of known RFID tags and view all scan events.
+
+### Registering a tag
+
+- Click **+ Add Tag** and enter the UID, owner name, and optional email/notes.
+- Or scan a tag with a device — it will appear in **Recent Scans** with an ✗ Unknown badge. Click **+ Register** on that row to open the add form with the UID pre-filled.
+
+### How validation works
+
+When a scan arrives on `{device_id}/tag`, the backend looks up the UID in the `rfid_tags` table:
+- **Known & active** → scan is stored as `validated=true`, owner name is recorded.
+- **Unknown** → scan is stored as `validated=false`, shows up highlighted in the scan list.
+
+### Tag states
+
+- **Active** — tag is recognised and validated on scan.
+- **Disabled** — tag exists in the registry but will not be validated (treated as unknown).
 
 ## Requirements
 

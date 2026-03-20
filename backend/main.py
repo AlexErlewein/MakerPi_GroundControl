@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -92,6 +93,58 @@ class Device(Base):
             "status": self.status,
             "nfc_ok": self.nfc_ok,
             "nfc_error": self.nfc_error,
+        }
+
+
+class RFIDTag(Base):
+    __tablename__ = "rfid_tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String, unique=True, index=True)
+    owner_name = Column(String)
+    owner_email = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    active = Column(Integer, default=1)  # 1=active, 0=disabled
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    def to_dict(self):
+        ts = _naive_to_utc(self.created_at) if self.created_at else None
+        return {
+            "id": self.id,
+            "uid": self.uid,
+            "owner_name": self.owner_name,
+            "owner_email": self.owner_email,
+            "notes": self.notes,
+            "active": bool(self.active),
+            "created_at": ts.isoformat() if ts else None,
+        }
+
+
+class TagScan(Base):
+    __tablename__ = "tag_scans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String, index=True)
+    device_id = Column(String, index=True)
+    timestamp = Column(DateTime(timezone=True), default=_utcnow)
+    validated = Column(Integer, default=0)  # 1=known tag, 0=unknown
+    owner_name = Column(String, nullable=True)
+    tag_type = Column(String, nullable=True)
+    atqa = Column(String, nullable=True)
+    sak = Column(String, nullable=True)
+
+    def to_dict(self):
+        ts = _naive_to_utc(self.timestamp) if self.timestamp else None
+        return {
+            "id": self.id,
+            "uid": self.uid,
+            "device_id": self.device_id,
+            "timestamp": ts.isoformat() if ts else None,
+            "validated": bool(self.validated),
+            "owner_name": self.owner_name,
+            "tag_type": self.tag_type,
+            "atqa": self.atqa,
+            "sak": self.sak,
         }
 
 
@@ -193,6 +246,32 @@ class MQTTHandler:
                                 db.add(device)
                         except json.JSONDecodeError:
                             logger.warning(f"Invalid status JSON from {device_id}")
+
+                    # Handle NFC tag scan messages
+                    elif len(topic_parts) > 1 and topic_parts[1] in ("nfc", "tag"):
+                        try:
+                            tag_data = json.loads(payload)
+                            uid = tag_data.get("uid", "").upper()
+                            if uid:
+                                known = db.query(RFIDTag).filter(
+                                    RFIDTag.uid == uid, RFIDTag.active == 1
+                                ).first()
+                                scan = TagScan(
+                                    uid=uid,
+                                    device_id=device_id,
+                                    validated=1 if known else 0,
+                                    owner_name=known.owner_name if known else None,
+                                    tag_type=tag_data.get("tag_type"),
+                                    atqa=tag_data.get("atqa"),
+                                    sak=tag_data.get("sak"),
+                                )
+                                db.add(scan)
+                                logger.info(
+                                    f"Tag scan: {uid} from {device_id} - "
+                                    f"{'VALID: ' + known.owner_name if known else 'UNKNOWN'}"
+                                )
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid NFC JSON from {device_id}")
 
                     # Generic device update (any message from device)
                     elif device:
@@ -563,6 +642,120 @@ async def export_messages(limit: int = 1000):
         )
     finally:
         db.close()
+
+
+class TagCreate(BaseModel):
+    uid: str
+    owner_name: str
+    owner_email: str = None
+    notes: str = None
+    active: bool = True
+
+
+class TagUpdate(BaseModel):
+    owner_name: str = None
+    owner_email: str = None
+    notes: str = None
+    active: bool = None
+
+
+@app.get("/api/tags")
+async def get_tags():
+    """Get all registered RFID tags"""
+    db: Session = SessionLocal()
+    try:
+        tags = db.query(RFIDTag).order_by(RFIDTag.owner_name).all()
+        return [t.to_dict() for t in tags]
+    finally:
+        db.close()
+
+
+@app.get("/api/tags/scans")
+async def get_tag_scans(limit: int = 100):
+    """Get recent tag scan events"""
+    db: Session = SessionLocal()
+    try:
+        scans = db.query(TagScan).order_by(TagScan.timestamp.desc()).limit(limit).all()
+        return [s.to_dict() for s in scans]
+    finally:
+        db.close()
+
+
+@app.post("/api/tags")
+async def create_tag(tag: TagCreate):
+    """Register a new RFID tag"""
+    db: Session = SessionLocal()
+    try:
+        uid = tag.uid.upper()
+        existing = db.query(RFIDTag).filter(RFIDTag.uid == uid).first()
+        if existing:
+            return JSONResponse(status_code=400, content={"detail": f"Tag {uid} already registered"})
+        new_tag = RFIDTag(
+            uid=uid,
+            owner_name=tag.owner_name,
+            owner_email=tag.owner_email,
+            notes=tag.notes,
+            active=1 if tag.active else 0,
+        )
+        db.add(new_tag)
+        db.commit()
+        db.refresh(new_tag)
+        return new_tag.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.put("/api/tags/{uid}")
+async def update_tag(uid: str, tag: TagUpdate):
+    """Update a registered RFID tag"""
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(RFIDTag).filter(RFIDTag.uid == uid.upper()).first()
+        if not existing:
+            return JSONResponse(status_code=404, content={"detail": "Tag not found"})
+        if tag.owner_name is not None:
+            existing.owner_name = tag.owner_name
+        if tag.owner_email is not None:
+            existing.owner_email = tag.owner_email
+        if tag.notes is not None:
+            existing.notes = tag.notes
+        if tag.active is not None:
+            existing.active = 1 if tag.active else 0
+        db.commit()
+        db.refresh(existing)
+        return existing.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/tags/{uid}")
+async def delete_tag(uid: str):
+    """Delete a registered RFID tag"""
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(RFIDTag).filter(RFIDTag.uid == uid.upper()).first()
+        if not existing:
+            return JSONResponse(status_code=404, content={"detail": "Tag not found"})
+        db.delete(existing)
+        db.commit()
+        return {"success": True, "message": f"Tag {uid.upper()} deleted"}
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/tags", response_class=HTMLResponse)
+async def tags_page(request: Request):
+    """Render RFID tags management page"""
+    return templates.TemplateResponse("tags.html", {"request": request})
 
 
 @app.get("/database", response_class=HTMLResponse)
