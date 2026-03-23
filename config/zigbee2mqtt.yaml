@@ -9,10 +9,10 @@ mqtt:
 # Serial port configuration
 # To find your port, run: ls /dev/tty{USB,ACM}* before and after plugging in the dongle
 serial:
-    # Sonoff Zigbee 3.0 USB Dongle Plus (Dongle-P, CC2652P chip) -> znp adapter, usually /dev/ttyUSB0
-    # Sonoff Zigbee 3.0 USB Dongle Plus-E (Dongle-E, EFR32 chip) -> ezsp adapter, usually /dev/ttyACM0
+    # Sonoff Zigbee 3.0 USB Dongle Plus (Dongle-P, CC2652P chip) -> zstack adapter, usually /dev/ttyUSB0
+    # Sonoff Zigbee 3.0 USB Dongle Plus-E (Dongle-E, EFR32 chip) -> ember adapter, usually /dev/ttyACM0
     port: /dev/ttyUSB0
-    adapter: znp # Change to 'ezsp' if you have the Dongle-E variant
+    adapter: zstack # Change to 'ember' if you have the Dongle-E variant
 
 # Permit devices to join the network
 # Set to true temporarily when pairing new devices, false otherwise

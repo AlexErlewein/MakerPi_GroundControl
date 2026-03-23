@@ -41,9 +41,8 @@ apt install -y \
     git \
     curl
 
-PROJECT_DIR="$HOME/MakerPi_GroundControl"
-
 SERVICE_USER=${SUDO_USER:-$USER}
+PROJECT_DIR="$(eval echo ~$SERVICE_USER)/MakerPi_GroundControl"
 
 # Configure Mosquitto (v2+ requires main config)
 cat > /etc/mosquitto/mosquitto.conf << MOSQEOF
@@ -72,8 +71,8 @@ if command -v uv &> /dev/null; then
     uv sync
 else
     echo "uv not found, using pip..."
-    pip install --upgrade pip
-    pip install -r requirements.txt
+    $PROJECT_DIR/venv/bin/python -m pip install --upgrade pip
+    $PROJECT_DIR/venv/bin/python -m pip install -e .
     echo ""
     echo "💡 Tip: Install uv for faster installs:"
     echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -112,9 +111,10 @@ else
     git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git "$Z2M_DIR"
 fi
 
-# Install Node.js dependencies
-cd "$Z2M_DIR"
-npm ci --omit=dev
+# Install Node.js dependencies (Zigbee2MQTT requires pnpm)
+npm install -g pnpm
+rm -rf "$Z2M_DIR/node_modules"
+CI=true pnpm --dir "$Z2M_DIR" install
 cd "$PROJECT_DIR"
 
 # Create data directory
@@ -157,6 +157,26 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
+# Create systemd service for sqlite-web database viewer
+echo -e "${YELLOW}Creating sqlite-web service...${NC}"
+cat > /etc/systemd/system/sqlite-web.service << EOF
+[Unit]
+Description=SQLite Web Viewer for GroundControl
+After=network.target groundcontrol.service
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$PROJECT_DIR
+Environment="PATH=$PROJECT_DIR/venv/bin"
+ExecStart=$PROJECT_DIR/venv/bin/sqlite_web --host 0.0.0.0 --port 8080 $PROJECT_DIR/groundcontrol.db
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # ── Enable and start all services ─────────────────────────────────────────────
 echo -e "${YELLOW}Enabling and starting services...${NC}"
 systemctl daemon-reload
@@ -166,6 +186,8 @@ systemctl enable groundcontrol
 systemctl start groundcontrol
 systemctl enable zigbee2mqtt
 systemctl start zigbee2mqtt
+systemctl enable sqlite-web
+systemctl start sqlite-web
 
 # Wait a moment for services to start
 sleep 5
@@ -182,6 +204,8 @@ systemctl status groundcontrol --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
 systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
+systemctl status sqlite-web --no-pager -l | grep -E "(Active:|loaded)"
+echo ""
 echo -e "${GREEN}Access your dashboard at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8000"
 echo ""
@@ -191,11 +215,6 @@ echo ""
 echo "MQTT Broker:"
 echo "  Host: $(hostname -I | awk '{print $1}')"
 echo "  Port: 1883"
-echo ""
-echo -e "${YELLOW}⚠️  Zigbee USB dongle:${NC}"
-echo "  Check the correct serial port with:  ls /dev/tty{USB,ACM}*"
-echo "  Then update:  $Z2M_DIR/data/configuration.yaml  (serial.port)"
-echo "  And restart:  sudo systemctl restart zigbee2mqtt"
 echo ""
 echo "To view logs:"
 echo "  sudo journalctl -u groundcontrol -f"

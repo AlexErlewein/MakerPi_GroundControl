@@ -7,7 +7,11 @@
       "Bash(fuser 8000/tcp)",
       "Bash(systemctl --user list-units)",
       "Bash(sudo systemctl:*)",
-      "Bash(sqlite3 groundcontrol.db \"SELECT topic, payload, timestamp FROM mqtt_messages ORDER BY timestamp DESC LIMIT 20;\")"
+      "Bash(sqlite3 groundcontrol.db \"SELECT topic, payload, timestamp FROM mqtt_messages ORDER BY timestamp DESC LIMIT 20;\")",
+      "Bash(systemctl status:*)",
+      "Bash(sudo journalctl:*)",
+      "Bash(sudo ss:*)",
+      "Bash(find /home/alex/MakerPi_GroundControl/backend -name *.py)"
     ]
   }
 }
