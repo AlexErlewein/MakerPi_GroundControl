@@ -1,6 +1,11 @@
 #!/bin/bash
 # MakerPi GroundControl - Setup Script for Raspberry Pi
 # Run this on your Pi: sudo bash setup.sh
+#
+# Installs:
+#   - Mosquitto MQTT broker
+#   - MakerPi GroundControl FastAPI backend
+#   - Zigbee2MQTT (requires a Zigbee USB dongle)
 
 set -e
 
@@ -30,7 +35,11 @@ apt install -y \
     python3-venv \
     mosquitto \
     mosquitto-clients \
-    sqlite3
+    sqlite3 \
+    nodejs \
+    npm \
+    git \
+    curl
 
 PROJECT_DIR="$HOME/MakerPi_GroundControl"
 
@@ -90,15 +99,76 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# Enable and start services
+# ── Zigbee2MQTT ────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Zigbee2MQTT...${NC}"
+
+Z2M_DIR="/opt/zigbee2mqtt"
+
+# Clone or update the repo
+if [ -d "$Z2M_DIR" ]; then
+    echo "Zigbee2MQTT already cloned, pulling latest..."
+    git -C "$Z2M_DIR" pull
+else
+    git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git "$Z2M_DIR"
+fi
+
+# Install Node.js dependencies
+cd "$Z2M_DIR"
+npm ci --omit=dev
+cd "$PROJECT_DIR"
+
+# Create data directory
+mkdir -p "$Z2M_DIR/data"
+
+# Copy config if not already present (don't overwrite customised config)
+if [ ! -f "$Z2M_DIR/data/configuration.yaml" ]; then
+    cp "$PROJECT_DIR/config/zigbee2mqtt.yaml" "$Z2M_DIR/data/configuration.yaml"
+    echo "Zigbee2MQTT config copied to $Z2M_DIR/data/configuration.yaml"
+else
+    echo "Existing Zigbee2MQTT config found, skipping copy."
+fi
+
+# Fix ownership
+chown -R "$SERVICE_USER":"$SERVICE_USER" "$Z2M_DIR"
+
+# Add user to dialout group so it can access the USB serial port
+usermod -aG dialout "$SERVICE_USER"
+echo "Added $SERVICE_USER to dialout group (serial port access)"
+
+# Create systemd service for Zigbee2MQTT
+echo -e "${YELLOW}Creating Zigbee2MQTT systemd service...${NC}"
+cat > /etc/systemd/system/zigbee2mqtt.service << EOF
+[Unit]
+Description=Zigbee2MQTT
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$Z2M_DIR
+ExecStart=node $Z2M_DIR/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# ── Enable and start all services ─────────────────────────────────────────────
 echo -e "${YELLOW}Enabling and starting services...${NC}"
+systemctl daemon-reload
 systemctl enable mosquitto
 systemctl restart mosquitto
 systemctl enable groundcontrol
 systemctl start groundcontrol
+systemctl enable zigbee2mqtt
+systemctl start zigbee2mqtt
 
 # Wait a moment for services to start
-sleep 3
+sleep 5
 
 # Check status
 echo ""
@@ -110,13 +180,24 @@ systemctl status mosquitto --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
 systemctl status groundcontrol --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
+systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|loaded)"
+echo ""
 echo -e "${GREEN}Access your dashboard at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8000"
+echo ""
+echo -e "${GREEN}Zigbee2MQTT frontend at:${NC}"
+echo "  http://$(hostname -I | awk '{print $1}'):8090"
 echo ""
 echo "MQTT Broker:"
 echo "  Host: $(hostname -I | awk '{print $1}')"
 echo "  Port: 1883"
 echo ""
+echo -e "${YELLOW}⚠️  Zigbee USB dongle:${NC}"
+echo "  Check the correct serial port with:  ls /dev/tty{USB,ACM}*"
+echo "  Then update:  $Z2M_DIR/data/configuration.yaml  (serial.port)"
+echo "  And restart:  sudo systemctl restart zigbee2mqtt"
+echo ""
 echo "To view logs:"
 echo "  sudo journalctl -u groundcontrol -f"
 echo "  sudo journalctl -u mosquitto -f"
+echo "  sudo journalctl -u zigbee2mqtt -f"

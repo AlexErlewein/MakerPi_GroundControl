@@ -1,10 +1,11 @@
 # 🛰️ MakerPi GroundControl
 
-MQTT broker management and monitoring system for Raspberry Pi with web interface.
+MQTT broker management and monitoring system for Raspberry Pi with web interface, including Zigbee2MQTT integration for Zigbee device support.
 
 ## Features
 
 - **MQTT Broker**: Mosquitto broker running on Raspberry Pi
+- **Zigbee2MQTT**: Bridges Zigbee devices (sensors, switches, lights) to MQTT via USB dongle
 - **Web Dashboard**: Real-time monitoring of connected devices and messages
 - **Data Storage**: SQLite database for message history
 - **Device Tracking**: Automatic device discovery and status tracking
@@ -18,9 +19,15 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 │  PicoW      │ ─────────────────►│   Mosquitto  │
 │  (client)   │                   │   (broker)   │
 └─────────────┘                   └──────────────┘
-                                           │
-                                           │ subscribe
-                                           ▼
+                                        ▲    │
+┌─────────────┐    zigbee2mqtt/   │    │ subscribe
+│  Zigbee     │    ...topics      │    │
+│  Devices    │ ──►┌──────────────┴┐   │
+│  (sensors,  │    │ Zigbee2MQTT   │   │
+│   switches) │    │ (USB dongle)  │   │
+└─────────────┘    └───────────────┘   │
+                                        │
+                                        ▼
                                   ┌──────────────┐
                                   │  FastAPI     │
                                   │  Backend     │
@@ -60,7 +67,8 @@ MakerPi_GroundControl/
 ├── backend/
 │   └── main.py              # FastAPI application with MQTT client
 ├── config/
-│   └── mosquitto.conf       # MQTT broker configuration
+│   ├── mosquitto.conf       # MQTT broker configuration
+│   └── zigbee2mqtt.yaml     # Zigbee2MQTT configuration template
 ├── scripts/
 │   ├── setup.sh                   # Initial setup script for Pi
 │   ├── deploy.sh                  # Deploy updates from dev machine
@@ -185,16 +193,72 @@ mqtt.disconnect()
 ```bash
 # View service status
 sudo systemctl status groundcontrol
+sudo systemctl status mosquitto
+sudo systemctl status zigbee2mqtt
 
 # View logs
 sudo journalctl -u groundcontrol -f
+sudo journalctl -u mosquitto -f
+sudo journalctl -u zigbee2mqtt -f
 
-# Restart service
+# Restart services
 sudo systemctl restart groundcontrol
-
-# Restart Mosquitto
 sudo systemctl restart mosquitto
+sudo systemctl restart zigbee2mqtt
 ```
+
+## Zigbee2MQTT
+
+Zigbee2MQTT bridges your Zigbee USB dongle to the Mosquitto broker, making all Zigbee devices available as MQTT topics.
+
+### Finding your USB dongle port
+
+Run this on the Pi before and after plugging in the dongle to identify the port:
+
+```bash
+ls /dev/tty{USB,ACM}*
+```
+
+Common ports by dongle variant:
+| Dongle | Chip | Adapter | Typical port |
+|--------|------|---------|--------------|
+| Sonoff Zigbee 3.0 USB Dongle Plus (P) | CC2652P | `znp` | `/dev/ttyUSB0` |
+| Sonoff Zigbee 3.0 USB Dongle Plus-E | EFR32MG21 | `ezsp` | `/dev/ttyACM0` |
+
+### Updating the config
+
+Edit `/opt/zigbee2mqtt/data/configuration.yaml` on the Pi:
+
+```yaml
+serial:
+  port: /dev/ttyUSB0   # ← update this
+  adapter: znp         # ← change to 'ezsp' for Dongle-E
+```
+
+Then restart: `sudo systemctl restart zigbee2mqtt`
+
+### Pairing new Zigbee devices
+
+Temporarily enable joining, then trigger pairing mode on your device:
+
+```bash
+# Enable joining for 3 minutes
+mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": true, "time": 180}'
+
+# Disable joining again
+mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": false}'
+```
+
+Or use the Zigbee2MQTT web frontend at `http://<pi-ip>:8090`.
+
+### MQTT topics published by Zigbee2MQTT
+
+| Topic | Description |
+|-------|-------------|
+| `zigbee2mqtt/<device_name>` | Device state (temperature, occupancy, etc.) |
+| `zigbee2mqtt/bridge/state` | Bridge online/offline status |
+| `zigbee2mqtt/bridge/devices` | List of all paired devices |
+| `zigbee2mqtt/bridge/log` | Bridge log messages |
 
 ## Database
 

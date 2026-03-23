@@ -1,0 +1,48 @@
+# Zigbee2MQTT Configuration for MakerPi GroundControl
+# Docs: https://www.zigbee2mqtt.io/guide/configuration/
+
+# MQTT broker - connects to the same Mosquitto instance
+mqtt:
+    base_topic: zigbee2mqtt
+    server: mqtt://localhost:1883
+
+# Serial port configuration
+# To find your port, run: ls /dev/tty{USB,ACM}* before and after plugging in the dongle
+serial:
+    # Sonoff Zigbee 3.0 USB Dongle Plus (Dongle-P, CC2652P chip) -> znp adapter, usually /dev/ttyUSB0
+    # Sonoff Zigbee 3.0 USB Dongle Plus-E (Dongle-E, EFR32 chip) -> ezsp adapter, usually /dev/ttyACM0
+    port: /dev/ttyUSB0
+    adapter: znp # Change to 'ezsp' if you have the Dongle-E variant
+
+# Permit devices to join the network
+# Set to true temporarily when pairing new devices, false otherwise
+permit_join: false
+
+# Data directory - where Zigbee2MQTT stores its database and state
+data_path: /opt/zigbee2mqtt/data
+
+# Frontend web UI
+frontend:
+    enabled: true
+    port: 8090 # sqlite-web runs on 8080, groundcontrol on 8000
+    host: 0.0.0.0
+
+# Home Assistant integration (disabled - we use our own backend)
+homeassistant: false
+
+# Logging
+advanced:
+    log_level: info
+    log_output:
+        - file
+        - console
+    log_directory: /opt/zigbee2mqtt/data/logs/%TIMESTAMP%
+    log_file: zigbee2mqtt.log
+
+    # Zigbee network settings
+    pan_id: 0x1a62
+    ext_pan_id: [0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD]
+    channel: 11  # Zigbee channel (11-26). Avoid overlap with WiFi: ch1=Z11-13, ch6=Z16-22, ch11=Z24-26
+
+# Device availability checking
+availability: true
