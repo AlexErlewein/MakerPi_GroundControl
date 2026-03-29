@@ -1,11 +1,23 @@
 #!/bin/bash
 # Deploy script to sync files to the Pi and restart the service
-# Usage: ./scripts/deploy.sh <pi-hostname-or-ip> [--update-deps]
+# Usage: ./scripts/deploy.sh [--update-deps]
+# Configuration: Edit config.json in the project root
 
-PI_HOST=${1:-"192.168.178.47"}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CONFIG_FILE="$PROJECT_ROOT/config.json"
+
+if [ -f "$CONFIG_FILE" ] && command -v jq &> /dev/null; then
+    PI_HOST=$(jq -r '.pi_host // "192.168.178.47"' "$CONFIG_FILE")
+    PI_USER=$(jq -r '.pi_user // "alex"' "$CONFIG_FILE")
+    PROJECT_DIR=$(jq -r '.project_dir // "home/alex/MakerPi_GroundControl"' "$CONFIG_FILE")
+else
+    PI_HOST=${1:-"192.168.178.47"}
+    PI_USER="alex"
+    PROJECT_DIR="home/alex/MakerPi_GroundControl"
+fi
+
 UPDATE_DEPS=${2:-""}
-PI_USER="alex"
-PROJECT_DIR="home/alex/MakerPi_GroundControl"
 
 echo "🚀 Deploying to $PI_HOST..."
 

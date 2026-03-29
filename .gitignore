@@ -20,6 +20,9 @@ build/
 .env
 .env.local
 
+# Local config (contains IP addresses)
+config.json
+
 # IDE
 .vscode/
 .idea/

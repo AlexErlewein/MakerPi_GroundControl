@@ -9,15 +9,21 @@ import network
 import umqtt.simple
 import machine
 import time
+import json
 from machine import Pin
 
-# WiFi Configuration
-WIFI_SSID = "YourWiFiName"
-WIFI_PASSWORD = "YourWiFiPassword"
+# Configuration - update these values for your setup
+CONFIG = {
+    "wifi_ssid": "YourWiFiName",
+    "wifi_password": "YourWiFiPassword",
+    "mqtt_broker": "192.168.178.47",  # Change to your Pi's IP
+    "mqtt_port": 1883
+}
 
-# MQTT Broker Configuration (your Pi's IP)
-MQTT_BROKER = "192.168.178.47"  # Change to your Pi's IP
-MQTT_PORT = 1883
+WIFI_SSID = CONFIG["wifi_ssid"]
+WIFI_PASSWORD = CONFIG["wifi_password"]
+MQTT_BROKER = CONFIG["mqtt_broker"]
+MQTT_PORT = CONFIG["mqtt_port"]
 
 # Unique client ID (use last 4 chars of MAC)
 CLIENT_ID = f"pico-{machine.unique_id():x}"[-8:]

@@ -1,0 +1,6 @@
+{
+    "pi_host": "192.168.178.47",
+    "pi_user": "alex",
+    "project_dir": "home/alex/MakerPi_GroundControl",
+    "mqtt_broker": "localhost"
+}
