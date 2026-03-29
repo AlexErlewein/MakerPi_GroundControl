@@ -272,6 +272,14 @@ class MQTTHandler:
                                 )
                         except json.JSONDecodeError:
                             logger.warning(f"Invalid NFC JSON from {device_id}")
+                        else:
+                            if uid:
+                                self.publish_user_info(
+                                    uid=uid,
+                                    owner_name=known.owner_name if known else None,
+                                    validated=bool(known),
+                                    tag_type=tag_data.get("tag_type"),
+                                )
 
                     # Generic device update (any message from device)
                     elif device:
@@ -306,6 +314,26 @@ class MQTTHandler:
         """Stop MQTT client"""
         self.client.loop_stop()
         self.client.disconnect()
+
+    def publish_user_info(
+        self,
+        uid: str,
+        owner_name: str | None,
+        validated: bool,
+        tag_type: str | None,
+    ):
+        """Publish NFC scan result to the display topic"""
+        payload = json.dumps({
+            "uid": uid,
+            "owner_name": owner_name,
+            "validated": validated,
+            "tag_type": tag_type,
+        })
+        try:
+            self.client.publish("lilygo/user_info", payload.encode("utf-8"), qos=1)
+            logger.info(f"Published user info for {uid} (validated={validated})")
+        except Exception as e:
+            logger.error(f"Failed to publish user info: {e}")
 
     def publish_command(self, device_id: str, command: str, payload: str = ""):
         """Publish a command to a device via MQTT"""
