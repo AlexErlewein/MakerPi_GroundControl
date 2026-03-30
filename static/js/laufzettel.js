@@ -1,0 +1,171 @@
+let allEntries = [];
+let allTags = [];
+
+async function loadTags() {
+    const res = await fetch("/api/tags");
+    allTags = await res.json();
+    const dl = document.getElementById("uid-suggestions");
+    dl.innerHTML = allTags
+        .map((t) => `<option value="${t.uid}">${t.owner_name}${t.member_id ? " (" + t.member_id + ")" : ""}</option>`)
+        .join("");
+}
+
+async function loadLaufzettel() {
+    const uid = document.getElementById("filter-name").value.trim();
+    const date = document.getElementById("filter-date").value;
+
+    let url = "/api/laufzettel";
+    const params = new URLSearchParams();
+    if (date) params.set("date", date);
+    if (params.toString()) url += "?" + params.toString();
+
+    const res = await fetch(url);
+    allEntries = await res.json();
+
+    if (uid) {
+        const q = uid.toLowerCase();
+        allEntries = allEntries.filter(
+            (e) =>
+                (e.owner_name || "").toLowerCase().includes(q) ||
+                (e.uid || "").toLowerCase().includes(q) ||
+                (e.member_id || "").toLowerCase().includes(q)
+        );
+    }
+
+    renderStats();
+    renderTable();
+}
+
+function renderStats() {
+    document.getElementById("total-count").textContent = allEntries.length;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = allEntries.filter((e) => e.date === today).length;
+    document.getElementById("today-count").textContent = todayCount;
+
+    const unique = new Set(allEntries.map((e) => e.uid)).size;
+    document.getElementById("cardholder-count").textContent = unique;
+}
+
+function renderTable() {
+    const tbody = document.getElementById("laufzettel-body");
+    if (allEntries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No Laufzettel entries found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = allEntries
+        .map((lz) => {
+            const nodes = (lz.nodes || [])
+                .map((n) => `<span class="node-chip">${esc(n)}</span>`)
+                .join("");
+            const matCount = (lz.material || []).length;
+            const matBadge = `<span class="material-count ${matCount === 0 ? "zero" : ""}">${matCount}</span>`;
+            return `
+        <tr>
+            <td>${esc(lz.date || "-")}</td>
+            <td>${esc(lz.owner_name || "-")}</td>
+            <td>${esc(lz.member_id || "-")}</td>
+            <td><code class="uid">${esc(lz.uid)}</code></td>
+            <td>${formatTime(lz.start)}</td>
+            <td><div class="nodes-list">${nodes || '<span style="color:var(--text-secondary)">-</span>'}</div></td>
+            <td>${matBadge}</td>
+            <td class="actions">
+                <a href="/laufzettel/${lz.id}" class="btn btn-sm btn-secondary">View</a>
+            </td>
+        </tr>`;
+        })
+        .join("");
+}
+
+function esc(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function formatTime(iso) {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    return d.toLocaleTimeString();
+}
+
+// ---- Modal helpers ----
+function openNewLzModal() {
+    document.getElementById("new-lz-form").reset();
+    document.getElementById("new-lz-tag-hint").textContent = "";
+    document.getElementById("new-lz-date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("new-lz-modal").classList.remove("hidden");
+    document.getElementById("new-lz-uid").focus();
+}
+
+function closeNewLzModal() {
+    document.getElementById("new-lz-modal").classList.add("hidden");
+}
+
+// Auto-fill owner/member_id when a known UID is entered
+document.getElementById("new-lz-uid").addEventListener("input", () => {
+    const uid = document.getElementById("new-lz-uid").value.trim().toUpperCase();
+    const tag = allTags.find((t) => t.uid === uid);
+    const hint = document.getElementById("new-lz-tag-hint");
+    if (tag) {
+        document.getElementById("new-lz-owner").value = tag.owner_name || "";
+        document.getElementById("new-lz-member-id").value = tag.member_id || "";
+        hint.textContent = `✓ Bekannter Tag: ${tag.owner_name}`;
+        hint.style.color = "var(--success)";
+    } else if (uid.length > 0) {
+        hint.textContent = "Unbekannter Tag — Name und Member ID bitte manuell eingeben.";
+        hint.style.color = "var(--warning)";
+    } else {
+        hint.textContent = "";
+    }
+});
+
+document.getElementById("new-lz-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+        uid: document.getElementById("new-lz-uid").value.trim().toUpperCase(),
+        date: document.getElementById("new-lz-date").value || null,
+        owner_name: document.getElementById("new-lz-owner").value.trim() || null,
+        member_id: document.getElementById("new-lz-member-id").value.trim() || null,
+    };
+    const startVal = document.getElementById("new-lz-start").value;
+    if (startVal) body.start = new Date(startVal).toISOString();
+
+    const res = await fetch("/api/laufzettel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+        const created = await res.json();
+        closeNewLzModal();
+        await loadLaufzettel();
+        window.location.href = `/laufzettel/${created.id}`;
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Konnte Laufzettel nicht erstellen"));
+    }
+});
+
+document.getElementById("new-laufzettel-btn").addEventListener("click", openNewLzModal);
+document.getElementById("new-lz-close").addEventListener("click", closeNewLzModal);
+document.getElementById("new-lz-cancel").addEventListener("click", closeNewLzModal);
+document.getElementById("new-lz-overlay").addEventListener("click", closeNewLzModal);
+
+// ---- Filter/refresh ----
+document.getElementById("refresh-btn").addEventListener("click", loadLaufzettel);
+document.getElementById("filter-btn").addEventListener("click", loadLaufzettel);
+document.getElementById("clear-btn").addEventListener("click", () => {
+    document.getElementById("filter-name").value = "";
+    document.getElementById("filter-date").value = "";
+    loadLaufzettel();
+});
+document.getElementById("filter-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") loadLaufzettel();
+});
+
+loadTags();
+loadLaufzettel();

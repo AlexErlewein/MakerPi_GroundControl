@@ -1,0 +1,52 @@
+/* Laufzettel page styles */
+
+.filter-bar input[type="date"] {
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    color-scheme: dark;
+}
+
+.filter-bar input[type="date"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.nodes-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.node-chip {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 0.78rem;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+.material-count {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(63, 185, 80, 0.12);
+    color: var(--success);
+}
+
+.material-count.zero {
+    background: rgba(139, 148, 158, 0.12);
+    color: var(--text-secondary);
+}
+
+.btn-icon {
+    font-style: normal;
+}

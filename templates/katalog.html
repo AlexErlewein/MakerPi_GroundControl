@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katalog - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/tags.css">
+    <link rel="stylesheet" href="/static/css/katalog.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>🛰️ MakerPi GroundControl</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link">Database</a>
+                    <a href="/tags" class="nav-link">Tags</a>
+                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
+                    <a href="/katalog" class="nav-link active">Katalog</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <button id="add-location-btn" class="btn btn-success">+ Standort</button>
+                <button id="refresh-btn" class="btn btn-primary">
+                    <span class="btn-icon">↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <div id="katalog-tree" class="katalog-tree">
+                <p class="empty">Lade Katalog...</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0 - Material Katalog</p>
+        </footer>
+    </div>
+
+    <!-- Location Modal -->
+    <div id="location-modal" class="modal hidden">
+        <div class="modal-overlay" id="location-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="location-modal-title">Neuer Standort</h3>
+                <button class="modal-close" id="location-modal-close">✕</button>
+            </div>
+            <form id="location-form">
+                <input type="hidden" id="edit-location-id">
+                <div class="form-group">
+                    <label for="field-location-name">Name</label>
+                    <input type="text" id="field-location-name" placeholder="z.B. Töpferei" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="location-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kategorie Modal -->
+    <div id="kategorie-modal" class="modal hidden">
+        <div class="modal-overlay" id="kategorie-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="kategorie-modal-title">Neue Kategorie</h3>
+                <button class="modal-close" id="kategorie-modal-close">✕</button>
+            </div>
+            <form id="kategorie-form">
+                <input type="hidden" id="edit-kategorie-id">
+                <input type="hidden" id="edit-kategorie-location-id">
+                <div class="form-group">
+                    <label for="field-kat-name">Name</label>
+                    <input type="text" id="field-kat-name" placeholder="z.B. Ton, Holz" required>
+                </div>
+                <div class="form-group">
+                    <label for="field-kat-pricing">Preismodell</label>
+                    <select id="field-kat-pricing">
+                        <option value="per_unit">pro Einheit (Menge × Preis)</option>
+                        <option value="per_gram">pro Gramm (Gewicht × Preis)</option>
+                        <option value="per_volume_cm3">pro Volumen cm³ (L × B × H × Preis)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="field-kat-unit">Einheit <span class="optional">(Anzeige, z.B. g, cm³, Stück)</span></label>
+                    <input type="text" id="field-kat-unit" placeholder="z.B. g">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="kategorie-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Variante Modal -->
+    <div id="variante-modal" class="modal hidden">
+        <div class="modal-overlay" id="variante-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="variante-modal-title">Neue Variante</h3>
+                <button class="modal-close" id="variante-modal-close">✕</button>
+            </div>
+            <form id="variante-form">
+                <input type="hidden" id="edit-variante-id">
+                <input type="hidden" id="edit-variante-kategorie-id">
+                <div class="form-group">
+                    <label for="field-var-name">Name</label>
+                    <input type="text" id="field-var-name" placeholder="z.B. fein, Eiche" required>
+                </div>
+                <div class="form-group">
+                    <label for="field-var-price">Preis <span id="var-price-hint" class="optional"></span></label>
+                    <input type="number" id="field-var-price" placeholder="z.B. 0.05" step="any" min="0" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="variante-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/katalog.js"></script>
+</body>
+</html>

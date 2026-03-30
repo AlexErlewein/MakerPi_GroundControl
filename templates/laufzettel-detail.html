@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laufzettel Detail - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/tags.css">
+    <link rel="stylesheet" href="/static/css/laufzettel.css">
+    <link rel="stylesheet" href="/static/css/laufzettel-detail.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>🛰️ MakerPi GroundControl</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link">Database</a>
+                    <a href="/tags" class="nav-link">Tags</a>
+                    <a href="/laufzettel" class="nav-link active">Laufzettel</a>
+                    <a href="/katalog" class="nav-link">Katalog</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <a href="/laufzettel" class="btn btn-secondary">← Back</a>
+                <button id="refresh-btn" class="btn btn-primary">
+                    <span class="btn-icon">↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Info Card -->
+            <section class="lz-info-card section">
+                <div class="section-header">
+                    <h2>Laufzettel <span id="lz-id-display" class="lz-id-badge"></span></h2>
+                    <button id="edit-info-btn" class="btn btn-secondary btn-sm">Edit</button>
+                </div>
+
+                <!-- View Mode -->
+                <div id="info-view" class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Date</span>
+                        <span class="info-value" id="view-date">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Start</span>
+                        <span class="info-value" id="view-start">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Owner</span>
+                        <span class="info-value" id="view-owner">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Member ID</span>
+                        <span class="info-value" id="view-member-id">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Tag UID</span>
+                        <span class="info-value"><code class="uid" id="view-uid">-</code></span>
+                    </div>
+                </div>
+
+                <!-- Edit Mode -->
+                <form id="info-edit-form" class="info-edit-form hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-owner">Owner Name</label>
+                            <input type="text" id="edit-owner" placeholder="Owner name">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-member-id">Member ID</label>
+                            <input type="text" id="edit-member-id" placeholder="e.g. M-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-start">Start Time</label>
+                            <input type="datetime-local" id="edit-start">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-success">Save</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Nodes Section -->
+            <section class="section">
+                <h2>MQTT Nodes Used</h2>
+                <div id="nodes-container" class="nodes-list nodes-large">
+                    <span class="empty">No nodes recorded.</span>
+                </div>
+            </section>
+
+            <!-- Material Section -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Material</h2>
+                    <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
+                </div>
+
+                <div class="table-container">
+                    <table id="material-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Menge / Maße</th>
+                                <th>Einheit</th>
+                                <th>Preis (€)</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="material-body">
+                            <tr><td colspan="6" class="empty">No material entries yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0 - Laufzettel Detail</p>
+        </footer>
+    </div>
+
+    <!-- Add/Edit Material Modal -->
+    <div id="material-modal" class="modal hidden">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-box modal-box-wide">
+            <div class="modal-header">
+                <h3 id="modal-title">Material hinzufügen</h3>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+
+            <!-- Mode toggle -->
+            <div class="mode-toggle">
+                <button type="button" id="mode-freitext-btn" class="mode-btn active" onclick="setMatMode('freitext')">✏️ Freitext</button>
+                <button type="button" id="mode-katalog-btn" class="mode-btn" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
+            </div>
+
+            <form id="material-form">
+                <input type="hidden" id="edit-material-id">
+                <input type="hidden" id="edit-mat-variante-id">
+
+                <!-- Freitext fields -->
+                <div id="freitext-fields">
+                    <div class="form-group">
+                        <label for="field-mat-name">Name</label>
+                        <input type="text" id="field-mat-name" placeholder="z.B. PLA, Holz, Resin">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-menge">Menge</label>
+                        <input type="number" id="field-mat-menge" placeholder="z.B. 100" step="any">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit">Einheit <span class="optional">(optional)</span></label>
+                        <input type="text" id="field-mat-unit" placeholder="z.B. g, Stück, cm³">
+                    </div>
+                </div>
+
+                <!-- Katalog fields -->
+                <div id="katalog-fields" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="kat-select-location">Standort</label>
+                            <select id="kat-select-location" onchange="onKatLocationChange()">
+                                <option value="">-- Standort wählen --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-select-kategorie">Kategorie</label>
+                            <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
+                                <option value="">-- Kategorie wählen --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-select-variante">Variante</label>
+                            <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
+                                <option value="">-- Variante wählen --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- per_gram: single Menge field -->
+                    <div id="kat-fields-gram" class="hidden">
+                        <div class="form-group">
+                            <label for="kat-menge-gram">Menge (g)</label>
+                            <input type="number" id="kat-menge-gram" placeholder="Gewicht in Gramm" step="any" min="0">
+                        </div>
+                    </div>
+
+                    <!-- per_volume_cm3: L × B × H -->
+                    <div id="kat-fields-volume" class="hidden">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="kat-laenge">Länge (cm)</label>
+                                <input type="number" id="kat-laenge" placeholder="cm" step="any" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="kat-breite">Breite (cm)</label>
+                                <input type="number" id="kat-breite" placeholder="cm" step="any" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="kat-hoehe">Höhe (cm)</label>
+                                <input type="number" id="kat-hoehe" placeholder="cm" step="any" min="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- per_unit -->
+                    <div id="kat-fields-unit" class="hidden">
+                        <div class="form-group">
+                            <label for="kat-menge-unit">Menge <span id="kat-unit-label" class="optional"></span></label>
+                            <input type="number" id="kat-menge-unit" placeholder="Anzahl" step="any" min="0">
+                        </div>
+                    </div>
+
+                    <!-- Price preview -->
+                    <div id="price-preview" class="price-preview hidden">
+                        <span class="price-label">Berechneter Preis:</span>
+                        <span class="price-value" id="price-value">-</span>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-mat-btn">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const LAUFZETTEL_ID = {{ laufzettel_id }};
+    </script>
+    <script src="/static/js/laufzettel-detail.js"></script>
+</body>
+</html>

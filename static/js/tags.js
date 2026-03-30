@@ -115,6 +115,7 @@ function openEdit(uid) {
     document.getElementById("field-uid").value = tag.uid;
     document.getElementById("field-uid").disabled = true;
     document.getElementById("field-owner").value = tag.owner_name || "";
+    document.getElementById("field-member-id").value = tag.member_id || "";
     document.getElementById("field-email").value = tag.owner_email || "";
     document.getElementById("field-notes").value = tag.notes || "";
     document.getElementById("field-active").checked = tag.active;
@@ -141,6 +142,7 @@ document.getElementById("tag-form").addEventListener("submit", async (e) => {
     const body = {
         uid: document.getElementById("field-uid").value.trim().toUpperCase(),
         owner_name: document.getElementById("field-owner").value.trim(),
+        member_id: document.getElementById("field-member-id").value.trim() || null,
         owner_email: document.getElementById("field-email").value.trim() || null,
         notes: document.getElementById("field-notes").value.trim() || null,
         active: document.getElementById("field-active").checked,

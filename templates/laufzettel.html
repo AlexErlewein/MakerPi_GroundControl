@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laufzettel - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/tags.css">
+    <link rel="stylesheet" href="/static/css/laufzettel.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>🛰️ MakerPi GroundControl</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link">Database</a>
+                    <a href="/tags" class="nav-link">Tags</a>
+                    <a href="/laufzettel" class="nav-link active">Laufzettel</a>
+                    <a href="/katalog" class="nav-link">Katalog</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn btn-primary">
+                    <span class="btn-icon">↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <section class="stats">
+                <div class="stat-card">
+                    <h3>Total Laufzettel</h3>
+                    <p class="stat-value" id="total-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Today</h3>
+                    <p class="stat-value" id="today-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Unique Cardholders</h3>
+                    <p class="stat-value" id="cardholder-count">-</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-header">
+                    <h2>Laufzettel Entries</h2>
+                    <button id="new-laufzettel-btn" class="btn btn-success">+ Neuer Laufzettel</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="filter-name" placeholder="Filter by name or UID...">
+                    <input type="date" id="filter-date" placeholder="Filter by date">
+                    <button id="filter-btn" class="btn btn-secondary">Filter</button>
+                    <button id="clear-btn" class="btn btn-secondary">Clear</button>
+                </div>
+                <div class="table-container">
+                    <table id="laufzettel-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Owner</th>
+                                <th>Member ID</th>
+                                <th>UID</th>
+                                <th>Start</th>
+                                <th>Nodes</th>
+                                <th>Materials</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="laufzettel-body">
+                            <tr><td colspan="8">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0 - Laufzettel</p>
+        </footer>
+    </div>
+
+    <!-- New Laufzettel Modal -->
+    <div id="new-lz-modal" class="modal hidden">
+        <div class="modal-overlay" id="new-lz-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Neuer Laufzettel</h3>
+                <button class="modal-close" id="new-lz-close">✕</button>
+            </div>
+            <form id="new-lz-form">
+                <div class="form-group">
+                    <label for="new-lz-uid">Tag UID</label>
+                    <input type="text" id="new-lz-uid" placeholder="z.B. 9CF22507" required autocomplete="off">
+                    <datalist id="uid-suggestions"></datalist>
+                    <small id="new-lz-tag-hint" style="color:var(--text-secondary);font-size:0.8rem;"></small>
+                </div>
+                <div class="form-group">
+                    <label for="new-lz-date">Datum</label>
+                    <input type="date" id="new-lz-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-lz-owner">Name <span class="optional">(optional)</span></label>
+                    <input type="text" id="new-lz-owner" placeholder="Wird aus Tag übernommen">
+                </div>
+                <div class="form-group">
+                    <label for="new-lz-member-id">Member ID <span class="optional">(optional)</span></label>
+                    <input type="text" id="new-lz-member-id" placeholder="z.B. M-001">
+                </div>
+                <div class="form-group">
+                    <label for="new-lz-start">Start-Zeit <span class="optional">(optional)</span></label>
+                    <input type="datetime-local" id="new-lz-start">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="new-lz-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/laufzettel.js"></script>
+</body>
+</html>

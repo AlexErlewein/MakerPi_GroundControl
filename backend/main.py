@@ -8,7 +8,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date as date_type
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -101,6 +101,7 @@ class RFIDTag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     uid = Column(String, unique=True, index=True)
+    member_id = Column(String, nullable=True, index=True)
     owner_name = Column(String)
     owner_email = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
@@ -112,11 +113,115 @@ class RFIDTag(Base):
         return {
             "id": self.id,
             "uid": self.uid,
+            "member_id": self.member_id,
             "owner_name": self.owner_name,
             "owner_email": self.owner_email,
             "notes": self.notes,
             "active": bool(self.active),
             "created_at": ts.isoformat() if ts else None,
+        }
+
+
+class Laufzettel(Base):
+    __tablename__ = "laufzettel"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String, index=True)
+    date = Column(Date, index=True)
+    start = Column(DateTime(timezone=True), nullable=True)
+    owner_name = Column(String, nullable=True)
+    member_id = Column(String, nullable=True)
+    nodes = Column(Text, default="[]")  # JSON array of device_ids
+
+    __table_args__ = (UniqueConstraint("uid", "date", name="uq_laufzettel_uid_date"),)
+
+    def to_dict(self):
+        start_ts = _naive_to_utc(self.start) if self.start else None
+        return {
+            "id": self.id,
+            "uid": self.uid,
+            "date": self.date.isoformat() if self.date else None,
+            "start": start_ts.isoformat() if start_ts else None,
+            "owner_name": self.owner_name,
+            "member_id": self.member_id,
+            "nodes": json.loads(self.nodes) if self.nodes else [],
+        }
+
+
+class LaufzettelMaterial(Base):
+    __tablename__ = "laufzettel_material"
+
+    id = Column(Integer, primary_key=True, index=True)
+    laufzettel_id = Column(Integer, index=True)
+    name = Column(String)
+    menge = Column(Float, nullable=True)
+    # Catalog link (optional)
+    variante_id = Column(Integer, nullable=True, index=True)
+    unit = Column(String, nullable=True)
+    # Dimensions for per_volume_cm3 pricing
+    laenge_cm = Column(Float, nullable=True)
+    breite_cm = Column(Float, nullable=True)
+    hoehe_cm = Column(Float, nullable=True)
+    calculated_price = Column(Float, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "laufzettel_id": self.laufzettel_id,
+            "name": self.name,
+            "menge": self.menge,
+            "variante_id": self.variante_id,
+            "unit": self.unit,
+            "laenge_cm": self.laenge_cm,
+            "breite_cm": self.breite_cm,
+            "hoehe_cm": self.hoehe_cm,
+            "calculated_price": self.calculated_price,
+        }
+
+
+class Location(Base):
+    __tablename__ = "locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)
+
+    def to_dict(self):
+        return {"id": self.id, "name": self.name}
+
+
+class MaterialKategorie(Base):
+    __tablename__ = "material_kategorie"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location_id = Column(Integer, index=True)
+    name = Column(String)
+    pricing_model = Column(String, default="per_unit")  # per_gram | per_volume_cm3 | per_unit
+    unit = Column(String, nullable=True)  # display unit e.g. 'g', 'cm³', 'Stück'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "location_id": self.location_id,
+            "name": self.name,
+            "pricing_model": self.pricing_model,
+            "unit": self.unit,
+        }
+
+
+class MaterialVariante(Base):
+    __tablename__ = "material_variante"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kategorie_id = Column(Integer, index=True)
+    name = Column(String)
+    price = Column(Float)  # price per gram / per cm³ / per unit
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "kategorie_id": self.kategorie_id,
+            "name": self.name,
+            "price": self.price,
         }
 
 
@@ -270,6 +375,30 @@ class MQTTHandler:
                                     f"Tag scan: {uid} from {device_id} - "
                                     f"{'VALID: ' + known.owner_name if known else 'UNKNOWN'}"
                                 )
+                                # Upsert Laufzettel for known tags
+                                if known:
+                                    today = date_type.today()
+                                    now = _utcnow()
+                                    lz = db.query(Laufzettel).filter(
+                                        Laufzettel.uid == uid,
+                                        Laufzettel.date == today,
+                                    ).first()
+                                    if lz is None:
+                                        lz = Laufzettel(
+                                            uid=uid,
+                                            date=today,
+                                            start=now,
+                                            owner_name=known.owner_name,
+                                            member_id=known.member_id,
+                                            nodes=json.dumps([device_id]),
+                                        )
+                                        db.add(lz)
+                                        logger.info(f"Laufzettel created for {uid} on {today}")
+                                    else:
+                                        nodes = json.loads(lz.nodes) if lz.nodes else []
+                                        if device_id not in nodes:
+                                            nodes.append(device_id)
+                                            lz.nodes = json.dumps(nodes)
                         except json.JSONDecodeError:
                             logger.warning(f"Invalid NFC JSON from {device_id}")
                         else:
@@ -280,6 +409,32 @@ class MQTTHandler:
                                     validated=bool(known),
                                     tag_type=tag_data.get("tag_type"),
                                 )
+
+                    # Handle material messages
+                    elif len(topic_parts) > 1 and topic_parts[1] == "material":
+                        try:
+                            mat_data = json.loads(payload)
+                            uid = mat_data.get("uid", "").upper()
+                            mat_name = mat_data.get("name", "")
+                            mat_menge = mat_data.get("menge")
+                            if uid and mat_name and mat_menge is not None:
+                                today = date_type.today()
+                                lz = db.query(Laufzettel).filter(
+                                    Laufzettel.uid == uid,
+                                    Laufzettel.date == today,
+                                ).first()
+                                if lz:
+                                    mat = LaufzettelMaterial(
+                                        laufzettel_id=lz.id,
+                                        name=mat_name,
+                                        menge=float(mat_menge),
+                                    )
+                                    db.add(mat)
+                                    logger.info(f"Material added to Laufzettel {lz.id}: {mat_name} {mat_menge}")
+                                else:
+                                    logger.warning(f"No Laufzettel for {uid} today, material ignored")
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid material JSON from {device_id}")
 
                     # Generic device update (any message from device)
                     elif device:
@@ -675,6 +830,7 @@ async def export_messages(limit: int = 1000):
 class TagCreate(BaseModel):
     uid: str
     owner_name: str
+    member_id: str = None
     owner_email: str = None
     notes: str = None
     active: bool = True
@@ -682,9 +838,78 @@ class TagCreate(BaseModel):
 
 class TagUpdate(BaseModel):
     owner_name: str = None
+    member_id: str = None
     owner_email: str = None
     notes: str = None
     active: bool = None
+
+
+class LaufzettelCreate(BaseModel):
+    uid: str
+    date: str = None  # ISO date string, defaults to today
+    owner_name: str = None
+    member_id: str = None
+    start: str = None  # ISO datetime string
+
+
+class LaufzettelUpdate(BaseModel):
+    owner_name: str = None
+    member_id: str = None
+    start: str = None  # ISO datetime string
+
+
+class MaterialCreate(BaseModel):
+    name: str
+    menge: float = None
+    variante_id: int = None
+    unit: str = None
+    laenge_cm: float = None
+    breite_cm: float = None
+    hoehe_cm: float = None
+    calculated_price: float = None
+
+
+class MaterialUpdate(BaseModel):
+    name: str = None
+    menge: float = None
+    variante_id: int = None
+    unit: str = None
+    laenge_cm: float = None
+    breite_cm: float = None
+    hoehe_cm: float = None
+    calculated_price: float = None
+
+
+class LocationCreate(BaseModel):
+    name: str
+
+
+class LocationUpdate(BaseModel):
+    name: str = None
+
+
+class KategorieCreate(BaseModel):
+    location_id: int
+    name: str
+    pricing_model: str = "per_unit"
+    unit: str = None
+
+
+class KategorieUpdate(BaseModel):
+    name: str = None
+    pricing_model: str = None
+    unit: str = None
+
+
+class VarianteCreate(BaseModel):
+    kategorie_id: int
+    name: str
+    price: float
+
+
+class VarianteUpdate(BaseModel):
+    name: str = None
+    price: float = None
 
 
 @app.get("/api/tags")
@@ -721,6 +946,7 @@ async def create_tag(tag: TagCreate):
         new_tag = RFIDTag(
             uid=uid,
             owner_name=tag.owner_name,
+            member_id=tag.member_id,
             owner_email=tag.owner_email,
             notes=tag.notes,
             active=1 if tag.active else 0,
@@ -746,6 +972,8 @@ async def update_tag(uid: str, tag: TagUpdate):
             return JSONResponse(status_code=404, content={"detail": "Tag not found"})
         if tag.owner_name is not None:
             existing.owner_name = tag.owner_name
+        if tag.member_id is not None:
+            existing.member_id = tag.member_id
         if tag.owner_email is not None:
             existing.owner_email = tag.owner_email
         if tag.notes is not None:
@@ -802,6 +1030,506 @@ async def device_detail_page(request: Request, device_id: str):
             raise HTTPException(status_code=404, detail="Device not found")
         return templates.TemplateResponse(
             "device-detail.html", {"request": request, "device_id": device_id}
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/laufzettel")
+async def create_laufzettel(data: LaufzettelCreate):
+    """Manually create a new Laufzettel entry"""
+    db: Session = SessionLocal()
+    try:
+        uid = data.uid.upper()
+        if data.date:
+            try:
+                from datetime import date as dt_date
+                entry_date = dt_date.fromisoformat(data.date)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid date format, use YYYY-MM-DD"})
+        else:
+            entry_date = date_type.today()
+
+        existing = db.query(Laufzettel).filter(
+            Laufzettel.uid == uid,
+            Laufzettel.date == entry_date,
+        ).first()
+        if existing:
+            return JSONResponse(status_code=400, content={"detail": f"Laufzettel for {uid} on {entry_date} already exists"})
+
+        # Try to fill owner info from registered tag if not provided
+        known = db.query(RFIDTag).filter(RFIDTag.uid == uid, RFIDTag.active == 1).first()
+        start_dt = None
+        if data.start:
+            try:
+                start_dt = datetime.fromisoformat(data.start)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid start datetime format"})
+
+        lz = Laufzettel(
+            uid=uid,
+            date=entry_date,
+            start=start_dt,
+            owner_name=data.owner_name or (known.owner_name if known else None),
+            member_id=data.member_id or (known.member_id if known else None),
+            nodes=json.dumps([]),
+        )
+        db.add(lz)
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        d["material"] = []
+        return d
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/laufzettel")
+async def get_laufzettel(uid: str = None, date: str = None):
+    """List all Laufzettel entries, optionally filtered by uid or date"""
+    db: Session = SessionLocal()
+    try:
+        query = db.query(Laufzettel)
+        if uid:
+            query = query.filter(Laufzettel.uid == uid.upper())
+        if date:
+            try:
+                from datetime import date as dt_date
+                parsed_date = dt_date.fromisoformat(date)
+                query = query.filter(Laufzettel.date == parsed_date)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid date format, use YYYY-MM-DD"})
+        entries = query.order_by(Laufzettel.date.desc(), Laufzettel.start.desc()).all()
+        result = []
+        for lz in entries:
+            d = lz.to_dict()
+            materials = db.query(LaufzettelMaterial).filter(
+                LaufzettelMaterial.laufzettel_id == lz.id
+            ).all()
+            d["material"] = [m.to_dict() for m in materials]
+            result.append(d)
+        return result
+    finally:
+        db.close()
+
+
+@app.get("/api/laufzettel/{laufzettel_id}")
+async def get_laufzettel_detail(laufzettel_id: int):
+    """Get a single Laufzettel with its material entries"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    finally:
+        db.close()
+
+
+@app.get("/api/tags/{uid}/laufzettel")
+async def get_laufzettel_for_tag(uid: str):
+    """Get all Laufzettel entries for a specific tag"""
+    db: Session = SessionLocal()
+    try:
+        entries = db.query(Laufzettel).filter(
+            Laufzettel.uid == uid.upper()
+        ).order_by(Laufzettel.date.desc()).all()
+        result = []
+        for lz in entries:
+            d = lz.to_dict()
+            materials = db.query(LaufzettelMaterial).filter(
+                LaufzettelMaterial.laufzettel_id == lz.id
+            ).all()
+            d["material"] = [m.to_dict() for m in materials]
+            result.append(d)
+        return result
+    finally:
+        db.close()
+
+
+@app.put("/api/laufzettel/{laufzettel_id}")
+async def update_laufzettel(laufzettel_id: int, data: LaufzettelUpdate):
+    """Update editable fields of a Laufzettel"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if data.owner_name is not None:
+            lz.owner_name = data.owner_name
+        if data.member_id is not None:
+            lz.member_id = data.member_id
+        if data.start is not None:
+            try:
+                lz.start = datetime.fromisoformat(data.start)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid start datetime format"})
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.post("/api/laufzettel/{laufzettel_id}/material")
+async def add_material(laufzettel_id: int, mat: MaterialCreate):
+    """Add a material entry to a Laufzettel"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        new_mat = LaufzettelMaterial(
+            laufzettel_id=laufzettel_id,
+            name=mat.name,
+            menge=mat.menge,
+            variante_id=mat.variante_id,
+            unit=mat.unit,
+            laenge_cm=mat.laenge_cm,
+            breite_cm=mat.breite_cm,
+            hoehe_cm=mat.hoehe_cm,
+            calculated_price=mat.calculated_price,
+        )
+        db.add(new_mat)
+        db.commit()
+        db.refresh(new_mat)
+        return new_mat.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.put("/api/laufzettel/{laufzettel_id}/material/{material_id}")
+async def update_material(laufzettel_id: int, material_id: int, mat: MaterialUpdate):
+    """Update a material entry"""
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.id == material_id,
+            LaufzettelMaterial.laufzettel_id == laufzettel_id,
+        ).first()
+        if not existing:
+            return JSONResponse(status_code=404, content={"detail": "Material entry not found"})
+        if mat.name is not None:
+            existing.name = mat.name
+        if mat.menge is not None:
+            existing.menge = mat.menge
+        if mat.variante_id is not None:
+            existing.variante_id = mat.variante_id
+        if mat.unit is not None:
+            existing.unit = mat.unit
+        if mat.laenge_cm is not None:
+            existing.laenge_cm = mat.laenge_cm
+        if mat.breite_cm is not None:
+            existing.breite_cm = mat.breite_cm
+        if mat.hoehe_cm is not None:
+            existing.hoehe_cm = mat.hoehe_cm
+        if mat.calculated_price is not None:
+            existing.calculated_price = mat.calculated_price
+        db.commit()
+        db.refresh(existing)
+        return existing.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/laufzettel/{laufzettel_id}/material/{material_id}")
+async def delete_material(laufzettel_id: int, material_id: int):
+    """Delete a material entry from a Laufzettel"""
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.id == material_id,
+            LaufzettelMaterial.laufzettel_id == laufzettel_id,
+        ).first()
+        if not existing:
+            return JSONResponse(status_code=404, content={"detail": "Material entry not found"})
+        db.delete(existing)
+        db.commit()
+        return {"success": True, "message": f"Material entry {material_id} deleted"}
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+# ── Katalog API ──────────────────────────────────────────────────────────────
+
+@app.get("/api/katalog")
+async def get_katalog():
+    """Full catalog tree: locations → kategorien → varianten"""
+    db: Session = SessionLocal()
+    try:
+        locations = db.query(Location).order_by(Location.name).all()
+        result = []
+        for loc in locations:
+            kats = db.query(MaterialKategorie).filter(
+                MaterialKategorie.location_id == loc.id
+            ).order_by(MaterialKategorie.name).all()
+            kat_list = []
+            for kat in kats:
+                variants = db.query(MaterialVariante).filter(
+                    MaterialVariante.kategorie_id == kat.id
+                ).order_by(MaterialVariante.name).all()
+                k = kat.to_dict()
+                k["varianten"] = [v.to_dict() for v in variants]
+                kat_list.append(k)
+            loc_data = loc.to_dict()
+            loc_data["kategorien"] = kat_list
+            result.append(loc_data)
+        return result
+    finally:
+        db.close()
+
+
+@app.get("/api/katalog/locations")
+async def list_locations():
+    db: Session = SessionLocal()
+    try:
+        return [loc.to_dict() for loc in db.query(Location).order_by(Location.name).all()]
+    finally:
+        db.close()
+
+
+@app.post("/api/katalog/locations")
+async def create_location(data: LocationCreate):
+    db: Session = SessionLocal()
+    try:
+        loc = Location(name=data.name)
+        db.add(loc)
+        db.commit()
+        db.refresh(loc)
+        return loc.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.put("/api/katalog/locations/{loc_id}")
+async def update_location(loc_id: int, data: LocationUpdate):
+    db: Session = SessionLocal()
+    try:
+        loc = db.query(Location).filter(Location.id == loc_id).first()
+        if not loc:
+            return JSONResponse(status_code=404, content={"detail": "Location not found"})
+        if data.name is not None:
+            loc.name = data.name
+        db.commit()
+        db.refresh(loc)
+        return loc.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/katalog/locations/{loc_id}")
+async def delete_location(loc_id: int):
+    db: Session = SessionLocal()
+    try:
+        loc = db.query(Location).filter(Location.id == loc_id).first()
+        if not loc:
+            return JSONResponse(status_code=404, content={"detail": "Location not found"})
+        db.delete(loc)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/katalog/kategorien")
+async def list_kategorien(location_id: int = None):
+    db: Session = SessionLocal()
+    try:
+        q = db.query(MaterialKategorie)
+        if location_id:
+            q = q.filter(MaterialKategorie.location_id == location_id)
+        return [k.to_dict() for k in q.order_by(MaterialKategorie.name).all()]
+    finally:
+        db.close()
+
+
+@app.post("/api/katalog/kategorien")
+async def create_kategorie(data: KategorieCreate):
+    db: Session = SessionLocal()
+    try:
+        kat = MaterialKategorie(
+            location_id=data.location_id,
+            name=data.name,
+            pricing_model=data.pricing_model,
+            unit=data.unit,
+        )
+        db.add(kat)
+        db.commit()
+        db.refresh(kat)
+        return kat.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.put("/api/katalog/kategorien/{kat_id}")
+async def update_kategorie(kat_id: int, data: KategorieUpdate):
+    db: Session = SessionLocal()
+    try:
+        kat = db.query(MaterialKategorie).filter(MaterialKategorie.id == kat_id).first()
+        if not kat:
+            return JSONResponse(status_code=404, content={"detail": "Kategorie not found"})
+        if data.name is not None:
+            kat.name = data.name
+        if data.pricing_model is not None:
+            kat.pricing_model = data.pricing_model
+        if data.unit is not None:
+            kat.unit = data.unit
+        db.commit()
+        db.refresh(kat)
+        return kat.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/katalog/kategorien/{kat_id}")
+async def delete_kategorie(kat_id: int):
+    db: Session = SessionLocal()
+    try:
+        kat = db.query(MaterialKategorie).filter(MaterialKategorie.id == kat_id).first()
+        if not kat:
+            return JSONResponse(status_code=404, content={"detail": "Kategorie not found"})
+        db.delete(kat)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/katalog/varianten")
+async def list_varianten(kategorie_id: int = None):
+    db: Session = SessionLocal()
+    try:
+        q = db.query(MaterialVariante)
+        if kategorie_id:
+            q = q.filter(MaterialVariante.kategorie_id == kategorie_id)
+        return [v.to_dict() for v in q.order_by(MaterialVariante.name).all()]
+    finally:
+        db.close()
+
+
+@app.post("/api/katalog/varianten")
+async def create_variante(data: VarianteCreate):
+    db: Session = SessionLocal()
+    try:
+        v = MaterialVariante(
+            kategorie_id=data.kategorie_id,
+            name=data.name,
+            price=data.price,
+        )
+        db.add(v)
+        db.commit()
+        db.refresh(v)
+        return v.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.put("/api/katalog/varianten/{var_id}")
+async def update_variante(var_id: int, data: VarianteUpdate):
+    db: Session = SessionLocal()
+    try:
+        v = db.query(MaterialVariante).filter(MaterialVariante.id == var_id).first()
+        if not v:
+            return JSONResponse(status_code=404, content={"detail": "Variante not found"})
+        if data.name is not None:
+            v.name = data.name
+        if data.price is not None:
+            v.price = data.price
+        db.commit()
+        db.refresh(v)
+        return v.to_dict()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/katalog/varianten/{var_id}")
+async def delete_variante(var_id: int):
+    db: Session = SessionLocal()
+    try:
+        v = db.query(MaterialVariante).filter(MaterialVariante.id == var_id).first()
+        if not v:
+            return JSONResponse(status_code=404, content={"detail": "Variante not found"})
+        db.delete(v)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/katalog", response_class=HTMLResponse)
+async def katalog_page(request: Request):
+    """Render Katalog management page"""
+    return templates.TemplateResponse("katalog.html", {"request": request})
+
+
+@app.get("/laufzettel", response_class=HTMLResponse)
+async def laufzettel_page(request: Request):
+    """Render Laufzettel list page"""
+    return templates.TemplateResponse("laufzettel.html", {"request": request})
+
+
+@app.get("/laufzettel/{laufzettel_id}", response_class=HTMLResponse)
+async def laufzettel_detail_page(request: Request, laufzettel_id: int):
+    """Render Laufzettel detail/edit page"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            raise HTTPException(status_code=404, detail="Laufzettel not found")
+        return templates.TemplateResponse(
+            "laufzettel-detail.html", {"request": request, "laufzettel_id": laufzettel_id}
         )
     finally:
         db.close()
