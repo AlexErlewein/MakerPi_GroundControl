@@ -98,6 +98,25 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
+echo -e "${YELLOW}Creating docs systemd service...${NC}"
+cat > /etc/systemd/system/groundcontrol-docs.service << EOF
+[Unit]
+Description=MakerPi GroundControl Docs Service
+After=network.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$PROJECT_DIR
+Environment="PATH=$PROJECT_DIR/venv/bin"
+ExecStart=$PROJECT_DIR/venv/bin/uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # ── Zigbee2MQTT ────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Zigbee2MQTT...${NC}"
 
@@ -184,6 +203,8 @@ systemctl enable mosquitto
 systemctl restart mosquitto
 systemctl enable groundcontrol
 systemctl start groundcontrol
+systemctl enable groundcontrol-docs
+systemctl start groundcontrol-docs
 systemctl enable zigbee2mqtt
 systemctl start zigbee2mqtt
 systemctl enable sqlite-web
@@ -202,12 +223,17 @@ systemctl status mosquitto --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
 systemctl status groundcontrol --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
+systemctl status groundcontrol-docs --no-pager -l | grep -E "(Active:|loaded)"
+echo ""
 systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
 systemctl status sqlite-web --no-pager -l | grep -E "(Active:|loaded)"
 echo ""
 echo -e "${GREEN}Access your dashboard at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8000"
+echo ""
+echo -e "${GREEN}Access your docs site at:${NC}"
+echo "  http://$(hostname -I | awk '{print $1}'):8001"
 echo ""
 echo -e "${GREEN}Zigbee2MQTT frontend at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8090"
@@ -218,5 +244,6 @@ echo "  Port: 1883"
 echo ""
 echo "To view logs:"
 echo "  sudo journalctl -u groundcontrol -f"
+echo "  sudo journalctl -u groundcontrol-docs -f"
 echo "  sudo journalctl -u mosquitto -f"
 echo "  sudo journalctl -u zigbee2mqtt -f"

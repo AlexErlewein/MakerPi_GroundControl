@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -255,6 +255,29 @@ class TagScan(Base):
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+# Migrate existing tables: add new columns if they don't exist
+def _run_migrations():
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.execute(
+            text("PRAGMA table_info(laufzettel_material)")
+        )}
+        new_cols = {
+            "variante_id": "INTEGER",
+            "unit": "VARCHAR",
+            "laenge_cm": "FLOAT",
+            "breite_cm": "FLOAT",
+            "hoehe_cm": "FLOAT",
+            "calculated_price": "FLOAT",
+        }
+        for col, col_type in new_cols.items():
+            if col not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE laufzettel_material ADD COLUMN {col} {col_type}"
+                ))
+        conn.commit()
+
+_run_migrations()
 
 # Global MQTT client
 mqtt_client = None

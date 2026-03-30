@@ -7,6 +7,7 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 - **MQTT Broker**: Mosquitto broker running on Raspberry Pi
 - **Zigbee2MQTT**: Bridges Zigbee devices (sensors, switches, lights) to MQTT via USB dongle
 - **Web Dashboard**: Real-time monitoring of connected devices and messages
+- **Documentation Site**: Separate FastAPI-served docs site generated from Markdown files in `docs/`
 - **Data Storage**: SQLite database for message history
 - **Device Tracking**: Automatic device discovery and status tracking
 - **RFID Tag Management**: Register tags, validate scans, view scan history, and register unknown tags directly from scan results
@@ -59,16 +60,22 @@ sudo bash scripts/setup.sh
 ### 2. Access the Dashboard
 
 Open your browser: `http://<pi-ip>:8000`
+Documentation site: `http://<pi-ip>:8001`
 
 ## Project Structure
 
 ```
 MakerPi_GroundControl/
 ├── backend/
-│   └── main.py              # FastAPI application with MQTT client
+│   ├── main.py              # Main FastAPI application with MQTT client
+│   └── docs_app.py          # Separate FastAPI docs website
 ├── config/
 │   ├── mosquitto.conf       # MQTT broker configuration
 │   └── zigbee2mqtt.yaml     # Zigbee2MQTT configuration template
+├── docs/
+│   ├── 00-overview.md       # Top-down operator-to-developer documentation
+│   ├── ...
+│   └── PICOW_SETUP.md       # Pico W setup reference
 ├── scripts/
 │   ├── setup.sh                   # Initial setup script for Pi
 │   ├── deploy.sh                  # Deploy updates from dev machine

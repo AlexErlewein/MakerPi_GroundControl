@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ current_doc.title }} - MakerPi GroundControl Docs</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/docs.css">
+</head>
+<body>
+    <div class="docs-shell">
+        <aside class="docs-sidebar">
+            <div class="docs-sidebar-header">
+                <a href="/" class="docs-brand">📚 GroundControl Docs</a>
+                <a href="{{ main_app_url }}" class="docs-back-link">↩ Main App</a>
+            </div>
+            <nav class="docs-nav">
+                {% for doc in docs %}
+                <a href="/page/{{ doc.slug }}" class="docs-nav-link {% if doc.slug == current_doc.slug %}active{% endif %}">
+                    {{ doc.title }}
+                </a>
+                {% endfor %}
+            </nav>
+        </aside>
+
+        <div class="docs-main-wrap">
+            <header class="docs-topbar">
+                <div>
+                    <h1>{{ current_doc.title }}</h1>
+                    <p>Project documentation from daily usage to implementation details.</p>
+                </div>
+                <button class="docs-menu-btn" id="docs-menu-btn" type="button">☰</button>
+            </header>
+
+            <main class="docs-main-grid">
+                <article class="docs-content prose">
+                    {{ content_html | safe }}
+                    <div class="docs-pager">
+                        {% if previous_doc %}
+                        <a class="docs-pager-link" href="/page/{{ previous_doc.slug }}">← {{ previous_doc.title }}</a>
+                        {% else %}
+                        <span></span>
+                        {% endif %}
+
+                        {% if next_doc %}
+                        <a class="docs-pager-link next" href="/page/{{ next_doc.slug }}">{{ next_doc.title }} →</a>
+                        {% endif %}
+                    </div>
+                </article>
+
+                <aside class="docs-toc">
+                    <div class="docs-toc-card">
+                        <div class="docs-toc-title">On this page</div>
+                        {{ toc_html | safe }}
+                    </div>
+                </aside>
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/docs.js"></script>
+</body>
+</html>
