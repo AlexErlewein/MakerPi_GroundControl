@@ -13,13 +13,16 @@ if (menuBtn && sidebar) {
 }
 
 /* ── highlight.js ─────────────────────────────────────────────────────────── */
+/* Mermaid blocks are already converted to .mermaid divs server-side, so we   */
+/* only need to exclude any leftover language-mermaid classes to be safe.     */
 if (typeof hljs !== 'undefined') {
-    document.querySelectorAll('pre code').forEach((el) => {
-        if (!el.closest('.mermaid')) hljs.highlightElement(el);
+    document.querySelectorAll('pre code:not(.language-mermaid)').forEach((el) => {
+        hljs.highlightElement(el);
     });
 }
 
 /* ── Mermaid ──────────────────────────────────────────────────────────────── */
+/* .mermaid divs are injected server-side; we only need to init + run.        */
 if (typeof mermaid !== 'undefined') {
     mermaid.initialize({
         startOnLoad: false,
@@ -39,16 +42,7 @@ if (typeof mermaid !== 'undefined') {
             attributeBackgroundColorOdd: '#161b22',
         },
     });
-
-    /* Convert fenced ```mermaid code blocks into .mermaid divs */
-    document.querySelectorAll('pre code.language-mermaid').forEach((el) => {
-        const wrapper = document.createElement('div');
-        wrapper.classList.add('mermaid');
-        wrapper.textContent = el.textContent;
-        el.closest('pre').replaceWith(wrapper);
-    });
-
-    mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+    mermaid.run({ querySelector: '.mermaid' });
 }
 
 /* ── TOC scrollspy ────────────────────────────────────────────────────────── */

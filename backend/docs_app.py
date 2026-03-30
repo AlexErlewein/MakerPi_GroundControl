@@ -1,3 +1,4 @@
+from html import unescape
 from pathlib import Path
 import re
 
@@ -71,8 +72,18 @@ def _render_markdown(path: Path):
         extension_configs={"toc": {"permalink": True}},
     )
     source = path.read_text(encoding="utf-8")
-    html = md.convert(source)
-    return html, md.toc
+    html_content = md.convert(source)
+    # Convert fenced mermaid blocks to .mermaid divs so Mermaid.js can render them
+    # The markdown library HTML-escapes code block content, so we unescape it first
+    def _mermaid_div(m: re.Match) -> str:
+        return f'<div class="mermaid">{unescape(m.group(1))}</div>'
+    html_content = re.sub(
+        r'<pre><code class="language-mermaid">(.*?)</code></pre>',
+        _mermaid_div,
+        html_content,
+        flags=re.DOTALL,
+    )
+    return html_content, md.toc
 
 
 def _docs_base_url(request: Request) -> str:

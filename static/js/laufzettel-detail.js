@@ -259,9 +259,9 @@ function showKatInputFields(pricingModel, unit) {
     document.getElementById("kat-fields-gram").classList.toggle("hidden", pricingModel !== "per_gram");
     document.getElementById("kat-fields-volume").classList.toggle("hidden", pricingModel !== "per_volume_cm3");
     document.getElementById("kat-fields-unit").classList.toggle("hidden", pricingModel !== "per_unit");
-    if (pricingModel === "per_unit") {
-        document.getElementById("kat-unit-label").textContent = unit ? `(${unit})` : "";
-    }
+    const unitLabel = unit ? `(${unit})` : "";
+    document.getElementById("kat-gram-label").textContent = unitLabel;
+    document.getElementById("kat-unit-label").textContent = unitLabel;
     // attach live recalc listeners
     ["kat-menge-gram", "kat-menge-unit", "kat-laenge", "kat-breite", "kat-hoehe"].forEach((id) => {
         const el = document.getElementById(id);
