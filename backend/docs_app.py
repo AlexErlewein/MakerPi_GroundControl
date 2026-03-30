@@ -85,6 +85,25 @@ async def health():
     return {"ok": True, "docs_count": len(_discover_docs())}
 
 
+@app.get("/api/search")
+async def search_docs(q: str = ""):
+    q = q.strip().lower()
+    if not q or len(q) < 2:
+        return {"results": []}
+    results = []
+    for doc in _discover_docs():
+        text = doc["path"].read_text(encoding="utf-8")
+        text_lower = text.lower()
+        if q in text_lower:
+            pos = text_lower.find(q)
+            start = max(0, pos - 60)
+            excerpt = text[start: pos + 120].replace("\n", " ").strip()
+            if start > 0:
+                excerpt = "…" + excerpt
+            results.append({"slug": doc["slug"], "title": doc["title"], "excerpt": excerpt})
+    return {"results": results[:12]}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def docs_index():
     docs = _discover_docs()

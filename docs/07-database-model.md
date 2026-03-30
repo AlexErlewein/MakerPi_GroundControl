@@ -1,81 +1,222 @@
 # Database Model
 
-This page describes the important database tables and their relations.
+This page describes every table, its fields, and the relationships between them.
 
-## Core tables
-
-### `mqtt_messages`
-
-Stores raw MQTT traffic history.
-
-### `devices`
-
-Stores discovered devices and their latest known status.
-
-### `rfid_tags`
-
-Stores registered RFID tag metadata.
-
-### `tag_scans`
-
-Stores scan events and whether they matched a known registered tag.
-
-### `laufzettel`
-
-Stores one usage record per `uid + date`.
-
-### `laufzettel_material`
-
-Stores material entries attached to one Laufzettel.
-
-### `locations`
-
-Top-level material catalog grouping.
-
-### `material_kategorie`
-
-Material category definition, including pricing model and unit.
-
-### `material_variante`
-
-Concrete selectable material variants with unit price.
-
-## Mermaid ER diagram
+## Entity-Relationship diagram
 
 ```mermaid
 erDiagram
-    RFIDTag ||--o{ Laufzettel : "uid/date usage"
-    Laufzettel ||--o{ LaufzettelMaterial : contains
-    Location ||--o{ MaterialKategorie : contains
-    MaterialKategorie ||--o{ MaterialVariante : contains
-    MaterialVariante ||--o{ LaufzettelMaterial : optional source
+    RFIDTag {
+        int id PK
+        string uid UK
+        string owner_name
+        string member_id
+        bool active
+        string notes
+        datetime created_at
+    }
+    Laufzettel {
+        int id PK
+        string uid
+        date date
+        string start
+        string owner_name
+        string member_id
+        string nodes
+        datetime created_at
+    }
+    LaufzettelMaterial {
+        int id PK
+        int laufzettel_id FK
+        int variante_id FK
+        string name
+        float menge
+        string unit
+        float laenge_cm
+        float breite_cm
+        float hoehe_cm
+        float calculated_price
+        datetime created_at
+    }
+    Location {
+        int id PK
+        string name UK
+    }
+    MaterialKategorie {
+        int id PK
+        int location_id FK
+        string name
+        string preismodell
+        string einheit
+    }
+    MaterialVariante {
+        int id PK
+        int kategorie_id FK
+        string name
+        float preis_pro_einheit
+    }
+    MQTTMessage {
+        int id PK
+        string topic
+        string payload
+        datetime timestamp
+        string device_id
+    }
+    Device {
+        int id PK
+        string device_id UK
+        string last_seen
+        string status
+        string last_payload
+    }
+    TagScan {
+        int id PK
+        string uid
+        string device_id
+        datetime timestamp
+        bool validated
+    }
+
+    RFIDTag ||--o{ Laufzettel : "uid (app-level)"
+    Laufzettel ||--o{ LaufzettelMaterial : "laufzettel_id"
+    Location ||--o{ MaterialKategorie : "location_id"
+    MaterialKategorie ||--o{ MaterialVariante : "kategorie_id"
+    MaterialVariante ||--o{ LaufzettelMaterial : "variante_id (optional)"
 ```
 
-## Practical relation explanation
+## Table reference
 
-### Tag to Laufzettel
+### `mqtt_messages`
 
-A tag is not directly foreign-key-linked in SQL right now. Instead, the relation is based on `uid` and application logic.
+Raw store of every received MQTT message.
 
-### Laufzettel to material
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `topic` | TEXT | Full topic string |
+| `payload` | TEXT | Raw payload string |
+| `timestamp` | DATETIME | Server receive time (UTC) |
+| `device_id` | TEXT | Extracted from topic prefix |
 
-`laufzettel_material.laufzettel_id` points to the owning Laufzettel.
+### `devices`
 
-### Catalog to material usage
+One row per discovered device, updated on every message.
 
-A Laufzettel material entry may optionally reference a catalog variant through `variante_id`.
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `device_id` | TEXT UNIQUE | Topic prefix |
+| `last_seen` | TEXT | ISO timestamp string |
+| `status` | TEXT | Last known status string |
+| `last_payload` | TEXT | Last message payload |
 
-This keeps the system flexible:
+### `rfid_tags`
 
-- free-text entries still work
-- catalog-based entries can calculate price automatically
+Registered cardholders.
 
-## Important stored-vs-derived rule
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `uid` | TEXT UNIQUE | NFC card UID |
+| `owner_name` | TEXT | Display name |
+| `member_id` | TEXT | Workshop member number |
+| `active` | BOOLEAN | Default true |
+| `notes` | TEXT | Free-text notes |
+| `created_at` | DATETIME | Auto |
 
-The system stores `calculated_price` on the Laufzettel material entry instead of recalculating it from the catalog every time.
+### `tag_scans`
 
-This preserves historical truth even if pricing changes later.
+Event log of every NFC scan received.
 
-## Migration note
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `uid` | TEXT | Scanned UID |
+| `device_id` | TEXT | Source device |
+| `timestamp` | DATETIME | Scan time |
+| `validated` | BOOLEAN | True if UID matched a registered tag |
 
-The project currently uses SQLAlchemy table creation plus lightweight startup migration logic for added columns. That is simple, but if schema changes become more frequent, a dedicated migration tool such as Alembic may eventually be worth adding.
+### `laufzettel`
+
+One record per cardholder per day.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `uid` | TEXT | RFID UID |
+| `date` | DATE | Usage date |
+| `start` | TEXT | First scan time (HH:MM) |
+| `owner_name` | TEXT | Copied from tag at creation |
+| `member_id` | TEXT | Copied from tag at creation |
+| `nodes` | TEXT | JSON list of device IDs |
+| `created_at` | DATETIME | Auto |
+| — | UNIQUE | `(uid, date)` |
+
+### `laufzettel_material`
+
+Material entries attached to a Laufzettel.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `laufzettel_id` | INTEGER FK | → `laufzettel.id` |
+| `variante_id` | INTEGER FK | → `material_variante.id` (nullable) |
+| `name` | TEXT | Material name |
+| `menge` | FLOAT | Amount used |
+| `unit` | TEXT | Unit string |
+| `laenge_cm` | FLOAT | For volume pricing |
+| `breite_cm` | FLOAT | For volume pricing |
+| `hoehe_cm` | FLOAT | For volume pricing |
+| `calculated_price` | FLOAT | Frozen at save time |
+| `created_at` | DATETIME | Auto |
+
+### `locations`
+
+Top-level catalog grouping.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `name` | TEXT UNIQUE | Location name |
+
+### `material_kategorie`
+
+Category with pricing model and unit.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `location_id` | INTEGER FK | → `locations.id` |
+| `name` | TEXT | Category name |
+| `preismodell` | TEXT | `per_gram` / `per_volume_cm3` / `per_unit` |
+| `einheit` | TEXT | Display unit |
+
+### `material_variante`
+
+Concrete priced variant.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `kategorie_id` | INTEGER FK | → `material_kategorie.id` |
+| `name` | TEXT | Variant name |
+| `preis_pro_einheit` | FLOAT | Price per unit (€) |
+
+## Key relationships
+
+```mermaid
+flowchart LR
+    T["rfid_tags\n(uid)"] -->|"app-level\nuid match"| L["laufzettel\n(uid, date)"]
+    L --> LM["laufzettel_material"]
+    MV["material_variante"] -->|"optional FK\nvariante_id"| LM
+    MK["material_kategorie"] --> MV
+    LOC["locations"] --> MK
+```
+
+> **No hard FK from laufzettel → rfid_tags.** The relation uses `uid` as a shared key managed at the application level. This allows Laufzettel entries to exist for unregistered UIDs (e.g. manual creation).
+
+## Migration approach
+
+The project uses SQLAlchemy `create_all()` for initial schema creation, plus startup migration logic in `_run_migrations()` in `main.py` for adding columns to existing tables. This is lightweight and avoids a full migration tool for now.
+
+If schema changes become frequent, adding **Alembic** is the recommended next step. See [Extension Guide](./12-extension-guide.md).

@@ -1,99 +1,119 @@
 # GroundControl Overview
 
-MakerPi GroundControl is the central web and database system for managing MQTT-connected workshop devices, RFID tags, Laufzettel entries, and material tracking.
+MakerPi GroundControl is the central web and database system for managing MQTT-connected workshop devices, RFID tags, Laufzettel (usage records), and material tracking.
 
-## What the system does
+## How the system fits together
 
-At a high level, the system connects four areas:
-
-- **Workshop devices** publish MQTT messages
-- **GroundControl backend** receives and stores those messages
-- **SQLite database** keeps the persistent state and history
-- **Web UI** lets operators manage devices, tags, Laufzettel, and the material catalog
+```mermaid
+graph LR
+    subgraph Workshop
+        D1["🖥 Pico W #1\n(NFC reader)"]
+        D2["🖥 Pico W #2\n(Sensor node)"]
+    end
+    subgraph Server["Raspberry Pi / Server"]
+        MB["Mosquitto\nBroker :1883"]
+        GC["GroundControl\nFastAPI :8000"]
+        DB["SQLite DB\ngroundcontrol.db"]
+        DOCS["Docs Site\nFastAPI :8001"]
+    end
+    subgraph Operator
+        UI["🌐 Web Browser"]
+    end
+    D1 & D2 -->|"MQTT publish"| MB
+    MB -->|"paho-mqtt subscribe"| GC
+    GC <-->|"SQLAlchemy"| DB
+    GC -->|"HTML/JSON"| UI
+    DOCS -->|"Markdown"| UI
+```
 
 ## Main user-facing concepts
 
 ### Devices
 
-A device is typically a Pico W or another MQTT-speaking node that publishes status or operational data. Devices are discovered automatically from MQTT topics and shown in the dashboard.
+A device is a Pico W or any MQTT-speaking node that publishes status or sensor data. Devices are discovered automatically from MQTT topics and shown in the dashboard.
 
 ### RFID Tags
 
-Registered RFID tags represent card holders or workshop users.
+A registered RFID tag represents a cardholder or workshop user.
 
-Each tag can store:
-
-- owner name
-- member ID
-- notes
-- active/inactive state
+| Field | Description |
+|---|---|
+| `uid` | Hardware UID from the NFC card |
+| `owner_name` | Human name of the card holder |
+| `member_id` | Workshop member number |
+| `active` | Whether scans are accepted |
+| `notes` | Free-text notes |
 
 ### Laufzettel
 
-A Laufzettel is a day-specific usage record for a tag holder.
+A **Laufzettel** is a day-specific usage record. One is created automatically the first time a known tag scans in on a given day.
 
-A Laufzettel can contain:
-
-- date
-- start time
-- owner name
-- member ID
-- nodes/devices where the tag was used
-- material entries
-
-Laufzettel can be:
-
-- created automatically on first NFC use of the day
-- created manually from the web UI
+| Field | Description |
+|---|---|
+| `uid` | Tag UID |
+| `date` | Usage date |
+| `start` | First scan time |
+| `owner_name` | Copied from tag at time of scan |
+| `member_id` | Copied from tag at time of scan |
+| `nodes` | List of devices/stations visited |
 
 ### Material entries
 
-Material can be added to a Laufzettel either:
+Material is recorded on a Laufzettel in two modes:
 
-- as free text
-- from the material catalog
-
-Catalog-based entries can calculate a price automatically.
+| Mode | When to use |
+|---|---|
+| **Freitext** | Quick one-off entry, no catalog needed |
+| **Aus Katalog** | Catalog-backed entry with automatic price calculation |
 
 ### Material catalog
 
-The material catalog is organized like this:
-
-- **Location**
-- **Category**
-- **Variant**
-
-Examples:
-
-- `Töpferei` → `Ton` → `fein`
-- `Holz-Werkstatt` → `Holz` → `Eiche`
-- `FabLab` → future categories and variants
+```mermaid
+graph TD
+    L["📍 Location\ne.g. Töpferei"] --> K["🗂 Kategorie\ne.g. Ton"]
+    K --> V1["🔷 Variante: fein\n0.05 €/g"]
+    K --> V2["🔷 Variante: grob\n0.03 €/g"]
+    L2["📍 Holz-Werkstatt"] --> K2["🗂 Holz"]
+    K2 --> V3["🔷 Eiche\n0.12 €/cm³"]
+    K2 --> V4["🔷 Esche\n0.09 €/cm³"]
+```
 
 ## Typical operator workflow
 
-1. Open the dashboard and verify devices are online
-2. Register RFID tags on the Tags page
-3. Let devices create Laufzettel automatically, or create them manually
-4. Review the Laufzettel entry
-5. Add material either manually or via catalog selection
-6. Use the Katalog page to maintain priceable material definitions
+```mermaid
+flowchart LR
+    A["Open Dashboard\n/ "] --> B["Check devices\nare online"]
+    B --> C["Register tags\n/tags"]
+    C --> D["Tag used in\nworkshop"]
+    D -->|"automatic"| E["Laufzettel\ncreated"]
+    D -->|"manual fallback"| E
+    E --> F["Review & edit\n/laufzettel/id"]
+    F --> G["Add material\n(Freitext or Katalog)"]
+    G --> H["Done ✓"]
+```
 
 ## Important pages
 
-- `/` — dashboard
-- `/database` — database statistics and message browsing
-- `/tags` — RFID tag administration
-- `/laufzettel` — Laufzettel list and manual creation
-- `/laufzettel/{id}` — Laufzettel detail and material editing
-- `/katalog` — material catalog management
+| URL | Purpose |
+|---|---|
+| `/` | Dashboard — device status, recent messages |
+| `/database` | Message history and DB statistics |
+| `/tags` | RFID tag administration |
+| `/laufzettel` | Laufzettel list and manual creation |
+| `/laufzettel/{id}` | Laufzettel detail and material editing |
+| `/katalog` | Material catalog management |
 
-## Important ports
+## Ports at a glance
 
-- **Main app**: `8000`
-- **Docs app**: `8001`
+| Service | Port | URL |
+|---|---|---|
+| Main app | 8000 | `http://localhost:8000` |
+| Docs site | 8001 | `http://localhost:8001` |
+| MQTT broker | 1883 | `localhost:1883` |
+| Zigbee2MQTT (Pi only) | 8090 | `http://localhost:8090` |
 
 ## Where to go next
 
-- Read [Quickstart](./01-quickstart.md)
-- Read [Web UI Guide](./02-web-ui.md)
-- Read [Tags and Laufzettel](./03-tags-and-laufzettel.md)
+- [Quickstart](./01-quickstart.md) — get running in 2 minutes
+- [Web UI Guide](./02-web-ui.md) — what each page does
+- [Tags and Laufzettel](./03-tags-and-laufzettel.md) — core user workflow in detail

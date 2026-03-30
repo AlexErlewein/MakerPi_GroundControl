@@ -1,85 +1,105 @@
 # Tags and Laufzettel
 
-This page explains how RFID tags and Laufzettel work together.
+This page explains how RFID tags and Laufzettel work together — the core of the daily workshop workflow.
 
 ## Registered tags
 
-A registered RFID tag lives in the `rfid_tags` table.
+A registered RFID tag lives in the `rfid_tags` table and represents a known cardholder.
 
-Important fields:
+| Field | Type | Description |
+|---|---|---|
+| `uid` | string | Hardware UID from the NFC card (e.g. `04AABBCCDD`) |
+| `owner_name` | string | Human name of the cardholder |
+| `member_id` | string | Workshop member number |
+| `active` | boolean | If false, scans are logged but not acted on |
+| `notes` | text | Free-text notes |
+| `created_at` | datetime | When the tag was registered |
 
-- `uid`
-- `owner_name`
-- `member_id`
-- `active`
-- `notes`
+> **Note:** Tags are not created automatically. An operator must register a tag via the `/tags` page before it triggers Laufzettel creation.
 
-A tag represents a known user/cardholder.
+## Automatic Laufzettel creation (NFC scan flow)
 
-## Recent scans
+When a device sends an NFC payload via MQTT, the backend runs through this sequence:
 
-Whenever a device sends an NFC-related MQTT message, the backend can:
+```mermaid
+sequenceDiagram
+    participant D as Workshop Device
+    participant B as MQTT Broker
+    participant GC as GroundControl Backend
+    participant DB as SQLite DB
 
-- store a raw scan event in `tag_scans`
-- match the UID against `rfid_tags`
-- mark the event as validated or unknown
+    D->>B: publish {uid, device_id} to<br/>{device_id}/nfc or similar
+    B->>GC: on_message callback
+    GC->>DB: store raw scan in tag_scans
+    GC->>DB: look up rfid_tags WHERE uid = ?
+    DB-->>GC: tag record (or not found)
+    alt Tag is registered and active
+        GC->>DB: get or create Laufzettel<br/>WHERE uid = ? AND date = today
+        GC->>DB: append device_id to nodes
+        GC->>B: publish user info to display topic
+    else Tag unknown or inactive
+        GC->>DB: mark scan as unvalidated
+    end
+```
 
-## Automatic Laufzettel creation
+### Important behaviors
 
-When a known tag is used for the first time on a given day, the backend creates a new Laufzettel for that `uid + date` combination.
-
-Important behavior:
-
-- only one Laufzettel per `uid` and `date`
-- the first use sets `start`
-- the device/node is added to the `nodes` list
-- owner name and member ID are copied into the Laufzettel
+- Only **one** Laufzettel per `uid + date` combination is ever created
+- The first scan of the day sets the `start` time
+- `owner_name` and `member_id` are **copied from the tag** into the Laufzettel at creation time
+- If the tag's owner name is updated later, the historical Laufzettel keeps the old value — by design
 
 ## Manual Laufzettel creation
 
-The web UI also supports manual creation.
+The `/laufzettel` page has a **Neuer Laufzettel** button. Useful when:
 
-This is useful when:
+- A scan did not happen but usage must still be recorded
+- An operator needs to backfill an entry
+- Testing or administrative corrections
 
-- a usage record must be entered after the fact
-- an MQTT/NFC scan did not happen
-- an operator wants to prepare the entry manually
+When creating manually and the entered UID is already registered, the form auto-fills `owner_name` and `member_id` from the tag record.
 
-The UI can auto-fill owner/member data if the UID is already registered.
+## Laufzettel fields reference
 
-## Laufzettel fields
-
-A Laufzettel typically contains:
-
-- `uid`
-- `date`
-- `start`
-- `owner_name`
-- `member_id`
-- `nodes`
+| Field | Type | Set by |
+|---|---|---|
+| `uid` | string | Scan event or manual entry |
+| `date` | date | Auto: today / Manual: operator picks |
+| `start` | string | First scan time (HH:MM) |
+| `owner_name` | string | Copied from tag at creation |
+| `member_id` | string | Copied from tag at creation |
+| `nodes` | JSON list | Appended per scan device |
+| `created_at` | datetime | Auto |
 
 ## Material on a Laufzettel
 
-A Laufzettel can contain many material entries.
+A Laufzettel can carry many material entries. Each entry has two possible origins:
 
-There are two modes:
+```mermaid
+flowchart LR
+    M["Add Material\nto Laufzettel"] --> Mode{"Mode?"}
+    Mode -->|Freitext| FT["Name + Menge\n(free text)"]
+    Mode -->|Katalog| CAT["Location →\nKategorie →\nVariante"]
+    CAT --> PRICE["Auto-calculate\nprice"]
+    PRICE --> STORE["Store calculated_price\n(historical snapshot)"]
+    FT --> STORE2["Store name + menge\n(no price)"]
+```
 
-### Free-text material
+### Material entry fields
 
-Use this when:
-
-- the material is unusual
-- no catalog entry exists yet
-- you only want to document usage quickly
-
-### Catalog-based material
-
-Use this when:
-
-- the price should be calculated automatically
-- the material belongs to a managed location/category/variant
-- the workshop wants consistent naming and pricing
+| Field | Free-text | Catalog-based |
+|---|---|---|
+| `name` | Required | From variant name |
+| `menge` | Optional | Set by operator |
+| `unit` | Optional | From category unit |
+| `variante_id` | — | Required (FK) |
+| `laenge_cm` | — | For volume pricing |
+| `breite_cm` | — | For volume pricing |
+| `hoehe_cm` | — | For volume pricing |
+| `calculated_price` | — | Auto-computed |
 
 ## Why data is copied into the Laufzettel
 
-Even if a tag later changes owner name or member ID, the Laufzettel keeps the historical values stored at the time of use. This makes the usage record more stable and auditable.
+The system intentionally copies `owner_name` and `member_id` from the tag at scan time rather than storing only the UID reference. This preserves **historical truth** — even if a card is reassigned later, past records remain accurate and auditable.
+
+The same principle applies to `calculated_price` on material entries: the price is stored at the time of entry, not recalculated on every view.

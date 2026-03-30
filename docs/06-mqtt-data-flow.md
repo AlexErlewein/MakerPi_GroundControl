@@ -1,80 +1,133 @@
 # MQTT Data Flow
 
-This page explains how MQTT data enters and leaves GroundControl.
+This page explains how MQTT data enters and leaves GroundControl, and what the backend does with each message type.
 
-## Incoming device messages
+## Topic conventions
 
-Devices publish to topics such as:
+Devices publish to topics with the following patterns:
 
-- `<device-id>/status`
-- `<device-id>/data`
-- `<device-id>/temp`
-- `<device-id>/humidity`
-- `<device-id>/alert`
+| Pattern | Purpose |
+|---|---|
+| `{device_id}/status` | Online/offline heartbeat |
+| `{device_id}/data` | Generic sensor payload |
+| `{device_id}/temp` | Temperature reading |
+| `{device_id}/humidity` | Humidity reading |
+| `{device_id}/alert` | Alert or threshold trigger |
+| `{device_id}/nfc` | NFC / RFID scan event |
+| `{device_id}/material` | Material usage report |
 
-The backend stores raw messages in `mqtt_messages` and updates device state in `devices`.
+> All incoming topics are stored in `mqtt_messages` regardless of type. Topic-specific logic runs on top of that.
 
-## NFC / tag flow
+## Incoming message flow
 
-A device publishes an NFC-related payload.
+```mermaid
+flowchart TD
+    PUB["Device publishes\nMQTT message"] --> CB["on_message callback\nin MQTTHandler"]
+    CB --> STORE["Store raw message\nin mqtt_messages"]
+    CB --> PARSE["Parse topic + payload"]
+    PARSE --> DTYPE{"Topic type?"}
 
-The backend then:
-
-1. parses the payload
-2. extracts the UID
-3. checks if the UID is a registered tag
-4. stores a scan event in `tag_scans`
-5. creates or updates a Laufzettel for that day
-6. appends the device ID to the Laufzettel `nodes`
-
-## Material flow
-
-Material entries can arrive through MQTT as well.
-
-Current expected topic pattern:
-
-```text
-{device_id}/material
+    DTYPE -->|"status / data / sensor"| DEV["Update device record\nin devices table"]
+    DTYPE -->|"nfc / tag scan"| NFC["NFC flow\n(see below)"]
+    DTYPE -->|"material"| MAT["Material flow\n(see below)"]
+    DTYPE -->|"unknown"| LOG["Log + ignore"]
 ```
 
-Expected JSON payload shape:
+## NFC scan sequence
+
+```mermaid
+sequenceDiagram
+    participant D as Device
+    participant GC as Backend
+    participant DB as SQLite
+
+    D->>GC: {uid, device_id, ...} on {device_id}/nfc
+    GC->>DB: INSERT tag_scans (uid, device_id, timestamp)
+    GC->>DB: SELECT * FROM rfid_tags WHERE uid = ?
+    alt Tag found and active
+        GC->>DB: SELECT * FROM laufzettel WHERE uid=? AND date=today
+        alt No Laufzettel yet today
+            GC->>DB: INSERT laufzettel (uid, date, owner_name, ...)
+        end
+        GC->>DB: UPDATE laufzettel SET nodes = nodes + [device_id]
+        GC->>D: publish user info to {device_id}/user_info
+    else Tag not found
+        GC->>DB: UPDATE tag_scans SET validated = false
+    end
+```
+
+## Material MQTT flow
+
+Devices can report material usage directly over MQTT (alternative to manual UI entry).
+
+**Expected topic:** `{device_id}/material`
+
+**Expected payload:**
 
 ```json
 {
   "uid": "04AABBCCDD",
   "name": "PLA",
-  "menge": 100
+  "menge": 65,
+  "unit": "g"
 }
 ```
 
-The backend tries to associate the material with the correct daily Laufzettel for the given UID.
+The backend:
 
-## Outgoing MQTT messages
+1. Extracts `uid` from the payload
+2. Finds today's Laufzettel for that UID
+3. Creates a free-text material entry attached to it
 
-The backend can also publish to devices.
+## Outgoing messages (backend → device)
 
-Examples:
+The backend can publish to devices too:
 
-- device commands
-- user/tag info for displays
+| Topic | Trigger | Payload |
+|---|---|---|
+| `{device_id}/user_info` | After NFC scan of known tag | `{owner_name, member_id, uid}` |
+| `{device_id}/command` | Manual command from UI | Custom JSON |
 
-One recent example in the codebase is publishing user info to a display-oriented topic after NFC processing.
+## Message storage
+
+Every incoming MQTT message is stored in `mqtt_messages`:
+
+| Field | Description |
+|---|---|
+| `topic` | Full MQTT topic string |
+| `payload` | Raw string payload |
+| `timestamp` | Server receive time (UTC) |
+| `device_id` | Extracted from topic prefix |
+
+This gives a full audit trail for debugging and review.
 
 ## Error handling
 
-Common failure cases:
+| Situation | Behavior |
+|---|---|
+| Invalid JSON payload | Log error, skip processing |
+| Unknown UID | Store scan, mark as unvalidated |
+| Missing `uid` in material msg | Log warning, skip |
+| MQTT broker unreachable | App starts, MQTT reconnects on retry |
+| Duplicate Laufzettel | `UNIQUE(uid, date)` constraint prevents double-creation |
 
-- invalid JSON payloads
-- unknown tags
-- missing fields in material messages
-- MQTT broker unavailable
+## Local debugging
 
-In those cases, the backend logs the event and may skip follow-up actions.
-
-## Debugging tip
-
-To inspect MQTT traffic locally:
+Subscribe to all topics to watch live traffic:
 
 ```bash
 mosquitto_sub -h localhost -t "#" -v
+```
+
+Subscribe to a specific device:
+
+```bash
+mosquitto_sub -h localhost -t "my-device/#" -v
+```
+
+Publish a test NFC scan manually:
+
+```bash
+mosquitto_pub -h localhost -t "my-device/nfc" \
+  -m '{"uid":"04AABBCCDD","device_id":"my-device"}'
 ```
