@@ -189,6 +189,23 @@
     cursor: not-allowed;
 }
 
+/* Location separator row in material table */
+.location-separator td {
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.location-separator span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 /* Price column in material table */
 .price-col {
     font-family: monospace;

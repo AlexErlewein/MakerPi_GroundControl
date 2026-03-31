@@ -49,20 +49,35 @@ function renderNodes() {
 
 function renderMaterial() {
     const tbody = document.getElementById("material-body");
-    const mats = currentData.material || [];
+    const mats = [...(currentData.material || [])];
     if (mats.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty">No material entries yet.</td></tr>';
         return;
     }
-    tbody.innerHTML = mats
-        .map((m, i) => {
-            const mengeCell = buildMengeDisplay(m);
-            const priceCell = m.calculated_price != null
-                ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>`
-                : '<span style="color:var(--text-secondary)">-</span>';
-            return `
+    mats.sort((a, b) => {
+        const locA = getLocationForVariante(a.variante_id) || "\uffff";
+        const locB = getLocationForVariante(b.variante_id) || "\uffff";
+        return locA.localeCompare(locB) || a.name.localeCompare(b.name);
+    });
+    let rowIndex = 0;
+    let lastLocation = undefined;
+    const rows = [];
+    for (const m of mats) {
+        const location = getLocationForVariante(m.variante_id);
+        const locKey = location || null;
+        if (locKey !== lastLocation) {
+            const label = location ? esc(location) : "Freitext";
+            rows.push(`<tr class="location-separator"><td colspan="6"><span>${label}</span></td></tr>`);
+            lastLocation = locKey;
+        }
+        rowIndex++;
+        const mengeCell = buildMengeDisplay(m);
+        const priceCell = m.calculated_price != null
+            ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>`
+            : '<span style="color:var(--text-secondary)">-</span>';
+        rows.push(`
         <tr>
-            <td>${i + 1}</td>
+            <td>${rowIndex}</td>
             <td>${esc(m.name)}</td>
             <td>${mengeCell}</td>
             <td>${esc(m.unit || "-")}</td>
@@ -71,9 +86,9 @@ function renderMaterial() {
                 <button class="btn btn-sm btn-secondary" onclick="openEditMaterial(${m.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteMaterial(${m.id})">Löschen</button>
             </td>
-        </tr>`;
-        })
-        .join("");
+        </tr>`);
+    }
+    tbody.innerHTML = rows.join("");
 }
 
 function buildMengeDisplay(m) {
@@ -82,6 +97,18 @@ function buildMengeDisplay(m) {
         return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
     }
     return m.menge != null ? String(m.menge) : "-";
+}
+
+function getLocationForVariante(varianteId) {
+    if (!varianteId) return null;
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const v of (kat.varianten || [])) {
+                if (v.id === varianteId) return loc.name;
+            }
+        }
+    }
+    return null;
 }
 
 function esc(str) {
