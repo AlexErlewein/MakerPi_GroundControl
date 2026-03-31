@@ -4,6 +4,7 @@ const PRICING_LABELS = {
     per_gram: "pro gr",
     per_volume_cm3: "pro cm³",
     per_volume_l: "pro Liter",
+    per_minute: "pro Minute",
     per_unit: "pro Stück",
 };
 
@@ -240,6 +241,7 @@ function getPriceHint(pricingModel, unit) {
     if (pricingModel === "per_gram") return "€ pro Gramm";
     if (pricingModel === "per_volume_cm3") return "€ pro cm³";
     if (pricingModel === "per_volume_l") return "€ pro Liter";
+    if (pricingModel === "per_minute") return "€ pro Minute";
     return unit ? `€ pro ${unit}` : "€ pro Einheit";
 }
 
