@@ -111,7 +111,12 @@
 .varianten-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
+
+.varianten-table th:nth-child(1) { width: 50%; }
+.varianten-table th:nth-child(2) { width: 25%; }
+.varianten-table th:nth-child(3) { width: 25%; }
 
 .varianten-table th {
     background: var(--bg-secondary);
