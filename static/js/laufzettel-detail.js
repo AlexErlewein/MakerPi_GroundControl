@@ -256,8 +256,9 @@ function onKatVarianteChange() {
 }
 
 function showKatInputFields(pricingModel, unit) {
+    const isVolume = pricingModel === "per_volume_cm3" || pricingModel === "per_volume_l";
     document.getElementById("kat-fields-gram").classList.toggle("hidden", pricingModel !== "per_gram");
-    document.getElementById("kat-fields-volume").classList.toggle("hidden", pricingModel !== "per_volume_cm3");
+    document.getElementById("kat-fields-volume").classList.toggle("hidden", !isVolume);
     document.getElementById("kat-fields-unit").classList.toggle("hidden", pricingModel !== "per_unit");
     const unitLabel = unit ? `(${unit})` : "";
     document.getElementById("kat-gram-label").textContent = unitLabel;
@@ -289,6 +290,13 @@ function recalcPrice() {
         const h = parseFloat(document.getElementById("kat-hoehe").value);
         if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
             price = l * b * h * selectedVariante.price;
+        }
+    } else if (pm === "per_volume_l") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000) * selectedVariante.price;
         }
     } else {
         const menge = parseFloat(document.getElementById("kat-menge-unit").value);
@@ -356,6 +364,15 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
             body.breite_cm = b;
             body.hoehe_cm = h;
             body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+        } else if (pm === "per_volume_l") {
+            const l = parseFloat(document.getElementById("kat-laenge").value);
+            const b = parseFloat(document.getElementById("kat-breite").value);
+            const h = parseFloat(document.getElementById("kat-hoehe").value);
+            if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+            body.laenge_cm = l;
+            body.breite_cm = b;
+            body.hoehe_cm = h;
+            body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
         } else {
             const menge = parseFloat(document.getElementById("kat-menge-unit").value);
             if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }

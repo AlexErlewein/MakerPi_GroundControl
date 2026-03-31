@@ -71,11 +71,12 @@ flowchart LR
 
 ### Model comparison table
 
-| Model | Inputs required | Use case |
-|---|---|---|
-| `per_gram` | Menge (g) | Clay, filament, powder, resin |
-| `per_volume_cm3` | Length, width, height (cm) | Wood, foam, sheet materials |
-| `per_unit` | Count | Small parts, hardware, kits |
+| Model | Inputs required | Formula | Use case |
+|---|---|---|---|
+| `per_gram` | Menge (g) | `menge × price` | Clay, filament, powder, resin |
+| `per_volume_cm3` | Length, width, height (cm) | `l × b × h × price` | Wood, foam, sheet materials |
+| `per_volume_l` | Length, width, height (cm) | `l × b × h / 1000 × price` | Liquids (resin baths, oils) |
+| `per_unit` | Count | `menge × price` | Small parts, hardware, kits |
 
 ## Practical examples
 

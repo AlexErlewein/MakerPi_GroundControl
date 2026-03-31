@@ -3,6 +3,7 @@ let katalog = [];
 const PRICING_LABELS = {
     per_gram: "pro g",
     per_volume_cm3: "pro cm³",
+    per_volume_l: "pro Liter",
     per_unit: "pro Stück",
 };
 
@@ -238,6 +239,7 @@ function openEditVariante(varId, kategorieId, pricingModel, unit) {
 function getPriceHint(pricingModel, unit) {
     if (pricingModel === "per_gram") return "€ pro Gramm";
     if (pricingModel === "per_volume_cm3") return "€ pro cm³";
+    if (pricingModel === "per_volume_l") return "€ pro Liter";
     return unit ? `€ pro ${unit}` : "€ pro Einheit";
 }
 
