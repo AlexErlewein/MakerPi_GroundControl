@@ -46,15 +46,17 @@
             </section>
 
             <section class="section">
-                <div class="section-header">
+                <div class="laufzettel-toolbar">
                     <h2>Laufzettel Entries</h2>
                     <button id="new-laufzettel-btn" class="btn btn-success">+ Neuer Laufzettel</button>
-                </div>
-                <div class="filter-bar">
-                    <input type="text" id="filter-name" placeholder="Filter by name or UID...">
-                    <input type="date" id="filter-date" placeholder="Filter by date">
-                    <button id="filter-btn" class="btn btn-secondary">Filter</button>
-                    <button id="clear-btn" class="btn btn-secondary">Clear</button>
+                    <div class="filter-inputs">
+                        <input type="text" id="filter-name" placeholder="Filter by name or UID...">
+                        <input type="date" id="filter-date">
+                    </div>
+                    <div class="filter-bar-row">
+                        <button id="filter-btn" class="btn btn-primary">Filter</button>
+                        <button id="clear-btn" class="btn btn-secondary">Clear</button>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table id="laufzettel-table">
