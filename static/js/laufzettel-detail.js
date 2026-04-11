@@ -63,7 +63,7 @@ function renderMaterial() {
     const tbody = document.getElementById("material-body");
     const mats = [...(currentData.material || [])];
     if (mats.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No material entries yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No material entries yet.</td></tr>';
         return;
     }
     mats.sort((a, b) => {
@@ -79,7 +79,7 @@ function renderMaterial() {
         const locKey = location || null;
         if (locKey !== lastLocation) {
             const label = location ? esc(location) : "Freitext";
-            rows.push(`<tr class="location-separator"><td colspan="6"><span>${label}</span></td></tr>`);
+            rows.push(`<tr class="location-separator"><td colspan="7"><span>${label}</span></td></tr>`);
             lastLocation = locKey;
         }
         rowIndex++;
@@ -93,6 +93,7 @@ function renderMaterial() {
             <td>${esc(m.name)}</td>
             <td>${mengeCell}</td>
             <td>${esc(m.unit || "-")}</td>
+            <td style="color:var(--text-secondary);font-size:0.85rem;white-space:nowrap;">${getUnitPriceLabel(m.variante_id) || "-"}</td>
             <td>${priceCell}</td>
             <td class="actions">
                 <button class="btn btn-sm btn-secondary" onclick="openEditMaterial(${m.id})">Bearbeiten</button>
@@ -119,6 +120,31 @@ function buildMengeDisplay(m) {
         return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
     }
     return m.menge != null ? String(m.menge) : "-";
+}
+
+function getKatAndVariante(varianteId) {
+    if (!varianteId) return null;
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const v of (kat.varianten || [])) {
+                if (v.id === varianteId) return { kat, variante: v };
+            }
+        }
+    }
+    return null;
+}
+
+function getUnitPriceLabel(varianteId) {
+    const found = getKatAndVariante(varianteId);
+    if (!found) return null;
+    const { kat, variante } = found;
+    const pm = kat.pricing_model;
+    const suffix = pm === "per_gram" ? "/gr"
+        : pm === "per_volume_cm3" ? "/cm³"
+        : pm === "per_volume_l" ? "/L"
+        : pm === "per_minute" ? "/min"
+        : `/${kat.unit || "Stück"}`;
+    return `${variante.price.toFixed(2)} €${suffix}`;
 }
 
 function getLocationForVariante(varianteId) {

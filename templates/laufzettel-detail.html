@@ -112,16 +112,17 @@
                                 <th>Name</th>
                                 <th>Menge / Maße</th>
                                 <th>Einheit</th>
+                                <th>Preis/Einheit</th>
                                 <th>Preis (€)</th>
                                 <th>Aktionen</th>
                             </tr>
                         </thead>
                         <tbody id="material-body">
-                            <tr><td colspan="6" class="empty">No material entries yet.</td></tr>
+                            <tr><td colspan="7" class="empty">No material entries yet.</td></tr>
                         </tbody>
                         <tfoot id="material-total" class="hidden">
                             <tr>
-                                <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
+                                <td colspan="5" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
                                 <td id="material-total-value" style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;"></td>
                                 <td></td>
                             </tr>
@@ -255,6 +256,6 @@
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="/static/js/laufzettel-detail.js?v=5"></script>
+    <script src="/static/js/laufzettel-detail.js?v=6"></script>
 </body>
 </html>
