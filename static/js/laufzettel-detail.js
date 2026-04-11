@@ -89,6 +89,16 @@ function renderMaterial() {
         </tr>`);
     }
     tbody.innerHTML = rows.join("");
+
+    const total = mats.reduce((sum, m) => sum + (m.calculated_price ?? 0), 0);
+    const hasAnyPrice = mats.some((m) => m.calculated_price != null);
+    const tfoot = document.getElementById("material-total");
+    if (hasAnyPrice) {
+        document.getElementById("material-total-value").textContent = `${total.toFixed(2)} €`;
+        tfoot.classList.remove("hidden");
+    } else {
+        tfoot.classList.add("hidden");
+    }
 }
 
 function buildMengeDisplay(m) {
@@ -117,6 +127,111 @@ function esc(str) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+}
+
+function buildMengeText(m) {
+    if (m.laenge_cm != null && m.breite_cm != null && m.hoehe_cm != null) {
+        const vol = m.laenge_cm * m.breite_cm * m.hoehe_cm;
+        return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm (${vol.toFixed(1)} cm³)`;
+    }
+    return m.menge != null ? String(m.menge) : "-";
+}
+
+function downloadPDF() {
+    const d = currentData;
+    const mats = [...(d.material || [])];
+    mats.sort((a, b) => {
+        const locA = getLocationForVariante(a.variante_id) || "\uffff";
+        const locB = getLocationForVariante(b.variante_id) || "\uffff";
+        return locA.localeCompare(locB) || a.name.localeCompare(b.name);
+    });
+
+    let lastLoc = undefined;
+    let rowIndex = 0;
+    let total = 0;
+    let hasPrice = false;
+    let materialRows = "";
+
+    for (const m of mats) {
+        const location = getLocationForVariante(m.variante_id);
+        const locKey = location || null;
+        if (locKey !== lastLoc) {
+            const label = location || "Freitext";
+            materialRows += `<tr style="background:#e8f0fe;">
+                <td colspan="5" style="padding:5px 10px;font-size:10px;font-weight:700;color:#1a56db;text-transform:uppercase;letter-spacing:0.05em;">${label}</td>
+            </tr>`;
+            lastLoc = locKey;
+        }
+        rowIndex++;
+        const priceText = m.calculated_price != null ? `${m.calculated_price.toFixed(2)} €` : "-";
+        if (m.calculated_price != null) { total += m.calculated_price; hasPrice = true; }
+        materialRows += `<tr style="border-bottom:1px solid #e5e7eb;">
+            <td style="padding:6px 10px;">${rowIndex}</td>
+            <td style="padding:6px 10px;">${m.name || ""}</td>
+            <td style="padding:6px 10px;">${buildMengeText(m)}</td>
+            <td style="padding:6px 10px;">${m.unit || "-"}</td>
+            <td style="padding:6px 10px;font-family:monospace;">${priceText}</td>
+        </tr>`;
+    }
+
+    if (hasPrice) {
+        materialRows += `<tr style="border-top:2px solid #9ca3af;font-weight:700;">
+            <td colspan="4" style="padding:8px 10px;text-align:right;">Gesamt</td>
+            <td style="padding:8px 10px;font-family:monospace;color:#057a55;">${total.toFixed(2)} €</td>
+        </tr>`;
+    }
+
+    const startStr = d.start ? new Date(d.start).toLocaleString("de-DE") : "-";
+    const nodes = (d.nodes || []).join(", ") || "-";
+
+    const content = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#111;padding:24px;">
+        <h1 style="font-size:20px;margin:0 0 4px;">Laufzettel #${d.id}</h1>
+        <p style="margin:0 0 12px;font-size:11px;color:#6b7280;">Erstellt am ${new Date().toLocaleString("de-DE")} · MakerPi GroundControl</p>
+        <hr style="border:none;border-top:1px solid #d1d5db;margin:0 0 14px;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+                <td style="padding:3px 0;color:#6b7280;width:130px;">Name</td>
+                <td style="padding:3px 0;font-weight:600;">${d.owner_name || "-"}</td>
+                <td style="padding:3px 0;color:#6b7280;width:130px;">Member ID</td>
+                <td style="padding:3px 0;font-weight:600;">${d.member_id || "-"}</td>
+            </tr>
+            <tr>
+                <td style="padding:3px 0;color:#6b7280;">Datum</td>
+                <td style="padding:3px 0;">${d.date || "-"}</td>
+                <td style="padding:3px 0;color:#6b7280;">Start</td>
+                <td style="padding:3px 0;">${startStr}</td>
+            </tr>
+            <tr>
+                <td style="padding:3px 0;color:#6b7280;">Tag UID</td>
+                <td style="padding:3px 0;font-family:monospace;">${d.uid || "-"}</td>
+                <td style="padding:3px 0;color:#6b7280;">Nodes</td>
+                <td style="padding:3px 0;">${nodes}</td>
+            </tr>
+        </table>
+        <h2 style="font-size:14px;margin:0 0 8px;">Material</h2>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f3f4f6;border-bottom:2px solid #d1d5db;">
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">#</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">Name</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">Menge / Maße</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">Einheit</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">Preis (€)</th>
+                </tr>
+            </thead>
+            <tbody>${materialRows || `<tr><td colspan="5" style="padding:8px 10px;color:#9ca3af;">Keine Materialeinträge.</td></tr>`}</tbody>
+        </table>
+    </div>`;
+
+    const el = document.createElement("div");
+    el.innerHTML = content;
+    html2pdf().set({
+        margin: [10, 12, 10, 12],
+        filename: `Laufzettel-${d.id}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    }).from(el).save();
 }
 
 // ── Info edit ────────────────────────────────────────────────

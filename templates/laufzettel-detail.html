@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/tags.css">
     <link rel="stylesheet" href="/static/css/laufzettel.css">
-    <link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
+    <link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=3">
 </head>
 <body>
     <div class="container">
@@ -98,7 +98,10 @@
             <section class="section">
                 <div class="section-header">
                     <h2>Material</h2>
-                    <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="downloadPDF()" class="btn btn-secondary btn-sm">⬇ PDF</button>
+                        <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
+                    </div>
                 </div>
 
                 <div class="table-container">
@@ -116,6 +119,13 @@
                         <tbody id="material-body">
                             <tr><td colspan="6" class="empty">No material entries yet.</td></tr>
                         </tbody>
+                        <tfoot id="material-total" class="hidden">
+                            <tr>
+                                <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
+                                <td id="material-total-value" style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;"></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </section>
@@ -244,6 +254,7 @@
     <script>
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
-    <script src="/static/js/laufzettel-detail.js?v=2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/static/js/laufzettel-detail.js?v=4"></script>
 </body>
 </html>
