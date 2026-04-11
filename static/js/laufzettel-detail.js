@@ -4,8 +4,20 @@ let katalog = [];
 let currentMatMode = "freitext";
 let selectedVariante = null;
 let selectedKategorie = null;
+let logoDataUrl = null;
 
 // ── Data loading ─────────────────────────────────────────────
+
+async function loadLogo() {
+    try {
+        const res = await fetch("/graphics/H3ckeLogo.svg");
+        const svg = await res.text();
+        const b64 = btoa(unescape(encodeURIComponent(svg)));
+        logoDataUrl = `data:image/svg+xml;base64,${b64}`;
+    } catch (e) {
+        logoDataUrl = null;
+    }
+}
 
 async function loadDetail() {
     const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`);
@@ -184,9 +196,18 @@ function downloadPDF() {
     const startStr = d.start ? new Date(d.start).toLocaleString("de-DE") : "-";
     const nodes = (d.nodes || []).join(", ") || "-";
 
+    const logoImg = logoDataUrl
+        ? `<img src="${logoDataUrl}" style="height:96px;object-fit:contain;display:block;">`
+        : "";
+
     const content = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#111;padding:24px;">
-        <h1 style="font-size:20px;margin:0 0 4px;">Laufzettel #${d.id}</h1>
-        <p style="margin:0 0 12px;font-size:11px;color:#6b7280;">Erstellt am ${new Date().toLocaleString("de-DE")} · MakerPi GroundControl</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            ${logoImg}
+            <div style="text-align:right;">
+                <div style="font-size:20px;font-weight:700;">Laufzettel #${d.id}</div>
+                <div style="font-size:11px;color:#6b7280;">Erstellt am ${new Date().toLocaleString("de-DE")}</div>
+            </div>
+        </div>
         <hr style="border:none;border-top:1px solid #d1d5db;margin:0 0 14px;">
         <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
             <tr>
@@ -576,3 +597,4 @@ document.getElementById("refresh-btn").addEventListener("click", loadDetail);
 
 loadKatalog();
 loadDetail();
+loadLogo();
