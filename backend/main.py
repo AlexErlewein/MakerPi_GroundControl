@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone, date as date_type
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException, Query
@@ -176,6 +176,31 @@ class LaufzettelMaterial(Base):
             "breite_cm": self.breite_cm,
             "hoehe_cm": self.hoehe_cm,
             "calculated_price": self.calculated_price,
+        }
+
+
+class Mitglied(Base):
+    __tablename__ = "mitglieder"
+
+    id = Column(Integer, primary_key=True, index=True)
+    member_id = Column(String, unique=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    status = Column(String, default="active")  # active | inactive
+    joined_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "member_id": self.member_id,
+            "name": self.name,
+            "email": self.email,
+            "phone": self.phone,
+            "status": self.status,
+            "joined_date": self.joined_date.isoformat() if self.joined_date else None,
+            "notes": self.notes,
         }
 
 
@@ -904,6 +929,26 @@ class MaterialUpdate(BaseModel):
     calculated_price: float = None
 
 
+class MitgliedCreate(BaseModel):
+    member_id: str
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: str = "active"
+    joined_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class MitgliedUpdate(BaseModel):
+    member_id: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    joined_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class LocationCreate(BaseModel):
     name: str
 
@@ -1555,6 +1600,108 @@ async def laufzettel_detail_page(request: Request, laufzettel_id: int):
         return templates.TemplateResponse(
             "laufzettel-detail.html", {"request": request, "laufzettel_id": laufzettel_id}
         )
+    finally:
+        db.close()
+
+
+# ── Mitglieder API ───────────────────────────────────────────────────────────
+
+@app.get("/mitglieder", response_class=HTMLResponse)
+async def mitglieder_page(request: Request):
+    """Render member database page"""
+    return templates.TemplateResponse("mitglieder.html", {"request": request})
+
+
+@app.get("/api/mitglieder")
+async def get_mitglieder(search: str = None, status: str = None):
+    """List all members, optionally filtered"""
+    db: Session = SessionLocal()
+    try:
+        q = db.query(Mitglied)
+        if search:
+            like = f"%{search}%"
+            q = q.filter(
+                (Mitglied.name.ilike(like)) |
+                (Mitglied.member_id.ilike(like)) |
+                (Mitglied.email.ilike(like))
+            )
+        if status:
+            q = q.filter(Mitglied.status == status)
+        return [m.to_dict() for m in q.order_by(Mitglied.name).all()]
+    finally:
+        db.close()
+
+
+@app.post("/api/mitglieder")
+async def create_mitglied(data: MitgliedCreate):
+    """Create a new member"""
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(Mitglied).filter(Mitglied.member_id == data.member_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="member_id already exists")
+        m = Mitglied(
+            member_id=data.member_id,
+            name=data.name,
+            email=data.email,
+            phone=data.phone,
+            status=data.status or "active",
+            joined_date=date_type.fromisoformat(data.joined_date) if data.joined_date else None,
+            notes=data.notes,
+        )
+        db.add(m)
+        db.commit()
+        db.refresh(m)
+        return m.to_dict()
+    finally:
+        db.close()
+
+
+@app.put("/api/mitglieder/{mitglied_id}")
+async def update_mitglied(mitglied_id: int, data: MitgliedUpdate):
+    """Update a member"""
+    db: Session = SessionLocal()
+    try:
+        m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+        if not m:
+            raise HTTPException(status_code=404, detail="Member not found")
+        if data.member_id is not None:
+            clash = db.query(Mitglied).filter(
+                Mitglied.member_id == data.member_id, Mitglied.id != mitglied_id
+            ).first()
+            if clash:
+                raise HTTPException(status_code=400, detail="member_id already exists")
+            m.member_id = data.member_id
+        if data.name is not None:
+            m.name = data.name
+        if data.email is not None:
+            m.email = data.email
+        if data.phone is not None:
+            m.phone = data.phone
+        if data.status is not None:
+            m.status = data.status
+        if data.joined_date is not None:
+            m.joined_date = date_type.fromisoformat(data.joined_date) if data.joined_date else None
+        if data.notes is not None:
+            m.notes = data.notes
+        db.commit()
+        db.refresh(m)
+        return m.to_dict()
+    finally:
+        db.close()
+
+
+@app.delete("/api/mitglieder/{mitglied_id}")
+async def delete_mitglied(mitglied_id: int):
+    """Delete a member"""
+    db: Session = SessionLocal()
+    try:
+        m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+        if not m:
+            raise HTTPException(status_code=404, detail="Member not found")
+        db.delete(m)
+        db.commit()
+        return {"ok": True}
     finally:
         db.close()
 

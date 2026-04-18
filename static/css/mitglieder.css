@@ -1,0 +1,196 @@
+/* Mitglieder page styles */
+
+/* ── Toolbar (same 2×2 grid pattern as laufzettel) ── */
+.mitglieder-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 20px;
+    row-gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.mitglieder-toolbar h2 {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+#new-mitglied-btn {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 10px 20px;
+    font-size: 1rem;
+    background: var(--success);
+    white-space: nowrap;
+}
+
+#new-mitglied-btn:hover {
+    background: #2ea043;
+}
+
+.mitglieder-toolbar .filter-inputs {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    gap: 10px;
+}
+
+.mitglieder-toolbar .filter-bar-row {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    gap: 10px;
+}
+
+.mitglieder-toolbar .filter-inputs input,
+.mitglieder-toolbar .filter-inputs select {
+    flex: 1;
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.mitglieder-toolbar .filter-inputs input:focus,
+.mitglieder-toolbar .filter-inputs select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.mitglieder-toolbar .filter-bar-row .btn {
+    flex: 1;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+}
+
+.mitglieder-toolbar .filter-bar-row .btn:hover {
+    opacity: 0.85;
+}
+
+.mitglieder-toolbar .filter-bar-row .btn.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+/* ── Table badges ── */
+.member-id-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+}
+
+.status-badge.active {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--success);
+}
+
+.status-badge.inactive {
+    background: rgba(139, 148, 158, 0.12);
+    color: var(--text-secondary);
+}
+
+.email-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.email-link:hover {
+    text-decoration: underline;
+}
+
+.empty-cell {
+    color: var(--text-secondary);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group-full {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 9px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-group input[type="date"] {
+    color-scheme: dark;
+}
+
+/* ── Table actions ── */
+.actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 6px;
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+.btn-danger:hover {
+    opacity: 0.85;
+}

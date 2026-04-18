@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitglieder - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/tags.css">
+    <link rel="stylesheet" href="/static/css/mitglieder.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
+                <nav class="nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link">Database</a>
+                    <a href="/tags" class="nav-link">Tags</a>
+                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
+                    <a href="/katalog" class="nav-link">Katalog</a>
+                    <a href="/mitglieder" class="nav-link active">Mitglieder</a>
+                    <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn btn-primary">
+                    <span class="btn-icon">↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <section class="stats">
+                <div class="stat-card">
+                    <h3>Gesamt</h3>
+                    <p class="stat-value" id="total-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Aktiv</h3>
+                    <p class="stat-value" id="active-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Inaktiv</h3>
+                    <p class="stat-value" id="inactive-count">-</p>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="mitglieder-toolbar">
+                    <h2>Mitglieder</h2>
+                    <button id="new-mitglied-btn" class="btn btn-success">+ Neues Mitglied</button>
+                    <div class="filter-inputs">
+                        <input type="text" id="filter-search" placeholder="Name, Member-ID oder E-Mail...">
+                        <select id="filter-status">
+                            <option value="">Alle Status</option>
+                            <option value="active">Aktiv</option>
+                            <option value="inactive">Inaktiv</option>
+                        </select>
+                    </div>
+                    <div class="filter-bar-row">
+                        <button id="filter-btn" class="btn btn-primary">Filter</button>
+                        <button id="clear-btn" class="btn btn-secondary">Zurücksetzen</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="mitglieder-table">
+                        <thead>
+                            <tr>
+                                <th>Member-ID</th>
+                                <th>Name</th>
+                                <th>E-Mail</th>
+                                <th>Telefon</th>
+                                <th>Status</th>
+                                <th>Mitglied seit</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mitglieder-body">
+                            <tr><td colspan="7" class="empty">Lade Mitglieder...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl</p>
+        </footer>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal hidden" id="mitglied-modal">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-box modal-box-wide">
+            <div class="modal-header">
+                <h3 id="modal-title">Neues Mitglied</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <form id="mitglied-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="f-member-id">Member-ID *</label>
+                        <input type="text" id="f-member-id" placeholder="z.B. H001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-name">Name *</label>
+                        <input type="text" id="f-name" placeholder="Vor- und Nachname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-email">E-Mail</label>
+                        <input type="email" id="f-email" placeholder="email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-phone">Telefon</label>
+                        <input type="text" id="f-phone" placeholder="+49 ...">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-status">Status</label>
+                        <select id="f-status">
+                            <option value="active">Aktiv</option>
+                            <option value="inactive">Inaktiv</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-joined">Mitglied seit</label>
+                        <input type="date" id="f-joined">
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="f-notes">Notizen</label>
+                        <textarea id="f-notes" rows="3" placeholder="Optionale Notizen..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-btn" class="btn btn-secondary">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/mitglieder.js?v=1"></script>
+</body>
+</html>

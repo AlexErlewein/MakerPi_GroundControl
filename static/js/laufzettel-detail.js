@@ -87,13 +87,15 @@ function renderMaterial() {
         const priceCell = m.calculated_price != null
             ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>`
             : '<span style="color:var(--text-secondary)">-</span>';
+        const unitPriceLabel = getUnitPriceLabel(m.variante_id)
+            || (m.calculated_price != null && m.menge ? `${(m.calculated_price / m.menge).toFixed(4)} €/${m.unit || "Stk"}` : null);
         rows.push(`
         <tr>
             <td>${rowIndex}</td>
             <td>${esc(m.name)}</td>
             <td>${mengeCell}</td>
             <td>${esc(m.unit || "-")}</td>
-            <td style="color:var(--text-secondary);font-size:0.85rem;white-space:nowrap;">${getUnitPriceLabel(m.variante_id) || "-"}</td>
+            <td style="color:var(--text-secondary);font-size:0.85rem;white-space:nowrap;">${unitPriceLabel || "-"}</td>
             <td>${priceCell}</td>
             <td class="actions">
                 <button class="btn btn-sm btn-secondary" onclick="openEditMaterial(${m.id})">Bearbeiten</button>
@@ -351,6 +353,8 @@ function openAddMaterial() {
     document.getElementById("material-form").reset();
     document.getElementById("edit-material-id").value = "";
     document.getElementById("edit-mat-variante-id").value = "";
+    document.getElementById("field-mat-unit-price").value = "";
+    document.getElementById("field-mat-total-price").value = "";
     setMatMode("freitext");
     document.getElementById("material-modal").classList.remove("hidden");
     document.getElementById("field-mat-name").focus();
@@ -371,6 +375,18 @@ function openEditMaterial(id) {
     document.getElementById("field-mat-name").value = mat.name || "";
     document.getElementById("field-mat-menge").value = mat.menge != null ? mat.menge : "";
     document.getElementById("field-mat-unit").value = mat.unit || "";
+    if (mat.calculated_price != null) {
+        document.getElementById("field-mat-total-price").value = mat.calculated_price;
+        if (mat.menge) {
+            document.getElementById("field-mat-unit-price").value =
+                parseFloat((mat.calculated_price / mat.menge).toFixed(6));
+        } else {
+            document.getElementById("field-mat-unit-price").value = "";
+        }
+    } else {
+        document.getElementById("field-mat-unit-price").value = "";
+        document.getElementById("field-mat-total-price").value = "";
+    }
     document.getElementById("material-modal").classList.remove("hidden");
     document.getElementById("field-mat-name").focus();
 }
@@ -527,10 +543,12 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
     let body = {};
 
     if (currentMatMode === "freitext") {
+        const totalPrice = parseFloat(document.getElementById("field-mat-total-price").value);
         body = {
             name: document.getElementById("field-mat-name").value.trim(),
             menge: parseFloat(document.getElementById("field-mat-menge").value) || null,
             unit: document.getElementById("field-mat-unit").value.trim() || null,
+            calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
         };
     } else {
         // Katalog mode
@@ -614,6 +632,30 @@ async function deleteMaterial(id) {
         alert("Error: " + (err.detail || "Failed to delete material"));
     }
 }
+
+// ── Freitext price auto-calculation ──────────────────────────
+
+function recalcFreitextTotal() {
+    const menge = parseFloat(document.getElementById("field-mat-menge").value);
+    const unitPrice = parseFloat(document.getElementById("field-mat-unit-price").value);
+    if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
+        document.getElementById("field-mat-total-price").value =
+            parseFloat((menge * unitPrice).toFixed(4));
+    }
+}
+
+function recalcFreitextUnitPrice() {
+    const menge = parseFloat(document.getElementById("field-mat-menge").value);
+    const total = parseFloat(document.getElementById("field-mat-total-price").value);
+    if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
+        document.getElementById("field-mat-unit-price").value =
+            parseFloat((total / menge).toFixed(6));
+    }
+}
+
+document.getElementById("field-mat-menge").addEventListener("input", recalcFreitextTotal);
+document.getElementById("field-mat-unit-price").addEventListener("input", recalcFreitextTotal);
+document.getElementById("field-mat-total-price").addEventListener("input", recalcFreitextUnitPrice);
 
 document.getElementById("add-material-btn").addEventListener("click", openAddMaterial);
 document.getElementById("modal-close").addEventListener("click", closeModal);

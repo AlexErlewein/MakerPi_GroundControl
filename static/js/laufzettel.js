@@ -1,5 +1,19 @@
 let allEntries = [];
 let allTags = [];
+let allMitglieder = [];
+
+async function loadMitglieder() {
+    const res = await fetch("/api/mitglieder?status=active");
+    allMitglieder = await res.json();
+    const sel = document.getElementById("new-lz-member-select");
+    sel.innerHTML = '<option value="">— Manuell eingeben —</option>';
+    allMitglieder.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.name} (${m.member_id})`;
+        sel.appendChild(opt);
+    });
+}
 
 async function loadTags() {
     const res = await fetch("/api/tags");
@@ -96,6 +110,7 @@ function openNewLzModal() {
     document.getElementById("new-lz-form").reset();
     document.getElementById("new-lz-tag-hint").textContent = "";
     document.getElementById("new-lz-date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("new-lz-member-select").value = "";
     document.getElementById("new-lz-modal").classList.remove("hidden");
     document.getElementById("new-lz-uid").focus();
 }
@@ -167,5 +182,16 @@ document.getElementById("filter-name").addEventListener("keydown", (e) => {
     if (e.key === "Enter") loadLaufzettel();
 });
 
+document.getElementById("new-lz-member-select").addEventListener("change", () => {
+    const sel = document.getElementById("new-lz-member-select");
+    const id = parseInt(sel.value);
+    if (!id) return;
+    const m = allMitglieder.find((x) => x.id === id);
+    if (!m) return;
+    document.getElementById("new-lz-owner").value = m.name;
+    document.getElementById("new-lz-member-id").value = m.member_id;
+});
+
+loadMitglieder();
 loadTags();
 loadLaufzettel();
