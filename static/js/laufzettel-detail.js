@@ -21,15 +21,20 @@ async function loadLogo() {
 }
 
 async function loadDetail() {
-    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`);
-    if (!res.ok) {
-        document.querySelector("main").innerHTML = '<p style="color:var(--danger);padding:20px;">Laufzettel not found.</p>';
-        return;
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`);
+        if (!res.ok) {
+            document.querySelector("main").innerHTML = '<p style="color:var(--danger);padding:20px;">Laufzettel not found.</p>';
+            return;
+        }
+        currentData = await res.json();
+        renderInfo();
+        renderNodes();
+        renderMaterial();
+    } catch(e) {
+        console.error("loadDetail failed:", e);
+        document.querySelector("main").innerHTML = '<p style="color:var(--danger);padding:20px;">Fehler beim Laden: ' + e.message + '</p>';
     }
-    currentData = await res.json();
-    renderInfo();
-    renderNodes();
-    renderMaterial();
 }
 
 async function loadKatalog() {
@@ -116,7 +121,7 @@ function renderMaterial() {
     }
     tbody.innerHTML = rows.join("");
 
-    const total = mats.reduce((sum, m) => sum + (m.calculated_price ?? 0), 0);
+    const total = mats.reduce((sum, m) => sum + (m.calculated_price != null ? m.calculated_price : 0), 0);
     const hasAnyPrice = mats.some((m) => m.calculated_price != null);
     const tfoot = document.getElementById("material-total");
     if (hasAnyPrice) {
@@ -454,7 +459,7 @@ function onKatKategorieChange() {
 
     if (!katId) return;
     const loc = katalog.find((l) => l.id === locId);
-    const kat = loc?.kategorien?.find((k) => k.id === katId);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
     if (!kat) return;
 
     selectedKategorie = kat;
@@ -468,7 +473,7 @@ function onKatVarianteChange() {
     const varId = parseInt(document.getElementById("kat-select-variante").value);
     hidePricePreview();
     if (!varId || !selectedKategorie) { selectedVariante = null; return; }
-    selectedVariante = selectedKategorie.varianten?.find((v) => v.id === varId) || null;
+    selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
     recalcPrice();
 }
 
@@ -682,8 +687,8 @@ loadPaymentConfig().then(() => loadDetail());
 // ── Payment UI ────────────────────────────────────────────────
 
 function getTotal() {
-    const mats = currentData?.material || [];
-    return mats.reduce((sum, m) => sum + (m.calculated_price ?? 0), 0);
+    const mats = (currentData && currentData.material) ? currentData.material : [];
+    return mats.reduce((sum, m) => sum + (m.calculated_price != null ? m.calculated_price : 0), 0);
 }
 
 function fmtEur(val) {

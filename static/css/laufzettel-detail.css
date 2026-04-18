@@ -363,3 +363,83 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ── Responsive – tablet & mobile ────────────────────────────── */
+
+@media (max-width: 768px) {
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .header-actions .btn {
+        flex: 1;
+        min-width: 120px;
+        min-height: 44px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* Material table: hide less-critical columns (Einheit, Preis/Einheit) */
+    #material-table th:nth-child(4),
+    #material-table td:nth-child(4),
+    #material-table th:nth-child(5),
+    #material-table td:nth-child(5) {
+        display: none;
+    }
+
+    /* Payment buttons stack vertically */
+    .payment-buttons {
+        flex-direction: column;
+    }
+
+    .btn-payment {
+        min-width: unset;
+        width: 100%;
+        padding: 16px;
+        font-size: 1.05rem;
+    }
+
+    /* Payment locked banner */
+    .payment-locked-banner {
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+    }
+
+    .payment-locked-banner #reset-payment-btn {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    /* Modal payment box */
+    .modal-box-payment {
+        max-width: calc(100vw - 24px);
+    }
+
+    .modal-box-wide {
+        max-width: calc(100vw - 24px);
+    }
+
+    .bar-total-amount {
+        font-size: 2.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* On phones also hide the index (#) column */
+    #material-table th:nth-child(1),
+    #material-table td:nth-child(1) {
+        display: none;
+    }
+}

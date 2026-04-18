@@ -135,3 +135,61 @@
 .filter-bar-row .btn:hover {
     opacity: 0.85;
 }
+
+/* Responsive – tablet */
+@media (max-width: 768px) {
+    .laufzettel-toolbar {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+    .laufzettel-toolbar h2 {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #new-laufzettel-btn {
+        grid-column: 1;
+        grid-row: 2;
+        width: 100%;
+    }
+
+    .filter-inputs {
+        grid-column: 1;
+        grid-row: 3;
+        flex-direction: column;
+    }
+
+    .filter-bar-row {
+        grid-column: 1;
+        grid-row: 4;
+    }
+
+    .filter-bar-row .btn {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    /* Hide less critical columns on small screens */
+    #laufzettel-table th:nth-child(4),
+    #laufzettel-table td:nth-child(4),
+    #laufzettel-table th:nth-child(5),
+    #laufzettel-table td:nth-child(5),
+    #laufzettel-table th:nth-child(6),
+    #laufzettel-table td:nth-child(6) {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    /* On phones also hide Member ID */
+    #laufzettel-table th:nth-child(3),
+    #laufzettel-table td:nth-child(3) {
+        display: none;
+    }
+
+    .node-chip {
+        font-size: 0.7rem;
+        padding: 1px 5px;
+    }
+}

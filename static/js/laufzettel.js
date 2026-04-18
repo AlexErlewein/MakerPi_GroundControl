@@ -3,51 +3,59 @@ let allTags = [];
 let allMitglieder = [];
 
 async function loadMitglieder() {
-    const res = await fetch("/api/mitglieder?status=active");
-    allMitglieder = await res.json();
-    const sel = document.getElementById("new-lz-member-select");
-    sel.innerHTML = '<option value="">— Manuell eingeben —</option>';
-    allMitglieder.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = `${m.name} (${m.member_id})`;
-        sel.appendChild(opt);
-    });
+    try {
+        const res = await fetch("/api/mitglieder?status=active");
+        allMitglieder = await res.json();
+        const sel = document.getElementById("new-lz-member-select");
+        sel.innerHTML = '<option value="">— Manuell eingeben —</option>';
+        allMitglieder.forEach((m) => {
+            const opt = document.createElement("option");
+            opt.value = m.id;
+            opt.textContent = m.name + (m.member_id ? " (" + m.member_id + ")" : "");
+            sel.appendChild(opt);
+        });
+    } catch(e) { console.warn("loadMitglieder failed", e); }
 }
 
 async function loadTags() {
-    const res = await fetch("/api/tags");
-    allTags = await res.json();
-    const dl = document.getElementById("uid-suggestions");
-    dl.innerHTML = allTags
-        .map((t) => `<option value="${t.uid}">${t.owner_name}${t.member_id ? " (" + t.member_id + ")" : ""}</option>`)
-        .join("");
+    try {
+        const res = await fetch("/api/tags");
+        allTags = await res.json();
+        const dl = document.getElementById("uid-suggestions");
+        dl.innerHTML = allTags
+            .map(function(t) {
+                return '<option value="' + t.uid + '">' + (t.owner_name || "") + (t.member_id ? " (" + t.member_id + ")" : "") + "</option>";
+            })
+            .join("");
+    } catch(e) { console.warn("loadTags failed", e); }
 }
 
 async function loadLaufzettel() {
-    const uid = document.getElementById("filter-name").value.trim();
-    const date = document.getElementById("filter-date").value;
+    try {
+        const uid = document.getElementById("filter-name").value.trim();
+        const date = document.getElementById("filter-date").value;
 
-    let url = "/api/laufzettel";
-    const params = new URLSearchParams();
-    if (date) params.set("date", date);
-    if (params.toString()) url += "?" + params.toString();
+        let url = "/api/laufzettel";
+        const params = new URLSearchParams();
+        if (date) params.set("date", date);
+        if (params.toString()) url += "?" + params.toString();
 
-    const res = await fetch(url);
-    allEntries = await res.json();
+        const res = await fetch(url);
+        allEntries = await res.json();
 
-    if (uid) {
-        const q = uid.toLowerCase();
-        allEntries = allEntries.filter(
-            (e) =>
-                (e.owner_name || "").toLowerCase().includes(q) ||
-                (e.uid || "").toLowerCase().includes(q) ||
-                (e.member_id || "").toLowerCase().includes(q)
-        );
-    }
+        if (uid) {
+            const q = uid.toLowerCase();
+            allEntries = allEntries.filter(
+                (e) =>
+                    (e.owner_name || "").toLowerCase().includes(q) ||
+                    (e.uid || "").toLowerCase().includes(q) ||
+                    (e.member_id || "").toLowerCase().includes(q)
+            );
+        }
 
-    renderStats();
-    renderTable();
+        renderStats();
+        renderTable();
+    } catch(e) { console.warn("loadLaufzettel failed", e); }
 }
 
 function renderStats() {
@@ -123,7 +131,10 @@ function openNewLzModal() {
     document.getElementById("new-lz-date").value = new Date().toISOString().slice(0, 10);
     document.getElementById("new-lz-member-select").value = "";
     document.getElementById("new-lz-modal").classList.remove("hidden");
-    document.getElementById("new-lz-uid").focus();
+    // Defer focus so Safari has time to make the element interactable
+    setTimeout(function() {
+        try { document.getElementById("new-lz-uid").focus(); } catch(e) {}
+    }, 50);
 }
 
 function closeNewLzModal() {
