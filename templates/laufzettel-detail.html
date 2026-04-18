@@ -270,17 +270,34 @@
         <div id="payment-locked-banner" class="payment-locked-banner hidden">
             <span id="payment-locked-icon">✓</span>
             <span id="payment-locked-text"></span>
+            <button id="reset-payment-btn" class="btn btn-sm btn-danger" onclick="openResetPaymentModal()" style="margin-left:auto;">Zahlung zurücksetzen</button>
         </div>
         <div id="payment-buttons" class="payment-buttons">
             <button id="pay-bar-btn" class="btn btn-payment btn-payment-bar" onclick="openBarModal()">
                 💵 Bar bezahlen
             </button>
-            <button id="pay-paypal-btn" class="btn btn-payment btn-payment-paypal" onclick="openPaypalModal()">
-                🅿 mit PayPal bezahlen
-            </button>
             <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
                 💳 mit Karte bezahlen
             </button>
+        </div>
+    </div>
+
+    <!-- Reset Payment Modal -->
+    <div id="reset-payment-modal" class="modal hidden">
+        <div class="modal-overlay" id="reset-payment-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Zahlung zurücksetzen?</h3>
+                <button class="modal-close" id="reset-payment-close">✕</button>
+            </div>
+            <div class="bar-payment-body" style="text-align:center;padding:1.5rem 1rem;">
+                <p style="font-size:1.1rem;margin-bottom:0.5rem;">⚠️ Diese Aktion setzt den Zahlungsstatus zurück.</p>
+                <p style="color:var(--text-secondary);font-size:0.9rem;">Der Laufzettel wird wieder bearbeitbar. Bitte nur bei Fehleingaben verwenden.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="reset-payment-cancel">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="reset-payment-confirm" onclick="confirmResetPayment()">Ja, Zahlung zurücksetzen</button>
+            </div>
         </div>
     </div>
 
@@ -299,27 +316,6 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="bar-cancel-btn">Abbrechen</button>
                 <button type="button" class="btn btn-success" id="bar-confirm-btn" onclick="confirmBarPayment()">Bezahlt ✓</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- PayPal Modal -->
-    <div id="paypal-modal" class="modal hidden">
-        <div class="modal-overlay" id="paypal-modal-overlay"></div>
-        <div class="modal-box modal-box-payment">
-            <div class="modal-header">
-                <h3>Mit PayPal bezahlen</h3>
-                <button class="modal-close" id="paypal-modal-close">✕</button>
-            </div>
-            <div class="paypal-body">
-                <p class="paypal-hint"><span id="paypal-hint-text">QR-Code scannen um</span> <strong id="paypal-amount-display"></strong> zu bezahlen:</p>
-                <div class="paypal-qr-wrap">
-                    <img id="paypal-qr-img" src="" alt="PayPal QR Code" class="paypal-qr-img">
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" id="paypal-cancel-btn">Abbrechen</button>
-                <button type="button" class="btn btn-success" id="paypal-confirm-btn" onclick="confirmPaypalPayment()">Bezahlt ✓</button>
             </div>
         </div>
     </div>

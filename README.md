@@ -11,6 +11,7 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 - **Data Storage**: SQLite database for message history
 - **Device Tracking**: Automatic device discovery and status tracking
 - **RFID Tag Management**: Register tags, validate scans, view scan history, and register unknown tags directly from scan results
+- **Payment Integration**: Cash and SumUp card reader payment options on Laufzettel
 - **REST API**: Full API for integration with other services
 
 ## Architecture
@@ -71,7 +72,8 @@ MakerPi_GroundControl/
 │   └── docs_app.py          # Separate FastAPI docs website
 ├── config/
 │   ├── mosquitto.conf       # MQTT broker configuration
-│   └── zigbee2mqtt.yaml     # Zigbee2MQTT configuration template
+│   ├── zigbee2mqtt.yaml     # Zigbee2MQTT configuration template
+│   └── config.json          # Local secrets (gitignored — copy from config.json.example)
 ├── docs/
 │   ├── 00-overview.md       # Top-down operator-to-developer documentation
 │   ├── ...
@@ -163,6 +165,9 @@ uv run sqlite_web -H 0.0.0.0 groundcontrol.db  # run DB browser (see below)
 | `/api/database/stats` | GET | Database statistics |
 | `/api/export/devices` | GET | Export devices as CSV |
 | `/api/export/messages` | GET | Export messages as CSV |
+| `/api/payment/config` | GET | Which payment methods are configured |
+| `/api/laufzettel/{id}/pay/bar` | POST | Record cash payment, lock Laufzettel |
+| `/api/laufzettel/{id}/pay/karte` | POST | Send checkout to SumUp reader, lock Laufzettel |
 
 ## MQTT Configuration
 
@@ -361,11 +366,30 @@ When a scan arrives on `{device_id}/tag`, the backend looks up the UID in the `r
 - **Active** — tag is recognised and validated on scan.
 - **Disabled** — tag exists in the registry but will not be validated (treated as unknown).
 
+## Payment Configuration
+
+Copy `config.json.example` to `config/config.json` (gitignored) and fill in your credentials:
+
+```json
+{
+    "sumup_api_key": "sup_sk_...",
+    "sumup_merchant_code": "XXXXXXXX",
+    "sumup_reader_id": "your-reader-id",
+    "sumup_mock": false
+}
+```
+
+All keys can also be set via environment variables (`SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_READER_ID`).
+
+To test without real hardware, set `"sumup_mock": true` — card payments skip the SumUp API and lock the Laufzettel immediately.
+
+See [docs/13-payments.md](docs/13-payments.md) for full details.
+
 ## Requirements
 
 - Raspberry Pi (3B+ or newer recommended)
 - Raspberry Pi OS
-- Python 3.9+
+- Python 3.10+
 - Mosquitto MQTT Broker
 
 ## License

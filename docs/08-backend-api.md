@@ -48,6 +48,16 @@ All API endpoints live in `backend/main.py`. They follow a consistent pattern: o
 | `PUT` | `/api/laufzettel/{id}/material/{mid}` | Update a material entry |
 | `DELETE` | `/api/laufzettel/{id}/material/{mid}` | Delete a material entry |
 
+### Payment
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/payment/config` | Which methods are configured (`sumup_configured`, `sumup_mock`) |
+| `POST` | `/api/laufzettel/{id}/pay/bar` | Record cash payment — locks Laufzettel |
+| `POST` | `/api/laufzettel/{id}/pay/karte` | Send checkout to SumUp reader — locks Laufzettel |
+
+> Both `POST /pay/...` endpoints return `409` if the Laufzettel is already paid.
+
 ### Material catalog
 
 | Method | Path | Description |
@@ -108,7 +118,7 @@ def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
 |---|---|
 | `400` | Bad request (validation failure) |
 | `404` | Resource not found |
-| `409` | Conflict (e.g. duplicate uid) |
+| `409` | Conflict (e.g. duplicate uid, or Laufzettel already paid and locked) |
 | `500` | Unexpected server error |
 
 ## Adding a new endpoint

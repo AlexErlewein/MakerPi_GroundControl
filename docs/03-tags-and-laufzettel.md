@@ -69,6 +69,8 @@ When creating manually and the entered UID is already registered, the form auto-
 | `owner_name` | string | Copied from tag at creation |
 | `member_id` | string | Copied from tag at creation |
 | `nodes` | JSON list | Appended per scan device |
+| `payment_method` | string | Set on payment (`bar` / `paypal` / `karte`) |
+| `paid_at` | datetime | Set on payment (UTC) |
 | `created_at` | datetime | Auto |
 
 ## Material on a Laufzettel
@@ -97,6 +99,21 @@ flowchart LR
 | `breite_cm` | — | For volume pricing |
 | `hoehe_cm` | — | For volume pricing |
 | `calculated_price` | — | Auto-computed |
+
+## Payment flow
+
+Once all material has been added, the detail page shows three payment buttons:
+
+- **Bar bezahlen** — displays the total amount in a large pop-up. Confirm to lock.
+- **mit PayPal bezahlen** — shows a QR code linking to your PayPal.me URL + amount. Confirm after the customer scans.
+- **mit Karte bezahlen** — sends a checkout request to the paired SumUp card reader. Locks on success.
+
+After any successful payment:
+- `payment_method` and `paid_at` are written to the Laufzettel.
+- The detail page shows a green locked banner with method and timestamp.
+- All edit actions (info, add/edit/delete material) are disabled in the UI and rejected by the API (`409 Conflict`).
+
+> The lock is permanent — there is no unlock flow by design.
 
 ## Why data is copied into the Laufzettel
 

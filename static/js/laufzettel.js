@@ -59,12 +59,15 @@ function renderStats() {
 
     const unique = new Set(allEntries.map((e) => e.uid)).size;
     document.getElementById("cardholder-count").textContent = unique;
+
+    const paid = allEntries.filter((e) => e.payment_method).length;
+    document.getElementById("paid-count").textContent = paid;
 }
 
 function renderTable() {
     const tbody = document.getElementById("laufzettel-body");
     if (allEntries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty">No Laufzettel entries found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No Laufzettel entries found.</td></tr>';
         return;
     }
     tbody.innerHTML = allEntries
@@ -83,12 +86,20 @@ function renderTable() {
             <td>${formatTime(lz.start)}</td>
             <td><div class="nodes-list">${nodes || '<span style="color:var(--text-secondary)">-</span>'}</div></td>
             <td>${matBadge}</td>
+            <td>${paymentBadge(lz)}</td>
             <td class="actions">
                 <a href="/laufzettel/${lz.id}" class="btn btn-sm btn-secondary">View</a>
             </td>
         </tr>`;
         })
         .join("");
+}
+
+function paymentBadge(lz) {
+    if (!lz.payment_method) return '<span class="pay-badge pay-none">–</span>';
+    const labels = { bar: 'Bar', paypal: 'PayPal', karte: 'Karte' };
+    const label = labels[lz.payment_method] || lz.payment_method;
+    return `<span class="pay-badge pay-${esc(lz.payment_method)}">${label}</span>`;
 }
 
 function esc(str) {

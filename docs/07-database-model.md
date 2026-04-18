@@ -23,6 +23,8 @@ erDiagram
         string owner_name
         string member_id
         string nodes
+        string payment_method
+        datetime paid_at
         datetime created_at
     }
     LaufzettelMaterial {
@@ -149,6 +151,8 @@ One record per cardholder per day.
 | `owner_name` | TEXT | Copied from tag at creation |
 | `member_id` | TEXT | Copied from tag at creation |
 | `nodes` | TEXT | JSON list of device IDs |
+| `payment_method` | TEXT | `bar` / `paypal` / `karte` — null until paid |
+| `paid_at` | DATETIME | UTC timestamp of payment — null until paid |
 | `created_at` | DATETIME | Auto |
 | — | UNIQUE | `(uid, date)` |
 

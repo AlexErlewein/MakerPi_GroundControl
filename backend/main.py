@@ -4,7 +4,6 @@ MQTT Broker integration with SQLite database and Web UI
 """
 
 import asyncio
-import io
 import json
 import logging
 import os
@@ -15,12 +14,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
-import qrcode
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -44,7 +42,6 @@ SUMUP_API_KEY: str = _cfg.get("sumup_api_key", os.environ.get("SUMUP_API_KEY", "
 SUMUP_MERCHANT_CODE: str = _cfg.get("sumup_merchant_code", os.environ.get("SUMUP_MERCHANT_CODE", ""))
 SUMUP_READER_ID: str = _cfg.get("sumup_reader_id", os.environ.get("SUMUP_READER_ID", ""))
 SUMUP_MOCK: bool = _cfg.get("sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true")
-PAYPAL_ME_URL: str = _cfg.get("paypal_me_url", os.environ.get("PAYPAL_ME_URL", ""))
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -1761,8 +1758,6 @@ async def get_payment_config():
     return {
         "sumup_configured": bool(SUMUP_API_KEY and SUMUP_MERCHANT_CODE and SUMUP_READER_ID),
         "sumup_mock": SUMUP_MOCK,
-        "paypal_configured": bool(PAYPAL_ME_URL),
-        "paypal_mock": not bool(PAYPAL_ME_URL),
     }
 
 
@@ -1793,64 +1788,9 @@ async def pay_bar(laufzettel_id: int):
         db.close()
 
 
-@app.post("/api/laufzettel/{laufzettel_id}/pay/paypal")
-async def pay_paypal(laufzettel_id: int):
-    """Mark a Laufzettel as paid via PayPal"""
-    db: Session = SessionLocal()
-    try:
-        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
-        if not lz:
-            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
-        if lz.payment_method:
-            return JSONResponse(status_code=409, content={"detail": "Already paid", "payment_method": lz.payment_method})
-        lz.payment_method = "paypal"
-        lz.paid_at = _utcnow()
-        db.commit()
-        db.refresh(lz)
-        d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
-        d["material"] = [m.to_dict() for m in materials]
-        return d
-    except Exception as e:
-        db.rollback()
-        return JSONResponse(status_code=500, content={"detail": str(e)})
-    finally:
-        db.close()
-
-
-@app.get("/api/laufzettel/{laufzettel_id}/pay/paypal-qr")
-async def paypal_qr(laufzettel_id: int):
-    """Generate a PayPal.me QR code PNG for the Laufzettel total (mock if unconfigured)"""
-    db: Session = SessionLocal()
-    try:
-        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
-        if not lz:
-            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
-        total = sum(m.calculated_price or 0 for m in materials)
-        total_rounded = round(total, 2)
-        if PAYPAL_ME_URL:
-            base = PAYPAL_ME_URL.rstrip("/")
-            url = f"{base}/{total_rounded:.2f}EUR"
-        else:
-            url = f"MOCK-PAYPAL:{total_rounded:.2f}EUR"
-            logger.info(f"[MOCK] PayPal QR code generated for {total_rounded:.2f} EUR")
-        img = qrcode.make(url)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="image/png")
-    finally:
-        db.close()
-
-
 @app.post("/api/laufzettel/{laufzettel_id}/pay/karte")
 async def pay_karte(laufzettel_id: int):
-    """Initiate a SumUp reader checkout and mark as paid once sent"""
+    """Initiate a SumUp reader checkout. Returns client_transaction_id for polling."""
     if not (SUMUP_API_KEY and SUMUP_MERCHANT_CODE and SUMUP_READER_ID):
         return JSONResponse(status_code=503, content={"detail": "SumUp not configured"})
     db: Session = SessionLocal()
@@ -1870,27 +1810,52 @@ async def pay_karte(laufzettel_id: int):
 
         if SUMUP_MOCK:
             logger.info(f"[MOCK] SumUp reader checkout for {total_rounded:.2f} EUR skipped")
-        else:
-            try:
-                from sumup import AsyncSumup
-                from sumup.readers import CreateReaderCheckoutBody, CreateReaderCheckoutBodyTotalAmount
-            except ImportError:
-                return JSONResponse(status_code=503, content={"detail": "sumup package not installed"})
+            return {"mock": True, "client_transaction_id": None}
 
-            amount_cents = int(round(total_rounded * 100))
-            client = AsyncSumup(api_key=SUMUP_API_KEY)
-            await client.readers.create_checkout(
-                merchant_code=SUMUP_MERCHANT_CODE,
-                reader_id=SUMUP_READER_ID,
-                body=CreateReaderCheckoutBody(
-                    total_amount=CreateReaderCheckoutBodyTotalAmount(
-                        value=amount_cents,
-                        currency="EUR",
-                        minor_unit=2,
-                    ),
-                    description=f"Laufzettel #{lz.id} – {lz.owner_name or 'Unbekannt'}",
+        try:
+            from sumup import AsyncSumup
+            from sumup.readers import CreateReaderCheckoutBody, CreateReaderCheckoutBodyTotalAmount
+        except ImportError:
+            return JSONResponse(status_code=503, content={"detail": "sumup package not installed"})
+
+        amount_cents = int(round(total_rounded * 100))
+        client = AsyncSumup(api_key=SUMUP_API_KEY)
+        result = await client.readers.create_checkout(
+            merchant_code=SUMUP_MERCHANT_CODE,
+            reader_id=SUMUP_READER_ID,
+            body=CreateReaderCheckoutBody(
+                total_amount=CreateReaderCheckoutBodyTotalAmount(
+                    value=amount_cents,
+                    currency="EUR",
+                    minor_unit=2,
                 ),
-            )
+                description=f"Laufzettel #{lz.id} – {lz.owner_name or 'Unbekannt'}",
+            ),
+        )
+        client_transaction_id = getattr(result, "client_transaction_id", None) or getattr(getattr(result, "data", None), "client_transaction_id", None)
+        return {"mock": False, "client_transaction_id": client_transaction_id}
+    except Exception as e:
+        logger.error(f"SumUp checkout initiation error: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.post("/api/laufzettel/{laufzettel_id}/pay/karte/confirm-mock")
+async def pay_karte_confirm_mock(laufzettel_id: int):
+    """Lock the Laufzettel as karte-paid when running in SumUp mock mode."""
+    if not SUMUP_MOCK:
+        return JSONResponse(status_code=403, content={"detail": "Only available in mock mode"})
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Already paid", "payment_method": lz.payment_method})
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
         lz.payment_method = "karte"
         lz.paid_at = _utcnow()
         db.commit()
@@ -1900,7 +1865,80 @@ async def pay_karte(laufzettel_id: int):
         return d
     except Exception as e:
         db.rollback()
-        logger.error(f"SumUp payment error: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/laufzettel/{laufzettel_id}/pay/karte/status")
+async def pay_karte_status(laufzettel_id: int, client_transaction_id: str):
+    """Poll SumUp transaction status and lock Laufzettel on SUCCESSFUL."""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+
+        try:
+            from sumup import AsyncSumup
+        except ImportError:
+            return JSONResponse(status_code=503, content={"detail": "sumup package not installed"})
+
+        client = AsyncSumup(api_key=SUMUP_API_KEY)
+        txn = await client.transactions.get(
+            merchant_code=SUMUP_MERCHANT_CODE,
+            client_transaction_id=client_transaction_id,
+        )
+        status = getattr(txn, "status", None) or ""
+        logger.info(f"SumUp transaction {client_transaction_id} status: {status}")
+
+        if status == "SUCCESSFUL":
+            if not lz.payment_method:
+                materials = db.query(LaufzettelMaterial).filter(
+                    LaufzettelMaterial.laufzettel_id == lz.id
+                ).all()
+                lz.payment_method = "karte"
+                lz.paid_at = _utcnow()
+                db.commit()
+                db.refresh(lz)
+                d = lz.to_dict()
+                d["material"] = [m.to_dict() for m in materials]
+                return {"status": "SUCCESSFUL", "laufzettel": d}
+            else:
+                return {"status": "SUCCESSFUL", "laufzettel": None}
+        elif status in ("CANCELLED", "FAILED"):
+            return {"status": status}
+        else:
+            return {"status": "PENDING"}
+    except Exception as e:
+        logger.error(f"SumUp status poll error: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.delete("/api/laufzettel/{laufzettel_id}/pay")
+async def reset_payment(laufzettel_id: int):
+    """Reset payment state on a Laufzettel (unlocks it for editing)"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if not lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Laufzettel is not paid"})
+        lz.payment_method = None
+        lz.paid_at = None
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    except Exception as e:
+        db.rollback()
         return JSONResponse(status_code=500, content={"detail": str(e)})
     finally:
         db.close()

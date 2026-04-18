@@ -5,7 +5,7 @@ let currentMatMode = "freitext";
 let selectedVariante = null;
 let selectedKategorie = null;
 let logoDataUrl = null;
-let paymentConfig = { sumup_configured: false, paypal_configured: false };
+let paymentConfig = { sumup_configured: false };
 
 // ── Data loading ─────────────────────────────────────────────
 
@@ -676,9 +676,8 @@ document.getElementById("modal-overlay").addEventListener("click", closeModal);
 document.getElementById("refresh-btn").addEventListener("click", loadDetail);
 
 loadKatalog();
-loadDetail();
 loadLogo();
-loadPaymentConfig();
+loadPaymentConfig().then(() => loadDetail());
 
 // ── Payment UI ────────────────────────────────────────────────
 
@@ -703,7 +702,6 @@ function renderPaymentSection(total, hasAnyPrice) {
     const locked = !!d.payment_method;
     const banner = document.getElementById("payment-locked-banner");
     const buttons = document.getElementById("payment-buttons");
-    const paypalBtn = document.getElementById("pay-paypal-btn");
     const karteBtn = document.getElementById("pay-karte-btn");
 
     if (!paymentConfig.sumup_configured) karteBtn.style.display = "none";
@@ -711,7 +709,7 @@ function renderPaymentSection(total, hasAnyPrice) {
     if (locked) {
         buttons.classList.add("hidden");
         banner.classList.remove("hidden");
-        const methodLabels = { bar: "Bar bezahlt", paypal: "Per PayPal bezahlt", karte: "Per Karte bezahlt" };
+        const methodLabels = { bar: "Bar bezahlt", karte: "Per Karte bezahlt" };
         const label = methodLabels[d.payment_method] || "Bezahlt";
         const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
         document.getElementById("payment-locked-text").textContent =
@@ -756,41 +754,36 @@ document.getElementById("bar-modal-close").addEventListener("click", closeBarMod
 document.getElementById("bar-cancel-btn").addEventListener("click", closeBarModal);
 document.getElementById("bar-modal-overlay").addEventListener("click", closeBarModal);
 
-// PayPal modal
-function openPaypalModal() {
-    const total = getTotal();
-    document.getElementById("paypal-amount-display").textContent = fmtEur(total);
-    const img = document.getElementById("paypal-qr-img");
-    img.src = `/api/laufzettel/${LAUFZETTEL_ID}/pay/paypal-qr?t=${Date.now()}`;
-    const hint = document.getElementById("paypal-hint-text");
-    if (hint) hint.textContent = paymentConfig.paypal_mock
-        ? "Mock-QR (kein echtes PayPal) – zum Testen scannen:"
-        : `QR-Code scannen um`;
-    document.getElementById("paypal-modal").classList.remove("hidden");
+// Reset payment modal
+function openResetPaymentModal() {
+    document.getElementById("reset-payment-modal").classList.remove("hidden");
 }
-function closePaypalModal() {
-    document.getElementById("paypal-modal").classList.add("hidden");
+function closeResetPaymentModal() {
+    document.getElementById("reset-payment-modal").classList.add("hidden");
+    const btn = document.getElementById("reset-payment-confirm");
+    btn.disabled = false;
+    btn.textContent = "Ja, Zahlung zurücksetzen";
 }
-async function confirmPaypalPayment() {
-    const btn = document.getElementById("paypal-confirm-btn");
+async function confirmResetPayment() {
+    const btn = document.getElementById("reset-payment-confirm");
     btn.disabled = true;
     btn.textContent = "…";
-    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/paypal`, { method: "POST" });
-    btn.disabled = false;
-    btn.textContent = "Bezahlt ✓";
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay`, { method: "DELETE" });
     if (res.ok) {
         currentData = await res.json();
         renderInfo();
         renderMaterial();
-        closePaypalModal();
+        closeResetPaymentModal();
     } else {
         const err = await res.json();
+        btn.disabled = false;
+        btn.textContent = "Ja, Zahlung zurücksetzen";
         alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
     }
 }
-document.getElementById("paypal-modal-close").addEventListener("click", closePaypalModal);
-document.getElementById("paypal-cancel-btn").addEventListener("click", closePaypalModal);
-document.getElementById("paypal-modal-overlay").addEventListener("click", closePaypalModal);
+document.getElementById("reset-payment-close").addEventListener("click", closeResetPaymentModal);
+document.getElementById("reset-payment-cancel").addEventListener("click", closeResetPaymentModal);
+document.getElementById("reset-payment-overlay").addEventListener("click", closeResetPaymentModal);
 
 // Karte
 async function doKartePayment() {
@@ -798,27 +791,104 @@ async function doKartePayment() {
     const statusText = document.getElementById("karte-status-text");
     const actions = document.getElementById("karte-actions");
     const body = document.getElementById("karte-body");
+    const spinner = body.querySelector(".karte-spinner");
+
     statusText.textContent = "Zahlung wird ans Terminal gesendet…";
-    body.querySelector(".karte-spinner").style.display = "";
+    statusText.style.color = "";
+    spinner.style.display = "";
     actions.style.display = "none";
     modal.classList.remove("hidden");
 
-    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte`, { method: "POST" });
-    body.querySelector(".karte-spinner").style.display = "none";
-    actions.style.display = "";
-    if (res.ok) {
-        currentData = await res.json();
-        renderInfo();
-        renderMaterial();
-        const mockNote = paymentConfig.sumup_mock ? " (Mock-Modus – kein echtes Terminal)" : " Bitte am Gerät bestätigen.";
-        statusText.textContent = "✓ Zahlung erfolgreich ans Terminal gesendet." + mockNote;
-        statusText.style.color = "var(--success)";
-    } else {
-        const err = await res.json();
-        statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+    // Phase 1: initiate checkout
+    let initData;
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte`, { method: "POST" });
+        if (!res.ok) {
+            const err = await res.json();
+            statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+            statusText.style.color = "var(--danger)";
+            spinner.style.display = "none";
+            actions.style.display = "";
+            return;
+        }
+        initData = await res.json();
+    } catch (e) {
+        statusText.textContent = "Netzwerkfehler beim Senden ans Terminal.";
         statusText.style.color = "var(--danger)";
+        spinner.style.display = "none";
+        actions.style.display = "";
+        return;
     }
+
+    // Phase 2: mock mode – lock immediately without polling
+    if (initData.mock) {
+        spinner.style.display = "none";
+        statusText.textContent = "✓ Mock-Modus: Zahlung simuliert und gespeichert.";
+        statusText.style.color = "var(--success)";
+        // Lock the laufzettel via bar endpoint logic reuse – call a dedicated mock-confirm
+        const confirmRes = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/confirm-mock`, { method: "POST" });
+        if (confirmRes.ok) {
+            currentData = await confirmRes.json();
+            renderInfo();
+            renderMaterial();
+        }
+        actions.style.display = "";
+        return;
+    }
+
+    // Phase 3: real mode – poll for SUCCESSFUL / CANCELLED / FAILED
+    const txnId = initData.client_transaction_id;
+    statusText.textContent = "Warte auf Bestätigung am Terminal…";
+
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_TIMEOUT_MS = 120000; // 2 minutes max
+    const started = Date.now();
+
+    const poll = async () => {
+        if (Date.now() - started > POLL_TIMEOUT_MS) {
+            spinner.style.display = "none";
+            statusText.textContent = "Timeout – keine Antwort vom Terminal erhalten.";
+            statusText.style.color = "var(--warning)";
+            actions.style.display = "";
+            return;
+        }
+        let pollData;
+        try {
+            const r = await fetch(
+                `/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/status?client_transaction_id=${encodeURIComponent(txnId)}`
+            );
+            pollData = await r.json();
+        } catch (_) {
+            setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+        }
+
+        if (pollData.status === "SUCCESSFUL") {
+            spinner.style.display = "none";
+            statusText.textContent = "✓ Zahlung erfolgreich bestätigt!";
+            statusText.style.color = "var(--success)";
+            if (pollData.laufzettel) {
+                currentData = pollData.laufzettel;
+                renderInfo();
+                renderMaterial();
+            }
+            actions.style.display = "";
+        } else if (pollData.status === "CANCELLED" || pollData.status === "FAILED") {
+            spinner.style.display = "none";
+            statusText.textContent = pollData.status === "CANCELLED"
+                ? "Zahlung abgebrochen."
+                : "Zahlung fehlgeschlagen.";
+            statusText.style.color = "var(--danger)";
+            actions.style.display = "";
+        } else {
+            // Still PENDING – keep polling
+            setTimeout(poll, POLL_INTERVAL_MS);
+        }
+    };
+
+    setTimeout(poll, POLL_INTERVAL_MS);
 }
+
 function closeKarteModal() {
     document.getElementById("karte-modal").classList.add("hidden");
     document.getElementById("karte-status-text").style.color = "";
