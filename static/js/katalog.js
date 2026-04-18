@@ -161,7 +161,7 @@ function openAddKategorie(locationId) {
 
 function openEditKategorie(katId, locId) {
     const loc = katalog.find((l) => l.id === locId);
-    const kat = loc?.kategorien?.find((k) => k.id === katId);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
     if (!kat) return;
     document.getElementById("kategorie-modal-title").textContent = "Kategorie bearbeiten";
     document.getElementById("edit-kategorie-id").value = katId;
@@ -224,9 +224,9 @@ function openAddVariante(kategorieId, pricingModel, unit) {
 function openEditVariante(varId, kategorieId, pricingModel, unit) {
     currentVariantePricingModel = pricingModel;
     currentVarianteUnit = unit;
-    const loc = katalog.find((l) => l.kategorien?.some((k) => k.id === kategorieId));
-    const kat = loc?.kategorien?.find((k) => k.id === kategorieId);
-    const v = kat?.varianten?.find((v) => v.id === varId);
+    const loc = katalog.find((l) => l.kategorien ? l.kategorien.some((k) => k.id === kategorieId) : false);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === kategorieId) : undefined;
+    const v = (kat && kat.varianten) ? kat.varianten.find((v) => v.id === varId) : undefined;
     if (!v) return;
     document.getElementById("variante-modal-title").textContent = "Variante bearbeiten";
     document.getElementById("edit-variante-id").value = varId;

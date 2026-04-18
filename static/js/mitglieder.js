@@ -78,7 +78,7 @@ function closeModal() {
 
 async function deleteMitglied(id) {
     const m = allMitglieder.find(x => x.id === id);
-    if (!confirm(`Mitglied "${m?.name}" wirklich löschen?`)) return;
+    if (!confirm('Mitglied "' + (m ? m.name : id) + '" wirklich löschen?')) return;
     const res = await fetch(`/api/mitglieder/${id}`, { method: "DELETE" });
     if (res.ok) {
         await loadMitglieder();
