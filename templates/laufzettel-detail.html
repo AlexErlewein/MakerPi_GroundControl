@@ -265,10 +265,87 @@
         </div>
     </div>
 
+    <!-- Payment Section (injected by JS after material section) -->
+    <div id="payment-section" class="section hidden">
+        <div id="payment-locked-banner" class="payment-locked-banner hidden">
+            <span id="payment-locked-icon">✓</span>
+            <span id="payment-locked-text"></span>
+        </div>
+        <div id="payment-buttons" class="payment-buttons">
+            <button id="pay-bar-btn" class="btn btn-payment btn-payment-bar" onclick="openBarModal()">
+                💵 Bar bezahlen
+            </button>
+            <button id="pay-paypal-btn" class="btn btn-payment btn-payment-paypal" onclick="openPaypalModal()">
+                🅿 mit PayPal bezahlen
+            </button>
+            <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
+                💳 mit Karte bezahlen
+            </button>
+        </div>
+    </div>
+
+    <!-- Bar Modal -->
+    <div id="bar-modal" class="modal hidden">
+        <div class="modal-overlay" id="bar-modal-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Bar bezahlen</h3>
+                <button class="modal-close" id="bar-modal-close">✕</button>
+            </div>
+            <div class="bar-payment-body">
+                <div class="bar-total-label">Zu zahlender Betrag</div>
+                <div class="bar-total-amount" id="bar-total-display">0,00 €</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="bar-cancel-btn">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="bar-confirm-btn" onclick="confirmBarPayment()">Bezahlt ✓</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PayPal Modal -->
+    <div id="paypal-modal" class="modal hidden">
+        <div class="modal-overlay" id="paypal-modal-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Mit PayPal bezahlen</h3>
+                <button class="modal-close" id="paypal-modal-close">✕</button>
+            </div>
+            <div class="paypal-body">
+                <p class="paypal-hint"><span id="paypal-hint-text">QR-Code scannen um</span> <strong id="paypal-amount-display"></strong> zu bezahlen:</p>
+                <div class="paypal-qr-wrap">
+                    <img id="paypal-qr-img" src="" alt="PayPal QR Code" class="paypal-qr-img">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="paypal-cancel-btn">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="paypal-confirm-btn" onclick="confirmPaypalPayment()">Bezahlt ✓</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Karte Modal -->
+    <div id="karte-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Kartenzahlung</h3>
+                <button class="modal-close" id="karte-modal-close">✕</button>
+            </div>
+            <div class="karte-body" id="karte-body">
+                <div class="karte-spinner"></div>
+                <p id="karte-status-text">Zahlung wird ans Terminal gesendet…</p>
+            </div>
+            <div class="modal-actions" id="karte-actions" style="display:none;">
+                <button type="button" class="btn btn-secondary" id="karte-close-btn">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="/static/js/laufzettel-detail.js?v=7"></script>
+    <script src="/static/js/laufzettel-detail.js?v=8"></script>
 </body>
 </html>

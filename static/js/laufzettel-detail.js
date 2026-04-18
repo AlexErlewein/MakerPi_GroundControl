@@ -5,6 +5,7 @@ let currentMatMode = "freitext";
 let selectedVariante = null;
 let selectedKategorie = null;
 let logoDataUrl = null;
+let paymentConfig = { sumup_configured: false, paypal_configured: false };
 
 // ── Data loading ─────────────────────────────────────────────
 
@@ -37,6 +38,13 @@ async function loadKatalog() {
     populateLocationSelect();
 }
 
+async function loadPaymentConfig() {
+    try {
+        const res = await fetch("/api/payment/config");
+        if (res.ok) paymentConfig = await res.json();
+    } catch (_) {}
+}
+
 // ── Info rendering ───────────────────────────────────────────
 
 function renderInfo() {
@@ -47,6 +55,9 @@ function renderInfo() {
     document.getElementById("view-owner").textContent = d.owner_name || "-";
     document.getElementById("view-member-id").textContent = d.member_id || "-";
     document.getElementById("view-uid").textContent = d.uid || "-";
+    const locked = !!d.payment_method;
+    document.getElementById("edit-info-btn").style.display = locked ? "none" : "";
+    document.getElementById("add-material-btn").style.display = locked ? "none" : "";
 }
 
 function renderNodes() {
@@ -114,6 +125,7 @@ function renderMaterial() {
     } else {
         tfoot.classList.add("hidden");
     }
+    renderPaymentSection(total, hasAnyPrice);
 }
 
 function buildMengeDisplay(m) {
@@ -666,3 +678,150 @@ document.getElementById("refresh-btn").addEventListener("click", loadDetail);
 loadKatalog();
 loadDetail();
 loadLogo();
+loadPaymentConfig();
+
+// ── Payment UI ────────────────────────────────────────────────
+
+function getTotal() {
+    const mats = currentData?.material || [];
+    return mats.reduce((sum, m) => sum + (m.calculated_price ?? 0), 0);
+}
+
+function fmtEur(val) {
+    return val.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+
+function renderPaymentSection(total, hasAnyPrice) {
+    const section = document.getElementById("payment-section");
+    const d = currentData;
+    if (!hasAnyPrice || total <= 0) {
+        section.classList.add("hidden");
+        return;
+    }
+    section.classList.remove("hidden");
+
+    const locked = !!d.payment_method;
+    const banner = document.getElementById("payment-locked-banner");
+    const buttons = document.getElementById("payment-buttons");
+    const paypalBtn = document.getElementById("pay-paypal-btn");
+    const karteBtn = document.getElementById("pay-karte-btn");
+
+    if (!paymentConfig.sumup_configured) karteBtn.style.display = "none";
+
+    if (locked) {
+        buttons.classList.add("hidden");
+        banner.classList.remove("hidden");
+        const methodLabels = { bar: "Bar bezahlt", paypal: "Per PayPal bezahlt", karte: "Per Karte bezahlt" };
+        const label = methodLabels[d.payment_method] || "Bezahlt";
+        const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
+        document.getElementById("payment-locked-text").textContent =
+            `${label}${paidDate ? " – " + paidDate : ""}`;
+        // Lock material table actions
+        document.querySelectorAll("#material-body .btn-danger, #material-body .btn-secondary").forEach(
+            (btn) => { btn.disabled = true; btn.style.opacity = "0.4"; btn.style.cursor = "not-allowed"; }
+        );
+    } else {
+        buttons.classList.remove("hidden");
+        banner.classList.add("hidden");
+    }
+}
+
+// Bar modal
+function openBarModal() {
+    const total = getTotal();
+    document.getElementById("bar-total-display").textContent = fmtEur(total);
+    document.getElementById("bar-modal").classList.remove("hidden");
+}
+function closeBarModal() {
+    document.getElementById("bar-modal").classList.add("hidden");
+}
+async function confirmBarPayment() {
+    const btn = document.getElementById("bar-confirm-btn");
+    btn.disabled = true;
+    btn.textContent = "…";
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/bar`, { method: "POST" });
+    btn.disabled = false;
+    btn.textContent = "Bezahlt ✓";
+    if (res.ok) {
+        currentData = await res.json();
+        renderInfo();
+        renderMaterial();
+        closeBarModal();
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
+    }
+}
+document.getElementById("bar-modal-close").addEventListener("click", closeBarModal);
+document.getElementById("bar-cancel-btn").addEventListener("click", closeBarModal);
+document.getElementById("bar-modal-overlay").addEventListener("click", closeBarModal);
+
+// PayPal modal
+function openPaypalModal() {
+    const total = getTotal();
+    document.getElementById("paypal-amount-display").textContent = fmtEur(total);
+    const img = document.getElementById("paypal-qr-img");
+    img.src = `/api/laufzettel/${LAUFZETTEL_ID}/pay/paypal-qr?t=${Date.now()}`;
+    const hint = document.getElementById("paypal-hint-text");
+    if (hint) hint.textContent = paymentConfig.paypal_mock
+        ? "Mock-QR (kein echtes PayPal) – zum Testen scannen:"
+        : `QR-Code scannen um`;
+    document.getElementById("paypal-modal").classList.remove("hidden");
+}
+function closePaypalModal() {
+    document.getElementById("paypal-modal").classList.add("hidden");
+}
+async function confirmPaypalPayment() {
+    const btn = document.getElementById("paypal-confirm-btn");
+    btn.disabled = true;
+    btn.textContent = "…";
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/paypal`, { method: "POST" });
+    btn.disabled = false;
+    btn.textContent = "Bezahlt ✓";
+    if (res.ok) {
+        currentData = await res.json();
+        renderInfo();
+        renderMaterial();
+        closePaypalModal();
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
+    }
+}
+document.getElementById("paypal-modal-close").addEventListener("click", closePaypalModal);
+document.getElementById("paypal-cancel-btn").addEventListener("click", closePaypalModal);
+document.getElementById("paypal-modal-overlay").addEventListener("click", closePaypalModal);
+
+// Karte
+async function doKartePayment() {
+    const modal = document.getElementById("karte-modal");
+    const statusText = document.getElementById("karte-status-text");
+    const actions = document.getElementById("karte-actions");
+    const body = document.getElementById("karte-body");
+    statusText.textContent = "Zahlung wird ans Terminal gesendet…";
+    body.querySelector(".karte-spinner").style.display = "";
+    actions.style.display = "none";
+    modal.classList.remove("hidden");
+
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte`, { method: "POST" });
+    body.querySelector(".karte-spinner").style.display = "none";
+    actions.style.display = "";
+    if (res.ok) {
+        currentData = await res.json();
+        renderInfo();
+        renderMaterial();
+        const mockNote = paymentConfig.sumup_mock ? " (Mock-Modus – kein echtes Terminal)" : " Bitte am Gerät bestätigen.";
+        statusText.textContent = "✓ Zahlung erfolgreich ans Terminal gesendet." + mockNote;
+        statusText.style.color = "var(--success)";
+    } else {
+        const err = await res.json();
+        statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+        statusText.style.color = "var(--danger)";
+    }
+}
+function closeKarteModal() {
+    document.getElementById("karte-modal").classList.add("hidden");
+    document.getElementById("karte-status-text").style.color = "";
+}
+document.getElementById("karte-modal-close").addEventListener("click", closeKarteModal);
+document.getElementById("karte-close-btn").addEventListener("click", closeKarteModal);

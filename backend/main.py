@@ -4,8 +4,10 @@ MQTT Broker integration with SQLite database and Web UI
 """
 
 import asyncio
+import io
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone, date as date_type
@@ -13,11 +15,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
+import qrcode
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -27,6 +30,21 @@ from sqlalchemy.orm import sessionmaker, Session
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 DATABASE_URL = "sqlite:///./groundcontrol.db"
+
+# Payment configuration – loaded from config/config.json if present
+_cfg_path = Path("config/config.json")
+_cfg: dict = {}
+if _cfg_path.exists():
+    try:
+        _cfg = json.loads(_cfg_path.read_text())
+    except Exception:
+        pass
+
+SUMUP_API_KEY: str = _cfg.get("sumup_api_key", os.environ.get("SUMUP_API_KEY", ""))
+SUMUP_MERCHANT_CODE: str = _cfg.get("sumup_merchant_code", os.environ.get("SUMUP_MERCHANT_CODE", ""))
+SUMUP_READER_ID: str = _cfg.get("sumup_reader_id", os.environ.get("SUMUP_READER_ID", ""))
+SUMUP_MOCK: bool = _cfg.get("sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true")
+PAYPAL_ME_URL: str = _cfg.get("paypal_me_url", os.environ.get("PAYPAL_ME_URL", ""))
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -132,11 +150,14 @@ class Laufzettel(Base):
     owner_name = Column(String, nullable=True)
     member_id = Column(String, nullable=True)
     nodes = Column(Text, default="[]")  # JSON array of device_ids
+    payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte'
+    paid_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (UniqueConstraint("uid", "date", name="uq_laufzettel_uid_date"),)
 
     def to_dict(self):
         start_ts = _naive_to_utc(self.start) if self.start else None
+        paid_ts = _naive_to_utc(self.paid_at) if self.paid_at else None
         return {
             "id": self.id,
             "uid": self.uid,
@@ -145,6 +166,8 @@ class Laufzettel(Base):
             "owner_name": self.owner_name,
             "member_id": self.member_id,
             "nodes": json.loads(self.nodes) if self.nodes else [],
+            "payment_method": self.payment_method,
+            "paid_at": paid_ts.isoformat() if paid_ts else None,
         }
 
 
@@ -284,10 +307,11 @@ Base.metadata.create_all(bind=engine)
 # Migrate existing tables: add new columns if they don't exist
 def _run_migrations():
     with engine.connect() as conn:
-        existing = {row[1] for row in conn.execute(
+        # laufzettel_material migrations
+        existing_mat = {row[1] for row in conn.execute(
             text("PRAGMA table_info(laufzettel_material)")
         )}
-        new_cols = {
+        new_mat_cols = {
             "variante_id": "INTEGER",
             "unit": "VARCHAR",
             "laenge_cm": "FLOAT",
@@ -295,10 +319,23 @@ def _run_migrations():
             "hoehe_cm": "FLOAT",
             "calculated_price": "FLOAT",
         }
-        for col, col_type in new_cols.items():
-            if col not in existing:
+        for col, col_type in new_mat_cols.items():
+            if col not in existing_mat:
                 conn.execute(text(
                     f"ALTER TABLE laufzettel_material ADD COLUMN {col} {col_type}"
+                ))
+        # laufzettel migrations
+        existing_lz = {row[1] for row in conn.execute(
+            text("PRAGMA table_info(laufzettel)")
+        )}
+        new_lz_cols = {
+            "payment_method": "VARCHAR",
+            "paid_at": "DATETIME",
+        }
+        for col, col_type in new_lz_cols.items():
+            if col not in existing_lz:
+                conn.execute(text(
+                    f"ALTER TABLE laufzettel ADD COLUMN {col} {col_type}"
                 ))
         conn.commit()
 
@@ -1232,6 +1269,8 @@ async def update_laufzettel(laufzettel_id: int, data: LaufzettelUpdate):
         lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
         if not lz:
             return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Laufzettel is already paid and locked"})
         if data.owner_name is not None:
             lz.owner_name = data.owner_name
         if data.member_id is not None:
@@ -1264,6 +1303,8 @@ async def add_material(laufzettel_id: int, mat: MaterialCreate):
         lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
         if not lz:
             return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Laufzettel is already paid and locked"})
         new_mat = LaufzettelMaterial(
             laufzettel_id=laufzettel_id,
             name=mat.name,
@@ -1291,6 +1332,9 @@ async def update_material(laufzettel_id: int, material_id: int, mat: MaterialUpd
     """Update a material entry"""
     db: Session = SessionLocal()
     try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if lz and lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Laufzettel is already paid and locked"})
         existing = db.query(LaufzettelMaterial).filter(
             LaufzettelMaterial.id == material_id,
             LaufzettelMaterial.laufzettel_id == laufzettel_id,
@@ -1328,6 +1372,9 @@ async def delete_material(laufzettel_id: int, material_id: int):
     """Delete a material entry from a Laufzettel"""
     db: Session = SessionLocal()
     try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if lz and lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Laufzettel is already paid and locked"})
         existing = db.query(LaufzettelMaterial).filter(
             LaufzettelMaterial.id == material_id,
             LaufzettelMaterial.laufzettel_id == laufzettel_id,
@@ -1702,6 +1749,159 @@ async def delete_mitglied(mitglied_id: int):
         db.delete(m)
         db.commit()
         return {"ok": True}
+    finally:
+        db.close()
+
+
+# ── Payment API ──────────────────────────────────────────────────────────────
+
+@app.get("/api/payment/config")
+async def get_payment_config():
+    """Return which payment methods are configured (without secrets)"""
+    return {
+        "sumup_configured": bool(SUMUP_API_KEY and SUMUP_MERCHANT_CODE and SUMUP_READER_ID),
+        "sumup_mock": SUMUP_MOCK,
+        "paypal_configured": bool(PAYPAL_ME_URL),
+        "paypal_mock": not bool(PAYPAL_ME_URL),
+    }
+
+
+@app.post("/api/laufzettel/{laufzettel_id}/pay/bar")
+async def pay_bar(laufzettel_id: int):
+    """Mark a Laufzettel as paid in cash"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Already paid", "payment_method": lz.payment_method})
+        lz.payment_method = "bar"
+        lz.paid_at = _utcnow()
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.post("/api/laufzettel/{laufzettel_id}/pay/paypal")
+async def pay_paypal(laufzettel_id: int):
+    """Mark a Laufzettel as paid via PayPal"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Already paid", "payment_method": lz.payment_method})
+        lz.payment_method = "paypal"
+        lz.paid_at = _utcnow()
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/laufzettel/{laufzettel_id}/pay/paypal-qr")
+async def paypal_qr(laufzettel_id: int):
+    """Generate a PayPal.me QR code PNG for the Laufzettel total (mock if unconfigured)"""
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        total = sum(m.calculated_price or 0 for m in materials)
+        total_rounded = round(total, 2)
+        if PAYPAL_ME_URL:
+            base = PAYPAL_ME_URL.rstrip("/")
+            url = f"{base}/{total_rounded:.2f}EUR"
+        else:
+            url = f"MOCK-PAYPAL:{total_rounded:.2f}EUR"
+            logger.info(f"[MOCK] PayPal QR code generated for {total_rounded:.2f} EUR")
+        img = qrcode.make(url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="image/png")
+    finally:
+        db.close()
+
+
+@app.post("/api/laufzettel/{laufzettel_id}/pay/karte")
+async def pay_karte(laufzettel_id: int):
+    """Initiate a SumUp reader checkout and mark as paid once sent"""
+    if not (SUMUP_API_KEY and SUMUP_MERCHANT_CODE and SUMUP_READER_ID):
+        return JSONResponse(status_code=503, content={"detail": "SumUp not configured"})
+    db: Session = SessionLocal()
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            return JSONResponse(status_code=404, content={"detail": "Laufzettel not found"})
+        if lz.payment_method:
+            return JSONResponse(status_code=409, content={"detail": "Already paid", "payment_method": lz.payment_method})
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        total = sum(m.calculated_price or 0 for m in materials)
+        total_rounded = round(total, 2)
+        if total_rounded <= 0:
+            return JSONResponse(status_code=400, content={"detail": "Total must be greater than 0"})
+
+        if SUMUP_MOCK:
+            logger.info(f"[MOCK] SumUp reader checkout for {total_rounded:.2f} EUR skipped")
+        else:
+            try:
+                from sumup import AsyncSumup
+                from sumup.readers import CreateReaderCheckoutBody, CreateReaderCheckoutBodyTotalAmount
+            except ImportError:
+                return JSONResponse(status_code=503, content={"detail": "sumup package not installed"})
+
+            amount_cents = int(round(total_rounded * 100))
+            client = AsyncSumup(api_key=SUMUP_API_KEY)
+            await client.readers.create_checkout(
+                merchant_code=SUMUP_MERCHANT_CODE,
+                reader_id=SUMUP_READER_ID,
+                body=CreateReaderCheckoutBody(
+                    total_amount=CreateReaderCheckoutBodyTotalAmount(
+                        value=amount_cents,
+                        currency="EUR",
+                        minor_unit=2,
+                    ),
+                    description=f"Laufzettel #{lz.id} – {lz.owner_name or 'Unbekannt'}",
+                ),
+            )
+        lz.payment_method = "karte"
+        lz.paid_at = _utcnow()
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
+    except Exception as e:
+        db.rollback()
+        logger.error(f"SumUp payment error: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
     finally:
         db.close()
 
