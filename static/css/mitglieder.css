@@ -194,3 +194,15 @@
 .btn-danger:hover {
     opacity: 0.85;
 }
+
+/* ── Login badge ── */
+.login-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--success);
+    color: var(--bg-primary);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}

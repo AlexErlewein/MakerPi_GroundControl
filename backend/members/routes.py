@@ -20,6 +20,8 @@ class MitgliedCreate(BaseModel):
     status: str = "active"
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    login_username: Optional[str] = None
+    login_password: Optional[str] = None
 
 
 class MitgliedUpdate(BaseModel):
@@ -30,6 +32,8 @@ class MitgliedUpdate(BaseModel):
     status: Optional[str] = None
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    login_username: Optional[str] = None
+    login_password: Optional[str] = None
 
 
 class TagCreate(BaseModel):
@@ -104,7 +108,13 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
     existing = db.query(Mitglied).filter(Mitglied.member_id == data.member_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="member_id already exists")
+    # Check if login_username already exists (if provided)
+    if data.login_username:
+        existing_login = db.query(Mitglied).filter(Mitglied.login_username == data.login_username).first()
+        if existing_login:
+            raise HTTPException(status_code=400, detail="login_username already exists")
     from datetime import date as dt_date
+    from backend.auth.dependencies import get_password_hash
     m = Mitglied(
         member_id=data.member_id,
         name=data.name,
@@ -113,6 +123,8 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         status=data.status or "active",
         joined_date=dt_date.fromisoformat(data.joined_date) if data.joined_date else None,
         notes=data.notes,
+        login_username=data.login_username,
+        login_password_hash=get_password_hash(data.login_password) if data.login_password else None,
     )
     db.add(m)
     db.commit()
@@ -146,6 +158,20 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.joined_date = dt_date.fromisoformat(data.joined_date) if data.joined_date else None
     if data.notes is not None:
         m.notes = data.notes
+    # Handle login credentials
+    if data.login_username is not None:
+        # Check if username already taken by another member
+        if data.login_username != m.login_username:
+            existing = db.query(Mitglied).filter(
+                Mitglied.login_username == data.login_username,
+                Mitglied.id != mitglied_id
+            ).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="login_username already exists")
+        m.login_username = data.login_username if data.login_username else None
+    if data.login_password is not None:
+        from backend.auth.dependencies import get_password_hash
+        m.login_password_hash = get_password_hash(data.login_password) if data.login_password else None
     db.commit()
     db.refresh(m)
     return m.to_dict()

@@ -36,18 +36,42 @@ async def login_page(request: Request, error: str = None):
 
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    """Authenticate and set session"""
+    """Authenticate admin or member and set session"""
+    # First try admin user
     user = get_user(db, username)
-    if not user or not verify_password(password, user.hashed_password):
-        return RedirectResponse("/login?error=Invalid+credentials", status_code=302)
-    request.session["user"] = user.username
-    request.session["role"] = user.role
-    request.session["mitglied_id"] = user.mitglied_id
-    # Redirect based on role
-    if user.role == "admin":
-        return RedirectResponse("/dashboard", status_code=302)
-    else:
-        return RedirectResponse("/member", status_code=302)
+    if user and verify_password(password, user.hashed_password):
+        request.session["user"] = user.username
+        request.session["role"] = user.role
+        request.session["mitglied_id"] = user.mitglied_id
+        return RedirectResponse("/dashboard" if user.role == "admin" else "/member", status_code=302)
+    
+    # Try member login via mitglieder table
+    from backend.members.db import get_db as get_members_db
+    members_db = next(get_members_db())
+    from backend.members.models import Mitglied
+    mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
+    
+    if mitglied and mitglied.login_password_hash:
+        if verify_password(password, mitglied.login_password_hash):
+            # Create/find member user
+            member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
+            if not member_user:
+                member_user = User(
+                    username=mitglied.login_username or f"member_{mitglied.id}",
+                    hashed_password="",  # Not used - auth via mitglieder table
+                    role="member",
+                    mitglied_id=mitglied.id
+                )
+                db.add(member_user)
+                db.commit()
+                db.refresh(member_user)
+            
+            request.session["user"] = member_user.username
+            request.session["role"] = "member"
+            request.session["mitglied_id"] = mitglied.id
+            return RedirectResponse("/member", status_code=302)
+    
+    return RedirectResponse("/login?error=Invalid+credentials", status_code=302)
 
 
 @router.get("/logout")

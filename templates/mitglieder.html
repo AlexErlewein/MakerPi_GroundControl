@@ -76,11 +76,12 @@
                                 <th>Telefon</th>
                                 <th>Status</th>
                                 <th>Mitglied seit</th>
+                                <th>Login</th>
                                 <th>Aktionen</th>
                             </tr>
                         </thead>
                         <tbody id="mitglieder-body">
-                            <tr><td colspan="7" class="empty">Lade Mitglieder...</td></tr>
+                            <tr><td colspan="8" class="empty">Lade Mitglieder...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -133,6 +134,22 @@
                         <label for="f-notes">Notizen</label>
                         <textarea id="f-notes" rows="3" placeholder="Optionale Notizen..."></textarea>
                     </div>
+                </div>
+                <div class="form-section" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #30363d;">
+                    <h4 style="color: #8b949e; margin-bottom: 15px;">Login-Daten (optional)</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="f-login-username">Anmeldename</label>
+                            <input type="text" id="f-login-username" placeholder="z.B. max.mustermann">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-login-password">Passwort</label>
+                            <input type="password" id="f-login-password" placeholder="Nur bei Neusetzen ausfüllen">
+                        </div>
+                    </div>
+                    <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 8px;">
+                        Mit Login-Daten können sich Mitglieder auch ohne RFID-Karte anmelden.
+                    </p>
                 </div>
                 <div class="modal-actions">
                     <button type="button" id="cancel-btn" class="btn btn-secondary">Abbrechen</button>

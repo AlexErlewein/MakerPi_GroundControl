@@ -32,7 +32,7 @@ function updateStats() {
 function render() {
     const tbody = document.getElementById("mitglieder-body");
     if (allMitglieder.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Keine Mitglieder gefunden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Keine Mitglieder gefunden.</td></tr>';
         return;
     }
     tbody.innerHTML = allMitglieder.map(m => `
@@ -43,6 +43,7 @@ function render() {
             <td>${m.phone ? esc(m.phone) : '<span class="empty-cell">-</span>'}</td>
             <td><span class="status-badge ${m.status === "active" ? "active" : "inactive"}">${m.status === "active" ? "Aktiv" : "Inaktiv"}</span></td>
             <td>${m.joined_date ? new Date(m.joined_date).toLocaleDateString("de-DE") : '<span class="empty-cell">-</span>'}</td>
+            <td>${m.has_login ? `<span class="login-badge" title="${esc(m.login_username)}">Login OK</span>` : '<span class="empty-cell">-</span>'}</td>
             <td class="actions">
                 <button class="btn btn-sm btn-secondary" onclick="openEdit(${m.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteMitglied(${m.id})">Löschen</button>
@@ -98,6 +99,8 @@ document.getElementById("mitglied-form").addEventListener("submit", async (e) =>
         status: document.getElementById("f-status").value,
         joined_date: document.getElementById("f-joined").value || null,
         notes: document.getElementById("f-notes").value.trim() || null,
+        login_username: document.getElementById("f-login-username").value.trim() || null,
+        login_password: document.getElementById("f-login-password").value.trim() || null,
     };
     const url = editingId ? `/api/mitglieder/${editingId}` : "/api/mitglieder";
     const method = editingId ? "PUT" : "POST";

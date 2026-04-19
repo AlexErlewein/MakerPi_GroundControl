@@ -29,6 +29,9 @@ class Mitglied(Base):
     status = Column(String, default="active")  # active | inactive
     joined_date = Column(Date, nullable=True)
     notes = Column(Text, nullable=True)
+    # Login credentials (optional - for cardless login)
+    login_username = Column(String, unique=True, nullable=True, index=True)
+    login_password_hash = Column(String, nullable=True)
 
     def to_dict(self):
         return {
@@ -40,6 +43,8 @@ class Mitglied(Base):
             "status": self.status,
             "joined_date": self.joined_date.isoformat() if self.joined_date else None,
             "notes": self.notes,
+            "login_username": self.login_username,
+            "has_login": bool(self.login_username and self.login_password_hash),
         }
 
 
