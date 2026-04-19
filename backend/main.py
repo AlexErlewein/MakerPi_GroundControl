@@ -14,12 +14,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from passlib.context import CryptContext
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -42,6 +44,13 @@ SUMUP_API_KEY: str = _cfg.get("sumup_api_key", os.environ.get("SUMUP_API_KEY", "
 SUMUP_MERCHANT_CODE: str = _cfg.get("sumup_merchant_code", os.environ.get("SUMUP_MERCHANT_CODE", ""))
 SUMUP_READER_ID: str = _cfg.get("sumup_reader_id", os.environ.get("SUMUP_READER_ID", ""))
 SUMUP_MOCK: bool = _cfg.get("sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true")
+
+# Auth configuration
+SECRET_KEY: str = _cfg.get("secret_key", os.environ.get("SECRET_KEY", "fallback-secret-change-me"))
+ADMIN_USERNAME: str = _cfg.get("admin_username", "admin")
+ADMIN_PASSWORD: str = _cfg.get("admin_password", "changeme")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -298,6 +307,16 @@ class TagScan(Base):
         }
 
 
+# ── User model ───────────────────────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -337,6 +356,38 @@ def _run_migrations():
         conn.commit()
 
 _run_migrations()
+
+
+def _seed_admin_user():
+    """Create the default admin user from config if no users exist yet."""
+    db: Session = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            hashed = pwd_context.hash(ADMIN_PASSWORD)
+            db.add(User(username=ADMIN_USERNAME, hashed_password=hashed))
+            db.commit()
+            logger.info("Seeded default admin user '%s'", ADMIN_USERNAME)
+    finally:
+        db.close()
+
+
+_seed_admin_user()
+
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def _verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+
+def _get_user(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
+
+
+def _login_required(request: Request):
+    """Return the username if logged in, else redirect to /login."""
+    return request.session.get("user")
+
 
 # Global MQTT client
 mqtt_client = None
@@ -624,13 +675,117 @@ app = FastAPI(
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/graphics", StaticFiles(directory="graphics"), name="graphics")
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 
-# API Routes
+# ── Auth routes ───────────────────────────────────────────────────────────────
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Render main dashboard"""
+    """Public welcome / login page"""
+    if request.session.get("user"):
+        return RedirectResponse(url="/dashboard", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    if request.session.get("user"):
+        return RedirectResponse(url="/dashboard", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    db: Session = SessionLocal()
+    try:
+        user = _get_user(db, username)
+        if not user or not _verify_password(password, user.hashed_password):
+            return templates.TemplateResponse(
+                "login.html", {"request": request, "error": "Ungültiger Benutzername oder Passwort."}, status_code=401
+            )
+        request.session["user"] = user.username
+        return RedirectResponse(url="/dashboard", status_code=302)
+    finally:
+        db.close()
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=302)
+
+
+# ── Protected page helper ─────────────────────────────────────────────────────
+
+def _check_auth(request: Request):
+    """Redirect to login if not authenticated, else return username."""
+    user = request.session.get("user")
+    if not user:
+        return None
+    return user
+
+
+# ── Dashboard (was /) ─────────────────────────────────────────────────────────
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+# ── User admin ────────────────────────────────────────────────────────────────
+
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(request: Request):
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
+    db: Session = SessionLocal()
+    try:
+        users = db.query(User).order_by(User.created_at).all()
+        return templates.TemplateResponse(
+            "admin-users.html",
+            {"request": request, "users": users, "current_user": request.session.get("user"), "success": request.query_params.get("success"), "error": request.query_params.get("error")}
+        )
+    finally:
+        db.close()
+
+
+@app.post("/admin/users/add", response_class=HTMLResponse)
+async def admin_add_user(request: Request, username: str = Form(...), password: str = Form(...)):
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
+    db: Session = SessionLocal()
+    try:
+        if _get_user(db, username):
+            return RedirectResponse(url="/admin/users?error=Benutzername+bereits+vergeben", status_code=302)
+        hashed = pwd_context.hash(password)
+        db.add(User(username=username, hashed_password=hashed))
+        db.commit()
+        return RedirectResponse(url="/admin/users?success=Benutzer+angelegt", status_code=302)
+    finally:
+        db.close()
+
+
+@app.post("/admin/users/delete", response_class=HTMLResponse)
+async def admin_delete_user(request: Request, user_id: int = Form(...)):
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
+    db: Session = SessionLocal()
+    try:
+        if db.query(User).count() <= 1:
+            return RedirectResponse(url="/admin/users?error=Letzten+Benutzer+kann+man+nicht+löschen", status_code=302)
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            db.delete(user)
+            db.commit()
+        return RedirectResponse(url="/admin/users?success=Benutzer+gelöscht", status_code=302)
+    finally:
+        db.close()
+
+
+# ── Main app page routes (all protected) ──────────────────────────────────────
 
 
 @app.get("/api/status")
@@ -1114,18 +1269,24 @@ async def delete_tag(uid: str):
 @app.get("/tags", response_class=HTMLResponse)
 async def tags_page(request: Request):
     """Render RFID tags management page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("tags.html", {"request": request})
 
 
 @app.get("/database", response_class=HTMLResponse)
 async def database_page(request: Request):
     """Render database overview page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("database.html", {"request": request})
 
 
 @app.get("/devices/{device_id}", response_class=HTMLResponse)
 async def device_detail_page(request: Request, device_id: str):
     """Render device detail page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     db: Session = SessionLocal()
     try:
         device = db.query(Device).filter(Device.device_id == device_id).first()
@@ -1624,18 +1785,24 @@ async def delete_variante(var_id: int):
 @app.get("/katalog", response_class=HTMLResponse)
 async def katalog_page(request: Request):
     """Render Katalog management page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("katalog.html", {"request": request})
 
 
 @app.get("/laufzettel", response_class=HTMLResponse)
 async def laufzettel_page(request: Request):
     """Render Laufzettel list page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("laufzettel.html", {"request": request})
 
 
 @app.get("/laufzettel/{laufzettel_id}", response_class=HTMLResponse)
 async def laufzettel_detail_page(request: Request, laufzettel_id: int):
     """Render Laufzettel detail/edit page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     db: Session = SessionLocal()
     try:
         lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -1653,6 +1820,8 @@ async def laufzettel_detail_page(request: Request, laufzettel_id: int):
 @app.get("/mitglieder", response_class=HTMLResponse)
 async def mitglieder_page(request: Request):
     """Render member database page"""
+    if not _check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse("mitglieder.html", {"request": request})
 
 

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg-primary);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 380px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .login-logo {
+            height: 72px;
+            width: auto;
+            filter: brightness(1.6);
+        }
+
+        .login-title {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin: 0;
+            text-align: center;
+        }
+
+        .login-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .login-form label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .login-form input:focus {
+            border-color: var(--accent);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 11px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+
+        .login-btn:hover {
+            opacity: 0.88;
+        }
+
+        .login-error {
+            width: 100%;
+            background: rgba(248, 81, 73, 0.12);
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            color: var(--danger);
+            font-size: 0.9rem;
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        .login-footer {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .login-footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <img src="/graphics/H3ckeLogo.svg" class="login-logo" alt="H3cke MakerSpace">
+        <p class="login-title">GroundControl Admin</p>
+
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+
+        <form class="login-form" method="post" action="/login">
+            <div>
+                <label for="username">Benutzername</label>
+                <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+            </div>
+            <div>
+                <label for="password">Passwort</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="login-btn">Anmelden</button>
+        </form>
+
+        <p class="login-footer">
+            <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">📄 Dokumentation</a>
+        </p>
+    </div>
+</body>
+</html>
