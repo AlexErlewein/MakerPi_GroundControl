@@ -63,6 +63,30 @@ async def katalog_page(request: Request):
     return templates.TemplateResponse("katalog.html", {"request": request})
 
 
+# ── Full Catalog API ─────────────────────────────────────────────────────────
+
+@router.get("/api/katalog")
+async def get_full_katalog(db: Session = Depends(get_db)):
+    """Return full catalog tree: locations with their categories and variants"""
+    locations = db.query(Location).order_by(Location.name).all()
+    result = []
+    for loc in locations:
+        loc_dict = loc.to_dict()
+        kategorien = db.query(MaterialKategorie).filter(
+            MaterialKategorie.location_id == loc.id
+        ).order_by(MaterialKategorie.name).all()
+        loc_dict["kategorien"] = []
+        for kat in kategorien:
+            kat_dict = kat.to_dict()
+            varianten = db.query(MaterialVariante).filter(
+                MaterialVariante.kategorie_id == kat.id
+            ).order_by(MaterialVariante.name).all()
+            kat_dict["varianten"] = [v.to_dict() for v in varianten]
+            loc_dict["kategorien"].append(kat_dict)
+        result.append(loc_dict)
+    return result
+
+
 # ── Locations API ─────────────────────────────────────────────────────────────
 
 @router.get("/api/katalog/locations")
@@ -74,6 +98,9 @@ async def list_locations(db: Session = Depends(get_db)):
 @router.post("/api/katalog/locations")
 async def create_location(data: LocationCreate, db: Session = Depends(get_db)):
     """Create a new location"""
+    existing = db.query(Location).filter(Location.name == data.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Location '{data.name}' already exists")
     loc = Location(name=data.name)
     db.add(loc)
     db.commit()

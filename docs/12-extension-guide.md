@@ -1,54 +1,73 @@
 # Extension Guide
 
-This page highlights the current project shape and where future refactors may help.
+This page describes the current modular architecture and guidelines for extending it.
 
-## Current strengths
+## Current architecture
 
-- very direct development flow
-- easy to follow for a small team
-- backend, UI, and domain logic are all close together
-- fast iteration speed
-
-## Current pressure points
-
-### `backend/main.py` is central
-
-A lot of logic currently lives in one file:
-
-- models
-- MQTT logic
-- routes
-- some migration logic
-
-That is manageable right now, but it increases change risk as the project grows.
-
-## Good future split candidates
-
-If the codebase keeps growing, a natural next structure would be:
+The backend is now organized as a **modular monolith** — one FastAPI process with domain modules, each owning their own database:
 
 ```text
 backend/
-  main.py
-  docs_app.py
-  db.py
-  models.py
-  mqtt.py
-  routes/
-    devices.py
-    tags.py
-    laufzettel.py
-    katalog.py
-    pages.py
+  main.py              # App factory, mounts all routers
+  config.py            # Shared configuration
+  docs_app.py          # Docs FastAPI app
+  auth/                # Users, login, sessions
+    models.py
+    db.py
+    routes.py
+    dependencies.py
+  members/             # Mitglieder + RFID tags
+    models.py
+    db.py
+    routes.py
+  laufzettel/          # Work orders + material tracking
+    models.py
+    db.py
+    routes.py
+  catalog/             # Material catalog
+    models.py
+    db.py
+    routes.py
+  core/                # MQTT, devices, scans
+    models.py
+    db.py
+    mqtt.py
+    routes.py
 ```
 
-## Refactor rule of thumb
+## Strengths of this design
 
-Refactor when one of these starts happening regularly:
+- **Clear boundaries** — each domain owns its data and API
+- **Independent databases** — modules can evolve schema without affecting others
+- **Soft references** — cross-module links use string IDs, not FK constraints
+- **Single deploy** — one process, no network overhead between modules
 
-- many unrelated changes touch `main.py`
-- route sections become hard to navigate
-- model logic starts duplicating behavior
-- test setup becomes harder than feature work
+## Adding a new module
+
+To add a new domain (e.g., `inventory`):
+
+1. Create `backend/inventory/` with `__init__.py`, `models.py`, `db.py`, `routes.py`
+2. Define your models inheriting from `declarative_base()`
+3. Create engine using `sqlite:///./inventory.db`
+4. Import and mount router in `backend/main.py`
+5. Add auth check to your page routes using `backend.auth.dependencies.check_auth`
+
+## Cross-module references
+
+When Module A needs data from Module B:
+
+- **Preferred**: Store a soft key (e.g., `member_id` as string) and fetch via API
+- **Acceptable**: Import the other module's `SessionLocal` for read-only queries
+- **Avoid**: Direct cross-module writes — keep transactions within one DB
+
+## When to further split
+
+Consider extracting a service if:
+
+- A module needs independent scaling
+- Different teams own different domains
+- Deployment cadences diverge
+- A module needs a different database type (Postgres, etc.)
 
 ## Documentation rule of thumb
 

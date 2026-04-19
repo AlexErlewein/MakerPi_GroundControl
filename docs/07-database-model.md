@@ -1,6 +1,18 @@
 # Database Model
 
-This page describes every table, its fields, and the relationships between them.
+This page describes every table, its fields, and the relationships between them. Since the modular refactor, tables are distributed across **5 separate SQLite databases**.
+
+## Database Overview
+
+| Database | Module | Tables |
+|---|---|---|
+| `auth.db` | `backend/auth/` | `users` |
+| `members.db` | `backend/members/` | `mitglieder`, `rfid_tags` |
+| `laufzettel.db` | `backend/laufzettel/` | `laufzettel`, `laufzettel_material` |
+| `catalog.db` | `backend/catalog/` | `locations`, `material_kategorie`, `material_variante` |
+| `core.db` | `backend/core/` | `mqtt_messages`, `devices`, `tag_scans` |
+
+Each module owns its database connection and models. Cross-database references use soft keys (e.g., `member_id` stored as string) rather than foreign keys.
 
 ## Entity-Relationship diagram
 
@@ -221,6 +233,6 @@ flowchart LR
 
 ## Migration approach
 
-The project uses SQLAlchemy `create_all()` for initial schema creation, plus startup migration logic in `_run_migrations()` in `main.py` for adding columns to existing tables. This is lightweight and avoids a full migration tool for now.
+Each module uses SQLAlchemy `create_all()` on startup to create its own tables. There is no automatic migration for schema changes — each module manages its own database independently.
 
-If schema changes become frequent, adding **Alembic** is the recommended next step. See [Extension Guide](./12-extension-guide.md).
+If schema changes become frequent, adding **Alembic** per module is the recommended next step. See [Extension Guide](./12-extension-guide.md).

@@ -13,9 +13,13 @@ graph TB
 
     subgraph "Raspberry Pi (or local machine)"
         MB["Mosquitto\nBroker :1883"]
-        GC["GroundControl\nFastAPI :8000\nbackend/main.py"]
+        GC["GroundControl\nFastAPI :8000\nModular routers"]
         DOCS["Docs App\nFastAPI :8001\nbackend/docs_app.py"]
-        DB[("SQLite\ngroundcontrol.db")]
+        DB1[("SQLite\nauth.db")]
+        DB2[("SQLite\nmembers.db")]
+        DB3[("SQLite\nlaufzettel.db")]
+        DB4[("SQLite\ncatalog.db")]
+        DB5[("SQLite\ncore.db")]
         ZB["Zigbee2MQTT\n:8090 (optional)"]
     end
 
@@ -26,7 +30,11 @@ graph TB
 
     D1 & D2 -->|MQTT publish| MB
     MB -->|paho-mqtt| GC
-    GC <-->|SQLAlchemy ORM| DB
+    GC <-->|SQLAlchemy ORM| DB1
+    GC <-->|SQLAlchemy ORM| DB2
+    GC <-->|SQLAlchemy ORM| DB3
+    GC <-->|SQLAlchemy ORM| DB4
+    GC <-->|SQLAlchemy ORM| DB5
     GC -->|HTML + JSON| UI
     DOCS -->|HTML rendered| DOCUI
     ZB -.->|optional MQTT| MB
@@ -36,7 +44,7 @@ graph TB
 
 | Service | Port | Entry point | Description |
 |---|---|---|---|
-| GroundControl main app | 8000 | `backend/main.py` | Core app: MQTT, DB, API, UI |
+| GroundControl main app | 8000 | `backend/main.py` + modules | Core app: MQTT, DB, API, UI |
 | Docs site | 8001 | `backend/docs_app.py` | Markdown docs renderer |
 | Mosquitto MQTT broker | 1883 | system service | Message bus |
 | Zigbee2MQTT (Pi only) | 8090 | system service | Zigbee bridge (optional) |
@@ -48,8 +56,31 @@ graph TB
 MakerPi_GroundControl/
 │
 ├── backend/
-│   ├── main.py           ← Main FastAPI app (models, MQTT, routes, pages)
-│   └── docs_app.py       ← Docs FastAPI app (Markdown rendering)
+│   ├── main.py           ← App factory, mounts all routers
+│   ├── config.py         ← Shared configuration
+│   ├── docs_app.py       ← Docs FastAPI app (Markdown rendering)
+│   ├── auth/             ← Auth module (users, login)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   ├── routes.py
+│   │   └── dependencies.py
+│   ├── members/          ← Members module (mitglieder, tags)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   └── routes.py
+│   ├── laufzettel/       ← Laufzettel module (work orders)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   └── routes.py
+│   ├── catalog/          ← Catalog module (material catalog)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   └── routes.py
+│   └── core/             ← Core module (MQTT, devices, scans)
+│       ├── models.py
+│       ├── db.py
+│       ├── mqtt.py
+│       └── routes.py
 │
 ├── templates/
 │   ├── login.html        ← Public login / welcome page
@@ -92,9 +123,12 @@ sequenceDiagram
     participant MQ as Mosquitto
 
     UV->>APP: import module
-    APP->>DB: create_all (SQLAlchemy)
-    APP->>DB: _run_migrations() — add missing columns
-    APP->>DB: _seed_admin_user() — create default user if none exist
+    APP->>DB1: create_all (auth.db)
+    APP->>DB2: create_all (members.db)
+    APP->>DB3: create_all (laufzettel.db)
+    APP->>DB4: create_all (catalog.db)
+    APP->>DB5: create_all (core.db)
+    APP->>DB1: seed_admin_user() — create default user if none exist
     UV->>APP: lifespan startup
     APP->>MQ: paho-mqtt connect (localhost:1883)
     MQ-->>APP: on_connect callback
@@ -123,10 +157,10 @@ sequenceDiagram
 
 ## Design principles
 
-> **Single-file backend** — `backend/main.py` is intentionally monolithic for now. It keeps the full domain model visible in one place and is well-suited to this project size. See [Extension Guide](./12-extension-guide.md) for when to split it.
+> **Modular backend** — `backend/main.py` is now a lightweight app factory. Each domain (auth, members, laufzettel, catalog, core) has its own module with dedicated database, models, and routes. See [Extension Guide](./12-extension-guide.md).
 
 > **Server-rendered UI** — Pages are Jinja2 templates. JavaScript enhances them but the HTML shell is always served from the backend. No separate SPA build step.
 
-> **Session-based auth** — Login state is stored in a signed cookie via Starlette's `SessionMiddleware`. Only HTML page routes check for a session; `/api/` endpoints are left open (local network assumption). Users are stored in the `users` table in `groundcontrol.db` with bcrypt-hashed passwords.
+> **Session-based auth** — Login state is stored in a signed cookie via Starlette's `SessionMiddleware`. Only HTML page routes check for a session; `/api/` endpoints are left open (local network assumption). Users are stored in the `users` table in `auth.db` with bcrypt-hashed passwords.
 
 > **SQLite only** — No Postgres, no connection pooling needed. One file, easy to back up and reset. `check_same_thread=False` allows use from the async MQTT handler thread.

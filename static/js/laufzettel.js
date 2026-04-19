@@ -128,7 +128,15 @@ function formatTime(iso) {
 function openNewLzModal() {
     document.getElementById("new-lz-form").reset();
     document.getElementById("new-lz-tag-hint").textContent = "";
-    document.getElementById("new-lz-date").value = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    document.getElementById("new-lz-date").value = now.toISOString().slice(0, 10);
+    // Prefill datetime-local with current time (format: YYYY-MM-DDTHH:MM)
+    const localIso = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + 'T' +
+        String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0');
+    document.getElementById("new-lz-start").value = localIso;
     document.getElementById("new-lz-member-select").value = "";
     document.getElementById("new-lz-modal").classList.remove("hidden");
     // Defer focus so Safari has time to make the element interactable
