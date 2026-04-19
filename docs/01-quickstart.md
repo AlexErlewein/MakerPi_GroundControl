@@ -17,6 +17,10 @@ Open:
 http://localhost:8000
 ```
 
+You will see the **login page**. On first start, a default admin user is seeded automatically. Log in with the credentials from `config/config.json` (`admin_username` / `admin_password`, defaults: `admin` / `changeme`).
+
+After login you land on the dashboard at `/dashboard`.
+
 ## Start the docs app
 
 In a second terminal:
@@ -43,7 +47,7 @@ The project expects:
 
 ### 1. Main app opens
 
-The dashboard should load on port `8000`.
+The login page loads on port `8000`. After entering credentials the dashboard opens at `/dashboard`.
 
 ### 2. Docs app opens
 

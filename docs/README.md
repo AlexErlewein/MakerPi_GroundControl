@@ -19,4 +19,6 @@ The docs website renders these Markdown files and orders them using the numeric 
 - `10-operations-and-deploy.md`
 - `11-how-to-change-things.md`
 - `12-extension-guide.md`
+- `13-payments.md`
+- `14-authentication.md`
 - `PICOW_SETUP.md`

@@ -52,12 +52,15 @@ MakerPi_GroundControl/
 │   └── docs_app.py       ← Docs FastAPI app (Markdown rendering)
 │
 ├── templates/
-│   ├── index.html        ← Dashboard
+│   ├── login.html        ← Public login / welcome page
+│   ├── index.html        ← Dashboard (requires login)
 │   ├── database.html     ← Message history
 │   ├── tags.html         ← RFID tag admin
 │   ├── laufzettel.html   ← Laufzettel list
 │   ├── laufzettel-detail.html  ← Laufzettel editor + material modal
 │   ├── katalog.html      ← Material catalog manager
+│   ├── mitglieder.html   ← Member database
+│   ├── admin-users.html  ← User management
 │   └── docs-layout.html  ← Docs site shell template
 │
 ├── static/
@@ -91,6 +94,7 @@ sequenceDiagram
     UV->>APP: import module
     APP->>DB: create_all (SQLAlchemy)
     APP->>DB: _run_migrations() — add missing columns
+    APP->>DB: _seed_admin_user() — create default user if none exist
     UV->>APP: lifespan startup
     APP->>MQ: paho-mqtt connect (localhost:1883)
     MQ-->>APP: on_connect callback
@@ -114,11 +118,15 @@ sequenceDiagram
 | Template engine | Jinja2 | latest |
 | Docs rendering | markdown | 3.7 |
 | Pydantic | pydantic | v2 |
+| Password hashing | passlib + bcrypt | 1.7.4 / 3.x |
+| Session signing | itsdangerous | 2.x |
 
 ## Design principles
 
 > **Single-file backend** — `backend/main.py` is intentionally monolithic for now. It keeps the full domain model visible in one place and is well-suited to this project size. See [Extension Guide](./12-extension-guide.md) for when to split it.
 
 > **Server-rendered UI** — Pages are Jinja2 templates. JavaScript enhances them but the HTML shell is always served from the backend. No separate SPA build step.
+
+> **Session-based auth** — Login state is stored in a signed cookie via Starlette's `SessionMiddleware`. Only HTML page routes check for a session; `/api/` endpoints are left open (local network assumption). Users are stored in the `users` table in `groundcontrol.db` with bcrypt-hashed passwords.
 
 > **SQLite only** — No Postgres, no connection pooling needed. One file, easy to back up and reset. `check_same_thread=False` allows use from the async MQTT handler thread.
