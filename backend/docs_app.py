@@ -69,7 +69,7 @@ def _normalize_slug(slug: str) -> str:
 def _render_markdown(path: Path):
     md = markdown.Markdown(
         extensions=["toc", "tables", "fenced_code", "attr_list", "sane_lists"],
-        extension_configs={"toc": {"permalink": True}},
+        extension_configs={"toc": {"permalink": False}},
     )
     source = path.read_text(encoding="utf-8")
     html_content = md.convert(source)
