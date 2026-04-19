@@ -216,6 +216,51 @@ body {
     flex-shrink: 0;
 }
 
+.docs-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* ── Language Toggle ─────────────────────────────────────────────────────── */
+
+.docs-lang-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.docs-lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.docs-lang-btn:hover {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+}
+
+.docs-lang-flag {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.docs-lang-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 .docs-tag {
     background: rgba(88,166,255,0.1);
     color: var(--accent);

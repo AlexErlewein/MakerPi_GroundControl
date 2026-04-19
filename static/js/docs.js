@@ -1,3 +1,38 @@
+/* ── Language preference ──────────────────────────────────────────────────── */
+(function () {
+    // Store language preference when switching
+    const langBtn = document.querySelector('.docs-lang-btn');
+    if (langBtn) {
+        langBtn.addEventListener('click', () => {
+            const currentUrl = new URL(window.location.href);
+            const currentLang = currentUrl.searchParams.get('lang') || 'de';
+            // Store the target language (opposite of current)
+            const targetLang = currentLang === 'de' ? 'en' : 'de';
+            localStorage.setItem('docs-language', targetLang);
+        });
+    }
+
+    // Apply stored language preference on page load (if not already set in URL)
+    const url = new URL(window.location.href);
+    const urlLang = url.searchParams.get('lang');
+    const storedLang = localStorage.getItem('docs-language');
+
+    if (!urlLang && storedLang && storedLang !== 'de') {
+        // Redirect to same page with language param
+        url.searchParams.set('lang', storedLang);
+        window.location.href = url.toString();
+    }
+
+    // Preserve language in navigation links
+    if (urlLang) {
+        document.querySelectorAll('.docs-nav-link, .docs-pager-link').forEach((link) => {
+            const linkUrl = new URL(link.href, window.location.origin);
+            linkUrl.searchParams.set('lang', urlLang);
+            link.href = linkUrl.toString();
+        });
+    }
+})();
+
 /* ── Sidebar toggle ───────────────────────────────────────────────────────── */
 const menuBtn = document.getElementById('docs-menu-btn');
 const sidebar = document.getElementById('docs-sidebar');

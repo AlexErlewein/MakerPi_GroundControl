@@ -47,15 +47,83 @@ def _extract_title(path: Path) -> str:
 
 def _discover_docs():
     files = sorted(DOCS_DIR.glob("*.md"), key=_sort_key)
-    docs = []
+    
+    # Group files by their base slug (without language suffix)
+    files_by_slug = {}
     for file_path in files:
-        slug = _clean_slug(file_path.stem)
+        stem = file_path.stem
+        if stem.endswith(".en"):
+            base_slug = stem[:-3]  # Remove .en
+        elif stem.endswith(".de"):
+            base_slug = stem[:-3]  # Remove .de
+        else:
+            base_slug = stem  # No suffix
+        
+        if base_slug not in files_by_slug:
+            files_by_slug[base_slug] = {}
+        
+        if stem.endswith(".en"):
+            files_by_slug[base_slug]["en"] = file_path
+        elif stem.endswith(".de"):
+            files_by_slug[base_slug]["de"] = file_path
+        else:
+            files_by_slug[base_slug]["base"] = file_path
+    
+    docs = []
+    for base_slug, lang_files in sorted(files_by_slug.items(), key=lambda x: _sort_key(Path(x[0] + ".md"))):
+        # Priority: .de.md > base.md (treat as German) > .en.md (fallback)
+        if "de" in lang_files:
+            file_path = lang_files["de"]
+        elif "base" in lang_files:
+            file_path = lang_files["base"]
+        else:
+            # Only English available - use it as fallback
+            file_path = lang_files["en"]
+        
+        slug = _clean_slug(base_slug)
         docs.append({
             "slug": slug,
             "title": _extract_title(file_path),
             "path": file_path,
+            "base_filename": base_slug,  # e.g., "00-overview" without language suffix
+            "has_english": "en" in lang_files,
         })
     return docs
+
+
+def _get_doc_path(slug: str, lang: str = "de", docs: list = None) -> Path | None:
+    """Get the appropriate file path for a doc slug and language"""
+    # Find the doc entry to get the base_filename
+    if docs is None:
+        docs = _discover_docs()
+    
+    base_filename = None
+    for doc in docs:
+        if doc["slug"] == slug:
+            base_filename = doc["base_filename"]
+            break
+    
+    if not base_filename:
+        # Fallback: try to construct from slug
+        base_filename = slug
+    
+    if lang == "en":
+        # Look for .en.md version first
+        en_path = DOCS_DIR / f"{base_filename}.en.md"
+        if en_path.exists():
+            return en_path
+    
+    # Try .de.md version (German)
+    de_path = DOCS_DIR / f"{base_filename}.de.md"
+    if de_path.exists():
+        return de_path
+    
+    # Fall back to base file (for README, etc.)
+    base_path = DOCS_DIR / f"{base_filename}.md"
+    if base_path.exists() and not base_path.stem.endswith(".en"):
+        return base_path
+    
+    return None
 
 
 def _normalize_slug(slug: str) -> str:
@@ -124,7 +192,7 @@ async def docs_index():
 
 
 @app.get("/page/{slug}", response_class=HTMLResponse)
-async def docs_page(request: Request, slug: str):
+async def docs_page(request: Request, slug: str, lang: str = "de"):
     slug = _normalize_slug(slug)
     docs = _discover_docs()
     current_index = None
@@ -139,7 +207,12 @@ async def docs_page(request: Request, slug: str):
     if current_doc is None:
         raise HTTPException(status_code=404, detail="Documentation page not found")
 
-    html, toc_html = _render_markdown(current_doc["path"])
+    # Determine which file to serve based on language
+    doc_path = _get_doc_path(slug, lang, docs)
+    if doc_path is None:
+        doc_path = current_doc["path"]
+
+    html, toc_html = _render_markdown(doc_path)
     previous_doc = docs[current_index - 1] if current_index > 0 else None
     next_doc = docs[current_index + 1] if current_index < len(docs) - 1 else None
 
@@ -154,6 +227,8 @@ async def docs_page(request: Request, slug: str):
             "previous_doc": previous_doc,
             "next_doc": next_doc,
             "main_app_url": _docs_base_url(request),
+            "current_lang": lang,
+            "has_english": current_doc.get("has_english", False),
         },
     )
 

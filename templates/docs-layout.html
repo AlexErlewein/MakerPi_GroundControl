@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +21,7 @@
             <div id="docs-search-results" class="docs-search-results" hidden></div>
             <nav class="docs-nav" id="docs-nav">
                 {% for doc in docs %}
-                <a href="/page/{{ doc.slug }}" class="docs-nav-link {% if doc.slug == current_doc.slug %}active{% endif %}">
+                <a href="/page/{{ doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}" class="docs-nav-link {% if doc.slug == current_doc.slug %}active{% endif %}">
                     {{ doc.title }}
                 </a>
                 {% endfor %}
@@ -34,8 +34,23 @@
                     <button class="docs-menu-btn" id="docs-menu-btn" type="button" aria-label="Toggle menu">☰</button>
                     <h1>{{ current_doc.title }}</h1>
                 </div>
-                <div class="docs-topbar-meta">
-                    <span class="docs-tag">Documentation</span>
+                <div class="docs-topbar-right">
+                    <div class="docs-lang-toggle">
+                        {% if has_english %}
+                        {% if current_lang == "de" %}
+                        <a href="/page/{{ current_doc.slug }}?lang=en" class="docs-lang-btn" title="Switch to English">
+                            <span class="docs-lang-flag">🇬🇧</span>
+                            <span class="docs-lang-label">EN</span>
+                        </a>
+                        {% else %}
+                        <a href="/page/{{ current_doc.slug }}?lang=de" class="docs-lang-btn" title="Auf Deutsch umschalten">
+                            <span class="docs-lang-flag">🇩🇪</span>
+                            <span class="docs-lang-label">DE</span>
+                        </a>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    <span class="docs-tag">Dokumentation</span>
                 </div>
             </header>
 
@@ -44,16 +59,16 @@
                     {{ content_html | safe }}
                     <div class="docs-pager">
                         {% if previous_doc %}
-                        <a class="docs-pager-link prev" href="/page/{{ previous_doc.slug }}">
-                            <span class="docs-pager-label">← Previous</span>
+                        <a class="docs-pager-link prev" href="/page/{{ previous_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
+                            <span class="docs-pager-label">← Zurück</span>
                             <span class="docs-pager-title">{{ previous_doc.title }}</span>
                         </a>
                         {% else %}
                         <span></span>
                         {% endif %}
                         {% if next_doc %}
-                        <a class="docs-pager-link next" href="/page/{{ next_doc.slug }}">
-                            <span class="docs-pager-label">Next →</span>
+                        <a class="docs-pager-link next" href="/page/{{ next_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
+                            <span class="docs-pager-label">Weiter →</span>
                             <span class="docs-pager-title">{{ next_doc.title }}</span>
                         </a>
                         {% endif %}
