@@ -295,13 +295,25 @@ async def delete_material(laufzettel_id: int, material_id: int, db: Session = De
     return {"success": True}
 
 
-@router.post("/api/laufzettel/{laufzettel_id}/pay")
-async def pay_laufzettel(
-    laufzettel_id: int,
-    method: str,  # bar | paypal | karte
-    db: Session = Depends(get_db)
-):
-    """Mark a Laufzettel as paid"""
+# ── Payment API ───────────────────────────────────────────────────────────────
+
+from backend.config import SUMUP_API_KEY, SUMUP_MERCHANT_CODE, SUMUP_READER_ID, SUMUP_MOCK
+
+
+@router.get("/api/payment/config")
+async def get_payment_config():
+    """Return payment configuration for frontend"""
+    sumup_configured = bool(SUMUP_API_KEY and SUMUP_MERCHANT_CODE)
+    return {
+        "sumup_configured": sumup_configured,
+        "sumup_mock": SUMUP_MOCK,
+        "reader_id": SUMUP_READER_ID if sumup_configured else None,
+    }
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/bar")
+async def pay_bar(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Mark Laufzettel as paid with cash"""
     from datetime import datetime, timezone
     
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -309,8 +321,137 @@ async def pay_laufzettel(
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     if lz.payment_method:
         raise HTTPException(status_code=409, detail="Already paid")
-    lz.payment_method = method
+    lz.payment_method = "bar"
     lz.paid_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(lz)
-    return lz.to_dict()
+    d = lz.to_dict()
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == lz.id
+    ).all()
+    d["material"] = [m.to_dict() for m in materials]
+    return d
+
+
+# In-memory store for pending card payments (transaction_id -> {created_at, status})
+_pending_payments: dict = {}
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/karte")
+async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Initiate card payment - returns transaction ID for polling"""
+    from datetime import datetime, timezone, timedelta
+    import uuid
+    
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+    
+    # Generate transaction ID
+    txn_id = str(uuid.uuid4())
+    
+    if SUMUP_MOCK:
+        # Mock mode: return transaction ID for immediate confirmation
+        return {
+            "mock": True,
+            "client_transaction_id": txn_id,
+            "status": "PENDING",
+        }
+    
+    # TODO: Integrate with SumUp API if configured
+    # For now, create pending payment that will timeout after 1 minute
+    _pending_payments[txn_id] = {
+        "laufzettel_id": laufzettel_id,
+        "created_at": datetime.now(timezone.utc),
+        "status": "PENDING",
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=1),
+    }
+    
+    return {
+        "mock": False,
+        "client_transaction_id": txn_id,
+        "status": "PENDING",
+    }
+
+
+@router.get("/api/laufzettel/{laufzettel_id}/pay/karte/status")
+async def get_karte_status(
+    laufzettel_id: int,
+    client_transaction_id: str,
+    db: Session = Depends(get_db)
+):
+    """Check status of card payment"""
+    from datetime import datetime, timezone
+    
+    # Check if already paid directly
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if lz and lz.payment_method == "karte":
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return {"status": "SUCCESSFUL", "laufzettel": d}
+    
+    # Check pending payments
+    pending = _pending_payments.get(client_transaction_id)
+    if not pending:
+        return {"status": "NOT_FOUND"}
+    
+    # Check timeout (1 minute)
+    if datetime.now(timezone.utc) > pending["expires_at"]:
+        # Clean up expired
+        del _pending_payments[client_transaction_id]
+        return {"status": "TIMEOUT"}
+    
+    return {"status": pending["status"]}
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/karte/confirm-mock")
+async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Confirm mock card payment"""
+    from datetime import datetime, timezone
+    
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+    
+    lz.payment_method = "karte"
+    lz.paid_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(lz)
+    d = lz.to_dict()
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == lz.id
+    ).all()
+    d["material"] = [m.to_dict() for m in materials]
+    return d
+
+
+@router.delete("/api/laufzettel/{laufzettel_id}/pay/karte")
+async def cancel_karte_payment(laufzettel_id: int, client_transaction_id: str, db: Session = Depends(get_db)):
+    """Cancel pending card payment"""
+    pending = _pending_payments.pop(client_transaction_id, None)
+    return {"cancelled": pending is not None}
+
+
+@router.delete("/api/laufzettel/{laufzettel_id}/pay")
+async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Reset payment status (for admin corrections)"""
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    lz.payment_method = None
+    lz.paid_at = None
+    db.commit()
+    db.refresh(lz)
+    d = lz.to_dict()
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == lz.id
+    ).all()
+    d["material"] = [m.to_dict() for m in materials]
+    return d

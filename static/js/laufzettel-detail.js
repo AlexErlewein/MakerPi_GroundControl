@@ -790,6 +790,10 @@ document.getElementById("reset-payment-close").addEventListener("click", closeRe
 document.getElementById("reset-payment-cancel").addEventListener("click", closeResetPaymentModal);
 document.getElementById("reset-payment-overlay").addEventListener("click", closeResetPaymentModal);
 
+// Karte payment state
+let kartePollAbort = null;
+let karteCurrentTxnId = null;
+
 // Karte
 async function doKartePayment() {
     const modal = document.getElementById("karte-modal");
@@ -797,6 +801,10 @@ async function doKartePayment() {
     const actions = document.getElementById("karte-actions");
     const body = document.getElementById("karte-body");
     const spinner = body.querySelector(".karte-spinner");
+
+    // Reset state
+    kartePollAbort = new AbortController();
+    karteCurrentTxnId = null;
 
     statusText.textContent = "Zahlung wird ans Terminal gesendet…";
     statusText.style.color = "";
@@ -807,7 +815,10 @@ async function doKartePayment() {
     // Phase 1: initiate checkout
     let initData;
     try {
-        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte`, { method: "POST" });
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte`, {
+            method: "POST",
+            signal: kartePollAbort.signal
+        });
         if (!res.ok) {
             const err = await res.json();
             statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
@@ -817,9 +828,15 @@ async function doKartePayment() {
             return;
         }
         initData = await res.json();
+        karteCurrentTxnId = initData.client_transaction_id;
     } catch (e) {
-        statusText.textContent = "Netzwerkfehler beim Senden ans Terminal.";
-        statusText.style.color = "var(--danger)";
+        if (e.name === "AbortError") {
+            statusText.textContent = "Zahlung abgebrochen.";
+            statusText.style.color = "var(--warning)";
+        } else {
+            statusText.textContent = "Netzwerkfehler beim Senden ans Terminal.";
+            statusText.style.color = "var(--danger)";
+        }
         spinner.style.display = "none";
         actions.style.display = "";
         return;
@@ -841,29 +858,45 @@ async function doKartePayment() {
         return;
     }
 
-    // Phase 3: real mode – poll for SUCCESSFUL / CANCELLED / FAILED
+    // Phase 3: real mode – poll for SUCCESSFUL / CANCELLED / FAILED / TIMEOUT
     const txnId = initData.client_transaction_id;
     statusText.textContent = "Warte auf Bestätigung am Terminal…";
 
     const POLL_INTERVAL_MS = 3000;
-    const POLL_TIMEOUT_MS = 120000; // 2 minutes max
+    const POLL_TIMEOUT_MS = 60000; // 1 minute max (backend timeout)
     const started = Date.now();
 
     const poll = async () => {
+        // Check if aborted
+        if (kartePollAbort.signal.aborted) {
+            return;
+        }
+        
         if (Date.now() - started > POLL_TIMEOUT_MS) {
             spinner.style.display = "none";
             statusText.textContent = "Timeout – keine Antwort vom Terminal erhalten.";
             statusText.style.color = "var(--warning)";
             actions.style.display = "";
+            // Notify backend to cancel
+            try {
+                await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte?client_transaction_id=${encodeURIComponent(txnId)}`, {
+                    method: "DELETE"
+                });
+            } catch (_) {}
             return;
         }
+        
         let pollData;
         try {
             const r = await fetch(
-                `/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/status?client_transaction_id=${encodeURIComponent(txnId)}`
+                `/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/status?client_transaction_id=${encodeURIComponent(txnId)}`,
+                { signal: kartePollAbort.signal }
             );
             pollData = await r.json();
-        } catch (_) {
+        } catch (e) {
+            if (e.name === "AbortError") {
+                return; // Stopped by user
+            }
             setTimeout(poll, POLL_INTERVAL_MS);
             return;
         }
@@ -878,12 +911,17 @@ async function doKartePayment() {
                 renderMaterial();
             }
             actions.style.display = "";
-        } else if (pollData.status === "CANCELLED" || pollData.status === "FAILED") {
+        } else if (pollData.status === "CANCELLED" || pollData.status === "FAILED" || pollData.status === "TIMEOUT") {
             spinner.style.display = "none";
-            statusText.textContent = pollData.status === "CANCELLED"
-                ? "Zahlung abgebrochen."
-                : "Zahlung fehlgeschlagen.";
-            statusText.style.color = "var(--danger)";
+            if (pollData.status === "TIMEOUT") {
+                statusText.textContent = "Timeout – keine Antwort vom Terminal erhalten.";
+                statusText.style.color = "var(--warning)";
+            } else {
+                statusText.textContent = pollData.status === "CANCELLED"
+                    ? "Zahlung abgebrochen."
+                    : "Zahlung fehlgeschlagen.";
+                statusText.style.color = "var(--danger)";
+            }
             actions.style.display = "";
         } else {
             // Still PENDING – keep polling
@@ -895,8 +933,25 @@ async function doKartePayment() {
 }
 
 function closeKarteModal() {
-    document.getElementById("karte-modal").classList.add("hidden");
-    document.getElementById("karte-status-text").style.color = "";
+    const modal = document.getElementById("karte-modal");
+    const statusText = document.getElementById("karte-status-text");
+    
+    // Abort any ongoing fetch/polling
+    if (kartePollAbort) {
+        kartePollAbort.abort();
+        kartePollAbort = null;
+    }
+    
+    // Notify backend to cancel pending payment
+    if (karteCurrentTxnId) {
+        fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte?client_transaction_id=${encodeURIComponent(karteCurrentTxnId)}`, {
+            method: "DELETE"
+        }).catch(() => {});
+        karteCurrentTxnId = null;
+    }
+    
+    modal.classList.add("hidden");
+    statusText.style.color = "";
 }
 document.getElementById("karte-modal-close").addEventListener("click", closeKarteModal);
 document.getElementById("karte-close-btn").addEventListener("click", closeKarteModal);
