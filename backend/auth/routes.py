@@ -26,7 +26,11 @@ async def login_page(request: Request, error: str = None):
     templates = Jinja2Templates(directory="templates")
     
     if request.session.get("user"):
-        return RedirectResponse("/dashboard", status_code=302)
+        role = request.session.get("role")
+        if role == "admin":
+            return RedirectResponse("/dashboard", status_code=302)
+        else:
+            return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 
@@ -37,7 +41,13 @@ async def login(request: Request, username: str = Form(...), password: str = For
     if not user or not verify_password(password, user.hashed_password):
         return RedirectResponse("/login?error=Invalid+credentials", status_code=302)
     request.session["user"] = user.username
-    return RedirectResponse("/dashboard", status_code=302)
+    request.session["role"] = user.role
+    request.session["mitglied_id"] = user.mitglied_id
+    # Redirect based on role
+    if user.role == "admin":
+        return RedirectResponse("/dashboard", status_code=302)
+    else:
+        return RedirectResponse("/member", status_code=302)
 
 
 @router.get("/logout")
@@ -74,6 +84,7 @@ async def add_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    role: str = Form(default="member"),
     db: Session = Depends(get_db),
 ):
     """Add a new user"""
@@ -99,7 +110,7 @@ async def add_user(
         )
     
     hashed = get_password_hash(password)
-    new_user = User(username=username, hashed_password=hashed)
+    new_user = User(username=username, hashed_password=hashed, role=role)
     db.add(new_user)
     db.commit()
     

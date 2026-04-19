@@ -29,12 +29,34 @@ async def shutdown():
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Redirect to login or dashboard"""
+    """Show landing page with RFID login or redirect to appropriate dashboard"""
     from backend.auth.dependencies import check_auth
+    from backend.auth.db import SessionLocal
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
     
     if check_auth(request):
-        return RedirectResponse("/dashboard", status_code=302)
-    return RedirectResponse("/login", status_code=302)
+        # Verify user actually exists in DB
+        username = request.session.get("user")
+        db = SessionLocal()
+        try:
+            from backend.auth.models import User
+            user = db.query(User).filter(User.username == username).first()
+            if user:
+                # User exists - redirect based on role
+                role = request.session.get("role", "member")
+                if role == "admin":
+                    return RedirectResponse("/dashboard", status_code=302)
+                else:
+                    return RedirectResponse("/member", status_code=302)
+            else:
+                # Session has invalid user - clear it
+                request.session.clear()
+        finally:
+            db.close()
+    
+    # Not logged in - show landing page with RFID scan
+    return templates.TemplateResponse("landing.html", {"request": request})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)

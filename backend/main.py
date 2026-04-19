@@ -16,6 +16,7 @@ from backend.members.routes import router as members_router
 from backend.laufzettel.routes import router as laufzettel_router
 from backend.catalog.routes import router as catalog_router
 from backend.core.routes import router as core_router
+from backend.member_routes import router as member_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ templates = Jinja2Templates(directory="templates")
 # Mount all module routers
 # Order matters: core handles / and /dashboard, auth handles /login
 app.include_router(auth_router)
+app.include_router(member_router)  # Member routes first (more specific paths)
 app.include_router(core_router)
 app.include_router(members_router)
 app.include_router(laufzettel_router)

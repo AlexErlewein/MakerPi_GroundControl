@@ -41,7 +41,11 @@ def seed_admin_user():
         if existing:
             return
         hashed = get_password_hash(ADMIN_PASSWORD)
-        admin = User(username=ADMIN_USERNAME, hashed_password=hashed)
+        admin = User(
+            username=ADMIN_USERNAME,
+            hashed_password=hashed,
+            role="admin"
+        )
         db.add(admin)
         db.commit()
     finally:

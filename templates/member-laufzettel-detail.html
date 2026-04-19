@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laufzettel {{ laufzettel.id }} - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/laufzettel-detail.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
+                <nav class="nav">
+                    <a href="/member" class="nav-link">Meine Laufzettel</a>
+                    <a href="/logout" class="nav-link">Abmelden</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span class="user-info">Angemeldet als: {{ user.username }}</span>
+            </div>
+        </header>
+
+        <main class="lz-detail-main">
+            <!-- Info Card -->
+            <div class="lz-info-card">
+                <h1>Laufzettel #{{ laufzettel.id }}</h1>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Datum:</span>
+                        <span class="info-value">{{ laufzettel.date }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Von:</span>
+                        <span class="info-value">{{ laufzettel.start_zeit }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Bis:</span>
+                        <span class="info-value">{{ laufzettel.end_zeit or "..." }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
+                            {% if laufzettel.payment_method %}
+                                Bezahlt ({{ laufzettel.payment_method }})
+                            {% else %}
+                                Offen
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                {% if laufzettel.beschreibung %}
+                <div class="info-description">
+                    <h3>Beschreibung:</h3>
+                    <p>{{ laufzettel.beschreibung }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Materials Section -->
+            <div class="lz-materials-section">
+                <h2>Materialien</h2>
+                
+                <div class="materials-table-container">
+                    <table class="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Menge</th>
+                                <th>Einheit</th>
+                                <th>Preis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mat in materials %}
+                            <tr>
+                                <td>{{ mat.material_name or "Material #%s" % mat.variant_id }}</td>
+                                <td>{{ mat.menge }}</td>
+                                <td>{{ mat.einheit }}</td>
+                                <td>{{ "%.2f"|format(mat.calculated_price) }} €</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3"><strong>Gesamt:</strong></td>
+                                <td><strong>{{ "%.2f"|format(materials|sum(attribute='calculated_price')) }} €</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                {% if not read_only %}
+                <div class="add-material-section">
+                    <h3>Material hinzufügen</h3>
+                    <form id="add-material-form" class="add-form">
+                        <div class="form-row">
+                            <select id="material-variant" class="form-control" required>
+                                <option value="">Material wählen...</option>
+                            </select>
+                            <input type="number" id="material-menge" class="form-control" 
+                                   placeholder="Menge" step="0.1" min="0.1" required>
+                            <button type="submit" class="btn btn-primary">Hinzufügen</button>
+                        </div>
+                    </form>
+                </div>
+                {% else %}
+                <div class="info-box">
+                    <p>Dieser Laufzettel wurde bereits bezahlt. Neue Materialien können nicht mehr hinzugefügt werden.</p>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const LAUFZETTEL_ID = {{ laufzettel.id }};
+        
+        {% if not read_only %}
+        // Load material catalog
+        async function loadCatalog() {
+            const res = await fetch('/api/katalog');
+            const data = await res.json();
+            
+            const select = document.getElementById('material-variant');
+            data.forEach(location => {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = location.name;
+                
+                location.categories.forEach(cat => {
+                    cat.variants.forEach(var => {
+                        const option = document.createElement('option');
+                        option.value = var.id;
+                        option.textContent = `${cat.name} - ${var.name} (${var.preis_pro_einheit}€/${cat.unit})`;
+                        option.dataset.preis = var.preis_pro_einheit;
+                        option.dataset.einheit = cat.unit;
+                        optgroup.appendChild(option);
+                    });
+                });
+                
+                select.appendChild(optgroup);
+            });
+        }
+        
+        // Add material
+        document.getElementById('add-material-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const variantId = document.getElementById('material-variant').value;
+            const menge = parseFloat(document.getElementById('material-menge').value);
+            
+            if (!variantId || !menge) return;
+            
+            const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({variant_id: parseInt(variantId), menge: menge})
+            });
+            
+            if (res.ok) {
+                location.reload();  // Reload to show new material
+            } else {
+                alert('Fehler beim Hinzufügen des Materials');
+            }
+        });
+        
+        loadCatalog();
+        {% endif %}
+    </script>
+</body>
+</html>

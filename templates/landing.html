@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H3cke MakerSpace - Anmeldung</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/landing.css">
+</head>
+<body class="landing-page">
+    <div class="landing-container">
+        <div class="landing-header">
+            <img src="/graphics/H3ckeLogo.svg" class="landing-logo" alt="H3cke MakerSpace">
+            <h1>MakerSpace GroundControl</h1>
+            <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
+        </div>
+
+        <div class="login-options">
+            <!-- RFID Login Section -->
+            <div class="login-card rfid-card">
+                <div class="card-icon">🎯</div>
+                <h2>Mitglieder-Anmeldung</h2>
+                <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
+                
+                <div class="rfid-status" id="rfid-status">
+                    <div class="scanning-animation">
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                    </div>
+                    <span class="status-text">Warte auf Karte...</span>
+                </div>
+                
+                <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+                
+                <p class="hint">Oder melde dich mit Benutzername und Passwort an:</p>
+                <a href="/login" class="btn btn-secondary">Zum Login</a>
+            </div>
+
+            <!-- Admin Login Section -->
+            <div class="login-card admin-card">
+                <div class="card-icon">⚙️</div>
+                <h2>Admin-Bereich</h2>
+                <p>Verwaltung und Administration</p>
+                
+                <div class="admin-links">
+                    <a href="/login" class="btn btn-primary">Admin Login</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="landing-footer">
+            <p>H3cke e.V. MakerSpace | <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">Dokumentation</a></p>
+        </div>
+    </div>
+
+    <script>
+        // MQTT connection for RFID scan
+        const rfidStatus = document.getElementById('rfid-status');
+        const rfidError = document.getElementById('rfid-error');
+        
+        // Listen for RFID scans via MQTT (using WebSocket or polling)
+        async function checkForRFIDScans() {
+            try {
+                // Poll for recent tag scans
+                const res = await fetch('/api/tag-scans?limit=1');
+                if (!res.ok) return;
+                
+                const scans = await res.json();
+                if (scans.length === 0) return;
+                
+                const latestScan = scans[0];
+                const scanTime = new Date(latestScan.timestamp);
+                const now = new Date();
+                
+                // Only process scans from last 5 seconds
+                if ((now - scanTime) > 5000) return;
+                
+                // Already processed this scan?
+                if (latestScan.id === window.lastProcessedScan) return;
+                window.lastProcessedScan = latestScan.id;
+                
+                // Try to login with this RFID
+                await attemptRFIDLogin(latestScan.tag_id);
+                
+            } catch (e) {
+                console.error('RFID check error:', e);
+            }
+        }
+        
+        async function attemptRFIDLogin(rfidUid) {
+            rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
+            rfidError.style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/auth/login-rfid', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({rfid_uid: rfidUid})
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    rfidStatus.innerHTML = '<span class="status-text success">✓ Angemeldet!</span>';
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/member';
+                    }, 500);
+                } else {
+                    rfidStatus.innerHTML = `
+                        <div class="scanning-animation">
+                            <span class="pulse"></span>
+                            <span class="pulse"></span>
+                            <span class="pulse"></span>
+                        </div>
+                        <span class="status-text">Warte auf Karte...</span>
+                    `;
+                    rfidError.textContent = data.error || 'Anmeldung fehlgeschlagen';
+                    rfidError.style.display = 'block';
+                    setTimeout(() => {
+                        rfidError.style.display = 'none';
+                    }, 5000);
+                }
+            } catch (e) {
+                console.error('Login error:', e);
+                rfidStatus.innerHTML = `
+                    <div class="scanning-animation">
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                    </div>
+                    <span class="status-text">Warte auf Karte...</span>
+                `;
+            }
+        }
+        
+        // Poll every 2 seconds for new RFID scans
+        setInterval(checkForRFIDScans, 2000);
+    </script>
+</body>
+</html>

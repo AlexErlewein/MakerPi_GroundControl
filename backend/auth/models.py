@@ -18,11 +18,15 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    role = Column(String, default="member")  # "admin" or "member"
+    mitglied_id = Column(Integer, nullable=True)  # Link to members table
     created_at = Column(DateTime, default=_utcnow)
 
     def to_dict(self):
         return {
             "id": self.id,
             "username": self.username,
+            "role": self.role,
+            "mitglied_id": self.mitglied_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

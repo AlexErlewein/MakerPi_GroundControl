@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meine Laufzettel - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/laufzettel.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
+                <nav class="nav">
+                    <a href="/member" class="nav-link active">Meine Laufzettel</a>
+                    <a href="/logout" class="nav-link">Abmelden</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span class="user-info">Angemeldet als: {{ user.username }}</span>
+            </div>
+        </header>
+
+        <main class="lz-main">
+            <div class="lz-header">
+                <h1>Meine Laufzettel</h1>
+                <p class="subtitle">Übersicht deiner aktiven und abgeschlossenen Aufträge</p>
+            </div>
+
+            <div class="lz-list">
+                {% if laufzettel %}
+                    {% for lz in laufzettel %}
+                    <div class="lz-card {% if lz.payment_method %}paid{% else %}open{% endif %}">
+                        <div class="lz-card-header">
+                            <span class="lz-id">#{{ lz.id }}</span>
+                            <span class="lz-date">{{ lz.date }}</span>
+                            {% if lz.payment_method %}
+                                <span class="lz-status paid">Bezahlt</span>
+                            {% else %}
+                                <span class="lz-status open">Offen</span>
+                            {% endif %}
+                        </div>
+                        <div class="lz-card-body">
+                            <h3>{{ lz.titel or "Laufzettel" }}</h3>
+                            <p class="lz-zeit">{{ lz.start_zeit }} - {{ lz.end_zeit or "..." }}</p>
+                        </div>
+                        <div class="lz-card-footer">
+                            <a href="/member/laufzettel/{{ lz.id }}" class="btn btn-primary">Details</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>Keine Laufzettel gefunden.</p>
+                        <p class="hint">Bitte melde dich am Terminal an oder wende dich an einen Admin.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</body>
+</html>
