@@ -1,14 +1,17 @@
 """Auth routes - login, logout, admin users"""
 
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
-from starlette.middleware.sessions import SessionMiddleware
 
 from .db import get_db, init_db
 from .models import User
-from .dependencies import verify_password, get_password_hash, get_user, seed_admin_user
-from backend.config import SECRET_KEY
+from .dependencies import (
+    verify_password, get_password_hash, get_user, seed_admin_user,
+    is_admin_verified, verify_admin_password, get_session_info,
+    require_admin, ADMIN_TIMEOUT_MINUTES
+)
 
 router = APIRouter()
 
@@ -19,41 +22,67 @@ async def startup():
     seed_admin_user()
 
 
+@router.get("/")
+async def landing_page(request: Request):
+    """Landing page - redirects to member view if logged in"""
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
+    
+    if request.session.get("mitglied_id"):
+        return RedirectResponse("/member", status_code=302)
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+
 @router.get("/login")
 async def login_page(request: Request, error: str = None):
     """Show login page (redirects if already logged in)"""
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if request.session.get("user"):
-        role = request.session.get("role")
-        if role == "admin":
-            return RedirectResponse("/dashboard", status_code=302)
-        else:
-            return RedirectResponse("/member", status_code=302)
+    if request.session.get("mitglied_id"):
+        return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 
-@router.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    """Authenticate admin or member and set session"""
-    # First try admin user
+@router.post("/api/auth/login")
+async def unified_login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Unified login - admins go to dashboard, members to /member"""
+    from backend.members.db import get_db as get_members_db
+    from backend.members.models import Mitglied
+    
+    members_db = next(get_members_db())
+    
+    # Check admin users first
     user = get_user(db, username)
     if user and verify_password(password, user.hashed_password):
+        # Admin user found - auto-verify since password was just entered
         request.session["user"] = user.username
-        request.session["role"] = user.role
         request.session["mitglied_id"] = user.mitglied_id
-        return RedirectResponse("/dashboard" if user.role == "admin" else "/member", status_code=302)
+        request.session["is_admin_capable"] = (user.role == "admin")
+        
+        if user.role == "admin":
+            # Direct admin access - password already verified
+            request.session["admin_verified"] = True
+            request.session["admin_verified_at"] = datetime.now(timezone.utc).isoformat()
+            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+            return RedirectResponse("/dashboard", status_code=302)
+        else:
+            # Regular member user
+            request.session["admin_verified"] = False
+            request.session["admin_verified_at"] = None
+            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+            return RedirectResponse("/member", status_code=302)
     
-    # Try member login via mitglieder table
-    from backend.members.db import get_db as get_members_db
-    members_db = next(get_members_db())
-    from backend.members.models import Mitglied
+    # Check member login via mitglieder table
     mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
-    
     if mitglied and mitglied.login_password_hash:
         if verify_password(password, mitglied.login_password_hash):
-            # Create/find member user
+            # Ensure user record exists in auth db
             member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
             if not member_user:
                 member_user = User(
@@ -64,14 +93,22 @@ async def login(request: Request, username: str = Form(...), password: str = For
                 )
                 db.add(member_user)
                 db.commit()
-                db.refresh(member_user)
             
             request.session["user"] = member_user.username
-            request.session["role"] = "member"
             request.session["mitglied_id"] = mitglied.id
+            request.session["is_admin_capable"] = False
+            request.session["admin_verified"] = False
+            request.session["admin_verified_at"] = None
+            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
             return RedirectResponse("/member", status_code=302)
     
-    return RedirectResponse("/login?error=Invalid+credentials", status_code=302)
+    return RedirectResponse("/?error=Invalid+credentials", status_code=302)
+
+
+@router.post("/login")  # Keep for form compatibility
+async def legacy_login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    """Legacy login endpoint - redirects to unified login"""
+    return await unified_login(request, username, password, db)
 
 
 @router.get("/logout")
@@ -81,14 +118,47 @@ async def logout(request: Request):
     return RedirectResponse("/", status_code=302)
 
 
+@router.post("/api/auth/logout-admin")
+async def logout_admin(request: Request):
+    """Drop admin verification, return to member view"""
+    request.session["admin_verified"] = False
+    request.session["admin_verified_at"] = None
+    return RedirectResponse("/member", status_code=302)
+
+
+@router.get("/api/auth/session")
+async def session_info(request: Request):
+    """Get current session information"""
+    return get_session_info(request)
+
+
+@router.post("/api/auth/verify-admin")
+async def verify_admin(
+    request: Request,
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Verify admin password to enable admin mode"""
+    if verify_admin_password(request, db, password):
+        return {"success": True}
+    return JSONResponse(
+        {"success": False, "error": "Invalid password or not admin"},
+        status_code=403
+    )
+
+
 @router.get("/admin/users")
 async def admin_users_page(request: Request, db: Session = Depends(get_db)):
-    """User management page"""
+    """User management page - requires admin verification"""
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if not request.session.get("user"):
+    if not request.session.get("mitglied_id"):
         return RedirectResponse("/login", status_code=302)
+    
+    # Require admin verification
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
     
     users = db.query(User).order_by(User.created_at).all()
     return templates.TemplateResponse(
@@ -112,8 +182,11 @@ async def add_user(
     db: Session = Depends(get_db),
 ):
     """Add a new user"""
-    if not request.session.get("user"):
+    if not request.session.get("mitglied_id"):
         return RedirectResponse("/login", status_code=302)
+    
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
     
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
@@ -158,8 +231,11 @@ async def delete_user(
     db: Session = Depends(get_db),
 ):
     """Delete a user (cannot delete self or last user)"""
-    if not request.session.get("user"):
+    if not request.session.get("mitglied_id"):
         return RedirectResponse("/login", status_code=302)
+    
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
     
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")

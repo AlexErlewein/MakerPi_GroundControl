@@ -1,5 +1,6 @@
 """Auth dependencies for FastAPI"""
 
+from datetime import datetime, timezone, timedelta
 from fastapi import Request, HTTPException
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -8,6 +9,7 @@ from .models import User
 from backend.config import SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ADMIN_TIMEOUT_MINUTES = 10
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -33,6 +35,83 @@ def get_user(db: Session, username: str) -> User | None:
     return db.query(User).filter(User.username == username).first()
 
 
+def is_admin_verified(request: Request) -> bool:
+    """Check if user has verified admin status (with 10min timeout)"""
+    session = request.session
+    if not session.get("admin_verified"):
+        return False
+    
+    admin_verified_at = session.get("admin_verified_at")
+    last_activity = session.get("last_activity")
+    
+    if not admin_verified_at or not last_activity:
+        return False
+    
+    # Check 10min timeout
+    now = datetime.now(timezone.utc)
+    if (now - last_activity).total_seconds() > (ADMIN_TIMEOUT_MINUTES * 60):
+        # Timeout expired, clear admin verification
+        session["admin_verified"] = False
+        session["admin_verified_at"] = None
+        return False
+    
+    # Update last activity
+    session["last_activity"] = now.isoformat()
+    return True
+
+
+def verify_admin_password(request: Request, db: Session, password: str) -> bool:
+    """Verify admin password and enable admin mode"""
+    mitglied_id = request.session.get("mitglied_id")
+    if not mitglied_id:
+        return False
+    
+    # Check if user is admin-capable
+    is_admin_capable = request.session.get("is_admin_capable", False)
+    if not is_admin_capable:
+        return False
+    
+    # Get user and verify password
+    username = request.session.get("user")
+    user = db.query(User).filter(User.username == username).first()
+    
+    if not user or user.role != "admin":
+        return False
+    
+    if not verify_password(password, user.hashed_password):
+        return False
+    
+    # Set admin verified
+    now = datetime.now(timezone.utc)
+    request.session["admin_verified"] = True
+    request.session["admin_verified_at"] = now.isoformat()
+    request.session["last_activity"] = now.isoformat()
+    return True
+
+
+def get_session_info(request: Request) -> dict:
+    """Get current session information"""
+    session = request.session
+    return {
+        "mitglied_id": session.get("mitglied_id"),
+        "is_admin_capable": session.get("is_admin_capable", False),
+        "admin_verified": is_admin_verified(request),
+        "can_access_admin": is_admin_verified(request),
+    }
+
+
+def require_auth(request: Request):
+    """Dependency: require authentication"""
+    if not request.session.get("mitglied_id"):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def require_admin(request: Request):
+    """Dependency: require admin verification"""
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+
 def seed_admin_user():
     """Seed default admin user if no users exist"""
     db = SessionLocal()
@@ -44,7 +123,8 @@ def seed_admin_user():
         admin = User(
             username=ADMIN_USERNAME,
             hashed_password=hashed,
-            role="admin"
+            role="admin",
+            mitglied_id=None
         )
         db.add(admin)
         db.commit()

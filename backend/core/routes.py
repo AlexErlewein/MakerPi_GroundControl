@@ -29,45 +29,34 @@ async def shutdown():
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Show landing page with RFID login or redirect to appropriate dashboard"""
-    from backend.auth.dependencies import check_auth
-    from backend.auth.db import SessionLocal
+    """Show landing page - redirects to member view if logged in"""
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if check_auth(request):
-        # Verify user actually exists in DB
-        username = request.session.get("user")
-        db = SessionLocal()
-        try:
-            from backend.auth.models import User
-            user = db.query(User).filter(User.username == username).first()
-            if user:
-                # User exists - redirect based on role
-                role = request.session.get("role", "member")
-                if role == "admin":
-                    return RedirectResponse("/dashboard", status_code=302)
-                else:
-                    return RedirectResponse("/member", status_code=302)
-            else:
-                # Session has invalid user - clear it
-                request.session.clear()
-        finally:
-            db.close()
+    # Unified login: everyone goes to /member first
+    if request.session.get("mitglied_id"):
+        return RedirectResponse("/member", status_code=302)
     
-    # Not logged in - show landing page with RFID scan
+    # Not logged in - show landing page with login options
     return templates.TemplateResponse("landing.html", {"request": request})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    """Render main dashboard"""
+    """Render main dashboard - requires admin verification"""
     from fastapi.templating import Jinja2Templates
-    from backend.auth.dependencies import check_auth
+    from backend.auth.dependencies import is_admin_verified
     
     templates = Jinja2Templates(directory="templates")
-    if not check_auth(request):
+    
+    # Must be logged in
+    if not request.session.get("mitglied_id"):
         return RedirectResponse("/login", status_code=302)
+    
+    # Must have admin verified
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+    
     return templates.TemplateResponse("index.html", {"request": request})
 
 

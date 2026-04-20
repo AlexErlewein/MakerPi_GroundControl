@@ -15,11 +15,11 @@
             <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
         </div>
 
-        <div class="login-options">
+        <div class="login-options unified">
             <!-- RFID Login Section -->
             <div class="login-card rfid-card">
-                <div class="card-icon">🎯</div>
-                <h2>Mitglieder-Anmeldung</h2>
+                <div class="card-icon">�</div>
+                <h2>Mit RFID-Karte</h2>
                 <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
                 
                 <div class="rfid-status" id="rfid-status">
@@ -32,20 +32,26 @@
                 </div>
                 
                 <div class="rfid-error" id="rfid-error" style="display: none;"></div>
-                
-                <p class="hint">Oder melde dich mit Benutzername und Passwort an:</p>
-                <a href="/login" class="btn btn-secondary">Zum Login</a>
             </div>
 
-            <!-- Admin Login Section -->
-            <div class="login-card admin-card">
-                <div class="card-icon">⚙️</div>
-                <h2>Admin-Bereich</h2>
-                <p>Verwaltung und Administration</p>
+            <!-- Password Login Section -->
+            <div class="login-card password-card">
+                <div class="card-icon">🔐</div>
+                <h2>Mit Benutzername</h2>
+                <p>Anmeldung für Mitglieder und Administratoren</p>
                 
-                <div class="admin-links">
-                    <a href="/login" class="btn btn-primary">Admin Login</a>
-                </div>
+                <form action="/api/auth/login" method="POST" class="login-form">
+                    <div class="form-group">
+                        <input type="text" name="username" placeholder="Benutzername" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" name="password" placeholder="Passwort" required>
+                    </div>
+                    {% if error %}
+                    <div class="error-message">{{ error }}</div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary btn-full">Anmelden</button>
+                </form>
             </div>
         </div>
 

@@ -198,6 +198,8 @@ async def login_via_rfid(
     members_db: Session = Depends(get_members_db)
 ):
     """Login via RFID card - creates user if not exists"""
+    from datetime import datetime, timezone
+    
     # Find RFID tag
     tag = members_db.query(RFIDTag).filter(RFIDTag.uid == rfid_uid).first()
     if not tag:
@@ -223,21 +225,25 @@ async def login_via_rfid(
     ).first()
     
     if not user:
-        # Create new user for member
+        # Determine role based on RFID tag
+        role = "admin" if tag.is_admin else "member"
         user = User(
             username=f"member_{mitglied.id}",
             hashed_password="",  # No password for RFID-only users
-            role="member",
+            role=role,
             mitglied_id=mitglied.id
         )
         auth_db.add(user)
         auth_db.commit()
         auth_db.refresh(user)
     
-    # Create session
+    # Create unified session
     request.session["user"] = user.username
-    request.session["role"] = user.role
     request.session["mitglied_id"] = user.mitglied_id
+    request.session["is_admin_capable"] = user.role == "admin" or tag.is_admin
+    request.session["admin_verified"] = False  # Always start unverified
+    request.session["admin_verified_at"] = None
+    request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
     
     return {
         "success": True,
@@ -248,5 +254,6 @@ async def login_via_rfid(
             "mitglied_id": user.mitglied_id,
         },
         "mitglied": mitglied.to_dict(),
+        "is_admin_capable": request.session["is_admin_capable"],
         "redirect": "/member"
     }

@@ -1,8 +1,7 @@
 """Members models - Mitglied and RFIDTag tables"""
 
-import json
 from datetime import datetime, timezone, date as date_type
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Date, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -58,6 +57,7 @@ class RFIDTag(Base):
     owner_email = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     active = Column(Integer, default=1)  # 1=active, 0=disabled
+    is_admin = Column(Boolean, default=False)  # Admin card?
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
     def to_dict(self):
@@ -70,5 +70,6 @@ class RFIDTag(Base):
             "owner_email": self.owner_email,
             "notes": self.notes,
             "active": bool(self.active),
+            "is_admin": bool(self.is_admin),
             "created_at": ts.isoformat() if ts else None,
         }
