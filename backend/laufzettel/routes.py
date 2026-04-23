@@ -64,7 +64,7 @@ async def laufzettel_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("laufzettel.html", {"request": request})
 
 
@@ -76,7 +76,7 @@ async def laufzettel_detail_page(request: Request, laufzettel_id: int, db: Sessi
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:

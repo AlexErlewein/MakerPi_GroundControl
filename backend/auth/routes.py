@@ -154,7 +154,7 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
     templates = Jinja2Templates(directory="templates")
     
     if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     
     # Require admin verification
     if not is_admin_verified(request):
@@ -183,7 +183,7 @@ async def add_user(
 ):
     """Add a new user"""
     if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)
@@ -232,7 +232,7 @@ async def delete_user(
 ):
     """Delete a user (cannot delete self or last user)"""
     if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)

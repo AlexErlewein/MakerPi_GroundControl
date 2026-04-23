@@ -36,8 +36,17 @@ def require_member(request: Request, db: Session = Depends(get_auth_db)):
 
 
 @router.get("/member")
-async def member_dashboard(request: Request, user: User = Depends(require_member)):
+async def member_dashboard(request: Request, db: Session = Depends(get_auth_db)):
     """Member dashboard - redirects to their laufzettel list"""
+    # Check auth manually and redirect to login if not authenticated
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/", status_code=302)
+    
+    user = db.query(User).filter(User.username == username).first()
+    if not user or user.role not in ["admin", "member"]:
+        return RedirectResponse("/", status_code=302)
+    
     return RedirectResponse("/member/laufzettel", status_code=302)
 
 
@@ -45,9 +54,18 @@ async def member_dashboard(request: Request, user: User = Depends(require_member
 async def member_laufzettel_list(
     request: Request,
     db: Session = Depends(get_laufzettel_db),
-    user: User = Depends(require_member)
+    auth_db: Session = Depends(get_auth_db)
 ):
     """Show member's own laufzettel"""
+    # Check auth manually and redirect to login if not authenticated
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/", status_code=302)
+    
+    user = auth_db.query(User).filter(User.username == username).first()
+    if not user or user.role not in ["admin", "member"]:
+        return RedirectResponse("/", status_code=302)
+    
     # Get laufzettel for this member
     if user.mitglied_id:
         laufzettel = db.query(Laufzettel).filter(
@@ -72,9 +90,18 @@ async def member_laufzettel_detail(
     request: Request,
     laufzettel_id: int,
     db: Session = Depends(get_laufzettel_db),
-    user: User = Depends(require_member)
+    auth_db: Session = Depends(get_auth_db)
 ):
     """Show member's own laufzettel detail - read only, can add materials"""
+    # Check auth manually and redirect to login if not authenticated
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/", status_code=302)
+    
+    user = auth_db.query(User).filter(User.username == username).first()
+    if not user or user.role not in ["admin", "member"]:
+        return RedirectResponse("/", status_code=302)
+    
     laufzettel = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     
     if not laufzettel:

@@ -68,7 +68,7 @@ async def mitglieder_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("mitglieder.html", {"request": request})
 
 
@@ -80,7 +80,7 @@ async def tags_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("tags.html", {"request": request})
 
 

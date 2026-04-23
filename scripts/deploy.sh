@@ -5,7 +5,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-CONFIG_FILE="$PROJECT_ROOT/config.json"
+CONFIG_FILE="$PROJECT_ROOT/config/config.json"
 
 if [ -f "$CONFIG_FILE" ] && command -v jq &> /dev/null; then
     PI_HOST=$(jq -r '.pi_host // "192.168.178.47"' "$CONFIG_FILE")
@@ -25,6 +25,7 @@ echo "🚀 Deploying to $PI_HOST..."
 echo "Syncing files..."
 rsync -av --progress \
     --exclude='venv/' \
+    --exclude='.venv/' \
     --exclude='*.db' \
     --exclude='__pycache__/' \
     --exclude='.git/' \
