@@ -151,28 +151,44 @@ async def sync_members_from_easyverein() -> dict:
     
     try:
         headers = get_auth_headers()
+        ev_members = []
         
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # Build URL with optional org ID
+            # Build URL with optional org ID and high page size
             url = f"{EASYVEREIN_API_BASE}/member/"
-            params = {}
+            params = {"page_size": 200}  # Fetch up to 200 members per page
             if EASYVEREIN_ORG_ID:
                 params["organization"] = EASYVEREIN_ORG_ID
             
-            logger.info(f"Fetching members from easyVerein: {url}")
-            response = await client.get(url, headers=headers, params=params)
-            response.raise_for_status()
+            # Fetch all pages
+            next_url = url
+            while next_url:
+                logger.info(f"Fetching members from easyVerein: {next_url} (params: {params})")
+                response = await client.get(next_url, headers=headers, params=params if next_url == url else None)
+                response.raise_for_status()
+                
+                data = response.json()
+                
+                # Handle both list and paginated response
+                if isinstance(data, list):
+                    page_members = data
+                    next_url = None  # No pagination for list response
+                elif isinstance(data, dict) and "results" in data:
+                    page_members = data["results"]
+                    next_url = data.get("next")  # Get next page URL if exists
+                else:
+                    page_members = []
+                    next_url = None
+                
+                ev_members.extend(page_members)
+                logger.info(f"Fetched {len(page_members)} members (total: {len(ev_members)})")
+                
+                # Safety limit - don't fetch more than 1000 members
+                if len(ev_members) >= 1000:
+                    logger.warning("Reached 1000 member limit, stopping pagination")
+                    break
             
-            data = response.json()
-            # Handle both list and paginated response
-            if isinstance(data, list):
-                ev_members = data
-            elif isinstance(data, dict) and "results" in data:
-                ev_members = data["results"]
-            else:
-                ev_members = []
-            
-            logger.info(f"Fetched {len(ev_members)} members from easyVerein")
+            logger.info(f"Total members fetched from easyVerein: {len(ev_members)}")
             
             # Get database session
             db = SessionLocal()
