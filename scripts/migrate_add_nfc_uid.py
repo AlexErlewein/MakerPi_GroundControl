@@ -18,8 +18,10 @@ columns = [row[1] for row in cur.fetchall()]
 if "nfc_uid" in columns:
     print("Column 'nfc_uid' already exists – nothing to do.")
 else:
-    cur.execute("ALTER TABLE mitglieder ADD COLUMN nfc_uid TEXT UNIQUE")
+    # SQLite does not support ADD COLUMN ... UNIQUE directly
+    cur.execute("ALTER TABLE mitglieder ADD COLUMN nfc_uid TEXT")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_mitglieder_nfc_uid ON mitglieder (nfc_uid) WHERE nfc_uid IS NOT NULL")
     conn.commit()
-    print("Column 'nfc_uid' added to mitglieder table.")
+    print("Column 'nfc_uid' added to mitglieder table with unique index.")
 
 conn.close()
