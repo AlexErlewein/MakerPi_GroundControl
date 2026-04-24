@@ -28,6 +28,10 @@ SECRET_KEY: str = _cfg.get("secret_key", os.environ.get("SECRET_KEY", "fallback-
 ADMIN_USERNAME: str = _cfg.get("admin_username", "admin")
 ADMIN_PASSWORD: str = _cfg.get("admin_password", "changeme")
 
+# EasyVerein configuration
+EASYVEREIN_API_KEY: str = _cfg.get("easyverein_api_key", os.environ.get("EASYVEREIN_API_KEY", ""))
+EASYVEREIN_ORG_ID: str = _cfg.get("easyverein_org_id", os.environ.get("EASYVEREIN_ORG_ID", ""))
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"

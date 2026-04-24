@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/tags.css">
     <link rel="stylesheet" href="/static/css/mitglieder.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
 </head>
 <body>
     <div class="container">
@@ -25,6 +26,9 @@
                 </nav>
             </div>
             <div class="header-actions">
+                <button id="sync-easyverein-btn" class="btn btn-primary" title="Mit easyVerein synchronisieren">
+                    <span class="btn-icon">🔄</span> easyVerein Sync
+                </button>
                 <button id="refresh-btn" class="btn btn-primary">
                     <span class="btn-icon">↻</span> Refresh
                 </button>
@@ -45,6 +49,11 @@
                 <div class="stat-card">
                     <h3>Inaktiv</h3>
                     <p class="stat-value" id="inactive-count">-</p>
+                </div>
+                <div class="stat-card stat-card-wide" id="sync-status-card" style="cursor: pointer;" title="Klicken für Sync-Details">
+                    <h3>easyVerein Sync</h3>
+                    <p class="stat-value" id="sync-status">-</p>
+                    <p class="stat-detail" id="sync-last">Noch nie synchronisiert</p>
                 </div>
             </section>
 
@@ -160,5 +169,7 @@
     </div>
 
     <script src="/static/js/mitglieder.js?v=1"></script>
+    <script src="/static/js/theme.js"></script>
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>
 </html>

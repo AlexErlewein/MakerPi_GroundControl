@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
 from .models import Mitglied, RFIDTag
+from .easyverein import sync_members_from_easyverein, get_sync_status
 
 router = APIRouter()
 
@@ -174,6 +175,36 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.login_password_hash = get_password_hash(data.login_password) if data.login_password else None
     db.commit()
     db.refresh(m)
+    return m.to_dict()
+
+
+# ── easyVerein Sync API (must be before /{mitglied_id}) ───────────────────────
+
+@router.get("/api/mitglieder/sync-status")
+async def get_easyverein_sync_status(request: Request):
+    """Get the last easyVerein sync status"""
+    from backend.auth.dependencies import check_auth
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return get_sync_status()
+
+
+@router.post("/api/mitglieder/sync")
+async def trigger_easyverein_sync(request: Request):
+    """Manually trigger easyVerein sync (admin only)"""
+    from backend.auth.dependencies import is_admin_verified
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+    result = await sync_members_from_easyverein()
+    return result
+
+
+@router.get("/api/mitglieder/{mitglied_id}")
+async def get_mitglied(mitglied_id: int, db: Session = Depends(get_db)):
+    """Get a single member by ID"""
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
     return m.to_dict()
 
 

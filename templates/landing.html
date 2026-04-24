@@ -6,8 +6,10 @@
     <title>H3cke MakerSpace - Anmeldung</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/landing.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
 </head>
 <body class="landing-page">
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
     <div class="landing-container">
         <div class="landing-header">
             <img src="/graphics/H3ckeLogo.svg" class="landing-logo" alt="H3cke MakerSpace">
@@ -69,7 +71,7 @@
         async function checkForRFIDScans() {
             try {
                 // Poll for recent tag scans
-                const res = await fetch('/api/tag-scans?limit=1');
+                const res = await fetch('/api/scans?limit=1');
                 if (!res.ok) return;
                 
                 const scans = await res.json();
@@ -87,7 +89,7 @@
                 window.lastProcessedScan = latestScan.id;
                 
                 // Try to login with this RFID
-                await attemptRFIDLogin(latestScan.tag_id);
+                await attemptRFIDLogin(latestScan.uid);
                 
             } catch (e) {
                 console.error('RFID check error:', e);
@@ -143,5 +145,6 @@
         // Poll every 2 seconds for new RFID scans
         setInterval(checkForRFIDScans, 2000);
     </script>
+    <script src="/static/js/theme.js"></script>
 </body>
 </html>

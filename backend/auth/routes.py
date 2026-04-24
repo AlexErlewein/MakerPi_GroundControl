@@ -28,7 +28,7 @@ async def landing_page(request: Request):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if request.session.get("mitglied_id"):
+    if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("landing.html", {"request": request})
 
@@ -39,7 +39,7 @@ async def login_page(request: Request, error: str = None):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if request.session.get("mitglied_id"):
+    if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
@@ -153,7 +153,7 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if not request.session.get("mitglied_id"):
+    if not request.session.get("user"):
         return RedirectResponse("/", status_code=302)
     
     # Require admin verification
@@ -182,7 +182,7 @@ async def add_user(
     db: Session = Depends(get_db),
 ):
     """Add a new user"""
-    if not request.session.get("mitglied_id"):
+    if not request.session.get("user"):
         return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):
@@ -224,6 +224,71 @@ async def add_user(
     )
 
 
+@router.post("/admin/users/toggle-role")
+async def toggle_user_role(
+    request: Request,
+    user_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Toggle user role between admin and member"""
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
+
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
+
+    current_user = request.session.get("user")
+    target = db.query(User).filter(User.id == user_id).first()
+
+    if not target:
+        users = db.query(User).order_by(User.created_at).all()
+        return templates.TemplateResponse(
+            "admin-users.html",
+            {
+                "request": request,
+                "users": users,
+                "current_user": current_user,
+                "success": None,
+                "error": "User not found",
+            },
+            status_code=404,
+        )
+
+    if target.username == current_user:
+        users = db.query(User).order_by(User.created_at).all()
+        return templates.TemplateResponse(
+            "admin-users.html",
+            {
+                "request": request,
+                "users": users,
+                "current_user": current_user,
+                "success": None,
+                "error": "Cannot change your own role",
+            },
+            status_code=400,
+        )
+
+    # Toggle role
+    new_role = "member" if target.role == "admin" else "admin"
+    target.role = new_role
+    db.commit()
+
+    users = db.query(User).order_by(User.created_at).all()
+    return templates.TemplateResponse(
+        "admin-users.html",
+        {
+            "request": request,
+            "users": users,
+            "current_user": current_user,
+            "success": f"User '{target.username}' is now {new_role}",
+            "error": None,
+        },
+    )
+
+
 @router.post("/admin/users/delete")
 async def delete_user(
     request: Request,
@@ -231,7 +296,7 @@ async def delete_user(
     db: Session = Depends(get_db),
 ):
     """Delete a user (cannot delete self or last user)"""
-    if not request.session.get("mitglied_id"):
+    if not request.session.get("user"):
         return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):

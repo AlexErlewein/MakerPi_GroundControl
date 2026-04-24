@@ -44,6 +44,24 @@
 .badge-off     { background: rgba(248,81,73,0.15);  color: var(--danger); }
 .badge-unknown { background: rgba(139,148,158,0.15); color: var(--text-secondary); }
 
+/* Role badges for admin users page */
+.role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.role-badge.admin {
+    background: var(--danger);
+    color: white;
+}
+.role-badge.member {
+    background: rgba(139,148,158,0.2);
+    color: var(--text-secondary);
+}
+
 /* UID monospace */
 .uid {
     font-family: monospace;

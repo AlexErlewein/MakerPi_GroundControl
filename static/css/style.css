@@ -1,16 +1,29 @@
 /* MakerPi GroundControl Styles */
 
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --border-color: #30363d;
-    --text-primary: #f0f6fc;
-    --text-secondary: #8b949e;
-    --accent: #58a6ff;
-    --success: #3fb950;
+    --bg-primary: #1e2127;
+    --bg-secondary: #2a2d35;
+    --bg-tertiary: #343842;
+    --border-color: #4a4d55;
+    --text-primary: #d7d9d3;
+    --text-secondary: #827f77;
+    --accent: #d04417;
+    --success: #357730;
     --warning: #d29922;
-    --danger: #f85149;
+    --danger: #c0392b;
+}
+
+[data-theme="light"] {
+    --bg-primary: #d7d9d3;
+    --bg-secondary: #c8cac5;
+    --bg-tertiary: #b8bab5;
+    --border-color: #9a9c96;
+    --text-primary: #1e2127;
+    --text-secondary: #4a4d55;
+    --accent: #d04417;
+    --success: #2a5e25;
+    --warning: #b07a10;
+    --danger: #a93226;
 }
 
 * {
@@ -87,7 +100,31 @@ header h1 {
 
 .nav-link.active {
     background: var(--accent);
-    color: white;
+    color: #fff;
+}
+
+/* Theme Toggle - fixed bottom-right */
+.theme-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    line-height: 1;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    z-index: 999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.theme-toggle:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
 .status {

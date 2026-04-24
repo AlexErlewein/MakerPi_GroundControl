@@ -6,6 +6,7 @@
     <title>{{ current_doc.title }} - MakerPi GroundControl Docs</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/docs.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 </head>
 <body>
@@ -88,5 +89,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="/static/js/docs.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>
 </html>

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MakerPi GroundControl</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
     <style>
         body {
             display: flex;
@@ -114,9 +115,11 @@
         .login-footer a:hover {
             text-decoration: underline;
         }
+
     </style>
 </head>
 <body>
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
     <div class="login-card">
         <img src="/graphics/H3ckeLogo.svg" class="login-logo" alt="H3cke MakerSpace">
         <p class="login-title">GroundControl Admin</p>
@@ -141,5 +144,6 @@
             <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">📄 Dokumentation</a>
         </p>
     </div>
+    <script src="/static/js/theme.js"></script>
 </body>
 </html>

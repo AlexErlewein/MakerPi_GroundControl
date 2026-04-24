@@ -118,6 +118,63 @@ document.getElementById("mitglied-form").addEventListener("submit", async (e) =>
     }
 });
 
+async function loadSyncStatus() {
+    try {
+        const res = await fetch("/api/mitglieder/sync-status");
+        if (!res.ok) return;
+        const status = await res.json();
+        
+        const statusEl = document.getElementById("sync-status");
+        const lastEl = document.getElementById("sync-last");
+        
+        if (status.last_sync) {
+            const date = new Date(status.last_sync);
+            lastEl.textContent = date.toLocaleString("de-DE");
+            
+            if (status.success) {
+                statusEl.textContent = "✓ OK";
+                statusEl.style.color = "#238636";
+            } else {
+                statusEl.textContent = "✗ Fehler";
+                statusEl.style.color = "#da3633";
+            }
+        } else {
+            statusEl.textContent = "-";
+            lastEl.textContent = "Noch nie synchronisiert";
+        }
+    } catch (e) {
+        console.error("Failed to load sync status:", e);
+    }
+}
+
+async function triggerEasyVereinSync() {
+    const btn = document.getElementById("sync-easyverein-btn");
+    const statusEl = document.getElementById("sync-status");
+    const lastEl = document.getElementById("sync-last");
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span> Sync läuft...';
+    statusEl.textContent = "⏳";
+    
+    try {
+        const res = await fetch("/api/mitglieder/sync", { method: "POST" });
+        const result = await res.json();
+        
+        if (result.success) {
+            alert(`Synchronisation erfolgreich!\nNeu: ${result.created}\nAktualisiert: ${result.updated}`);
+            await loadMitglieder();
+        } else {
+            alert(`Synchronisation fehlgeschlagen:\n${result.message}`);
+        }
+    } catch (e) {
+        alert("Fehler bei der Synchronisation. Bitte versuchen Sie es später erneut.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">🔄</span> easyVerein Sync';
+        await loadSyncStatus();
+    }
+}
+
 document.getElementById("new-mitglied-btn").addEventListener("click", openAdd);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-btn").addEventListener("click", closeModal);
@@ -132,5 +189,8 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 document.getElementById("filter-search").addEventListener("keydown", (e) => {
     if (e.key === "Enter") loadMitglieder();
 });
+document.getElementById("sync-easyverein-btn").addEventListener("click", triggerEasyVereinSync);
+document.getElementById("sync-status-card").addEventListener("click", loadSyncStatus);
 
 loadMitglieder();
+loadSyncStatus();

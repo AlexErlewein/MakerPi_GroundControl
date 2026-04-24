@@ -220,11 +220,12 @@ async def get_current_member_info(
 @router.post("/api/auth/login-rfid")
 async def login_via_rfid(
     request: Request,
-    rfid_uid: str,
     auth_db: Session = Depends(get_auth_db),
     members_db: Session = Depends(get_members_db)
 ):
     """Login via RFID card - creates user if not exists"""
+    body = await request.json()
+    rfid_uid = body.get("rfid_uid", "")
     from datetime import datetime, timezone
     
     # Find RFID tag
