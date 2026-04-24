@@ -79,29 +79,39 @@ async def unified_login(
             return RedirectResponse("/member", status_code=302)
     
     # Check member login via mitglieder table
-    mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
-    if mitglied and mitglied.login_password_hash:
-        if verify_password(password, mitglied.login_password_hash):
-            # Ensure user record exists in auth db
-            member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
-            if not member_user:
-                member_user = User(
-                    username=mitglied.login_username or f"member_{mitglied.id}",
-                    hashed_password="",  # Not used - auth via mitglieder table
-                    role="member",
-                    mitglied_id=mitglied.id
-                )
-                db.add(member_user)
-                db.commit()
-            
-            request.session["user"] = member_user.username
-            request.session["mitglied_id"] = mitglied.id
-            request.session["is_admin_capable"] = False
-            request.session["admin_verified"] = False
-            request.session["admin_verified_at"] = None
-            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
-            return RedirectResponse("/member", status_code=302)
-    
+    try:
+        mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
+        if mitglied and mitglied.login_password_hash:
+            if verify_password(password, mitglied.login_password_hash):
+                # Ensure user record exists in auth db, keyed by login_username
+                member_user = db.query(User).filter(User.username == mitglied.login_username).first()
+                if not member_user:
+                    # Also check by mitglied_id in case of RFID-created user
+                    member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
+                if not member_user:
+                    member_user = User(
+                        username=mitglied.login_username,
+                        hashed_password="",  # Not used - auth via mitglieder table
+                        role="member",
+                        mitglied_id=mitglied.id
+                    )
+                    db.add(member_user)
+                    db.commit()
+                elif member_user.username != mitglied.login_username:
+                    # Update username to match current login_username
+                    member_user.username = mitglied.login_username
+                    db.commit()
+
+                request.session["user"] = mitglied.login_username
+                request.session["mitglied_id"] = mitglied.id
+                request.session["is_admin_capable"] = False
+                request.session["admin_verified"] = False
+                request.session["admin_verified_at"] = None
+                request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+                return RedirectResponse("/member", status_code=302)
+    finally:
+        members_db.close()
+
     return RedirectResponse("/?error=Invalid+credentials", status_code=302)
 
 

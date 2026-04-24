@@ -21,6 +21,7 @@ class MitgliedCreate(BaseModel):
     status: str = "active"
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
 
@@ -33,6 +34,7 @@ class MitgliedUpdate(BaseModel):
     status: Optional[str] = None
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
 
@@ -114,6 +116,11 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         existing_login = db.query(Mitglied).filter(Mitglied.login_username == data.login_username).first()
         if existing_login:
             raise HTTPException(status_code=400, detail="login_username already exists")
+    nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
+    if nfc_uid:
+        clash = db.query(Mitglied).filter(Mitglied.nfc_uid == nfc_uid).first()
+        if clash:
+            raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
     from datetime import date as dt_date
     from backend.auth.dependencies import get_password_hash
     m = Mitglied(
@@ -124,6 +131,7 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         status=data.status or "active",
         joined_date=dt_date.fromisoformat(data.joined_date) if data.joined_date else None,
         notes=data.notes,
+        nfc_uid=nfc_uid,
         login_username=data.login_username,
         login_password_hash=get_password_hash(data.login_password) if data.login_password else None,
     )
@@ -159,6 +167,15 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.joined_date = dt_date.fromisoformat(data.joined_date) if data.joined_date else None
     if data.notes is not None:
         m.notes = data.notes
+    if data.nfc_uid is not None:
+        nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
+        if nfc_uid:
+            clash = db.query(Mitglied).filter(
+                Mitglied.nfc_uid == nfc_uid, Mitglied.id != mitglied_id
+            ).first()
+            if clash:
+                raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
+        m.nfc_uid = nfc_uid
     # Handle login credentials
     if data.login_username is not None:
         # Check if username already taken by another member

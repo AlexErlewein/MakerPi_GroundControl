@@ -29,6 +29,7 @@ class Mitglied(Base):
     joined_date = Column(Date, nullable=True)
     notes = Column(Text, nullable=True)
     # Login credentials (optional - for cardless login)
+    nfc_uid = Column(String, unique=True, nullable=True, index=True)  # Primary NFC card UID
     login_username = Column(String, unique=True, nullable=True, index=True)
     login_password_hash = Column(String, nullable=True)
 
@@ -42,6 +43,7 @@ class Mitglied(Base):
             "status": self.status,
             "joined_date": self.joined_date.isoformat() if self.joined_date else None,
             "notes": self.notes,
+            "nfc_uid": self.nfc_uid,
             "login_username": self.login_username,
             "has_login": bool(self.login_username and self.login_password_hash),
         }
