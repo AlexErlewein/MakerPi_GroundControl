@@ -297,17 +297,29 @@ async def delete_material(laufzettel_id: int, material_id: int, db: Session = De
 
 # ── Payment API ───────────────────────────────────────────────────────────────
 
-from backend.config import SUMUP_API_KEY, SUMUP_MERCHANT_CODE, SUMUP_READER_ID, SUMUP_MOCK
+from backend.config import SUMUP_API_KEY, SUMUP_MERCHANT_CODE, SUMUP_READER_ID, SUMUP_AFFILIATE_KEY, SUMUP_MOCK
 
 
 @router.get("/api/payment/config")
 async def get_payment_config():
     """Return payment configuration for frontend"""
     sumup_configured = bool(SUMUP_API_KEY and SUMUP_MERCHANT_CODE)
+    has_reader = bool(SUMUP_READER_ID)
+    has_affiliate = bool(SUMUP_AFFILIATE_KEY)
+    # payment_mode: 'solo' = Cloud API, 'payment_switch' = URL scheme handoff, 'mock', or None
+    if SUMUP_MOCK:
+        payment_mode = "mock"
+    elif sumup_configured and has_reader:
+        payment_mode = "solo"
+    elif sumup_configured and has_affiliate:
+        payment_mode = "payment_switch"
+    else:
+        payment_mode = None
     return {
         "sumup_configured": sumup_configured,
         "sumup_mock": SUMUP_MOCK,
         "reader_id": SUMUP_READER_ID if sumup_configured else None,
+        "payment_mode": payment_mode,
     }
 
 
@@ -359,21 +371,84 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
             "client_transaction_id": txn_id,
             "status": "PENDING",
         }
-    
-    # TODO: Integrate with SumUp API if configured
-    # For now, create pending payment that will timeout after 1 minute
-    _pending_payments[txn_id] = {
-        "laufzettel_id": laufzettel_id,
-        "created_at": datetime.now(timezone.utc),
-        "status": "PENDING",
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=1),
-    }
-    
-    return {
-        "mock": False,
-        "client_transaction_id": txn_id,
-        "status": "PENDING",
-    }
+
+    # Calculate total from material entries
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == laufzettel_id
+    ).all()
+    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+    amount_str = f"{total:.2f}"
+
+    if SUMUP_READER_ID and SUMUP_API_KEY and SUMUP_MERCHANT_CODE:
+        # Solo Cloud API: initiate checkout on terminal
+        import httpx
+        payload = {
+            "total_amount": {
+                "currency": "EUR",
+                "minor_unit": 2,
+                "value": int(round(total * 100)),
+            },
+            "description": f"Laufzettel #{laufzettel_id}",
+            "affiliate": {
+                "app_id": "MakerPi.GroundControl",
+                "foreign_transaction_id": txn_id,
+                "key": SUMUP_AFFILIATE_KEY,
+            } if SUMUP_AFFILIATE_KEY else None,
+        }
+        if payload["affiliate"] is None:
+            del payload["affiliate"]
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"https://api.sumup.com/v0.1/merchants/{SUMUP_MERCHANT_CODE}/readers/{SUMUP_READER_ID}/checkout",
+                headers={"Authorization": f"Bearer {SUMUP_API_KEY}"},
+                json=payload,
+                timeout=15,
+            )
+        if r.status_code not in (200, 201):
+            raise HTTPException(status_code=502, detail=f"SumUp API error: {r.text}")
+        _pending_payments[txn_id] = {
+            "laufzettel_id": laufzettel_id,
+            "created_at": datetime.now(timezone.utc),
+            "status": "PENDING",
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=2),
+            "mode": "solo",
+        }
+        return {
+            "mock": False,
+            "mode": "solo",
+            "client_transaction_id": txn_id,
+            "status": "PENDING",
+        }
+
+    elif SUMUP_AFFILIATE_KEY:
+        # Payment Switch: generate URL scheme for SumUp app handoff
+        from urllib.parse import urlencode
+        params = {
+            "affiliate-key": SUMUP_AFFILIATE_KEY,
+            "amount": amount_str,
+            "currency": "EUR",
+            "foreign-tx-id": txn_id,
+            "title": f"Laufzettel #{laufzettel_id}",
+        }
+        payment_url = "sumupmerchant://pay/1.0?" + urlencode(params)
+        _pending_payments[txn_id] = {
+            "laufzettel_id": laufzettel_id,
+            "created_at": datetime.now(timezone.utc),
+            "status": "PENDING",
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+            "mode": "payment_switch",
+            "foreign_tx_id": txn_id,
+        }
+        return {
+            "mock": False,
+            "mode": "payment_switch",
+            "client_transaction_id": txn_id,
+            "payment_url": payment_url,
+            "amount": amount_str,
+            "status": "PENDING",
+        }
+
+    raise HTTPException(status_code=503, detail="Keine SumUp-Zahlungsmethode konfiguriert")
 
 
 @router.get("/api/laufzettel/{laufzettel_id}/pay/karte/status")

@@ -165,9 +165,12 @@ uv run sqlite_web -H 0.0.0.0 groundcontrol.db  # run DB browser (see below)
 | `/api/database/stats` | GET | Database statistics |
 | `/api/export/devices` | GET | Export devices as CSV |
 | `/api/export/messages` | GET | Export messages as CSV |
-| `/api/payment/config` | GET | Which payment methods are configured |
+| `/api/payment/config` | GET | Which payment methods are configured (`payment_mode`, `sumup_configured`) |
 | `/api/laufzettel/{id}/pay/bar` | POST | Record cash payment, lock Laufzettel |
-| `/api/laufzettel/{id}/pay/karte` | POST | Send checkout to SumUp reader, lock Laufzettel |
+| `/api/laufzettel/{id}/pay/karte` | POST | Initiate card payment (Solo or Payment Switch) |
+| `/api/laufzettel/{id}/pay/karte/status` | GET | Poll transaction status (Solo mode) |
+| `/api/laufzettel/{id}/pay/karte/confirm-mock` | POST | Confirm payment manually (mock / Payment Switch) |
+| `/api/laufzettel/{id}/pay` | DELETE | Reset payment status (admin) |
 
 ## MQTT Configuration
 
@@ -374,14 +377,23 @@ Copy `config.json.example` to `config/config.json` (gitignored) and fill in your
 {
     "sumup_api_key": "sup_sk_...",
     "sumup_merchant_code": "XXXXXXXX",
-    "sumup_reader_id": "your-reader-id",
+    "sumup_reader_id": "",
+    "sumup_affiliate_key": "your-affiliate-key",
     "sumup_mock": false
 }
 ```
 
-All keys can also be set via environment variables (`SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_READER_ID`).
+The system automatically selects the payment mode based on what is configured:
 
-To test without real hardware, set `"sumup_mock": true` — card payments skip the SumUp API and lock the Laufzettel immediately.
+| Mode | Condition | How it works |
+|---|---|---|
+| **Mock** | `sumup_mock: true` | Locks immediately, no real API call |
+| **Solo (Cloud API)** | `sumup_reader_id` set | Pushes checkout directly to paired Solo terminal |
+| **Payment Switch** | `sumup_affiliate_key` set, no reader | Generates a `sumupmerchant://` deep-link; cashier opens SumUp app on phone, amount is pre-filled |
+
+All keys can also be set via environment variables (`SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_READER_ID`, `SUMUP_AFFILIATE_KEY`).
+
+Get your **Affiliate Key** at [developer.sumup.com](https://developer.sumup.com) → *Affiliate Keys*.
 
 See [docs/13-payments.md](docs/13-payments.md) for full details.
 

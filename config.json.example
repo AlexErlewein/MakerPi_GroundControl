@@ -5,7 +5,8 @@
     "mqtt_broker": "localhost",
     "sumup_api_key": "sup_sk_YOUR_KEY_HERE",
     "sumup_merchant_code": "YOUR_MERCHANT_CODE",
-    "sumup_reader_id": "YOUR_READER_ID",
+    "sumup_reader_id": "",
+    "sumup_affiliate_key": "YOUR_AFFILIATE_KEY_HERE",
     "sumup_mock": false,
     "easyverein_api_key": "YOUR_EASYVEREIN_API_KEY_HERE",
     "easyverein_org_id": "YOUR_ORG_ID_HERE"

@@ -21,6 +21,7 @@ MQTT_PORT: int = _cfg.get("mqtt_port", 1883)
 SUMUP_API_KEY: str = _cfg.get("sumup_api_key", os.environ.get("SUMUP_API_KEY", ""))
 SUMUP_MERCHANT_CODE: str = _cfg.get("sumup_merchant_code", os.environ.get("SUMUP_MERCHANT_CODE", ""))
 SUMUP_READER_ID: str = _cfg.get("sumup_reader_id", os.environ.get("SUMUP_READER_ID", ""))
+SUMUP_AFFILIATE_KEY: str = _cfg.get("sumup_affiliate_key", os.environ.get("SUMUP_AFFILIATE_KEY", ""))
 SUMUP_MOCK: bool = _cfg.get("sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true")
 
 # Auth configuration

@@ -847,7 +847,6 @@ async function doKartePayment() {
         spinner.style.display = "none";
         statusText.textContent = "✓ Mock-Modus: Zahlung simuliert und gespeichert.";
         statusText.style.color = "var(--success)";
-        // Lock the laufzettel via bar endpoint logic reuse – call a dedicated mock-confirm
         const confirmRes = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/confirm-mock`, { method: "POST" });
         if (confirmRes.ok) {
             currentData = await confirmRes.json();
@@ -858,7 +857,46 @@ async function doKartePayment() {
         return;
     }
 
-    // Phase 3: real mode – poll for SUCCESSFUL / CANCELLED / FAILED / TIMEOUT
+    // Phase 2b: Payment Switch mode – open SumUp app via URL scheme
+    if (initData.mode === "payment_switch") {
+        spinner.style.display = "none";
+        statusText.textContent = `Betrag: ${initData.amount} € – SumUp App öffnen und Zahlung durchführen.`;
+        statusText.style.color = "";
+
+        // Inject link button and confirm button into body
+        let switchDiv = document.getElementById("karte-switch-actions");
+        if (!switchDiv) {
+            switchDiv = document.createElement("div");
+            switchDiv.id = "karte-switch-actions";
+            switchDiv.style.cssText = "display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem;";
+            body.appendChild(switchDiv);
+        }
+        switchDiv.innerHTML = `
+            <a href="${initData.payment_url}" class="btn btn-payment btn-payment-karte" style="text-align:center;text-decoration:none;" target="_blank">
+                📲 SumUp App öffnen
+            </a>
+            <button type="button" class="btn btn-success" id="karte-switch-confirm-btn">
+                ✓ Zahlung bestätigen
+            </button>`;
+
+        document.getElementById("karte-switch-confirm-btn").addEventListener("click", async () => {
+            const confirmRes = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/confirm-mock`, { method: "POST" });
+            if (confirmRes.ok) {
+                currentData = await confirmRes.json();
+                renderInfo();
+                renderMaterial();
+                switchDiv.remove();
+                statusText.textContent = "✓ Zahlung als bezahlt markiert.";
+                statusText.style.color = "var(--success)";
+            }
+            actions.style.display = "";
+        });
+
+        actions.style.display = "";
+        return;
+    }
+
+    // Phase 3: Solo Cloud API mode – poll for SUCCESSFUL / CANCELLED / FAILED / TIMEOUT
     const txnId = initData.client_transaction_id;
     statusText.textContent = "Warte auf Bestätigung am Terminal…";
 
@@ -952,6 +990,8 @@ function closeKarteModal() {
     
     modal.classList.add("hidden");
     statusText.style.color = "";
+    const switchDiv = document.getElementById("karte-switch-actions");
+    if (switchDiv) switchDiv.remove();
 }
 document.getElementById("karte-modal-close").addEventListener("click", closeKarteModal);
 document.getElementById("karte-close-btn").addEventListener("click", closeKarteModal);
