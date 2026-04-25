@@ -35,11 +35,7 @@
                     </div>
                     <div class="info-item">
                         <span class="info-label">Von:</span>
-                        <span class="info-value">{{ laufzettel.start_zeit }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Bis:</span>
-                        <span class="info-value">{{ laufzettel.end_zeit or "..." }}</span>
+                        <span class="info-value">{{ laufzettel.start or "..." }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Status:</span>
@@ -53,12 +49,6 @@
                     </div>
                 </div>
 
-                {% if laufzettel.beschreibung %}
-                <div class="info-description">
-                    <h3>Beschreibung:</h3>
-                    <p>{{ laufzettel.beschreibung }}</p>
-                </div>
-                {% endif %}
             </div>
 
             <!-- Materials Section -->
@@ -78,10 +68,10 @@
                         <tbody>
                             {% for mat in materials %}
                             <tr>
-                                <td>{{ mat.material_name or "Material #%s" % mat.variant_id }}</td>
+                                <td>{{ mat.name or "Material #%s" % mat.variante_id }}</td>
                                 <td>{{ mat.menge }}</td>
-                                <td>{{ mat.einheit }}</td>
-                                <td>{{ "%.2f"|format(mat.calculated_price) }} €</td>
+                                <td>{{ mat.unit or "" }}</td>
+                                <td>{{ "%.2f"|format(mat.calculated_price or 0) }} €</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -130,18 +120,18 @@
             data.forEach(location => {
                 const optgroup = document.createElement('optgroup');
                 optgroup.label = location.name;
-                
-                location.categories.forEach(cat => {
-                    cat.variants.forEach(var => {
+
+                (location.kategorien || []).forEach(cat => {
+                    (cat.varianten || []).forEach(v => {
                         const option = document.createElement('option');
-                        option.value = var.id;
-                        option.textContent = `${cat.name} - ${var.name} (${var.preis_pro_einheit}€/${cat.unit})`;
-                        option.dataset.preis = var.preis_pro_einheit;
-                        option.dataset.einheit = cat.unit;
+                        option.value = v.id;
+                        option.textContent = `${cat.name} - ${v.name} (${v.price}€/${cat.unit || 'Stk'})`;
+                        option.dataset.price = v.price;
+                        option.dataset.unit = cat.unit || '';
                         optgroup.appendChild(option);
                     });
                 });
-                
+
                 select.appendChild(optgroup);
             });
         }
@@ -155,10 +145,9 @@
             
             if (!variantId || !menge) return;
             
-            const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
+            const params = new URLSearchParams({variant_id: parseInt(variantId), menge: menge});
+            const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material?${params}`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({variant_id: parseInt(variantId), menge: menge})
             });
             
             if (res.ok) {

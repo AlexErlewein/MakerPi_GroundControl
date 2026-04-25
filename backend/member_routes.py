@@ -168,18 +168,15 @@ async def member_add_material(
         MaterialKategorie.id == variant.kategorie_id
     ).first()
     
-    if kategorie and kategorie.pricing_model == "pro_gramm":
-        calculated_price = variant.preis_pro_einheit * menge
-    else:
-        calculated_price = variant.preis_pro_einheit * menge
-    
+    calculated_price = variant.price * menge
+
     # Create material entry
     material = LaufzettelMaterial(
         laufzettel_id=laufzettel_id,
-        variant_id=variant_id,
+        name=variant.name,
+        variante_id=variant_id,
         menge=menge,
-        einheit=kategorie.unit if kategorie else "stück",
-        preis_pro_einheit=variant.preis_pro_einheit,
+        unit=kategorie.unit if kategorie else None,
         calculated_price=calculated_price,
     )
     
@@ -236,9 +233,9 @@ async def login_via_rfid(
             status_code=404
         )
     
-    # Find member
+    # Find member via nfc_uid (Mitglied.nfc_uid is set to the primary card UID)
     mitglied = members_db.query(Mitglied).filter(
-        Mitglied.id == tag.mitglied_id
+        Mitglied.nfc_uid == tag.uid
     ).first()
     
     if not mitglied:
