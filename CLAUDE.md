@@ -38,6 +38,15 @@ uv run sqlite_web -H 0.0.0.0 core.db
 # Deploy to Pi (reads connection info from config/config.json)
 ./scripts/deploy.sh
 ./scripts/deploy.sh --update-deps
+
+# Install auto-deploy timer on Pi (run once, as root, on the Pi itself)
+sudo bash scripts/install-autodeploy.sh
+
+# Trigger a manual auto-deploy run on Pi (without waiting for the timer)
+sudo systemctl start groundcontrol-autodeploy.service
+
+# Watch auto-deploy logs on Pi
+sudo journalctl -u groundcontrol-autodeploy -f
 ```
 
 ## Configuration
