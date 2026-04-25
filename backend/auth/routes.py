@@ -28,7 +28,7 @@ async def landing_page(request: Request):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if request.session.get("mitglied_id"):
+    if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("landing.html", {"request": request})
 
@@ -39,7 +39,7 @@ async def login_page(request: Request, error: str = None):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if request.session.get("mitglied_id"):
+    if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
@@ -79,29 +79,39 @@ async def unified_login(
             return RedirectResponse("/member", status_code=302)
     
     # Check member login via mitglieder table
-    mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
-    if mitglied and mitglied.login_password_hash:
-        if verify_password(password, mitglied.login_password_hash):
-            # Ensure user record exists in auth db
-            member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
-            if not member_user:
-                member_user = User(
-                    username=mitglied.login_username or f"member_{mitglied.id}",
-                    hashed_password="",  # Not used - auth via mitglieder table
-                    role="member",
-                    mitglied_id=mitglied.id
-                )
-                db.add(member_user)
-                db.commit()
-            
-            request.session["user"] = member_user.username
-            request.session["mitglied_id"] = mitglied.id
-            request.session["is_admin_capable"] = False
-            request.session["admin_verified"] = False
-            request.session["admin_verified_at"] = None
-            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
-            return RedirectResponse("/member", status_code=302)
-    
+    try:
+        mitglied = members_db.query(Mitglied).filter(Mitglied.login_username == username).first()
+        if mitglied and mitglied.login_password_hash:
+            if verify_password(password, mitglied.login_password_hash):
+                # Ensure user record exists in auth db, keyed by login_username
+                member_user = db.query(User).filter(User.username == mitglied.login_username).first()
+                if not member_user:
+                    # Also check by mitglied_id in case of RFID-created user
+                    member_user = db.query(User).filter(User.mitglied_id == mitglied.id).first()
+                if not member_user:
+                    member_user = User(
+                        username=mitglied.login_username,
+                        hashed_password="",  # Not used - auth via mitglieder table
+                        role="member",
+                        mitglied_id=mitglied.id
+                    )
+                    db.add(member_user)
+                    db.commit()
+                elif member_user.username != mitglied.login_username:
+                    # Update username to match current login_username
+                    member_user.username = mitglied.login_username
+                    db.commit()
+
+                request.session["user"] = mitglied.login_username
+                request.session["mitglied_id"] = mitglied.id
+                request.session["is_admin_capable"] = False
+                request.session["admin_verified"] = False
+                request.session["admin_verified_at"] = None
+                request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+                return RedirectResponse("/member", status_code=302)
+    finally:
+        members_db.close()
+
     return RedirectResponse("/?error=Invalid+credentials", status_code=302)
 
 
@@ -153,8 +163,8 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
-    if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
     
     # Require admin verification
     if not is_admin_verified(request):
@@ -182,8 +192,8 @@ async def add_user(
     db: Session = Depends(get_db),
 ):
     """Add a new user"""
-    if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)
@@ -224,6 +234,71 @@ async def add_user(
     )
 
 
+@router.post("/admin/users/toggle-role")
+async def toggle_user_role(
+    request: Request,
+    user_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Toggle user role between admin and member"""
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
+
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
+
+    current_user = request.session.get("user")
+    target = db.query(User).filter(User.id == user_id).first()
+
+    if not target:
+        users = db.query(User).order_by(User.created_at).all()
+        return templates.TemplateResponse(
+            "admin-users.html",
+            {
+                "request": request,
+                "users": users,
+                "current_user": current_user,
+                "success": None,
+                "error": "User not found",
+            },
+            status_code=404,
+        )
+
+    if target.username == current_user:
+        users = db.query(User).order_by(User.created_at).all()
+        return templates.TemplateResponse(
+            "admin-users.html",
+            {
+                "request": request,
+                "users": users,
+                "current_user": current_user,
+                "success": None,
+                "error": "Cannot change your own role",
+            },
+            status_code=400,
+        )
+
+    # Toggle role
+    new_role = "member" if target.role == "admin" else "admin"
+    target.role = new_role
+    db.commit()
+
+    users = db.query(User).order_by(User.created_at).all()
+    return templates.TemplateResponse(
+        "admin-users.html",
+        {
+            "request": request,
+            "users": users,
+            "current_user": current_user,
+            "success": f"User '{target.username}' is now {new_role}",
+            "error": None,
+        },
+    )
+
+
 @router.post("/admin/users/delete")
 async def delete_user(
     request: Request,
@@ -231,8 +306,8 @@ async def delete_user(
     db: Session = Depends(get_db),
 ):
     """Delete a user (cannot delete self or last user)"""
-    if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
     
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)

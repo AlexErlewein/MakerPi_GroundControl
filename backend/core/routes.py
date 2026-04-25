@@ -34,7 +34,7 @@ async def root(request: Request):
     templates = Jinja2Templates(directory="templates")
     
     # Unified login: everyone goes to /member first
-    if request.session.get("mitglied_id"):
+    if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
     
     # Not logged in - show landing page with login options
@@ -50,8 +50,8 @@ async def dashboard(request: Request):
     templates = Jinja2Templates(directory="templates")
     
     # Must be logged in
-    if not request.session.get("mitglied_id"):
-        return RedirectResponse("/login", status_code=302)
+    if not request.session.get("user"):
+        return RedirectResponse("/", status_code=302)
     
     # Must have admin verified
     if not is_admin_verified(request):
@@ -68,7 +68,7 @@ async def database_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("database.html", {"request": request})
 
 

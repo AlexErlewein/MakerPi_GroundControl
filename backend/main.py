@@ -3,7 +3,6 @@ Mounts all domain modules as separate route collections
 """
 
 import logging
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +22,34 @@ logger = logging.getLogger(__name__)
 
 # Setup
 app = FastAPI(title="MakerPi GroundControl")
+
+# APScheduler setup for scheduled tasks
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from backend.members.easyverein import sync_members_from_easyverein
+
+scheduler = AsyncIOScheduler()
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    """Start the background scheduler"""
+    # Schedule easyVerein sync daily at 03:00
+    scheduler.add_job(
+        sync_members_from_easyverein,
+        CronTrigger(hour=3, minute=0),
+        id="easyverein_daily_sync",
+        replace_existing=True,
+    )
+    scheduler.start()
+    logger.info("APScheduler started with daily easyVerein sync at 03:00")
+
+
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    """Shutdown the scheduler gracefully"""
+    scheduler.shutdown()
+    logger.info("APScheduler shutdown")
 
 # Session middleware (required for auth)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)

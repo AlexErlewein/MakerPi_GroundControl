@@ -47,9 +47,17 @@ def is_admin_verified(request: Request) -> bool:
     if not admin_verified_at or not last_activity:
         return False
     
+    # Parse ISO format strings to datetime
+    try:
+        last_activity_dt = datetime.fromisoformat(last_activity)
+        if last_activity_dt.tzinfo is None:
+            last_activity_dt = last_activity_dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return False
+    
     # Check 10min timeout
     now = datetime.now(timezone.utc)
-    if (now - last_activity).total_seconds() > (ADMIN_TIMEOUT_MINUTES * 60):
+    if (now - last_activity_dt).total_seconds() > (ADMIN_TIMEOUT_MINUTES * 60):
         # Timeout expired, clear admin verification
         session["admin_verified"] = False
         session["admin_verified_at"] = None
@@ -62,8 +70,7 @@ def is_admin_verified(request: Request) -> bool:
 
 def verify_admin_password(request: Request, db: Session, password: str) -> bool:
     """Verify admin password and enable admin mode"""
-    mitglied_id = request.session.get("mitglied_id")
-    if not mitglied_id:
+    if not request.session.get("user"):
         return False
     
     # Check if user is admin-capable
@@ -102,7 +109,7 @@ def get_session_info(request: Request) -> dict:
 
 def require_auth(request: Request):
     """Dependency: require authentication"""
-    if not request.session.get("mitglied_id"):
+    if not request.session.get("user"):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
 

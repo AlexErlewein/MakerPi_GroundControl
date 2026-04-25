@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
 from .models import Mitglied, RFIDTag
+from .easyverein import sync_members_from_easyverein, get_sync_status
 
 router = APIRouter()
 
@@ -20,6 +21,7 @@ class MitgliedCreate(BaseModel):
     status: str = "active"
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
 
@@ -32,6 +34,7 @@ class MitgliedUpdate(BaseModel):
     status: Optional[str] = None
     joined_date: Optional[str] = None
     notes: Optional[str] = None
+    nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
 
@@ -68,7 +71,7 @@ async def mitglieder_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("mitglieder.html", {"request": request})
 
 
@@ -80,7 +83,7 @@ async def tags_page(request: Request):
     
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("tags.html", {"request": request})
 
 
@@ -113,6 +116,11 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         existing_login = db.query(Mitglied).filter(Mitglied.login_username == data.login_username).first()
         if existing_login:
             raise HTTPException(status_code=400, detail="login_username already exists")
+    nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
+    if nfc_uid:
+        clash = db.query(Mitglied).filter(Mitglied.nfc_uid == nfc_uid).first()
+        if clash:
+            raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
     from datetime import date as dt_date
     from backend.auth.dependencies import get_password_hash
     m = Mitglied(
@@ -123,6 +131,7 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         status=data.status or "active",
         joined_date=dt_date.fromisoformat(data.joined_date) if data.joined_date else None,
         notes=data.notes,
+        nfc_uid=nfc_uid,
         login_username=data.login_username,
         login_password_hash=get_password_hash(data.login_password) if data.login_password else None,
     )
@@ -158,6 +167,15 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.joined_date = dt_date.fromisoformat(data.joined_date) if data.joined_date else None
     if data.notes is not None:
         m.notes = data.notes
+    if data.nfc_uid is not None:
+        nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
+        if nfc_uid:
+            clash = db.query(Mitglied).filter(
+                Mitglied.nfc_uid == nfc_uid, Mitglied.id != mitglied_id
+            ).first()
+            if clash:
+                raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
+        m.nfc_uid = nfc_uid
     # Handle login credentials
     if data.login_username is not None:
         # Check if username already taken by another member
@@ -174,6 +192,36 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.login_password_hash = get_password_hash(data.login_password) if data.login_password else None
     db.commit()
     db.refresh(m)
+    return m.to_dict()
+
+
+# ── easyVerein Sync API (must be before /{mitglied_id}) ───────────────────────
+
+@router.get("/api/mitglieder/sync-status")
+async def get_easyverein_sync_status(request: Request):
+    """Get the last easyVerein sync status"""
+    from backend.auth.dependencies import check_auth
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return get_sync_status()
+
+
+@router.post("/api/mitglieder/sync")
+async def trigger_easyverein_sync(request: Request):
+    """Manually trigger easyVerein sync (admin only)"""
+    from backend.auth.dependencies import is_admin_verified
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+    result = await sync_members_from_easyverein()
+    return result
+
+
+@router.get("/api/mitglieder/{mitglied_id}")
+async def get_mitglied(mitglied_id: int, db: Session = Depends(get_db)):
+    """Get a single member by ID"""
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
     return m.to_dict()
 
 

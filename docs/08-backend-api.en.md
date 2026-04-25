@@ -1,6 +1,6 @@
 # Backend API Reference
 
-All API endpoints live in `backend/main.py`. They follow a consistent pattern: open a DB session, do work, return a dict or raise `HTTPException`, always close session in `finally`.
+API endpoints are split across module route files (`backend/laufzettel/routes.py`, `backend/catalog/routes.py`, etc.) and registered in `backend/main.py`. They follow a consistent pattern: open a DB session, do work, return a dict or raise `HTTPException`.
 
 ## Endpoint overview
 
@@ -52,11 +52,17 @@ All API endpoints live in `backend/main.py`. They follow a consistent pattern: o
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/payment/config` | Which methods are configured (`sumup_configured`, `sumup_mock`) |
+| `GET` | `/api/payment/config` | Config flags: `sumup_configured`, `sumup_mock`, `payment_mode` |
 | `POST` | `/api/laufzettel/{id}/pay/bar` | Record cash payment — locks Laufzettel |
-| `POST` | `/api/laufzettel/{id}/pay/karte` | Send checkout to SumUp reader — locks Laufzettel |
+| `POST` | `/api/laufzettel/{id}/pay/karte` | Initiate card payment (Solo Cloud API or Payment Switch) |
+| `GET` | `/api/laufzettel/{id}/pay/karte/status` | Poll transaction status (Solo mode only) |
+| `POST` | `/api/laufzettel/{id}/pay/karte/confirm-mock` | Manually confirm payment (mock / Payment Switch) |
+| `DELETE` | `/api/laufzettel/{id}/pay/karte` | Cancel a pending card payment |
+| `DELETE` | `/api/laufzettel/{id}/pay` | Reset payment status (admin correction) |
 
-> Both `POST /pay/...` endpoints return `409` if the Laufzettel is already paid.
+`payment_mode` values: `"solo"` (Cloud API to paired Solo reader), `"payment_switch"` (URL scheme → SumUp app on phone), `"mock"`, or `null` (unconfigured).
+
+> All `POST /pay/...` endpoints return `409` if the Laufzettel is already paid.
 
 ### Material catalog
 

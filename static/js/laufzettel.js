@@ -220,6 +220,12 @@ document.getElementById("new-lz-member-select").addEventListener("change", () =>
     if (!m) return;
     document.getElementById("new-lz-owner").value = m.name;
     document.getElementById("new-lz-member-id").value = m.member_id;
+    if (m.nfc_uid) {
+        document.getElementById("new-lz-uid").value = m.nfc_uid;
+        const hint = document.getElementById("new-lz-tag-hint");
+        hint.textContent = `✓ NFC-UID aus Mitgliedskarte: ${m.nfc_uid}`;
+        hint.style.color = "var(--success)";
+    }
 });
 
 loadMitglieder();

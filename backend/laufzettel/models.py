@@ -27,9 +27,11 @@ class Laufzettel(Base):
     start = Column(DateTime(timezone=True), nullable=True)
     owner_name = Column(String, nullable=True)
     member_id = Column(String, nullable=True)
+    mitglied_id = Column(Integer, nullable=True, index=True)  # soft ref to members.mitglieder.id
     nodes = Column(Text, default="[]")  # JSON array of device_ids
     payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte'
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
 
     __table_args__ = (UniqueConstraint("uid", "date", name="uq_laufzettel_uid_date"),)
 
@@ -43,9 +45,11 @@ class Laufzettel(Base):
             "start": start_ts.isoformat() if start_ts else None,
             "owner_name": self.owner_name,
             "member_id": self.member_id,
+            "mitglied_id": self.mitglied_id,
             "nodes": json.loads(self.nodes) if self.nodes else [],
             "payment_method": self.payment_method,
             "paid_at": paid_ts.isoformat() if paid_ts else None,
+            "created_at": _naive_to_utc(self.created_at).isoformat() if self.created_at else None,
         }
 
 

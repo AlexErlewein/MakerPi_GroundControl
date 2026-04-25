@@ -6,6 +6,7 @@
     <title>Benutzerverwaltung - MakerPi GroundControl</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/tags.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
 </head>
 <body>
     <div class="container">
@@ -51,6 +52,7 @@
                         <thead>
                             <tr>
                                 <th>Benutzername</th>
+                                <th>Rolle</th>
                                 <th>Erstellt am</th>
                                 <th>Aktion</th>
                             </tr>
@@ -59,9 +61,22 @@
                             {% for u in users %}
                             <tr>
                                 <td>{{ u.username }}{% if u.username == current_user %} <span style="color:var(--text-secondary);font-size:0.8rem;">(du)</span>{% endif %}</td>
+                                <td>
+                                    {% if u.role == 'admin' %}
+                                    <span class="role-badge admin">Admin</span>
+                                    {% else %}
+                                    <span class="role-badge member">Member</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') if u.created_at else '-' }}</td>
                                 <td>
                                     {% if u.username != current_user %}
+                                    <form method="post" action="/admin/users/toggle-role" style="display:inline;">
+                                        <input type="hidden" name="user_id" value="{{ u.id }}">
+                                        <button type="submit" class="btn btn-sm btn-secondary" title="Rolle wechseln">
+                                            {% if u.role == 'admin' %}Zu Member{% else %}Zu Admin{% endif %}
+                                        </button>
+                                    </form>
                                     <form method="post" action="/admin/users/delete" style="display:inline;" onsubmit="return confirm('Benutzer {{ u.username }} wirklich löschen?');">
                                         <input type="hidden" name="user_id" value="{{ u.id }}">
                                         <button type="submit" class="btn btn-sm btn-danger">Löschen</button>
@@ -90,6 +105,13 @@
                         <label for="new-password">Passwort</label>
                         <input type="password" id="new-password" name="password" required autocomplete="new-password">
                     </div>
+                    <div class="form-group">
+                        <label for="new-role">Rolle</label>
+                        <select id="new-role" name="role">
+                            <option value="member">Member (Standard)</option>
+                            <option value="admin">Admin (voller Zugriff)</option>
+                        </select>
+                    </div>
                     <div>
                         <button type="submit" class="btn btn-success">Benutzer anlegen</button>
                     </div>
@@ -97,5 +119,7 @@
             </section>
         </main>
     </div>
+    <script src="/static/js/theme.js"></script>
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>
 </html>
