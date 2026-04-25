@@ -59,7 +59,7 @@ async def unified_login(
     
     # Check admin users first
     user = get_user(db, username)
-    if user and verify_password(password, user.hashed_password):
+    if user and user.hashed_password and verify_password(password, user.hashed_password):
         # Admin user found - auto-verify since password was just entered
         request.session["user"] = user.username
         request.session["mitglied_id"] = user.mitglied_id
