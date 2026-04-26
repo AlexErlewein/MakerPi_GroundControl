@@ -77,6 +77,18 @@ async def database_page(request: Request):
     return templates.TemplateResponse("database.html", {"request": request})
 
 
+@router.get("/devices/{device_id}", response_class=HTMLResponse)
+async def device_detail_page(device_id: str, request: Request):
+    """Render device detail page"""
+    from fastapi.templating import Jinja2Templates
+    from backend.auth.dependencies import check_auth
+
+    templates = Jinja2Templates(directory="templates")
+    if not check_auth(request):
+        return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse("device-detail.html", {"request": request, "device_id": device_id})
+
+
 # ── API ──────────────────────────────────────────────────────────────────────
 
 @router.get("/api/status")
@@ -107,11 +119,32 @@ async def get_devices(db: Session = Depends(get_db)):
 
 @router.get("/api/devices/{device_id}")
 async def get_device(device_id: str, db: Session = Depends(get_db)):
-    """Get single device details"""
+    """Get single device details with topic counts and recent messages"""
     device = db.query(Device).filter(Device.device_id == device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    return device.to_dict()
+
+    topic_counts = (
+        db.query(MQTTMessage.topic, func.count(MQTTMessage.id).label("count"))
+        .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+        .group_by(MQTTMessage.topic)
+        .order_by(func.count(MQTTMessage.id).desc())
+        .all()
+    )
+
+    recent_messages = (
+        db.query(MQTTMessage)
+        .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+        .order_by(MQTTMessage.timestamp.desc())
+        .limit(100)
+        .all()
+    )
+
+    return {
+        "device": device.to_dict(),
+        "topic_counts": [{"topic": t.topic, "count": t.count} for t in topic_counts],
+        "recent_messages": [m.to_dict() for m in recent_messages],
+    }
 
 
 @router.get("/api/messages")
