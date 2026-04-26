@@ -1,6 +1,6 @@
 """Catalog database - owns catalog.db"""
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from backend.config import CATALOG_DB_URL
 from .models import Base
@@ -19,3 +19,9 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE material_kategorie ADD COLUMN tax_rate REAL DEFAULT 19.0"))
+            conn.commit()
+        except Exception:
+            pass

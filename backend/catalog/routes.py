@@ -25,12 +25,14 @@ class KategorieCreate(BaseModel):
     name: str
     pricing_model: str = "per_unit"
     unit: Optional[str] = None
+    tax_rate: float = 19.0
 
 
 class KategorieUpdate(BaseModel):
     name: Optional[str] = None
     pricing_model: Optional[str] = None
     unit: Optional[str] = None
+    tax_rate: Optional[float] = None
 
 
 class VarianteCreate(BaseModel):
@@ -151,6 +153,7 @@ async def create_kategorie(data: KategorieCreate, db: Session = Depends(get_db))
         name=data.name,
         pricing_model=data.pricing_model,
         unit=data.unit,
+        tax_rate=data.tax_rate,
     )
     db.add(k)
     db.commit()
@@ -170,6 +173,8 @@ async def update_kategorie(kat_id: int, data: KategorieUpdate, db: Session = Dep
         k.pricing_model = data.pricing_model
     if data.unit is not None:
         k.unit = data.unit
+    if data.tax_rate is not None:
+        k.tax_rate = data.tax_rate
     db.commit()
     db.refresh(k)
     return k.to_dict()
