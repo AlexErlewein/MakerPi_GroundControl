@@ -103,6 +103,7 @@
                     <h2>Material</h2>
                     <div style="display:flex;gap:8px;">
                         <button onclick="downloadPDF()" class="btn btn-secondary btn-sm">⬇ PDF</button>
+                        <button id="add-spende-btn" class="btn btn-secondary btn-sm" onclick="openSpendeModal()">♥ Spende</button>
                         <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
                     </div>
                 </div>
@@ -275,6 +276,32 @@
         </div>
     </div>
 
+    <!-- Spende Modal -->
+    <div id="spende-modal" class="modal hidden">
+        <div class="modal-overlay" id="spende-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Spende erfassen</h3>
+                <button class="modal-close" id="spende-modal-close">✕</button>
+            </div>
+            <form id="spende-form">
+                <div class="form-group">
+                    <label for="field-spende-name">Bezeichnung</label>
+                    <input type="text" id="field-spende-name" value="Spende" placeholder="z.B. Spende, Trinkgeld">
+                </div>
+                <div class="form-group">
+                    <label for="field-spende-amount">Betrag (€)</label>
+                    <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+                </div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Erfassen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Payment Section (injected by JS after material section) -->
     <div id="payment-section" class="section hidden">
         <div id="payment-locked-banner" class="payment-locked-banner hidden">
@@ -351,7 +378,7 @@
     <script>
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
-    <script src="/static/js/laufzettel-detail.js?v=10"></script>
+    <script src="/static/js/laufzettel-detail.js?v=11"></script>
     <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>

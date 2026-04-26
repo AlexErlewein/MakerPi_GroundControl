@@ -62,6 +62,7 @@ function renderInfo() {
     document.getElementById("view-uid").textContent = d.uid || "-";
     const locked = !!d.payment_method;
     document.getElementById("edit-info-btn").style.display = locked ? "none" : "";
+    document.getElementById("add-spende-btn").style.display = locked ? "none" : "";
     document.getElementById("add-material-btn").style.display = locked ? "none" : "";
 }
 
@@ -75,6 +76,25 @@ function renderNodes() {
     container.innerHTML = nodes.map((n) => `<span class="node-chip">${esc(n)}</span>`).join("");
 }
 
+// Groups: 0% tax items go to "Spenden" (rendered last); others group by location.
+function getMatGroupKey(m) {
+    if (m.tax_rate === 0) return "__spenden__";
+    return getLocationForVariante(m.variante_id); // null = Freitext
+}
+function getMatGroupLabel(m) {
+    if (m.tax_rate === 0) return "Spenden";
+    return getLocationForVariante(m.variante_id) || "Freitext";
+}
+function sortMats(mats) {
+    return [...mats].sort((a, b) => {
+        const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+        if (sA !== sB) return sA ? 1 : -1;
+        const locA = getLocationForVariante(a.variante_id) || "￿";
+        const locB = getLocationForVariante(b.variante_id) || "￿";
+        return locA.localeCompare(locB) || a.name.localeCompare(b.name);
+    });
+}
+
 function renderMaterial() {
     const tbody = document.getElementById("material-body");
     const mats = [...(currentData.material || [])];
@@ -82,21 +102,15 @@ function renderMaterial() {
         tbody.innerHTML = '<tr><td colspan="7" class="empty">No material entries yet.</td></tr>';
         return;
     }
-    mats.sort((a, b) => {
-        const locA = getLocationForVariante(a.variante_id) || "\uffff";
-        const locB = getLocationForVariante(b.variante_id) || "\uffff";
-        return locA.localeCompare(locB) || a.name.localeCompare(b.name);
-    });
+    const sorted = sortMats(mats);
     let rowIndex = 0;
-    let lastLocation = undefined;
+    let lastGroupKey = undefined;
     const rows = [];
-    for (const m of mats) {
-        const location = getLocationForVariante(m.variante_id);
-        const locKey = location || null;
-        if (locKey !== lastLocation) {
-            const label = location ? esc(location) : "Freitext";
-            rows.push(`<tr class="location-separator"><td colspan="7"><span>${label}</span></td></tr>`);
-            lastLocation = locKey;
+    for (const m of sorted) {
+        const groupKey = getMatGroupKey(m);
+        if (groupKey !== lastGroupKey) {
+            rows.push(`<tr class="location-separator"><td colspan="7"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
+            lastGroupKey = groupKey;
         }
         rowIndex++;
         const mengeCell = buildMengeDisplay(m);
@@ -197,28 +211,22 @@ function buildMengeText(m) {
 function downloadPDF() {
     const d = currentData;
     const mats = [...(d.material || [])];
-    mats.sort((a, b) => {
-        const locA = getLocationForVariante(a.variante_id) || "\uffff";
-        const locB = getLocationForVariante(b.variante_id) || "\uffff";
-        return locA.localeCompare(locB) || a.name.localeCompare(b.name);
-    });
+    const sorted = sortMats(mats);
 
-    let lastLoc = undefined;
+    let lastGroupKey = undefined;
     let rowIndex = 0;
     let hasPrice = false;
     let materialRows = "";
     // tax_rate → brutto sum (items with null tax_rate treated as 19%)
     const taxGroups = {};
 
-    for (const m of mats) {
-        const location = getLocationForVariante(m.variante_id);
-        const locKey = location || null;
-        if (locKey !== lastLoc) {
-            const label = location || "Freitext";
+    for (const m of sorted) {
+        const groupKey = getMatGroupKey(m);
+        if (groupKey !== lastGroupKey) {
             materialRows += `<tr style="background:#e8f0fe;">
-                <td colspan="6" style="padding:5px 10px;font-size:10px;font-weight:700;color:#1a56db;text-transform:uppercase;letter-spacing:0.05em;">${label}</td>
+                <td colspan="6" style="padding:5px 10px;font-size:10px;font-weight:700;color:#1a56db;text-transform:uppercase;letter-spacing:0.05em;">${esc(getMatGroupLabel(m))}</td>
             </tr>`;
-            lastLoc = locKey;
+            lastGroupKey = groupKey;
         }
         rowIndex++;
         const rate = m.tax_rate != null ? m.tax_rate : 19;
@@ -730,6 +738,42 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-mat-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
 document.getElementById("refresh-btn").addEventListener("click", loadDetail);
+
+// ── Spende Modal ──────────────────────────────────────────────
+
+function openSpendeModal() {
+    document.getElementById("field-spende-name").value = "Spende";
+    document.getElementById("field-spende-amount").value = "";
+    document.getElementById("spende-modal").classList.remove("hidden");
+    document.getElementById("field-spende-amount").focus();
+}
+function closeSpendeModal() {
+    document.getElementById("spende-modal").classList.add("hidden");
+}
+
+document.getElementById("spende-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("field-spende-name").value.trim() || "Spende";
+    const amount = parseFloat(document.getElementById("field-spende-amount").value);
+    if (isNaN(amount) || amount <= 0) { alert("Bitte gültigen Betrag eingeben."); return; }
+    const body = { name, calculated_price: parseFloat(amount.toFixed(2)), tax_rate: 0 };
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (res.ok) {
+        closeSpendeModal();
+        await loadDetail();
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+    }
+});
+
+document.getElementById("spende-modal-close").addEventListener("click", closeSpendeModal);
+document.getElementById("spende-cancel").addEventListener("click", closeSpendeModal);
+document.getElementById("spende-overlay").addEventListener("click", closeSpendeModal);
 
 loadKatalog();
 loadLogo();
