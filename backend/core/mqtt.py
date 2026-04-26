@@ -115,22 +115,26 @@ def handle_device_message(topic: str, payload: str):
             db.add(device)
         device.last_seen = _utcnow()
         
-        # Handle status updates
-        if subtopic == "status":
+        # Handle status updates (heartbeat or status subtopic)
+        if subtopic in ("status", "heartbeat"):
             try:
                 data = json.loads(payload)
-                device.status = data.get("status", "unknown")
+                device.status = data.get("status", "online")
+                nfc_ok = data.get("nfc_ok")
+                if nfc_ok is not None:
+                    device.nfc_ok = 1 if nfc_ok else 0
             except json.JSONDecodeError:
                 device.status = payload
         
-        # Handle NFC scan
-        if subtopic == "scan":
+        # Handle NFC scan (subtopic 'scan' or 'tag')
+        if subtopic in ("scan", "tag"):
             try:
                 data = json.loads(payload)
                 uid = data.get("uid", "").upper()
                 validated = 0
                 owner_name = None
                 
+                logger.info("[SCAN] Received uid=%r device_id=%r", uid, device_id)
                 # Check against members database
                 from backend.members.db import SessionLocal as MembersSession
                 members_db = MembersSession()
@@ -145,7 +149,9 @@ def handle_device_message(topic: str, payload: str):
                         validated = 1
                         owner_name = mitglied.name
                         mitglied_db_id = mitglied.id
+                        logger.info("[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s", owner_name, mitglied_db_id)
                     else:
+                        logger.info("[SCAN] uid=%r not found in Mitglied.nfc_uid, checking RFIDTag", uid)
                         # Fallback: legacy RFIDTag table
                         tag = members_db.query(RFIDTag).filter(
                             RFIDTag.uid == uid, RFIDTag.active == 1
@@ -153,6 +159,7 @@ def handle_device_message(topic: str, payload: str):
                         if tag:
                             validated = 1
                             owner_name = tag.owner_name
+                            logger.info("[SCAN] Matched RFIDTag: owner=%r member_id=%r", owner_name, tag.member_id)
                             # Try to resolve mitglied_id via member_id field
                             if tag.member_id:
                                 m = members_db.query(Mitglied).filter(
@@ -160,6 +167,8 @@ def handle_device_message(topic: str, payload: str):
                                 ).first()
                                 if m:
                                     mitglied_db_id = m.id
+                        else:
+                            logger.warning("[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated", uid)
                 finally:
                     members_db.close()
                 
@@ -175,6 +184,7 @@ def handle_device_message(topic: str, payload: str):
                 db.add(scan)
                 
                 # Notify SSE subscribers about this scan
+                logger.info("[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r", len(scan_subscribers), uid, device_id)
                 _notify_scan_subscribers(uid, device_id)
                 
                 # Auto-create Laufzettel for validated scans

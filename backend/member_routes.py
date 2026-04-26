@@ -6,6 +6,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Optional
 
+import logging
+
 from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
 from backend.laufzettel.db import get_db as get_laufzettel_db
@@ -15,6 +17,7 @@ from backend.members.models import Mitglied, RFIDTag
 from backend.catalog.db import get_db as get_catalog_db
 from backend.catalog.models import MaterialVariante, MaterialKategorie
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
@@ -249,15 +252,20 @@ async def login_via_rfid(
     rfid_uid = body.get("rfid_uid", "").strip().upper()
     from datetime import datetime, timezone
 
+    logger.info("[RFID-LOGIN] Attempt with uid=%r", rfid_uid)
+
     # Primary lookup: find member directly by nfc_uid
     mitglied = members_db.query(Mitglied).filter(
         Mitglied.nfc_uid == rfid_uid
     ).first()
+    logger.info("[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None)
 
     # Also check legacy RFIDTag table for admin flag
     tag = members_db.query(RFIDTag).filter(RFIDTag.uid == rfid_uid).first()
+    logger.info("[RFID-LOGIN] RFIDTag found: %s", bool(tag))
 
     if not mitglied and not tag:
+        logger.warning("[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid)
         return JSONResponse(
             {"success": False, "error": "Unknown RFID card"},
             status_code=404
@@ -268,14 +276,17 @@ async def login_via_rfid(
         mitglied = members_db.query(Mitglied).filter(
             Mitglied.member_id == tag.member_id
         ).first()
+        logger.info("[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s", tag.member_id, mitglied.name if mitglied else None)
 
     if not mitglied:
+        logger.warning("[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid)
         return JSONResponse(
             {"success": False, "error": "No member associated with this card"},
             status_code=404
         )
 
     is_admin_card = bool(tag and tag.is_admin)
+    logger.info("[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s", mitglied.name, mitglied.id, is_admin_card)
 
     # Find or create user for this member
     user = auth_db.query(User).filter(
