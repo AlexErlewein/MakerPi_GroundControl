@@ -68,6 +68,7 @@ class LaufzettelMaterial(Base):
     breite_cm = Column(Float, nullable=True)
     hoehe_cm = Column(Float, nullable=True)
     calculated_price = Column(Float, nullable=True)
+    tax_rate = Column(Float, nullable=True)  # snapshotted from MaterialKategorie; None treated as 19.0
 
     def to_dict(self):
         return {
@@ -81,4 +82,5 @@ class LaufzettelMaterial(Base):
             "breite_cm": self.breite_cm,
             "hoehe_cm": self.hoehe_cm,
             "calculated_price": self.calculated_price,
+            "tax_rate": self.tax_rate,
         }

@@ -24,6 +24,7 @@ class MaterialKategorie(Base):
     name = Column(String)
     pricing_model = Column(String, default="per_unit")  # per_gram | per_volume_cm3 | per_volume_l | per_minute | per_unit
     unit = Column(String, nullable=True)  # display unit
+    tax_rate = Column(Float, default=19.0)  # 0 | 7 | 19
 
     def to_dict(self):
         return {
@@ -32,6 +33,7 @@ class MaterialKategorie(Base):
             "name": self.name,
             "pricing_model": self.pricing_model,
             "unit": self.unit,
+            "tax_rate": self.tax_rate if self.tax_rate is not None else 19.0,
         }
 
 

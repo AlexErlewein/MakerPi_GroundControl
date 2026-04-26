@@ -48,6 +48,7 @@ function renderLocation(loc) {
 function renderKategorie(kat, loc) {
     const pricingLabel = PRICING_LABELS[kat.pricing_model] || kat.pricing_model;
     const unit = kat.unit ? kat.unit : "";
+    const taxRate = kat.tax_rate != null ? kat.tax_rate : 19;
     const rows = (kat.varianten || []).map((v) => renderVariante(v, kat)).join("");
     return `
     <div class="kategorie-block" id="kat-${kat.id}">
@@ -56,6 +57,7 @@ function renderKategorie(kat, loc) {
                 🗂 ${esc(kat.name)}
                 <span class="pricing-badge">${esc(pricingLabel)}</span>
                 ${unit ? `<span class="unit-label">[${esc(unit)}]</span>` : ""}
+                <span class="pricing-badge">${taxRate} % MwSt.</span>
             </div>
             <div class="kategorie-actions">
                 <button class="btn btn-sm btn-secondary" onclick="openEditKategorie(${kat.id}, ${loc.id})">Bearbeiten</button>
@@ -169,6 +171,7 @@ function openEditKategorie(katId, locId) {
     document.getElementById("field-kat-name").value = kat.name;
     document.getElementById("field-kat-pricing").value = kat.pricing_model;
     document.getElementById("field-kat-unit").value = kat.unit || "";
+    document.getElementById("field-kat-tax-rate").value = String(kat.tax_rate != null ? kat.tax_rate : 19);
     document.getElementById("kategorie-modal").classList.remove("hidden");
 }
 
@@ -185,6 +188,7 @@ document.getElementById("kategorie-form").addEventListener("submit", async (e) =
         name: document.getElementById("field-kat-name").value.trim(),
         pricing_model: document.getElementById("field-kat-pricing").value,
         unit: document.getElementById("field-kat-unit").value.trim() || null,
+        tax_rate: parseFloat(document.getElementById("field-kat-tax-rate").value),
     };
     const url = id ? `/api/katalog/kategorien/${id}` : "/api/katalog/kategorien";
     const method = id ? "PUT" : "POST";

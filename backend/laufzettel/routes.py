@@ -36,6 +36,7 @@ class MaterialCreate(BaseModel):
     breite_cm: Optional[float] = None
     hoehe_cm: Optional[float] = None
     calculated_price: Optional[float] = None
+    tax_rate: Optional[float] = None
 
 
 class MaterialUpdate(BaseModel):
@@ -47,6 +48,7 @@ class MaterialUpdate(BaseModel):
     breite_cm: Optional[float] = None
     hoehe_cm: Optional[float] = None
     calculated_price: Optional[float] = None
+    tax_rate: Optional[float] = None
 
 
 @router.on_event("startup")
@@ -236,6 +238,7 @@ async def add_material(laufzettel_id: int, mat: MaterialCreate, db: Session = De
         breite_cm=mat.breite_cm,
         hoehe_cm=mat.hoehe_cm,
         calculated_price=mat.calculated_price,
+        tax_rate=mat.tax_rate,
     )
     db.add(new_mat)
     db.commit()
@@ -273,6 +276,8 @@ async def update_material(
         existing.hoehe_cm = mat.hoehe_cm
     if mat.calculated_price is not None:
         existing.calculated_price = mat.calculated_price
+    if mat.tax_rate is not None:
+        existing.tax_rate = mat.tax_rate
     db.commit()
     db.refresh(existing)
     return existing.to_dict()

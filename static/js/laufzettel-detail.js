@@ -205,9 +205,10 @@ function downloadPDF() {
 
     let lastLoc = undefined;
     let rowIndex = 0;
-    let total = 0;
     let hasPrice = false;
     let materialRows = "";
+    // tax_rate → brutto sum (items with null tax_rate treated as 19%)
+    const taxGroups = {};
 
     for (const m of mats) {
         const location = getLocationForVariante(m.variante_id);
@@ -215,28 +216,72 @@ function downloadPDF() {
         if (locKey !== lastLoc) {
             const label = location || "Freitext";
             materialRows += `<tr style="background:#e8f0fe;">
-                <td colspan="5" style="padding:5px 10px;font-size:10px;font-weight:700;color:#1a56db;text-transform:uppercase;letter-spacing:0.05em;">${label}</td>
+                <td colspan="6" style="padding:5px 10px;font-size:10px;font-weight:700;color:#1a56db;text-transform:uppercase;letter-spacing:0.05em;">${label}</td>
             </tr>`;
             lastLoc = locKey;
         }
         rowIndex++;
+        const rate = m.tax_rate != null ? m.tax_rate : 19;
         const priceText = m.calculated_price != null ? `${m.calculated_price.toFixed(2)} €` : "-";
-        if (m.calculated_price != null) { total += m.calculated_price; hasPrice = true; }
+        if (m.calculated_price != null) {
+            hasPrice = true;
+            taxGroups[rate] = (taxGroups[rate] || 0) + m.calculated_price;
+        }
         materialRows += `<tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:6px 10px;">${rowIndex}</td>
             <td style="padding:6px 10px;">${m.name || ""}</td>
             <td style="padding:6px 10px;">${buildMengeText(m)}</td>
             <td style="padding:6px 10px;">${m.unit || "-"}</td>
+            <td style="padding:6px 10px;color:#6b7280;font-size:10px;">${rate} %</td>
             <td style="padding:6px 10px;font-family:monospace;">${priceText}</td>
         </tr>`;
     }
 
-    if (hasPrice) {
-        materialRows += `<tr style="border-top:2px solid #9ca3af;font-weight:700;">
-            <td colspan="4" style="padding:8px 10px;text-align:right;">Gesamt</td>
-            <td style="padding:8px 10px;font-family:monospace;color:#057a55;">${total.toFixed(2)} €</td>
+    // Build tax summary table
+    let taxSummaryRows = "";
+    let totalNetto = 0;
+    let totalTax = 0;
+    let totalBrutto = 0;
+    const sortedRates = Object.keys(taxGroups).map(Number).sort((a, b) => b - a);
+    for (const rate of sortedRates) {
+        const brutto = taxGroups[rate];
+        const netto = brutto / (1 + rate / 100);
+        const tax = brutto - netto;
+        totalNetto += netto;
+        totalTax += tax;
+        totalBrutto += brutto;
+        taxSummaryRows += `<tr style="border-bottom:1px solid #e5e7eb;">
+            <td style="padding:5px 10px;">${rate} %</td>
+            <td style="padding:5px 10px;font-family:monospace;text-align:right;">${netto.toFixed(2)} €</td>
+            <td style="padding:5px 10px;font-family:monospace;text-align:right;">${tax.toFixed(2)} €</td>
+            <td style="padding:5px 10px;font-family:monospace;text-align:right;">${brutto.toFixed(2)} €</td>
         </tr>`;
     }
+    if (sortedRates.length > 1) {
+        taxSummaryRows += `<tr style="border-top:2px solid #9ca3af;font-weight:700;">
+            <td style="padding:6px 10px;">Gesamt</td>
+            <td style="padding:6px 10px;font-family:monospace;text-align:right;">${totalNetto.toFixed(2)} €</td>
+            <td style="padding:6px 10px;font-family:monospace;text-align:right;">${totalTax.toFixed(2)} €</td>
+            <td style="padding:6px 10px;font-family:monospace;text-align:right;color:#057a55;">${totalBrutto.toFixed(2)} €</td>
+        </tr>`;
+    }
+
+    const taxSummarySection = hasPrice ? `
+        <h2 style="font-size:13px;margin:18px 0 6px;">Steuerübersicht</h2>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+            <thead>
+                <tr style="background:#f3f4f6;border-bottom:2px solid #d1d5db;">
+                    <th style="padding:5px 10px;text-align:left;font-size:11px;">MwSt.-Satz</th>
+                    <th style="padding:5px 10px;text-align:right;font-size:11px;">Netto</th>
+                    <th style="padding:5px 10px;text-align:right;font-size:11px;">MwSt.</th>
+                    <th style="padding:5px 10px;text-align:right;font-size:11px;">Brutto</th>
+                </tr>
+            </thead>
+            <tbody>${taxSummaryRows}</tbody>
+        </table>
+        <div style="text-align:right;font-size:15px;font-weight:700;margin-top:6px;color:#057a55;">
+            Gesamtbetrag (Brutto): ${totalBrutto.toFixed(2)} €
+        </div>` : "";
 
     const startStr = d.start ? new Date(d.start).toLocaleString("de-DE") : "-";
     const nodes = (d.nodes || []).join(", ") || "-";
@@ -282,11 +327,13 @@ function downloadPDF() {
                     <th style="padding:6px 10px;text-align:left;font-size:11px;">Name</th>
                     <th style="padding:6px 10px;text-align:left;font-size:11px;">Menge / Maße</th>
                     <th style="padding:6px 10px;text-align:left;font-size:11px;">Einheit</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px;">MwSt.</th>
                     <th style="padding:6px 10px;text-align:left;font-size:11px;">Preis (€)</th>
                 </tr>
             </thead>
-            <tbody>${materialRows || `<tr><td colspan="5" style="padding:8px 10px;color:#9ca3af;">Keine Materialeinträge.</td></tr>`}</tbody>
+            <tbody>${materialRows || `<tr><td colspan="6" style="padding:8px 10px;color:#9ca3af;">Keine Materialeinträge.</td></tr>`}</tbody>
         </table>
+        ${taxSummarySection}
     </div>`;
 
     const el = document.createElement("div");
@@ -372,6 +419,7 @@ function openAddMaterial() {
     document.getElementById("edit-mat-variante-id").value = "";
     document.getElementById("field-mat-unit-price").value = "";
     document.getElementById("field-mat-total-price").value = "";
+    document.getElementById("field-mat-tax-rate").value = "19";
     setMatMode("freitext");
     document.getElementById("material-modal").classList.remove("hidden");
     document.getElementById("field-mat-name").focus();
@@ -404,6 +452,7 @@ function openEditMaterial(id) {
         document.getElementById("field-mat-unit-price").value = "";
         document.getElementById("field-mat-total-price").value = "";
     }
+    document.getElementById("field-mat-tax-rate").value = String(mat.tax_rate != null ? mat.tax_rate : 19);
     document.getElementById("material-modal").classList.remove("hidden");
     document.getElementById("field-mat-name").focus();
 }
@@ -566,6 +615,7 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
             menge: parseFloat(document.getElementById("field-mat-menge").value) || null,
             unit: document.getElementById("field-mat-unit").value.trim() || null,
             calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
+            tax_rate: parseFloat(document.getElementById("field-mat-tax-rate").value),
         };
     } else {
         // Katalog mode
@@ -577,6 +627,7 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
         body.variante_id = selectedVariante.id;
         body.unit = selectedKategorie.unit || null;
         body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
+        body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
 
         if (pm === "per_gram") {
             const menge = parseFloat(document.getElementById("kat-menge-gram").value);
