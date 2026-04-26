@@ -134,14 +134,32 @@ def handle_device_message(topic: str, payload: str):
                 # Check against members database
                 from backend.members.db import SessionLocal as MembersSession
                 members_db = MembersSession()
+                mitglied_db_id = None
                 try:
-                    from backend.members.models import RFIDTag
-                    tag = members_db.query(RFIDTag).filter(
-                        RFIDTag.uid == uid, RFIDTag.active == 1
+                    from backend.members.models import RFIDTag, Mitglied
+                    # Primary: check Mitglied.nfc_uid (the card enrolled via Mitglieder UI)
+                    mitglied = members_db.query(Mitglied).filter(
+                        Mitglied.nfc_uid == uid
                     ).first()
-                    if tag:
+                    if mitglied:
                         validated = 1
-                        owner_name = tag.owner_name
+                        owner_name = mitglied.name
+                        mitglied_db_id = mitglied.id
+                    else:
+                        # Fallback: legacy RFIDTag table
+                        tag = members_db.query(RFIDTag).filter(
+                            RFIDTag.uid == uid, RFIDTag.active == 1
+                        ).first()
+                        if tag:
+                            validated = 1
+                            owner_name = tag.owner_name
+                            # Try to resolve mitglied_id via member_id field
+                            if tag.member_id:
+                                m = members_db.query(Mitglied).filter(
+                                    Mitglied.member_id == tag.member_id
+                                ).first()
+                                if m:
+                                    mitglied_db_id = m.id
                 finally:
                     members_db.close()
                 
@@ -178,6 +196,7 @@ def handle_device_message(topic: str, payload: str):
                                 date=today,
                                 start=_utcnow(),
                                 owner_name=owner_name,
+                                mitglied_id=mitglied_db_id,
                                 nodes=json.dumps([device_id]),
                             )
                             lauf_db.add(new_lz)
@@ -188,7 +207,10 @@ def handle_device_message(topic: str, payload: str):
                             if device_id not in nodes:
                                 nodes.append(device_id)
                                 existing.nodes = json.dumps(nodes)
-                                lauf_db.commit()
+                            # Update mitglied_id if not yet set
+                            if not existing.mitglied_id and mitglied_db_id:
+                                existing.mitglied_id = mitglied_db_id
+                            lauf_db.commit()
                     finally:
                         lauf_db.close()
             except json.JSONDecodeError:
