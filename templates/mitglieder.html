@@ -148,7 +148,7 @@
                         <label for="f-nfc-uid">NFC-Karten-UID</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="text" id="f-nfc-uid" placeholder="z.B. 9CF22507" style="font-family: monospace; text-transform: uppercase; flex: 1;">
-                            <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;">&#128273; Jetzt Scannen</button>
+                            <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;" onclick="startNfcScan()">&#128273; Jetzt Scannen</button>
                         </div>
                         <div id="scan-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
                         <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">Eindeutige UID der Mitgliedskarte für automatische Zuweisung beim Laufzettel-Scan.</p>
@@ -178,7 +178,7 @@
         </div>
     </div>
 
-    <script src="/static/js/mitglieder.js?v=1"></script>
+    <script src="/static/js/mitglieder.js?v=2"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

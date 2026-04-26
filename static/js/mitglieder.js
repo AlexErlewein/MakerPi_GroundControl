@@ -76,6 +76,7 @@ function resetScanButton() {
 }
 
 function startNfcScan() {
+    console.log("[NFC] startNfcScan called, enrollmentReaderId:", enrollmentReaderId);
     const btn = document.getElementById("btn-scan-nfc");
     if (activeScanSource) {
         resetScanButton();
@@ -84,12 +85,14 @@ function startNfcScan() {
     }
     if (!enrollmentReaderId) {
         setScanStatus("Kein Enrollment-Reader konfiguriert. Bitte zuerst im Dashboard einstellen.", "error");
+        console.warn("[NFC] No enrollment reader configured!");
         return;
     }
     btn.textContent = "\u23F3 Warte auf Scan... (Abbrechen)";
     btn.disabled = false;
     setScanStatus(`Bereit – halte die Karte an den Reader "${enrollmentReaderId}"...`, "info");
 
+    console.log("[NFC] Opening SSE stream /api/scans/stream");
     const evtSource = new EventSource("/api/scans/stream");
     activeScanSource = evtSource;
     let configuredReader = enrollmentReaderId;
@@ -97,9 +100,11 @@ function startNfcScan() {
     evtSource.addEventListener("config", (e) => {
         const data = JSON.parse(e.data);
         configuredReader = data.enrollment_reader_id || enrollmentReaderId;
+        console.log("[NFC] config event received, configuredReader:", configuredReader);
     });
 
     evtSource.addEventListener("timeout", () => {
+        console.log("[NFC] timeout event received");
         evtSource.close();
         activeScanSource = null;
         resetScanButton();
@@ -107,8 +112,12 @@ function startNfcScan() {
     });
 
     evtSource.onmessage = (e) => {
+        console.log("[NFC] scan event received:", e.data);
         const data = JSON.parse(e.data);
-        if (data.device_id !== configuredReader) return;
+        if (data.device_id !== configuredReader) {
+            console.log("[NFC] device_id mismatch:", data.device_id, "!=", configuredReader);
+            return;
+        }
         evtSource.close();
         activeScanSource = null;
         resetScanButton();
@@ -117,7 +126,8 @@ function startNfcScan() {
         setScanStatus(`✓ UID gescannt: ${uid}`, "ok");
     };
 
-    evtSource.onerror = () => {
+    evtSource.onerror = (e) => {
+        console.error("[NFC] SSE error:", e);
         evtSource.close();
         activeScanSource = null;
         resetScanButton();
@@ -131,9 +141,12 @@ async function loadEnrollmentReader() {
         if (res.ok) {
             const data = await res.json();
             enrollmentReaderId = data.enrollment_reader_id || "";
+            console.log("[NFC] enrollmentReaderId loaded:", enrollmentReaderId);
+        } else {
+            console.warn("[NFC] enrollment-reader endpoint returned:", res.status);
         }
     } catch (e) {
-        console.warn("Could not load enrollment reader config:", e);
+        console.warn("[NFC] Could not load enrollment reader config:", e);
     }
 }
 
@@ -286,7 +299,6 @@ document.getElementById("filter-search").addEventListener("keydown", (e) => {
 });
 document.getElementById("sync-easyverein-btn").addEventListener("click", triggerEasyVereinSync);
 document.getElementById("sync-status-card").addEventListener("click", loadSyncStatus);
-document.getElementById("btn-scan-nfc").addEventListener("click", startNfcScan);
 
 loadMitglieder();
 loadSyncStatus();
