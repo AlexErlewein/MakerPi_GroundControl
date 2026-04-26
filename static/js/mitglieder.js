@@ -1,5 +1,8 @@
 let allMitglieder = [];
 let editingId = null;
+let enrollmentReaderId = "";
+let activeScanSource = null;
+let scanTimeout = null;
 
 function esc(str) {
     return String(str || "")
@@ -54,8 +57,90 @@ function render() {
         </tr>`).join("");
 }
 
+function setScanStatus(msg, type) {
+    const el = document.getElementById("scan-status");
+    if (!msg) { el.style.display = "none"; return; }
+    el.style.display = "block";
+    el.textContent = msg;
+    el.style.background = type === "ok" ? "#1a3a1a" : type === "error" ? "#3a1a1a" : "#1a2a3a";
+    el.style.color = type === "ok" ? "#3fb950" : type === "error" ? "#f85149" : "#79c0ff";
+    el.style.border = `1px solid ${type === "ok" ? "#238636" : type === "error" ? "#da3633" : "#1f6feb"}`;
+}
+
+function resetScanButton() {
+    const btn = document.getElementById("btn-scan-nfc");
+    btn.textContent = "\uD83D\uDD13 Jetzt Scannen";
+    btn.disabled = false;
+    if (activeScanSource) { activeScanSource.close(); activeScanSource = null; }
+    if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
+}
+
+function startNfcScan() {
+    const btn = document.getElementById("btn-scan-nfc");
+    if (activeScanSource) {
+        resetScanButton();
+        setScanStatus(null);
+        return;
+    }
+    if (!enrollmentReaderId) {
+        setScanStatus("Kein Enrollment-Reader konfiguriert. Bitte zuerst im Dashboard einstellen.", "error");
+        return;
+    }
+    btn.textContent = "\u23F3 Warte auf Scan... (Abbrechen)";
+    btn.disabled = false;
+    setScanStatus(`Bereit – halte die Karte an den Reader "${enrollmentReaderId}"...`, "info");
+
+    const evtSource = new EventSource("/api/scans/stream");
+    activeScanSource = evtSource;
+    let configuredReader = enrollmentReaderId;
+
+    evtSource.addEventListener("config", (e) => {
+        const data = JSON.parse(e.data);
+        configuredReader = data.enrollment_reader_id || enrollmentReaderId;
+    });
+
+    evtSource.addEventListener("timeout", () => {
+        evtSource.close();
+        activeScanSource = null;
+        resetScanButton();
+        setScanStatus("Timeout – kein Scan empfangen. Bitte erneut versuchen.", "error");
+    });
+
+    evtSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.device_id !== configuredReader) return;
+        evtSource.close();
+        activeScanSource = null;
+        resetScanButton();
+        const uid = data.uid.toUpperCase();
+        document.getElementById("f-nfc-uid").value = uid;
+        setScanStatus(`✓ UID gescannt: ${uid}`, "ok");
+    };
+
+    evtSource.onerror = () => {
+        evtSource.close();
+        activeScanSource = null;
+        resetScanButton();
+        setScanStatus("Verbindungsfehler beim Warten auf Scan.", "error");
+    };
+}
+
+async function loadEnrollmentReader() {
+    try {
+        const res = await fetch("/api/settings/enrollment-reader");
+        if (res.ok) {
+            const data = await res.json();
+            enrollmentReaderId = data.enrollment_reader_id || "";
+        }
+    } catch (e) {
+        console.warn("Could not load enrollment reader config:", e);
+    }
+}
+
 function openAdd() {
     editingId = null;
+    resetScanButton();
+    setScanStatus(null);
     document.getElementById("modal-title").textContent = "Neues Mitglied";
     document.getElementById("mitglied-form").reset();
     document.getElementById("f-nfc-uid").value = "";
@@ -66,6 +151,8 @@ function openEdit(id) {
     const m = allMitglieder.find(x => x.id === id);
     if (!m) return;
     editingId = id;
+    resetScanButton();
+    setScanStatus(null);
     document.getElementById("modal-title").textContent = "Mitglied bearbeiten";
     document.getElementById("f-member-id").value = m.member_id || "";
     document.getElementById("f-name").value = m.name || "";
@@ -79,6 +166,8 @@ function openEdit(id) {
 }
 
 function closeModal() {
+    resetScanButton();
+    setScanStatus(null);
     document.getElementById("mitglied-modal").classList.add("hidden");
 }
 
@@ -197,6 +286,8 @@ document.getElementById("filter-search").addEventListener("keydown", (e) => {
 });
 document.getElementById("sync-easyverein-btn").addEventListener("click", triggerEasyVereinSync);
 document.getElementById("sync-status-card").addEventListener("click", loadSyncStatus);
+document.getElementById("btn-scan-nfc").addEventListener("click", startNfcScan);
 
 loadMitglieder();
 loadSyncStatus();
+loadEnrollmentReader();

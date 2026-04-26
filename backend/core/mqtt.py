@@ -12,9 +12,25 @@ from .models import MQTTMessage, Device, TagScan
 logger = logging.getLogger(__name__)
 mqtt_client = None
 
+# SSE subscribers for NFC scan events: list of (asyncio.Queue, asyncio.AbstractEventLoop)
+scan_subscribers: list = []
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
+
+
+def _notify_scan_subscribers(uid: str, device_id: str):
+    """Push a scan event to all active SSE subscribers (thread-safe)."""
+    event = {"uid": uid, "device_id": device_id}
+    dead = []
+    for queue, loop in scan_subscribers:
+        try:
+            loop.call_soon_threadsafe(queue.put_nowait, event)
+        except Exception:
+            dead.append((queue, loop))
+    for entry in dead:
+        scan_subscribers.remove(entry)
 
 
 def init_mqtt():
@@ -139,6 +155,9 @@ def handle_device_message(topic: str, payload: str):
                     sak=data.get("sak"),
                 )
                 db.add(scan)
+                
+                # Notify SSE subscribers about this scan
+                _notify_scan_subscribers(uid, device_id)
                 
                 # Auto-create Laufzettel for validated scans
                 if validated:

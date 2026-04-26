@@ -82,5 +82,5 @@ class LaufzettelMaterial(Base):
             "breite_cm": self.breite_cm,
             "hoehe_cm": self.hoehe_cm,
             "calculated_price": self.calculated_price,
-            "tax_rate": self.tax_rate,
+            "tax_rate": 0.0 if self.tax_rate is not None and self.tax_rate == 0 else self.tax_rate,
         }

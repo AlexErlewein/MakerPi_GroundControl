@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
     setupEventListeners();
     startAutoRefresh();
+    loadEnrollmentReaderSettings();
 });
 
 // Event Listeners
@@ -217,4 +218,75 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+// ── Enrollment Reader Settings ────────────────────────────────────────────────
+
+function setEnrollmentStatus(msg, type) {
+    const el = document.getElementById('enrollment-reader-status');
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = msg;
+    el.style.background = type === 'ok' ? '#1a3a1a' : type === 'error' ? '#3a1a1a' : '#1a2a3a';
+    el.style.color = type === 'ok' ? '#3fb950' : type === 'error' ? '#f85149' : '#79c0ff';
+    el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
+}
+
+async function loadEnrollmentReaderSettings() {
+    try {
+        const res = await fetch('/api/settings/enrollment-reader');
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById('enrollment-reader-select');
+        if (!select) return;
+
+        // Populate options from known devices
+        const current = data.enrollment_reader_id || '';
+        // Keep the empty option, add device options
+        select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
+        (data.devices || []).forEach(id => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id;
+            if (id === current) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        // Attach save button listener (once)
+        const saveBtn = document.getElementById('save-enrollment-reader');
+        if (saveBtn && !saveBtn._listenerAttached) {
+            saveBtn._listenerAttached = true;
+            saveBtn.addEventListener('click', saveEnrollmentReader);
+        }
+    } catch (e) {
+        console.error('Failed to load enrollment reader settings:', e);
+    }
+}
+
+async function saveEnrollmentReader() {
+    const select = document.getElementById('enrollment-reader-select');
+    const saveBtn = document.getElementById('save-enrollment-reader');
+    if (!select) return;
+    const newId = select.value;
+    saveBtn.disabled = true;
+    try {
+        const res = await fetch('/api/settings/enrollment-reader', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollment_reader_id: newId }),
+        });
+        if (res.ok) {
+            setEnrollmentStatus(
+                newId ? `✓ Reader gesetzt: ${newId}` : '✓ Kein Reader konfiguriert',
+                'ok'
+            );
+        } else {
+            const err = await res.json();
+            setEnrollmentStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
+        }
+    } catch (e) {
+        setEnrollmentStatus('Verbindungsfehler beim Speichern.', 'error');
+    } finally {
+        saveBtn.disabled = false;
+    }
 }

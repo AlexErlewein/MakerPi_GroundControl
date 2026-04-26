@@ -238,7 +238,7 @@ async def add_material(laufzettel_id: int, mat: MaterialCreate, db: Session = De
         breite_cm=mat.breite_cm,
         hoehe_cm=mat.hoehe_cm,
         calculated_price=mat.calculated_price,
-        tax_rate=mat.tax_rate,
+        tax_rate=mat.tax_rate if mat.tax_rate is not None else None,
     )
     db.add(new_mat)
     db.commit()

@@ -9,5 +9,6 @@
     "sumup_affiliate_key": "YOUR_AFFILIATE_KEY_HERE",
     "sumup_mock": false,
     "easyverein_api_key": "YOUR_EASYVEREIN_API_KEY_HERE",
-    "easyverein_org_id": "YOUR_ORG_ID_HERE"
+    "easyverein_org_id": "YOUR_ORG_ID_HERE",
+    "enrollment_reader_id": ""
 }
