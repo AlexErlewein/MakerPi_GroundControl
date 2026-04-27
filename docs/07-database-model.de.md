@@ -14,6 +14,26 @@ Diese Seite beschreibt alle Tabellen, ihre Felder und die Beziehungen zwischen i
 
 Jedes Modul besitzt seine eigene Datenbankverbindung und Models. Datenbank-übergreifende Referenzen verwenden Soft-Keys (z.B. `member_id` als String) statt Fremdschlüsseln.
 
+## Entitätstabellen
+
+### `mitglieder`
+
+Mitglieder-Datensätze, synchronisiert aus easyVerein oder manuell erstellt. Die zentrale Entität, die Benutzer, RFID-Karten und Laufzettel verbindet.
+
+| Spalte | Typ | Hinweise |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `member_id` | TEXT UNIQUE | Externe Mitgliedsnummer (z.B. aus easyVerein) |
+| `name` | TEXT | Vollständiger Name (erforderlich) |
+| `email` | TEXT | E-Mail-Adresse |
+| `phone` | TEXT | Telefonnummer |
+| `status` | TEXT | `active` oder `inactive` |
+| `joined_date` | DATE | Eintrittsdatum |
+| `notes` | TEXT | Freitext-Notizen |
+| `nfc_uid` | TEXT UNIQUE | Primäre NFC-Karten-UID für RFID-Login |
+| `login_username` | TEXT UNIQUE | Optionaler Benutzername für Passwort-Login |
+| `login_password_hash` | TEXT | Bcrypt-Hash für Passwort-Login |
+
 ## Entity-Relationship-Diagramm
 
 ```mermaid
@@ -21,10 +41,12 @@ erDiagram
     RFIDTag {
         int id PK
         string uid UK
-        string owner_name
         string member_id
-        bool active
+        string owner_name
+        string owner_email
         string notes
+        bool active
+        bool is_admin
         datetime created_at
     }
     Laufzettel {
@@ -34,6 +56,7 @@ erDiagram
         string start
         string owner_name
         string member_id
+        int mitglied_id FK
         string nodes
         string payment_method
         datetime paid_at
@@ -50,6 +73,7 @@ erDiagram
         float breite_cm
         float hoehe_cm
         float calculated_price
+        float tax_rate
         datetime created_at
     }
     Location {
@@ -62,6 +86,7 @@ erDiagram
         string name
         string preismodell
         string einheit
+        float tax_rate
     }
     MaterialVariante {
         int id PK
@@ -79,9 +104,11 @@ erDiagram
     Device {
         int id PK
         string device_id UK
+        string name
         string last_seen
         string status
-        string last_payload
+        int nfc_ok
+        string nfc_error
     }
     TagScan {
         int id PK
@@ -89,8 +116,27 @@ erDiagram
         string device_id
         datetime timestamp
         bool validated
+        string owner_name
+        string tag_type
+        string atqa
+        string sak
+    }
+    Mitglied {
+        int id PK
+        string member_id UK
+        string name
+        string email
+        string phone
+        string status
+        date joined_date
+        string notes
+        string nfc_uid UK
+        string login_username UK
+        string login_password_hash
     }
 
+    Mitglied ||--o{ RFIDTag : "member_id (soft)"
+    Mitglied ||--o{ Laufzettel : "mitglied_id"
     RFIDTag ||--o{ Laufzettel : "uid (App-Ebene)"
     Laufzettel ||--o{ LaufzettelMaterial : "laufzettel_id"
     Location ||--o{ MaterialKategorie : "location_id"
@@ -120,23 +166,27 @@ Eine Zeile pro erkanntem Gerät, aktualisiert bei jeder Nachricht.
 |---|---|---|
 | `id` | INTEGER PK | Auto-Inkrement |
 | `device_id` | TEXT UNIQUE | Topic-Präfix |
-| `last_seen` | TEXT | ISO-Zeitstempel-String |
+| `name` | TEXT | Anzeigename (optional) |
+| `last_seen` | DATETIME | ISO-Zeitstempel (UTC) |
 | `status` | TEXT | Letzter bekannter Status-String |
-| `last_payload` | TEXT | Letzte Nachrichten-Payload |
+| `nfc_ok` | INTEGER | NULL=unbekannt, 1=OK, 0=Fehler |
+| `nfc_error` | TEXT | Fehlermeldung wenn NFC einen Fehler hat |
 
 ### `rfid_tags`
 
-Registrierte Karteninhaber.
+Registrierte NFC-Karten. Kann über `member_id` (Soft-Reference) mit einem Mitglied verknüpft werden.
 
 | Spalte | Typ | Hinweise |
 |---|---|---|
 | `id` | INTEGER PK | Auto-Inkrement |
 | `uid` | TEXT UNIQUE | NFC-Karten-UID |
+| `member_id` | TEXT | Soft-Ref zu `mitglieder.member_id` |
 | `owner_name` | TEXT | Anzeigename |
-| `member_id` | TEXT | Workshop-Mitgliedsnummer |
-| `active` | BOOLEAN | Standard true |
+| `owner_email` | TEXT | E-Mail-Adresse |
 | `notes` | TEXT | Freitext-Notizen |
-| `created_at` | DATETIME | Auto |
+| `active` | BOOLEAN | Standard true |
+| `is_admin` | BOOLEAN | Admin-Karte (gewährt Admin-Zugriff) |
+| `created_at` | DATETIME | Auto (UTC) |
 
 ### `tag_scans`
 
@@ -147,25 +197,30 @@ Ereignis-Log aller empfangenen NFC-Scans.
 | `id` | INTEGER PK | Auto-Inkrement |
 | `uid` | TEXT | Gescannte UID |
 | `device_id` | TEXT | Quellgerät |
-| `timestamp` | DATETIME | Scan-Zeit |
+| `timestamp` | DATETIME | Scan-Zeit (UTC) |
 | `validated` | BOOLEAN | True wenn UID einem registrierten Tag entsprach |
+| `owner_name` | TEXT | Name aus Tag wenn validiert |
+| `tag_type` | TEXT | Kartentyp (z.B. MIFARE Classic) |
+| `atqa` | TEXT | ATQA-Bytes (hex) |
+| `sak` | TEXT | SAK-Byte (hex) |
 
 ### `laufzettel`
 
-Ein Datensatz pro Karteninhaber pro Tag.
+Ein Datensatz pro Karteninhaber pro Tag. Verknüpft mit Mitglied via `mitglied_id` (bevorzugt) oder legacy via `uid`.
 
 | Spalte | Typ | Hinweise |
 |---|---|---|
 | `id` | INTEGER PK | Auto-Inkrement |
-| `uid` | TEXT | RFID-UID |
+| `uid` | TEXT | RFID-UID (legacy) |
 | `date` | DATE | Nutzungsdatum |
-| `start` | TEXT | Erste Scan-Zeit (HH:MM) |
+| `start` | DATETIME | Erste Scan-Zeit (UTC) |
 | `owner_name` | TEXT | Beim Erstellen aus Tag kopiert |
-| `member_id` | TEXT | Beim Erstellen aus Tag kopiert |
+| `member_id` | TEXT | Beim Erstellen aus Tag kopiert (legacy) |
+| `mitglied_id` | INTEGER | FK zu `mitglieder.id` (bevorzugt) |
 | `nodes` | TEXT | JSON-Liste der Geräte-IDs |
 | `payment_method` | TEXT | `bar` / `karte` — null bis zur Zahlung |
 | `paid_at` | DATETIME | UTC-Zeitstempel der Zahlung — null bis zur Zahlung |
-| `created_at` | DATETIME | Auto |
+| `created_at` | DATETIME | Auto (UTC) |
 | — | UNIQUE | `(uid, date)` |
 
 ### `laufzettel_material`
@@ -184,7 +239,7 @@ Mit einem Laufzettel verbundene Material-Einträge.
 | `breite_cm` | FLOAT | Für Volumenpreise |
 | `hoehe_cm` | FLOAT | Für Volumenpreise |
 | `calculated_price` | FLOAT | Eingefroren beim Speichern |
-| `created_at` | DATETIME | Auto |
+| `tax_rate` | FLOAT | Steuersatz aus Kategorie (Standard 19,0) |
 
 ### `locations`
 
@@ -204,8 +259,9 @@ Kategorie mit Preismodell und Einheit.
 | `id` | INTEGER PK | Auto-Inkrement |
 | `location_id` | INTEGER FK | → `locations.id` |
 | `name` | TEXT | Kategoriename |
-| `preismodell` | TEXT | `pro_gramm` / `pro_volumen_cm3` / `pro_stueck` |
-| `einheit` | TEXT | Anzeigeeinheit |
+| `pricing_model` | TEXT | `per_unit` / `per_gram` / `per_volume_cm3` / `per_volume_l` / `per_minute` |
+| `unit` | TEXT | Anzeigeeinheit |
+| `tax_rate` | FLOAT | Steuersatz: 0, 7 oder 19 (Standard 19,0) |
 
 ### `material_variante`
 
@@ -216,13 +272,15 @@ Konkrete, preisgekrönte Variante.
 | `id` | INTEGER PK | Auto-Inkrement |
 | `kategorie_id` | INTEGER FK | → `material_kategorie.id` |
 | `name` | TEXT | Variantenname |
-| `preis_pro_einheit` | FLOAT | Preis pro Einheit (€) |
+| `price` | FLOAT | Preis pro Einheit (€) |
 
 ## Wichtige Beziehungen
 
 ```mermaid
 flowchart LR
-    T["rfid_tags\n(uid)"] -->|"App-Ebene\nuid-Match"| L["laufzettel\n(uid, date)"]
+    M["mitglieder\n(id)"] -->|"mitglied_id FK"| L["laufzettel"]
+    M -->|"member_id\n(soft ref)"| T["rfid_tags"]
+    T -->|"uid (App-Ebene)"| L
     L --> LM["laufzettel_material"]
     MV["material_variante"] -->|"optional FK\nvariante_id"| LM
     MK["material_kategorie"] --> MV
@@ -230,6 +288,8 @@ flowchart LR
 ```
 
 > **Kein harter FK von laufzettel → rfid_tags.** Die Beziehung nutzt `uid` als gemeinsamen Key auf App-Ebene. Das erlaubt Laufzettel-Einträge für unregistrierte UIDs (z.B. manuelle Erstellung).
+>
+> **Mitglied ist die zentrale Entität.** Laufzettel verlinkt jetzt zu `mitglieder.id` via `mitglied_id` (bevorzugt). Die legacy `uid` + `member_id` Felder bleiben für Abwärtskompatibilität erhalten.
 
 ## Migrations-Ansatz
 

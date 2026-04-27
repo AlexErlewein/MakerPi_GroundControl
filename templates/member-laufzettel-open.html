@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laufzettel {{ laufzettel.id }} - MakerPi GroundControl</title>
+    <title>Aktueller Auftrag - MakerPi GroundControl</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/laufzettel-detail.css">
     <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
@@ -14,45 +14,49 @@
             <div class="header-left">
                 <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
                 <nav class="nav">
-                    <a href="/member" class="nav-link">Auftrag</a>
+                    <a href="/member" class="nav-link active">Auftrag</a>
                     <a href="/member/konto" class="nav-link">Mein Konto</a>
-                    <a href="{{ back_url or '/member/laufzettel/historie' }}" class="nav-link">← Zurück zur Historie</a>
+                    <a href="/member/laufzettel/historie" class="nav-link">Historie</a>
                     <a href="/logout" class="nav-link">Abmelden</a>
                 </nav>
             </div>
             <div class="header-right">
                 <span class="user-info">Angemeldet als: {{ user.username }}</span>
+                <div id="admin-bar" style="display: none;">
+                    <button id="admin-unlock-btn" class="btn btn-admin">
+                        🔓 Admin-Bereich
+                    </button>
+                </div>
+                <div id="admin-verified" style="display: none;">
+                    <button onclick="exitAdminMode()" class="btn btn-secondary">
+                        🔒 Admin-Modus beenden
+                    </button>
+                </div>
             </div>
         </header>
 
         <main class="lz-detail-main">
-            <!-- Info Card -->
+            {% if open_lz %}
+
             <div class="lz-info-card">
-                <h1>Laufzettel <span class="lz-id-badge">#{{ laufzettel.id }}</span></h1>
+                <h1>Aktueller Auftrag <span class="lz-id-badge">#{{ open_lz.id }}</span></h1>
 
                 <div class="info-grid">
                     <div class="info-item">
                         <span class="info-label">Datum</span>
-                        <span class="info-value">{{ laufzettel.date }}</span>
+                        <span class="info-value">{{ open_lz.date }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Von</span>
-                        <span class="info-value">{{ laufzettel.start or "..." }}</span>
+                        <span class="info-value">{{ open_lz.start or "..." }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Status</span>
-                        <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
-                            {% if laufzettel.payment_method %}
-                                Bezahlt ({{ laufzettel.payment_method }})
-                            {% else %}
-                                Offen
-                            {% endif %}
-                        </span>
+                        <span class="info-value open">Offen</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Materials Section -->
             <div class="lz-materials-section">
                 <h2>Materialien</h2>
 
@@ -85,7 +89,6 @@
                     </table>
                 </div>
 
-                {% if not read_only %}
                 <div class="add-material-section">
                     <h3>Material hinzufügen</h3>
                     <form id="add-material-form" class="add-form">
@@ -99,18 +102,26 @@
                         </div>
                     </form>
                 </div>
-                {% else %}
-                <div class="info-box">
-                    <p>Dieser Laufzettel wurde bereits bezahlt. Neue Materialien können nicht mehr hinzugefügt werden.</p>
-                </div>
-                {% endif %}
+
             </div>
+
+            {% else %}
+
+            <div class="lz-info-card">
+                <h1>Aktueller Auftrag</h1>
+                <div class="empty-state">
+                    <p>Kein offener Auftrag.</p>
+                    <p class="hint">Bitte melde dich am Terminal an, um einen neuen Auftrag zu starten.</p>
+                </div>
+            </div>
+
+            {% endif %}
         </main>
     </div>
 
-    {% if not read_only %}
+    {% if open_lz %}
     <script>
-        const LAUFZETTEL_ID = {{ laufzettel.id }};
+        const LAUFZETTEL_ID = {{ open_lz.id }};
 
         async function loadCatalog() {
             const res = await fetch('/api/katalog');
@@ -159,6 +170,58 @@
         loadCatalog();
     </script>
     {% endif %}
+
+    <script>
+        async function checkSession() {
+            try {
+                const res = await fetch('/api/auth/session');
+                const session = await res.json();
+
+                const adminBar = document.getElementById('admin-bar');
+                const adminVerified = document.getElementById('admin-verified');
+
+                if (session.is_admin_capable && !session.admin_verified) {
+                    adminBar.style.display = 'block';
+                    adminVerified.style.display = 'none';
+                } else if (session.admin_verified) {
+                    adminBar.style.display = 'none';
+                    adminVerified.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Failed to check session:', err);
+            }
+        }
+
+        document.getElementById('admin-unlock-btn').addEventListener('click', async () => {
+            const password = prompt('Admin-Passwort eingeben:');
+            if (!password) return;
+
+            const formData = new FormData();
+            formData.append('password', password);
+
+            try {
+                const res = await fetch('/api/auth/verify-admin', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Falsches Passwort oder keine Admin-Berechtigung');
+                }
+            } catch (err) {
+                alert('Fehler beim Verifizieren');
+            }
+        });
+
+        async function exitAdminMode() {
+            await fetch('/api/auth/logout-admin', { method: 'POST' });
+            window.location.reload();
+        }
+
+        checkSession();
+    </script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

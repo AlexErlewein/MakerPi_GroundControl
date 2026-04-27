@@ -4,18 +4,20 @@ This page explains how RFID tags and Laufzettel work together — the core of th
 
 ## Registered tags
 
-A registered RFID tag lives in the `rfid_tags` table and represents a known cardholder.
+A registered RFID tag lives in the `rfid_tags` table and represents a known NFC card. Tags can be linked to a Mitglied (member) via `member_id`.
 
 | Field | Type | Description |
 |---|---|---|
 | `uid` | string | Hardware UID from the NFC card (e.g. `04AABBCCDD`) |
+| `member_id` | string | Soft reference to `mitglieder.member_id` |
 | `owner_name` | string | Human name of the cardholder |
-| `member_id` | string | Workshop member number |
-| `active` | boolean | If false, scans are logged but not acted on |
+| `owner_email` | string | Email address |
 | `notes` | text | Free-text notes |
+| `active` | boolean | If false, scans are logged but not acted on |
+| `is_admin` | boolean | If true, grants admin access when used for RFID login |
 | `created_at` | datetime | When the tag was registered |
 
-> **Note:** Tags are not created automatically. An operator must register a tag via the `/tags` page before it triggers Laufzettel creation.
+> **Note:** Tags are not created automatically. An operator must register a tag via the `/tags` page before it triggers Laufzettel creation. Members synced from easyVerein with `nfc_uid` set can also log in directly without a separate tag record.
 
 ## Automatic Laufzettel creation (NFC scan flow)
 
@@ -63,15 +65,16 @@ When creating manually and the entered UID is already registered, the form auto-
 
 | Field | Type | Set by |
 |---|---|---|
-| `uid` | string | Scan event or manual entry |
+| `uid` | string | Scan event or manual entry (legacy) |
 | `date` | date | Auto: today / Manual: operator picks |
-| `start` | string | First scan time (HH:MM) |
+| `start` | datetime | First scan time (UTC) |
 | `owner_name` | string | Copied from tag at creation |
-| `member_id` | string | Copied from tag at creation |
+| `member_id` | string | Copied from tag at creation (legacy) |
+| `mitglied_id` | integer | FK to `mitglieder.id` — preferred link |
 | `nodes` | JSON list | Appended per scan device |
 | `payment_method` | string | Set on payment (`bar` / `paypal` / `karte`) |
 | `paid_at` | datetime | Set on payment (UTC) |
-| `created_at` | datetime | Auto |
+| `created_at` | datetime | Auto (UTC) |
 
 ## Material on a Laufzettel
 
@@ -99,6 +102,7 @@ flowchart LR
 | `breite_cm` | — | For volume pricing |
 | `hoehe_cm` | — | For volume pricing |
 | `calculated_price` | — | Auto-computed |
+| `tax_rate` | — | Snapshotted from category (default 19%) |
 
 ## Payment flow
 

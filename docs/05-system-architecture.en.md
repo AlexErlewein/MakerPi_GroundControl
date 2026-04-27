@@ -64,10 +64,11 @@ MakerPi_GroundControl/
 │   │   ├── db.py
 │   │   ├── routes.py
 │   │   └── dependencies.py
-│   ├── members/          ← Members module (mitglieder, tags)
+│   ├── members/          ← Members module (mitglieder, tags, easyVerein sync)
 │   │   ├── models.py
 │   │   ├── db.py
-│   │   └── routes.py
+│   │   ├── routes.py
+│   │   └── easyverein.py ← easyVerein API sync
 │   ├── laufzettel/       ← Laufzettel module (work orders)
 │   │   ├── models.py
 │   │   ├── db.py
@@ -76,11 +77,12 @@ MakerPi_GroundControl/
 │   │   ├── models.py
 │   │   ├── db.py
 │   │   └── routes.py
-│   └── core/             ← Core module (MQTT, devices, scans)
-│       ├── models.py
-│       ├── db.py
-│       ├── mqtt.py
-│       └── routes.py
+│   ├── core/             ← Core module (MQTT, devices, scans)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   ├── mqtt.py
+│   │   └── routes.py
+│   └── member_routes.py  ← Cross-module member self-service routes (reads auth+laufzettel+members+catalog)
 │
 ├── templates/
 │   ├── login.html        ← Public login / welcome page
@@ -90,9 +92,13 @@ MakerPi_GroundControl/
 │   ├── laufzettel.html   ← Laufzettel list
 │   ├── laufzettel-detail.html  ← Laufzettel editor + material modal
 │   ├── katalog.html      ← Material catalog manager
-│   ├── mitglieder.html   ← Member database
-│   ├── admin-users.html  ← User management
-│   └── docs-layout.html  ← Docs site shell template
+│   ├── mitglieder.html              ← Member database
+│   ├── admin-users.html             ← User management
+│   ├── member-laufzettel-open.html  ← Member's open Laufzettel
+│   ├── member-laufzettel-historie.html ← Member's payment history
+│   ├── member-laufzettel-detail.html   ← Member Laufzettel detail (read-only)
+│   ├── member-konto.html              ← Member account info
+│   └── docs-layout.html               ← Docs site shell template
 │
 ├── static/
 │   ├── css/
@@ -121,6 +127,7 @@ sequenceDiagram
     participant APP as main.py
     participant DB as SQLite
     participant MQ as Mosquitto
+    participant EV as easyVerein
 
     UV->>APP: import module
     APP->>DB1: create_all (auth.db)
@@ -130,12 +137,15 @@ sequenceDiagram
     APP->>DB5: create_all (core.db)
     APP->>DB1: seed_admin_user() — create default user if none exist
     UV->>APP: lifespan startup
+    APP->>APP: Start APScheduler
+    APP->>APP: Schedule easyVerein sync (daily 03:00)
     APP->>MQ: paho-mqtt connect (localhost:1883)
     MQ-->>APP: on_connect callback
     APP->>MQ: subscribe "#" (all topics)
     Note over APP: App is ready
     UV->>APP: lifespan shutdown
     APP->>MQ: paho-mqtt disconnect
+    APP->>APP: Shutdown scheduler
 ```
 
 ## Dependency chain
@@ -149,6 +159,7 @@ sequenceDiagram
 | ORM | SQLAlchemy | latest |
 | Database | SQLite | bundled |
 | MQTT client | paho-mqtt | latest |
+| Job scheduler | APScheduler | latest |
 | Template engine | Jinja2 | latest |
 | Docs rendering | markdown | 3.7 |
 | Pydantic | pydantic | v2 |
@@ -161,6 +172,8 @@ sequenceDiagram
 
 > **Server-rendered UI** — Pages are Jinja2 templates. JavaScript enhances them but the HTML shell is always served from the backend. No separate SPA build step.
 
-> **Session-based auth** — Login state is stored in a signed cookie via Starlette's `SessionMiddleware`. Only HTML page routes check for a session; `/api/` endpoints are left open (local network assumption). Users are stored in the `users` table in `auth.db` with bcrypt-hashed passwords.
+> **Session-based auth** — Login state is stored in a signed cookie via Starlette's `SessionMiddleware`. Only HTML page routes check for a session; `/api/` endpoints are left open (local network assumption). Users are stored in the `users` table in `auth.db` with bcrypt-hashed passwords. Two roles: `admin` (full access) and `member` (own Laufzettel only).
+>
+> **Mitglied-centric model** — The `mitglieder` table (members.db) is the central member entity. Laufzettel link via `mitglied_id`; RFID tags link via soft `member_id` reference. Members can log in via username/password or RFID card (if `nfc_uid` is set on Mitglied or a linked RFID tag exists).
 
 > **SQLite only** — No Postgres, no connection pooling needed. One file, easy to back up and reset. `check_same_thread=False` allows use from the async MQTT handler thread.
