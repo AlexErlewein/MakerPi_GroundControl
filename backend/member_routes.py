@@ -4,7 +4,6 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from typing import Optional
 
 import logging
 
@@ -27,86 +26,129 @@ def require_member(request: Request, db: Session = Depends(get_auth_db)):
     username = request.session.get("user")
     if not username:
         raise HTTPException(401, "Not authenticated")
-    
+
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(401, "User not found")
-    
+
     if user.role not in ["admin", "member"]:
         raise HTTPException(403, "Access denied")
-    
+
     return user
 
 
 @router.get("/member")
 async def member_dashboard(request: Request, db: Session = Depends(get_auth_db)):
-    """Member dashboard - redirects to their laufzettel list"""
-    # Check auth manually and redirect to login if not authenticated
+    """Member dashboard - redirects to their open laufzettel"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
-    
+
     user = db.query(User).filter(User.username == username).first()
     if not user or user.role not in ["admin", "member"]:
         return RedirectResponse("/", status_code=302)
-    
+
     return RedirectResponse("/member/laufzettel", status_code=302)
 
 
 @router.get("/member/laufzettel")
-async def member_laufzettel_list(
+async def member_laufzettel_open(
     request: Request,
     db: Session = Depends(get_laufzettel_db),
-    auth_db: Session = Depends(get_auth_db)
+    auth_db: Session = Depends(get_auth_db),
 ):
-    """Show member's own laufzettel"""
-    # Check auth manually and redirect to login if not authenticated
+    """Show member's current open (unpaid) laufzettel"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
-    
+
     user = auth_db.query(User).filter(User.username == username).first()
     if not user or user.role not in ["admin", "member"]:
         return RedirectResponse("/", status_code=302)
-    
-    # Get laufzettel for this member
+
+    open_lz = None
+    materials = []
     if user.mitglied_id:
-        # Primary: find by mitglied_id (DB FK)
-        laufzettel = db.query(Laufzettel).filter(
-            Laufzettel.mitglied_id == user.mitglied_id
-        ).order_by(Laufzettel.created_at.desc()).all()
-        # Fallback: also find uid-based entries (older records without mitglied_id)
-        # Look up the member's nfc_uid and query by uid
-        from backend.members.db import get_db as get_members_db_fn
-        members_db = next(get_members_db_fn())
-        try:
-            from backend.members.models import Mitglied as _Mitglied
-            mitglied = members_db.query(_Mitglied).filter(
-                _Mitglied.id == user.mitglied_id
-            ).first()
-            if mitglied and mitglied.nfc_uid:
-                uid_laufzettel = db.query(Laufzettel).filter(
-                    Laufzettel.uid == mitglied.nfc_uid,
-                    Laufzettel.mitglied_id.is_(None),
-                ).order_by(Laufzettel.created_at.desc()).all()
-                # Merge and deduplicate by id
-                seen = {lz.id for lz in laufzettel}
-                for lz in uid_laufzettel:
-                    if lz.id not in seen:
-                        laufzettel.append(lz)
-                        seen.add(lz.id)
-                laufzettel.sort(key=lambda lz: lz.created_at or lz.date, reverse=True)
-        finally:
-            members_db.close()
-    else:
-        # Admin without mitglied_id sees empty list
-        laufzettel = []
-    
+        open_lz = (
+            db.query(Laufzettel)
+            .filter(
+                Laufzettel.mitglied_id == user.mitglied_id,
+                Laufzettel.payment_method.is_(None),
+            )
+            .order_by(Laufzettel.created_at.desc())
+            .first()
+        )
+
+        if open_lz:
+            materials = (
+                db.query(LaufzettelMaterial)
+                .filter(LaufzettelMaterial.laufzettel_id == open_lz.id)
+                .all()
+            )
+
+    total = sum(m.calculated_price or 0 for m in materials)
+
     return templates.TemplateResponse(
-        "member-laufzettel-list.html",
+        "member-laufzettel-open.html",
         {
             "request": request,
-            "laufzettel": laufzettel,
+            "open_lz": open_lz,
+            "materials": materials,
+            "total": total,
+            "user": user,
+        },
+    )
+
+
+@router.get("/member/laufzettel/historie")
+async def member_laufzettel_historie(
+    request: Request,
+    db: Session = Depends(get_laufzettel_db),
+    auth_db: Session = Depends(get_auth_db),
+):
+    """Show member's paid laufzettel history"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/", status_code=302)
+
+    user = auth_db.query(User).filter(User.username == username).first()
+    if not user or user.role not in ["admin", "member"]:
+        return RedirectResponse("/", status_code=302)
+
+    history_list = []
+    if user.mitglied_id:
+        paid = (
+            db.query(Laufzettel)
+            .filter(
+                Laufzettel.mitglied_id == user.mitglied_id,
+                Laufzettel.payment_method.isnot(None),
+            )
+            .order_by(Laufzettel.date.desc())
+            .all()
+        )
+
+        all_ids = [lz.id for lz in paid]
+        totals = {}
+        if all_ids:
+            mats = (
+                db.query(LaufzettelMaterial)
+                .filter(LaufzettelMaterial.laufzettel_id.in_(all_ids))
+                .all()
+            )
+            for m in mats:
+                totals[m.laufzettel_id] = totals.get(m.laufzettel_id, 0) + (
+                    m.calculated_price or 0
+                )
+
+        history_list = [
+            {"laufzettel": lz, "total": totals.get(lz.id, 0.0)} for lz in paid
+        ]
+
+    return templates.TemplateResponse(
+        "member-laufzettel-historie.html",
+        {
+            "request": request,
+            "history_list": history_list,
             "user": user,
         },
     )
@@ -117,40 +159,75 @@ async def member_laufzettel_detail(
     request: Request,
     laufzettel_id: int,
     db: Session = Depends(get_laufzettel_db),
-    auth_db: Session = Depends(get_auth_db)
+    auth_db: Session = Depends(get_auth_db),
 ):
-    """Show member's own laufzettel detail - read only, can add materials"""
-    # Check auth manually and redirect to login if not authenticated
+    """Show member's laufzettel detail - read only (history view)"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
-    
+
     user = auth_db.query(User).filter(User.username == username).first()
     if not user or user.role not in ["admin", "member"]:
         return RedirectResponse("/", status_code=302)
-    
+
     laufzettel = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
-    
+
     if not laufzettel:
         raise HTTPException(404, "Laufzettel not found")
-    
+
     # Security check: can only view own laufzettel
     if user.mitglied_id and laufzettel.mitglied_id != user.mitglied_id:
         raise HTTPException(403, "Access denied")
-    
-    # Get materials for this laufzettel
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == laufzettel_id
-    ).all()
-    
+
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
+
+    total = sum(m.calculated_price or 0 for m in materials)
+
     return templates.TemplateResponse(
         "member-laufzettel-detail.html",
         {
             "request": request,
             "laufzettel": laufzettel,
             "materials": materials,
+            "total": total,
             "user": user,
-            "read_only": laufzettel.payment_method is not None,  # Can't edit if paid
+            "read_only": laufzettel.payment_method is not None,
+            "back_url": "/member/laufzettel/historie",
+        },
+    )
+
+
+@router.get("/member/konto")
+async def member_konto(
+    request: Request,
+    auth_db: Session = Depends(get_auth_db),
+    members_db: Session = Depends(get_members_db),
+):
+    """Show member account info"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/", status_code=302)
+
+    user = auth_db.query(User).filter(User.username == username).first()
+    if not user or user.role not in ["admin", "member"]:
+        return RedirectResponse("/", status_code=302)
+
+    mitglied = None
+    if user.mitglied_id:
+        mitglied = (
+            members_db.query(Mitglied).filter(Mitglied.id == user.mitglied_id).first()
+        )
+
+    return templates.TemplateResponse(
+        "member-konto.html",
+        {
+            "request": request,
+            "user": user,
+            "mitglied": mitglied,
         },
     )
 
@@ -163,41 +240,39 @@ async def member_add_material(
     menge: float,
     laufzettel_db: Session = Depends(get_laufzettel_db),
     catalog_db: Session = Depends(get_catalog_db),
-    user: User = Depends(require_member)
+    user: User = Depends(require_member),
 ):
     """Member adds material to their own laufzettel"""
-    # Check laufzettel exists and belongs to member
-    laufzettel = laufzettel_db.query(Laufzettel).filter(
-        Laufzettel.id == laufzettel_id
-    ).first()
-    
+    laufzettel = (
+        laufzettel_db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    )
+
     if not laufzettel:
         raise HTTPException(404, "Laufzettel not found")
-    
-    # Security check
+
     if user.mitglied_id and laufzettel.mitglied_id != user.mitglied_id:
         raise HTTPException(403, "Access denied")
-    
-    # Can't add to paid laufzettel
+
     if laufzettel.payment_method:
         raise HTTPException(400, "Cannot add materials to paid laufzettel")
-    
-    # Get variant price
-    variant = catalog_db.query(MaterialVariante).filter(
-        MaterialVariante.id == variant_id
-    ).first()
-    
+
+    variant = (
+        catalog_db.query(MaterialVariante)
+        .filter(MaterialVariante.id == variant_id)
+        .first()
+    )
+
     if not variant:
         raise HTTPException(404, "Material variant not found")
-    
-    # Calculate price
-    kategorie = catalog_db.query(MaterialKategorie).filter(
-        MaterialKategorie.id == variant.kategorie_id
-    ).first()
-    
+
+    kategorie = (
+        catalog_db.query(MaterialKategorie)
+        .filter(MaterialKategorie.id == variant.kategorie_id)
+        .first()
+    )
+
     calculated_price = variant.price * menge
 
-    # Create material entry
     material = LaufzettelMaterial(
         laufzettel_id=laufzettel_id,
         name=variant.name,
@@ -206,10 +281,10 @@ async def member_add_material(
         unit=kategorie.unit if kategorie else None,
         calculated_price=calculated_price,
     )
-    
+
     laufzettel_db.add(material)
     laufzettel_db.commit()
-    
+
     return {"success": True, "material_id": material.id}
 
 
@@ -217,13 +292,13 @@ async def member_add_material(
 async def get_current_member_info(
     request: Request,
     user: User = Depends(require_member),
-    members_db: Session = Depends(get_members_db)
+    members_db: Session = Depends(get_members_db),
 ):
     """Get current member's info"""
     if user.mitglied_id:
-        mitglied = members_db.query(Mitglied).filter(
-            Mitglied.id == user.mitglied_id
-        ).first()
+        mitglied = (
+            members_db.query(Mitglied).filter(Mitglied.id == user.mitglied_id).first()
+        )
         return {
             "user_id": user.id,
             "username": user.username,
@@ -231,7 +306,7 @@ async def get_current_member_info(
             "mitglied_id": user.mitglied_id,
             "mitglied": mitglied.to_dict() if mitglied else None,
         }
-    
+
     return {
         "user_id": user.id,
         "username": user.username,
@@ -245,7 +320,7 @@ async def get_current_member_info(
 async def login_via_rfid(
     request: Request,
     auth_db: Session = Depends(get_auth_db),
-    members_db: Session = Depends(get_members_db)
+    members_db: Session = Depends(get_members_db),
 ):
     """Login via RFID card - creates user if not exists"""
     body = await request.json()
@@ -254,62 +329,69 @@ async def login_via_rfid(
 
     logger.info("[RFID-LOGIN] Attempt with uid=%r", rfid_uid)
 
-    # Primary lookup: find member directly by nfc_uid
-    mitglied = members_db.query(Mitglied).filter(
-        Mitglied.nfc_uid == rfid_uid
-    ).first()
-    logger.info("[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None)
+    mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+    logger.info(
+        "[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None
+    )
 
-    # Also check legacy RFIDTag table for admin flag
     tag = members_db.query(RFIDTag).filter(RFIDTag.uid == rfid_uid).first()
     logger.info("[RFID-LOGIN] RFIDTag found: %s", bool(tag))
 
     if not mitglied and not tag:
-        logger.warning("[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid)
+        logger.warning(
+            "[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid
+        )
         return JSONResponse(
-            {"success": False, "error": "Unknown RFID card"},
-            status_code=404
+            {"success": False, "error": "Unknown RFID card"}, status_code=404
         )
 
-    # If tag exists but mitglied not found via nfc_uid, try via RFIDTag.member_id
     if not mitglied and tag:
-        mitglied = members_db.query(Mitglied).filter(
-            Mitglied.member_id == tag.member_id
-        ).first()
-        logger.info("[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s", tag.member_id, mitglied.name if mitglied else None)
+        mitglied = (
+            members_db.query(Mitglied)
+            .filter(Mitglied.member_id == tag.member_id)
+            .first()
+        )
+        logger.info(
+            "[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s",
+            tag.member_id,
+            mitglied.name if mitglied else None,
+        )
 
     if not mitglied:
-        logger.warning("[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid)
+        logger.warning(
+            "[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid
+        )
         return JSONResponse(
             {"success": False, "error": "No member associated with this card"},
-            status_code=404
+            status_code=404,
         )
 
     is_admin_card = bool(tag and tag.is_admin)
-    logger.info("[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s", mitglied.name, mitglied.id, is_admin_card)
+    logger.info(
+        "[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s",
+        mitglied.name,
+        mitglied.id,
+        is_admin_card,
+    )
 
-    # Find or create user for this member
-    user = auth_db.query(User).filter(
-        User.mitglied_id == mitglied.id
-    ).first()
+    user = auth_db.query(User).filter(User.mitglied_id == mitglied.id).first()
 
     if not user:
         role = "admin" if is_admin_card else "member"
         user = User(
             username=f"member_{mitglied.id}",
-            hashed_password="",  # No password for RFID-only users
+            hashed_password="",
             role=role,
-            mitglied_id=mitglied.id
+            mitglied_id=mitglied.id,
         )
         auth_db.add(user)
         auth_db.commit()
         auth_db.refresh(user)
 
-    # Create unified session
     request.session["user"] = user.username
     request.session["mitglied_id"] = user.mitglied_id
     request.session["is_admin_capable"] = user.role == "admin" or is_admin_card
-    request.session["admin_verified"] = False  # Always start unverified
+    request.session["admin_verified"] = False
     request.session["admin_verified_at"] = None
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
@@ -323,5 +405,5 @@ async def login_via_rfid(
         },
         "mitglied": mitglied.to_dict(),
         "is_admin_capable": request.session["is_admin_capable"],
-        "redirect": "/member"
+        "redirect": "/member",
     }
