@@ -34,27 +34,30 @@ A device is a Pico W or any MQTT-speaking node that publishes status or sensor d
 
 ### RFID Tags
 
-A registered RFID tag represents a cardholder or workshop user.
+A registered NFC card, optionally linked to a Mitglied (member).
 
 | Field | Description |
 |---|---|
 | `uid` | Hardware UID from the NFC card |
+| `member_id` | Soft reference to `mitglieder.member_id` |
 | `owner_name` | Human name of the card holder |
-| `member_id` | Workshop member number |
+| `owner_email` | Email address |
 | `active` | Whether scans are accepted |
+| `is_admin` | If true, grants admin access via RFID login |
 | `notes` | Free-text notes |
 
 ### Laufzettel
 
-A **Laufzettel** is a day-specific usage record. One is created automatically the first time a known tag scans in on a given day.
+A **Laufzettel** is a day-specific usage record. One is created automatically the first time a known tag or Mitglied scans in on a given day.
 
 | Field | Description |
 |---|---|
-| `uid` | Tag UID |
+| `uid` | Tag UID (legacy link) |
 | `date` | Usage date |
 | `start` | First scan time |
 | `owner_name` | Copied from tag at time of scan |
-| `member_id` | Copied from tag at time of scan |
+| `member_id` | Copied from tag at time of scan (legacy) |
+| `mitglied_id` | FK to `mitglieder.id` — preferred link |
 | `nodes` | List of devices/stations visited |
 
 ### Material entries

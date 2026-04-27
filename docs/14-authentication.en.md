@@ -49,7 +49,7 @@ Navigate to **Benutzer** in the nav bar (or `/admin/users`) to:
 - Add a new user with a username and password
 - Delete any user (you cannot delete yourself or the last remaining user)
 
-There are no roles — all users have full access to all pages.
+Two roles exist: **admin** (full access) and **member** (access to own Laufzettel only). Users with `role="member"` and a `mitglied_id` can log in via RFID card or username/password and access `/member` to view and manage their own work orders.
 
 ## Config keys
 
@@ -59,15 +59,19 @@ All auth settings live in `config/config.json`:
 {
   "secret_key": "change-me-to-a-long-random-string",
   "admin_username": "admin",
-  "admin_password": "changeme"
+  "admin_password": "changeme",
+  "easyverein_api_key": "",
+  "easyverein_org_id": "",
+  "enrollment_reader_id": ""
 }
 ```
 
 | Key | Purpose |
 |---|---|
-| `secret_key` | Signs the session cookie. Use a long random string in production. |
-| `admin_username` | Username for the auto-seeded admin (only used once on first boot if DB has no users). |
-| `admin_password` | Password for the auto-seeded admin (same condition). |
+| `secret_key` | Session signing key — **change in production** |
+| `admin_username` / `admin_password` | Seeded on first startup if no users exist |
+| `easyverein_api_key` / `easyverein_org_id` | Member sync from easyVerein |
+| `enrollment_reader_id` | Device ID for dedicated NFC enrollment reader |
 
 To generate a strong secret key:
 
