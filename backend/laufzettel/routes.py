@@ -118,12 +118,45 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
         except ValueError:
             return JSONResponse(status_code=400, content={"detail": "Invalid start datetime format"})
 
+    # Auto-resolve owner_name and mitglied_id from Mitglied.nfc_uid if not provided
+    resolved_mitglied_id = data.member_id  # keep string member_id for legacy
+    resolved_mitglied_db_id = None
+    resolved_owner_name = data.owner_name
+    try:
+        from backend.members.db import SessionLocal as MembersSession
+        from backend.members.models import Mitglied, RFIDTag
+        members_db = MembersSession()
+        try:
+            mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == uid).first()
+            if mitglied:
+                resolved_mitglied_db_id = mitglied.id
+                if not resolved_owner_name:
+                    resolved_owner_name = mitglied.name
+                if not resolved_mitglied_id:
+                    resolved_mitglied_id = mitglied.member_id
+            else:
+                tag = members_db.query(RFIDTag).filter(RFIDTag.uid == uid, RFIDTag.active == 1).first()
+                if tag:
+                    if not resolved_owner_name:
+                        resolved_owner_name = tag.owner_name
+                    if not resolved_mitglied_id:
+                        resolved_mitglied_id = tag.member_id
+                    if tag.member_id:
+                        m = members_db.query(Mitglied).filter(Mitglied.member_id == tag.member_id).first()
+                        if m:
+                            resolved_mitglied_db_id = m.id
+        finally:
+            members_db.close()
+    except Exception:
+        pass
+
     lz = Laufzettel(
         uid=uid,
         date=entry_date,
         start=start_dt,
-        owner_name=data.owner_name,
-        member_id=data.member_id,
+        owner_name=resolved_owner_name,
+        member_id=resolved_mitglied_id,
+        mitglied_id=resolved_mitglied_db_id,
         nodes=json.dumps([]),
     )
     db.add(lz)
@@ -238,7 +271,7 @@ async def add_material(laufzettel_id: int, mat: MaterialCreate, db: Session = De
         breite_cm=mat.breite_cm,
         hoehe_cm=mat.hoehe_cm,
         calculated_price=mat.calculated_price,
-        tax_rate=mat.tax_rate,
+        tax_rate=mat.tax_rate if mat.tax_rate is not None else None,
     )
     db.add(new_mat)
     db.commit()

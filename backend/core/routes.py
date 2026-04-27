@@ -1,15 +1,20 @@
 """Core routes - devices, messages, status, dashboard"""
 
+import asyncio
+import json
+from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Query, Depends, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
 from .models import MQTTMessage, Device, TagScan
-from .mqtt import init_mqtt, shutdown_mqtt
+from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
+import backend.config as _app_config
 
 router = APIRouter()
 
@@ -72,6 +77,18 @@ async def database_page(request: Request):
     return templates.TemplateResponse("database.html", {"request": request})
 
 
+@router.get("/devices/{device_id}", response_class=HTMLResponse)
+async def device_detail_page(device_id: str, request: Request):
+    """Render device detail page"""
+    from fastapi.templating import Jinja2Templates
+    from backend.auth.dependencies import check_auth
+
+    templates = Jinja2Templates(directory="templates")
+    if not check_auth(request):
+        return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse("device-detail.html", {"request": request, "device_id": device_id})
+
+
 # ── API ──────────────────────────────────────────────────────────────────────
 
 @router.get("/api/status")
@@ -102,11 +119,32 @@ async def get_devices(db: Session = Depends(get_db)):
 
 @router.get("/api/devices/{device_id}")
 async def get_device(device_id: str, db: Session = Depends(get_db)):
-    """Get single device details"""
+    """Get single device details with topic counts and recent messages"""
     device = db.query(Device).filter(Device.device_id == device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    return device.to_dict()
+
+    topic_counts = (
+        db.query(MQTTMessage.topic, func.count(MQTTMessage.id).label("count"))
+        .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+        .group_by(MQTTMessage.topic)
+        .order_by(func.count(MQTTMessage.id).desc())
+        .all()
+    )
+
+    recent_messages = (
+        db.query(MQTTMessage)
+        .filter(MQTTMessage.topic.like(f"{device_id}/%"))
+        .order_by(MQTTMessage.timestamp.desc())
+        .limit(100)
+        .all()
+    )
+
+    return {
+        "device": device.to_dict(),
+        "topic_counts": [{"topic": t.topic, "count": t.count} for t in topic_counts],
+        "recent_messages": [m.to_dict() for m in recent_messages],
+    }
 
 
 @router.get("/api/messages")
@@ -168,3 +206,78 @@ async def get_scan_stats(db: Session = Depends(get_db)):
         "unknown": unknown,
         "validation_rate": validated / total if total > 0 else 0,
     }
+
+
+@router.get("/api/scans/stream")
+async def scan_stream(request: Request):
+    """SSE endpoint: streams NFC scan events to enrolled-reader listeners.
+    Sends an initial config event with the current enrollment_reader_id,
+    then pushes scan events until the client disconnects or 30 s elapse.
+    """
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    entry = (queue, loop)
+    scan_subscribers.append(entry)
+
+    async def event_generator():
+        try:
+            # First event: send configured reader id so the client can filter
+            reader_id = _app_config.ENROLLMENT_READER_ID
+            yield f"event: config\ndata: {json.dumps({'enrollment_reader_id': reader_id})}\n\n"
+            
+            deadline = loop.time() + 30
+            while True:
+                if await request.is_disconnected():
+                    break
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    yield f"event: timeout\ndata: {json.dumps({'message': 'timeout'})}\n\n"
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=min(remaining, 1.0))
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            if entry in scan_subscribers:
+                scan_subscribers.remove(entry)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+class EnrollmentReaderUpdate(BaseModel):
+    enrollment_reader_id: str
+
+
+@router.get("/api/settings/enrollment-reader")
+async def get_enrollment_reader(db: Session = Depends(get_db)):
+    """Get the current enrollment reader device ID and list of known devices."""
+    devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    return {
+        "enrollment_reader_id": _app_config.ENROLLMENT_READER_ID,
+        "devices": [d.device_id for d in devices],
+    }
+
+
+@router.put("/api/settings/enrollment-reader")
+async def set_enrollment_reader(data: EnrollmentReaderUpdate):
+    """Update the enrollment reader device ID in memory and persist to config.json."""
+    new_id = data.enrollment_reader_id.strip()
+    # Update in-memory config
+    _app_config.ENROLLMENT_READER_ID = new_id
+    # Persist to config/config.json
+    cfg_path = Path("config/config.json")
+    try:
+        cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+        cfg["enrollment_reader_id"] = new_id
+        cfg_path.write_text(json.dumps(cfg, indent=4, ensure_ascii=False))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist config: {exc}")
+    return {"enrollment_reader_id": new_id}

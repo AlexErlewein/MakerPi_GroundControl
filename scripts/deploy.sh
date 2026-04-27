@@ -54,11 +54,11 @@ fi
 
 # Restart service on Pi
 echo "Restarting GroundControl service..."
-ssh $PI_USER@$PI_HOST "sudo systemctl restart groundcontrol"
+ssh -t $PI_USER@$PI_HOST "sudo systemctl restart groundcontrol"
 
 # Check status
 echo "Checking service status..."
-ssh $PI_USER@$PI_HOST "sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'"
+ssh -t $PI_USER@$PI_HOST "sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'"
 
 echo ""
 echo "✅ Deploy complete!"

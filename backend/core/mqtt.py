@@ -12,9 +12,25 @@ from .models import MQTTMessage, Device, TagScan
 logger = logging.getLogger(__name__)
 mqtt_client = None
 
+# SSE subscribers for NFC scan events: list of (asyncio.Queue, asyncio.AbstractEventLoop)
+scan_subscribers: list = []
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
+
+
+def _notify_scan_subscribers(uid: str, device_id: str):
+    """Push a scan event to all active SSE subscribers (thread-safe)."""
+    event = {"uid": uid, "device_id": device_id}
+    dead = []
+    for queue, loop in scan_subscribers:
+        try:
+            loop.call_soon_threadsafe(queue.put_nowait, event)
+        except Exception:
+            dead.append((queue, loop))
+    for entry in dead:
+        scan_subscribers.remove(entry)
 
 
 def init_mqtt():
@@ -99,33 +115,60 @@ def handle_device_message(topic: str, payload: str):
             db.add(device)
         device.last_seen = _utcnow()
         
-        # Handle status updates
-        if subtopic == "status":
+        # Handle status updates (heartbeat or status subtopic)
+        if subtopic in ("status", "heartbeat"):
             try:
                 data = json.loads(payload)
-                device.status = data.get("status", "unknown")
+                device.status = data.get("status", "online")
+                nfc_ok = data.get("nfc_ok")
+                if nfc_ok is not None:
+                    device.nfc_ok = 1 if nfc_ok else 0
             except json.JSONDecodeError:
                 device.status = payload
         
-        # Handle NFC scan
-        if subtopic == "scan":
+        # Handle NFC scan (subtopic 'scan' or 'tag')
+        if subtopic in ("scan", "tag"):
             try:
                 data = json.loads(payload)
                 uid = data.get("uid", "").upper()
                 validated = 0
                 owner_name = None
                 
+                logger.info("[SCAN] Received uid=%r device_id=%r", uid, device_id)
                 # Check against members database
                 from backend.members.db import SessionLocal as MembersSession
                 members_db = MembersSession()
+                mitglied_db_id = None
                 try:
-                    from backend.members.models import RFIDTag
-                    tag = members_db.query(RFIDTag).filter(
-                        RFIDTag.uid == uid, RFIDTag.active == 1
+                    from backend.members.models import RFIDTag, Mitglied
+                    # Primary: check Mitglied.nfc_uid (the card enrolled via Mitglieder UI)
+                    mitglied = members_db.query(Mitglied).filter(
+                        Mitglied.nfc_uid == uid
                     ).first()
-                    if tag:
+                    if mitglied:
                         validated = 1
-                        owner_name = tag.owner_name
+                        owner_name = mitglied.name
+                        mitglied_db_id = mitglied.id
+                        logger.info("[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s", owner_name, mitglied_db_id)
+                    else:
+                        logger.info("[SCAN] uid=%r not found in Mitglied.nfc_uid, checking RFIDTag", uid)
+                        # Fallback: legacy RFIDTag table
+                        tag = members_db.query(RFIDTag).filter(
+                            RFIDTag.uid == uid, RFIDTag.active == 1
+                        ).first()
+                        if tag:
+                            validated = 1
+                            owner_name = tag.owner_name
+                            logger.info("[SCAN] Matched RFIDTag: owner=%r member_id=%r", owner_name, tag.member_id)
+                            # Try to resolve mitglied_id via member_id field
+                            if tag.member_id:
+                                m = members_db.query(Mitglied).filter(
+                                    Mitglied.member_id == tag.member_id
+                                ).first()
+                                if m:
+                                    mitglied_db_id = m.id
+                        else:
+                            logger.warning("[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated", uid)
                 finally:
                     members_db.close()
                 
@@ -139,6 +182,10 @@ def handle_device_message(topic: str, payload: str):
                     sak=data.get("sak"),
                 )
                 db.add(scan)
+                
+                # Notify SSE subscribers about this scan
+                logger.info("[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r", len(scan_subscribers), uid, device_id)
+                _notify_scan_subscribers(uid, device_id)
                 
                 # Auto-create Laufzettel for validated scans
                 if validated:
@@ -159,6 +206,7 @@ def handle_device_message(topic: str, payload: str):
                                 date=today,
                                 start=_utcnow(),
                                 owner_name=owner_name,
+                                mitglied_id=mitglied_db_id,
                                 nodes=json.dumps([device_id]),
                             )
                             lauf_db.add(new_lz)
@@ -169,7 +217,10 @@ def handle_device_message(topic: str, payload: str):
                             if device_id not in nodes:
                                 nodes.append(device_id)
                                 existing.nodes = json.dumps(nodes)
-                                lauf_db.commit()
+                            # Update mitglied_id if not yet set
+                            if not existing.mitglied_id and mitglied_db_id:
+                                existing.mitglied_id = mitglied_db_id
+                            lauf_db.commit()
                     finally:
                         lauf_db.close()
             except json.JSONDecodeError:

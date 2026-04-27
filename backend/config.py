@@ -33,6 +33,9 @@ ADMIN_PASSWORD: str = _cfg.get("admin_password", "changeme")
 EASYVEREIN_API_KEY: str = _cfg.get("easyverein_api_key", os.environ.get("EASYVEREIN_API_KEY", ""))
 EASYVEREIN_ORG_ID: str = _cfg.get("easyverein_org_id", os.environ.get("EASYVEREIN_ORG_ID", ""))
 
+# NFC Enrollment Reader - the dedicated device used for enrolling member cards
+ENROLLMENT_READER_ID: str = _cfg.get("enrollment_reader_id", os.environ.get("ENROLLMENT_READER_ID", ""))
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"

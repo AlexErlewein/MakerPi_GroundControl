@@ -6,6 +6,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Optional
 
+import logging
+
 from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
 from backend.laufzettel.db import get_db as get_laufzettel_db
@@ -15,6 +17,7 @@ from backend.members.models import Mitglied, RFIDTag
 from backend.catalog.db import get_db as get_catalog_db
 from backend.catalog.models import MaterialVariante, MaterialKategorie
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
@@ -68,9 +71,33 @@ async def member_laufzettel_list(
     
     # Get laufzettel for this member
     if user.mitglied_id:
+        # Primary: find by mitglied_id (DB FK)
         laufzettel = db.query(Laufzettel).filter(
             Laufzettel.mitglied_id == user.mitglied_id
         ).order_by(Laufzettel.created_at.desc()).all()
+        # Fallback: also find uid-based entries (older records without mitglied_id)
+        # Look up the member's nfc_uid and query by uid
+        from backend.members.db import get_db as get_members_db_fn
+        members_db = next(get_members_db_fn())
+        try:
+            from backend.members.models import Mitglied as _Mitglied
+            mitglied = members_db.query(_Mitglied).filter(
+                _Mitglied.id == user.mitglied_id
+            ).first()
+            if mitglied and mitglied.nfc_uid:
+                uid_laufzettel = db.query(Laufzettel).filter(
+                    Laufzettel.uid == mitglied.nfc_uid,
+                    Laufzettel.mitglied_id.is_(None),
+                ).order_by(Laufzettel.created_at.desc()).all()
+                # Merge and deduplicate by id
+                seen = {lz.id for lz in laufzettel}
+                for lz in uid_laufzettel:
+                    if lz.id not in seen:
+                        laufzettel.append(lz)
+                        seen.add(lz.id)
+                laufzettel.sort(key=lambda lz: lz.created_at or lz.date, reverse=True)
+        finally:
+            members_db.close()
     else:
         # Admin without mitglied_id sees empty list
         laufzettel = []
@@ -222,36 +249,52 @@ async def login_via_rfid(
 ):
     """Login via RFID card - creates user if not exists"""
     body = await request.json()
-    rfid_uid = body.get("rfid_uid", "")
+    rfid_uid = body.get("rfid_uid", "").strip().upper()
     from datetime import datetime, timezone
-    
-    # Find RFID tag
+
+    logger.info("[RFID-LOGIN] Attempt with uid=%r", rfid_uid)
+
+    # Primary lookup: find member directly by nfc_uid
+    mitglied = members_db.query(Mitglied).filter(
+        Mitglied.nfc_uid == rfid_uid
+    ).first()
+    logger.info("[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None)
+
+    # Also check legacy RFIDTag table for admin flag
     tag = members_db.query(RFIDTag).filter(RFIDTag.uid == rfid_uid).first()
-    if not tag:
+    logger.info("[RFID-LOGIN] RFIDTag found: %s", bool(tag))
+
+    if not mitglied and not tag:
+        logger.warning("[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid)
         return JSONResponse(
             {"success": False, "error": "Unknown RFID card"},
             status_code=404
         )
-    
-    # Find member via nfc_uid (Mitglied.nfc_uid is set to the primary card UID)
-    mitglied = members_db.query(Mitglied).filter(
-        Mitglied.nfc_uid == tag.uid
-    ).first()
-    
+
+    # If tag exists but mitglied not found via nfc_uid, try via RFIDTag.member_id
+    if not mitglied and tag:
+        mitglied = members_db.query(Mitglied).filter(
+            Mitglied.member_id == tag.member_id
+        ).first()
+        logger.info("[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s", tag.member_id, mitglied.name if mitglied else None)
+
     if not mitglied:
+        logger.warning("[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid)
         return JSONResponse(
             {"success": False, "error": "No member associated with this card"},
             status_code=404
         )
-    
+
+    is_admin_card = bool(tag and tag.is_admin)
+    logger.info("[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s", mitglied.name, mitglied.id, is_admin_card)
+
     # Find or create user for this member
     user = auth_db.query(User).filter(
         User.mitglied_id == mitglied.id
     ).first()
-    
+
     if not user:
-        # Determine role based on RFID tag
-        role = "admin" if tag.is_admin else "member"
+        role = "admin" if is_admin_card else "member"
         user = User(
             username=f"member_{mitglied.id}",
             hashed_password="",  # No password for RFID-only users
@@ -261,15 +304,15 @@ async def login_via_rfid(
         auth_db.add(user)
         auth_db.commit()
         auth_db.refresh(user)
-    
+
     # Create unified session
     request.session["user"] = user.username
     request.session["mitglied_id"] = user.mitglied_id
-    request.session["is_admin_capable"] = user.role == "admin" or tag.is_admin
+    request.session["is_admin_capable"] = user.role == "admin" or is_admin_card
     request.session["admin_verified"] = False  # Always start unverified
     request.session["admin_verified_at"] = None
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
-    
+
     return {
         "success": True,
         "user": {
