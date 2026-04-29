@@ -57,6 +57,49 @@ def shutdown_mqtt():
         logger.info("Disconnected from MQTT broker")
 
 
+def send_card_write_command(device_id: str, member_id: str, name: str, email: str, signature: str, request_id: str = "") -> bool:
+    """Send a write command to a PicoW NFC Reader to write member data to a card.
+
+    Args:
+        device_id: The PicoW device ID (e.g., "picow_nfc_01")
+        member_id: Member ID to write to card
+        name: Member name to write to card
+        email: Member email to write to card
+        signature: HMAC signature for verification
+        request_id: Optional request ID for tracking
+
+    Returns:
+        True if command was sent successfully
+    """
+    global mqtt_client
+    if not mqtt_client:
+        logger.error("MQTT client not initialized")
+        return False
+
+    topic = f"{device_id}/command"
+    payload = json.dumps({
+        "action": "write_card",
+        "member_id": member_id,
+        "name": name,
+        "email": email,
+        "signature": signature,
+        "sector": 1,
+        "request_id": request_id
+    })
+
+    try:
+        result = mqtt_client.publish(topic, payload, qos=1)
+        if result.rc == 0:
+            logger.info(f"Sent write command to {device_id} for member {member_id}")
+            return True
+        else:
+            logger.error(f"Failed to send write command to {device_id}: {result.rc}")
+            return False
+    except Exception as e:
+        logger.error(f"Error sending write command: {e}")
+        return False
+
+
 def on_connect(client, userdata, flags, rc):
     """Callback when connected to MQTT broker"""
     if rc == 0:

@@ -9,6 +9,12 @@ from sqlalchemy.orm import Session
 from .db import get_db, init_db
 from .models import Mitglied, RFIDTag
 from .easyverein import sync_members_from_easyverein, get_sync_status
+from .signature import generate_card_signature
+
+
+class CardWriteRequest(BaseModel):
+    device_id: str  # PicoW device ID (e.g., "picow_nfc_01")
+    uid: str  # Expected UID to write to (for verification)
 
 router = APIRouter()
 
@@ -305,3 +311,58 @@ async def delete_tag(uid: str, db: Session = Depends(get_db)):
     db.delete(tag)
     db.commit()
     return {"success": True}
+
+
+# ── Card Enrollment (Write to NFC) ───────────────────────────────────────────
+
+@router.post("/api/mitglieder/{mitglied_id}/enroll-card")
+async def enroll_card(
+    mitglied_id: int,
+    req: CardWriteRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Trigger NFC card enrollment - writes member data to card via PicoW.
+
+    The PicoW must have a pending write job stored. When the member presents
+    their card, the data will be written and verified.
+    """
+    from backend.auth.dependencies import check_auth
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Get member
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # Normalize UID
+    uid = req.uid.upper().replace(":", "").replace("-", "")
+
+    # Generate signature binding UID to member
+    signature = generate_card_signature(m.member_id, uid, m.name)
+
+    # Send write command to PicoW
+    from backend.core.mqtt import send_card_write_command
+    import uuid
+
+    request_id = str(uuid.uuid4())[:8]
+    success = send_card_write_command(
+        device_id=req.device_id,
+        member_id=m.member_id,
+        name=m.name,
+        email=m.email or "",
+        signature=signature,
+        request_id=request_id
+    )
+
+    if not success:
+        raise HTTPException(status_code=503, detail="Failed to send command to device")
+
+    return {
+        "success": True,
+        "message": f"Present card to {req.device_id} within 30 seconds",
+        "request_id": request_id,
+        "member_id": m.member_id,
+        "uid": req.uid
+    }

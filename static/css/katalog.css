@@ -138,6 +138,157 @@
     background: var(--bg-tertiary);
 }
 
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    /* Location block mobile */
+    .location-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 15px;
+    }
+
+    .location-title {
+        font-size: 1rem;
+        width: 100%;
+    }
+
+    .location-actions {
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .location-actions .btn-sm {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        min-height: 36px;
+    }
+
+    .location-body {
+        padding: 12px 15px;
+    }
+
+    /* Kategorie block mobile */
+    .kategorie-block {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .kategorie-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        min-width: 320px; /* Prevent squishing */
+    }
+
+    .kategorie-title {
+        font-size: 0.95rem;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .kategorie-actions {
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .kategorie-actions .btn-sm {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        min-height: 36px;
+    }
+
+    /* Varianten table mobile - scrollable */
+    .varianten-table {
+        table-layout: auto;
+        font-size: 0.85rem;
+        min-width: 320px;
+    }
+
+    .varianten-table th,
+    .varianten-table td {
+        padding: 10px 8px;
+        white-space: nowrap;
+    }
+
+    .varianten-table th:nth-child(1),
+    .varianten-table th:nth-child(2),
+    .varianten-table th:nth-child(3) {
+        width: auto;
+    }
+
+    /* Actions column in variant table */
+    .varianten-table td.actions {
+        white-space: nowrap;
+    }
+
+    .varianten-table td.actions .btn-sm {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+        min-height: 32px;
+    }
+
+    /* Container for horizontal scroll */
+    .kategorie-block .table-container,
+    .location-body .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    /* Price cell on mobile */
+    .price-cell {
+        font-size: 0.9rem;
+    }
+
+    /* Add variante row on mobile */
+    .add-variante-row td {
+        padding: 10px 8px;
+    }
+
+    /* Select dropdowns on mobile */
+    select {
+        font-size: 16px; /* Prevent iOS zoom */
+        padding: 10px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .location-header {
+        padding: 10px 12px;
+    }
+
+    .kategorie-header {
+        padding: 8px 10px;
+    }
+
+    .location-title,
+    .kategorie-title {
+        font-size: 0.9rem;
+    }
+
+    .pricing-badge {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+
+    .varianten-table th,
+    .varianten-table td {
+        padding: 8px 6px;
+        font-size: 0.8rem;
+    }
+
+    .unit-label {
+        font-size: 0.75rem;
+    }
+}
+
 .price-cell {
     font-family: monospace;
     color: var(--success);

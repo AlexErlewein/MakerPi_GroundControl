@@ -46,6 +46,6 @@ if git diff --name-only "$LOCAL" HEAD | grep -q "^pyproject.toml$"; then
 fi
 
 log "Restarting services..."
-sudo systemctl restart groundcontrol groundcontrol-docs
+sudo systemctl restart groundcontrol groundcontrol-docs zigbee2mqtt sqlite-web
 
 log "Deploy complete. Now running: $(git rev-parse --short HEAD)"

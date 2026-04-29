@@ -394,22 +394,46 @@ footer {
         text-align: center;
         padding: 14px 0;
         margin-bottom: 16px;
+        align-items: stretch;
     }
 
     .header-left {
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .site-logo {
+        height: 44px;
+        margin: 0 auto;
     }
 
     .nav {
         flex-wrap: wrap;
         justify-content: center;
-        gap: 4px;
+        gap: 6px;
+        width: 100%;
     }
 
     .nav-link {
-        padding: 8px 12px;
+        padding: 10px 14px;
         font-size: 0.85rem;
+        flex: 1;
+        min-width: 80px;
+        max-width: 120px;
+        text-align: center;
+    }
+
+    .header-actions {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .header-actions .btn {
+        flex: 1;
+        max-width: 200px;
+        justify-content: center;
     }
 
     .stats {
@@ -422,34 +446,104 @@ footer {
     }
 
     .stat-value {
-        font-size: 1.8rem;
+        font-size: 1.6rem;
     }
 
     .filter-bar {
         flex-direction: column;
+        gap: 10px;
+    }
+
+    .filter-bar input,
+    .filter-bar button {
+        width: 100%;
     }
 
     /* Larger touch targets for buttons */
     .btn {
         min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Table responsive */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    table {
+        font-size: 0.85rem;
     }
 
     th, td {
-        padding: 8px 6px;
-        font-size: 0.85rem;
+        padding: 10px 8px;
+        white-space: nowrap;
+    }
+
+    th {
+        font-size: 0.8rem;
+    }
+
+    /* Status badge adjustments */
+    .status {
+        justify-content: center;
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto;
     }
 }
 
 @media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
+
     .stats {
         grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .stat-card {
+        padding: 12px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
     }
 
     header h1 {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
     }
 
     .site-logo {
-        height: 44px;
+        height: 40px;
+    }
+
+    .nav-link {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+        min-width: 70px;
+    }
+
+    .section {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .section h2 {
+        font-size: 1.1rem;
+    }
+
+    /* Ensure tables don't break layout */
+    .table-container {
+        margin: 0 -10px;
+        padding: 0 10px;
+    }
+
+    th, td {
+        padding: 8px 6px;
+        font-size: 0.8rem;
     }
 }

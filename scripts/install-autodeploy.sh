@@ -31,12 +31,14 @@ echo ""
 # ── 1. Make the deploy script executable ──────────────────────────────────────
 chmod +x "$PROJECT_DIR/scripts/auto-deploy.sh"
 
-# ── 2. Passwordless sudo for restarting only these two services ───────────────
+# ── 2. Passwordless sudo for restarting all GroundControl services ────────────
 SUDOERS_FILE="/etc/sudoers.d/groundcontrol-deploy"
 cat > "$SUDOERS_FILE" << EOF
 # Allow $SERVICE_USER to restart GroundControl services (used by auto-deploy)
 $SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart groundcontrol
 $SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart groundcontrol-docs
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart zigbee2mqtt
+$SERVICE_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart sqlite-web
 EOF
 chmod 440 "$SUDOERS_FILE"
 echo "Sudoers rule written: $SUDOERS_FILE"
