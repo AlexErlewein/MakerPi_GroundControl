@@ -952,27 +952,43 @@ async function doKartePayment() {
         return;
     }
 
-    // Phase 2b: Payment Switch mode – open SumUp app via URL scheme
+    // Phase 2b: Payment Switch mode – QR code for cross-device SumUp app
     if (initData.mode === "payment_switch") {
         spinner.style.display = "none";
-        statusText.textContent = `Betrag: ${initData.amount} € – SumUp App öffnen und Zahlung durchführen.`;
+        statusText.textContent = `Betrag: ${initData.amount} € – QR-Code mit SumUp App scannen`;
         statusText.style.color = "";
 
-        // Inject link button and confirm button into body
+        // Inject QR code + buttons into body
         let switchDiv = document.getElementById("karte-switch-actions");
         if (!switchDiv) {
             switchDiv = document.createElement("div");
             switchDiv.id = "karte-switch-actions";
-            switchDiv.style.cssText = "display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem;";
+            switchDiv.style.cssText = "display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem;align-items:center;";
             body.appendChild(switchDiv);
         }
         switchDiv.innerHTML = `
-            <a href="${initData.payment_url}" class="btn btn-payment btn-payment-karte" style="text-align:center;text-decoration:none;" target="_blank">
-                📲 SumUp App öffnen
+            <div id="karte-qr-canvas" style="background:#fff;padding:12px;border-radius:8px;display:inline-block;"></div>
+            <p style="font-size:0.85rem;color:var(--text-secondary);text-align:center;margin:0;">
+                SumUp App auf dem Handy öffnen → QR-Code scannen
+            </p>
+            <a href="${initData.payment_url}" class="btn btn-payment btn-payment-karte" style="text-align:center;text-decoration:none;width:100%;" target="_blank">
+                📲 SumUp App öffnen (gleiches Gerät)
             </a>
-            <button type="button" class="btn btn-success" id="karte-switch-confirm-btn">
+            <button type="button" class="btn btn-success" id="karte-switch-confirm-btn" style="width:100%;">
                 ✓ Zahlung bestätigen
             </button>`;
+
+        // Generate QR code
+        if (typeof QRCode !== "undefined") {
+            new QRCode(document.getElementById("karte-qr-canvas"), {
+                text: initData.payment_url,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M,
+            });
+        }
 
         document.getElementById("karte-switch-confirm-btn").addEventListener("click", async () => {
             const confirmRes = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/confirm-mock`, { method: "POST" });

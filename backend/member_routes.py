@@ -111,13 +111,14 @@ async def member_laufzettel_open(
             )
 
     total = sum(m.calculated_price or 0 for m in materials)
+    materials_dicts = [m.to_dict() for m in materials]
 
     return templates.TemplateResponse(
         "member-laufzettel-open.html",
         {
             "request": request,
             "open_lz": open_lz,
-            "materials": materials,
+            "materials": materials_dicts,
             "total": total,
             "user": user,
             "katalog": [],
@@ -211,13 +212,14 @@ async def member_laufzettel_detail(
     )
 
     total = sum(m.calculated_price or 0 for m in materials)
+    materials_dicts = [m.to_dict() for m in materials]
 
     return templates.TemplateResponse(
         "member-laufzettel-detail.html",
         {
             "request": request,
             "laufzettel": laufzettel,
-            "materials": materials,
+            "materials": materials_dicts,
             "total": total,
             "user": user,
             "read_only": laufzettel.payment_method is not None,
