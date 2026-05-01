@@ -56,7 +56,6 @@ async def member_laufzettel_open(
     request: Request,
     db: Session = Depends(get_laufzettel_db),
     auth_db: Session = Depends(get_auth_db),
-    catalog_db: Session = Depends(get_catalog_db),
 ):
     """Show member's current open (unpaid) laufzettel"""
     username = request.session.get("user")
@@ -113,10 +112,6 @@ async def member_laufzettel_open(
 
     total = sum(m.calculated_price or 0 for m in materials)
 
-    # Load katalog for location grouping
-    from backend.catalog.db import get_katalog_tree
-    katalog = get_katalog_tree(catalog_db)
-
     return templates.TemplateResponse(
         "member-laufzettel-open.html",
         {
@@ -125,7 +120,7 @@ async def member_laufzettel_open(
             "materials": materials,
             "total": total,
             "user": user,
-            "katalog": katalog,
+            "katalog": [],
         },
     )
 
@@ -190,7 +185,6 @@ async def member_laufzettel_detail(
     laufzettel_id: int,
     db: Session = Depends(get_laufzettel_db),
     auth_db: Session = Depends(get_auth_db),
-    catalog_db: Session = Depends(get_catalog_db),
 ):
     """Show member's laufzettel detail - read only (history view)"""
     username = request.session.get("user")
@@ -218,10 +212,6 @@ async def member_laufzettel_detail(
 
     total = sum(m.calculated_price or 0 for m in materials)
 
-    # Load katalog for location grouping
-    from backend.catalog.db import get_katalog_tree
-    katalog = get_katalog_tree(catalog_db)
-
     return templates.TemplateResponse(
         "member-laufzettel-detail.html",
         {
@@ -232,7 +222,7 @@ async def member_laufzettel_detail(
             "user": user,
             "read_only": laufzettel.payment_method is not None,
             "back_url": "/member/laufzettel/historie",
-            "katalog": katalog,
+            "katalog": [],
         },
     )
 
