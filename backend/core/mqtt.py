@@ -229,7 +229,23 @@ def handle_device_message(topic: str, payload: str):
                 # Notify SSE subscribers about this scan
                 logger.info("[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r", len(scan_subscribers), uid, device_id)
                 _notify_scan_subscribers(uid, device_id)
-                
+
+                # Publish scan result to LilyGo display (and other displays)
+                global mqtt_client
+                if mqtt_client:
+                    try:
+                        response_payload = json.dumps({
+                            "uid": uid,
+                            "owner_name": owner_name,
+                            "member_id": str(mitglied_db_id) if mitglied_db_id else None,
+                            "validated": bool(validated),
+                            "source": "REMOTE"
+                        })
+                        mqtt_client.publish("lilygo/user_info", response_payload)
+                        logger.info("[SCAN] Published to lilygo/user_info: uid=%r validated=%s", uid, validated)
+                    except Exception as e:
+                        logger.error(f"[SCAN] Failed to publish to lilygo/user_info: {e}")
+
                 # Auto-create Laufzettel for validated scans
                 if validated:
                     from datetime import date as dt_date
