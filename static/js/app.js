@@ -9,9 +9,11 @@ let refreshTimer = null;
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const deviceCount = document.getElementById('device-count');
+const zigbeeDeviceCount = document.getElementById('zigbee-device-count');
 const messageCount = document.getElementById('message-count');
 const topicCount = document.getElementById('topic-count');
 const devicesBody = document.getElementById('devices-body');
+const zigbeeDevicesBody = document.getElementById('zigbee-devices-body');
 const messagesContainer = document.getElementById('messages-container');
 const topicFilter = document.getElementById('topic-filter');
 const refreshBtn = document.getElementById('refresh-btn');
@@ -38,6 +40,7 @@ async function loadAllData() {
     await Promise.all([
         loadStatus(),
         loadDevices(),
+        loadZigbeeDevices(),
         loadMessages(topicFilter.value),
         loadTopics()
     ]);
@@ -96,6 +99,46 @@ async function loadDevices() {
     } catch (error) {
         console.error('Failed to load devices:', error);
         devicesBody.innerHTML = '<tr><td colspan="4">Error loading devices</td></tr>';
+    }
+}
+
+// Load Zigbee devices
+async function loadZigbeeDevices() {
+    try {
+        const response = await fetch(`${API_BASE}/api/zigbee-devices`);
+        const devices = await response.json();
+
+        zigbeeDeviceCount.textContent = devices.length;
+
+        if (devices.length === 0) {
+            zigbeeDevicesBody.innerHTML = '<tr><td colspan="7">No Zigbee devices found. Devices will appear when they send data via zigbee2mqtt.</td></tr>';
+            return;
+        }
+
+        zigbeeDevicesBody.innerHTML = devices.map(device => {
+            const effectiveStatus = getEffectiveStatus(device.last_seen);
+            const displayName = device.friendly_name || device.ieee_address || 'Unknown';
+            const batteryDisplay = device.battery !== null && device.battery !== undefined
+                ? `<span class="battery-level ${device.battery < 20 ? 'low' : device.battery < 50 ? 'medium' : 'good'}">${device.battery}%</span>`
+                : '<span class="battery-unknown">—</span>';
+            const linkqualityDisplay = device.linkquality !== null && device.linkquality !== undefined
+                ? `<span class="linkquality ${device.linkquality < 50 ? 'weak' : device.linkquality < 100 ? 'medium' : 'good'}">${device.linkquality}</span>`
+                : '<span class="linkquality-unknown">—</span>';
+
+            return `
+            <tr>
+                <td><strong>${escapeHtml(displayName)}</strong></td>
+                <td><code class="ieee-address">${escapeHtml(device.ieee_address || '—')}</code></td>
+                <td>${escapeHtml(device.model || '—')}</td>
+                <td><span class="status-badge ${effectiveStatus}">${effectiveStatus}</span></td>
+                <td>${batteryDisplay}</td>
+                <td>${linkqualityDisplay}</td>
+                <td>${formatTime(device.last_seen)}</td>
+            </tr>
+        `}).join('');
+    } catch (error) {
+        console.error('Failed to load Zigbee devices:', error);
+        zigbeeDevicesBody.innerHTML = '<tr><td colspan="7">Error loading Zigbee devices</td></tr>';
     }
 }
 

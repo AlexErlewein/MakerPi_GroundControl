@@ -5,14 +5,14 @@ import json
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Request, Query, Depends, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
+from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
-from .models import MQTTMessage, Device, TagScan
+from .models import MQTTMessage, Device, TagScan, ZigbeeDevice
 from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
 import backend.config as _app_config
 
@@ -199,13 +199,66 @@ async def get_scan_stats(db: Session = Depends(get_db)):
     total = db.query(TagScan).count()
     validated = db.query(TagScan).filter(TagScan.validated == 1).count()
     unknown = total - validated
-    
+
     return {
         "total": total,
         "validated": validated,
         "unknown": unknown,
         "validation_rate": validated / total if total > 0 else 0,
     }
+
+
+# ── Zigbee Devices API ───────────────────────────────────────────────────────
+
+@router.get("/api/zigbee-devices")
+async def get_zigbee_devices(db: Session = Depends(get_db)):
+    """List all discovered Zigbee devices"""
+    devices = db.query(ZigbeeDevice).order_by(ZigbeeDevice.last_seen.desc()).all()
+    return [d.to_dict() for d in devices]
+
+
+@router.get("/api/zigbee-devices/{ieee_address}")
+async def get_zigbee_device(ieee_address: str, db: Session = Depends(get_db)):
+    """Get single Zigbee device details by IEEE address"""
+    device = db.query(ZigbeeDevice).filter(
+        ZigbeeDevice.ieee_address == ieee_address
+    ).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Zigbee device not found")
+    return device.to_dict()
+
+
+@router.get("/api/zigbee-devices/{ieee_address}/messages")
+async def get_zigbee_device_messages(
+    ieee_address: str,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """Get recent MQTT messages for a specific Zigbee device"""
+    # Search by IEEE address or friendly name in MQTT topics
+    device = db.query(ZigbeeDevice).filter(
+        ZigbeeDevice.ieee_address == ieee_address
+    ).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Zigbee device not found")
+
+    # Build search terms: both IEEE and friendly name
+    search_terms = [ieee_address]
+    if device.friendly_name:
+        search_terms.append(device.friendly_name)
+
+    # Query messages that match any of the search terms in the topic
+    q = db.query(MQTTMessage)
+    filter_conditions = [
+        MQTTMessage.topic.like(f"zigbee2mqtt/%{term}%")
+        for term in search_terms
+    ]
+    if filter_conditions:
+        from sqlalchemy import or_
+        q = q.filter(or_(*filter_conditions))
+
+    messages = q.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
+    return [m.to_dict() for m in messages]
 
 
 @router.get("/api/scans/stream")

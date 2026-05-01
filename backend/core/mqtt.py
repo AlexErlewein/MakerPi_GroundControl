@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 
 from backend.config import MQTT_BROKER, MQTT_PORT
 from .db import SessionLocal
-from .models import MQTTMessage, Device, TagScan
+from .models import MQTTMessage, Device, TagScan, ZigbeeDevice
 
 logger = logging.getLogger(__name__)
 mqtt_client = None
@@ -140,15 +140,175 @@ def on_message(client, userdata, msg):
         logger.error(f"Error handling device message: {e}")
 
 
+def _extract_zigbee_device_info(payload: str) -> dict:
+    """Extract common Zigbee device attributes from payload."""
+    info = {}
+    try:
+        data = json.loads(payload)
+        info["battery"] = data.get("battery")
+        info["linkquality"] = data.get("linkquality")
+        info["temperature"] = data.get("temperature")
+        info["humidity"] = data.get("humidity")
+        info["pressure"] = data.get("pressure")
+        info["occupancy"] = data.get("occupancy")
+        info["illuminance"] = data.get("illuminance")
+        info["state"] = data.get("state")
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return info
+
+
+def _update_or_create_zigbee_device(
+    db, device_identifier: str, payload: str, is_bridge_message: bool = False
+):
+    """Update or create a ZigbeeDevice entry based on identifier (IEEE or friendly_name).
+
+    Args:
+        db: Database session
+        device_identifier: IEEE address (0x...) or friendly name
+        payload: The MQTT payload as string
+        is_bridge_message: Whether this is from bridge/devices topic
+    """
+    try:
+        data = json.loads(payload) if payload else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    # Try to find by IEEE address first
+    zigbee_device = None
+    if device_identifier.startswith("0x"):
+        zigbee_device = db.query(ZigbeeDevice).filter(
+            ZigbeeDevice.ieee_address == device_identifier
+        ).first()
+    else:
+        # Try by friendly name
+        zigbee_device = db.query(ZigbeeDevice).filter(
+            ZigbeeDevice.friendly_name == device_identifier
+        ).first()
+
+    # If still not found, try to match by ieee_address in the data
+    if not zigbee_device and isinstance(data, dict):
+        ieee = data.get("ieee_address") or data.get("device", {}).get("ieeeAddr")
+        if ieee:
+            zigbee_device = db.query(ZigbeeDevice).filter(
+                ZigbeeDevice.ieee_address == ieee
+            ).first()
+
+    if not zigbee_device:
+        zigbee_device = ZigbeeDevice()
+        db.add(zigbee_device)
+
+    # Update identifier if not set
+    if device_identifier.startswith("0x") and not zigbee_device.ieee_address:
+        zigbee_device.ieee_address = device_identifier
+    elif not device_identifier.startswith("0x") and not zigbee_device.friendly_name:
+        zigbee_device.friendly_name = device_identifier
+
+    # Update from payload data
+    if isinstance(data, dict):
+        # Friendly name
+        if "friendly_name" in data and not zigbee_device.friendly_name:
+            zigbee_device.friendly_name = data["friendly_name"]
+
+        # IEEE address from data
+        ieee = data.get("ieee_address") or data.get("ieeeAddr") or data.get("device", {}).get("ieeeAddr")
+        if ieee and not zigbee_device.ieee_address:
+            zigbee_device.ieee_address = ieee
+
+        # Model and vendor
+        if "model_id" in data or "model" in data:
+            zigbee_device.model = data.get("model_id") or data.get("model")
+        if "vendor" in data or "manufacturer" in data:
+            zigbee_device.vendor = data.get("vendor") or data.get("manufacturer")
+        if "description" in data:
+            zigbee_device.description = data["description"]
+
+        # Status
+        if "state" in data:
+            state = data["state"]
+            if isinstance(state, str):
+                zigbee_device.status = "online" if state.upper() in ("ON", "OPEN") else "offline"
+
+        # Metrics
+        if zigbee_device.battery is None:
+            zigbee_device.battery = data.get("battery")
+        if zigbee_device.linkquality is None:
+            zigbee_device.linkquality = data.get("linkquality")
+
+        # Exposes
+        if "exposes" in data:
+            zigbee_device.exposes = json.dumps(data["exposes"])
+
+    # Always update last_seen and raw_payload
+    zigbee_device.last_seen = _utcnow()
+    if payload:
+        # Truncate if too large
+        zigbee_device.raw_payload = payload[:10000] if len(payload) > 10000 else payload
+
+    return zigbee_device
+
+
+def handle_zigbee2mqtt_message(topic: str, payload: str) -> bool:
+    """Handle Zigbee2MQTT specific messages.
+
+    Returns True if the message was handled as a Zigbee2MQTT message.
+    """
+    if not topic.startswith("zigbee2mqtt/"):
+        return False
+
+    parts = topic.split("/")
+    if len(parts) < 2:
+        return False
+
+    db = SessionLocal()
+    try:
+        subtopic = parts[1]
+
+        # Bridge topics
+        if subtopic == "bridge":
+            if len(parts) >= 3 and parts[2] == "devices":
+                # Full device list from bridge
+                try:
+                    devices = json.loads(payload)
+                    if isinstance(devices, list):
+                        for dev in devices:
+                            if dev.get("type") == "Coordinator":
+                                continue  # Skip coordinator
+                            friendly = dev.get("friendly_name") or dev.get("ieee_address")
+                            if friendly:
+                                _update_or_create_zigbee_device(db, friendly, json.dumps(dev), True)
+                                db.commit()
+                except json.JSONDecodeError:
+                    pass
+            return True
+
+        # Device-level topic: zigbee2mqtt/<device_name_or_ieee>
+        device_identifier = subtopic
+        _update_or_create_zigbee_device(db, device_identifier, payload)
+        db.commit()
+        return True
+
+    except Exception as e:
+        logger.error(f"Error handling Zigbee2MQTT message: {e}")
+        db.rollback()
+        return False
+    finally:
+        db.close()
+
+
 def handle_device_message(topic: str, payload: str):
     """Process device-related messages"""
+    # Try Zigbee2MQTT handling first
+    if handle_zigbee2mqtt_message(topic, payload):
+        return
+
     parts = topic.split("/")
     if len(parts) < 2:
         return
-    
+
     device_id = parts[0]
     subtopic = parts[1] if len(parts) > 1 else ""
-    
+
     db = SessionLocal()
     try:
         # Update device last_seen
@@ -229,7 +389,23 @@ def handle_device_message(topic: str, payload: str):
                 # Notify SSE subscribers about this scan
                 logger.info("[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r", len(scan_subscribers), uid, device_id)
                 _notify_scan_subscribers(uid, device_id)
-                
+
+                # Publish scan result to LilyGo display (and other displays)
+                global mqtt_client
+                if mqtt_client:
+                    try:
+                        response_payload = json.dumps({
+                            "uid": uid,
+                            "owner_name": owner_name,
+                            "member_id": str(mitglied_db_id) if mitglied_db_id else None,
+                            "validated": bool(validated),
+                            "source": "REMOTE"
+                        })
+                        mqtt_client.publish("lilygo/user_info", response_payload)
+                        logger.info("[SCAN] Published to lilygo/user_info: uid=%r validated=%s", uid, validated)
+                    except Exception as e:
+                        logger.error(f"[SCAN] Failed to publish to lilygo/user_info: {e}")
+
                 # Auto-create Laufzettel for validated scans
                 if validated:
                     from datetime import date as dt_date
