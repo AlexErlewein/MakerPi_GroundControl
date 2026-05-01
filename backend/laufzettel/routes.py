@@ -358,6 +358,7 @@ async def get_payment_config():
         "sumup_mock": SUMUP_MOCK,
         "reader_id": SUMUP_READER_ID if sumup_configured else None,
         "payment_mode": payment_mode,
+        "checkout_link_available": sumup_configured and not SUMUP_MOCK,
     }
 
 
@@ -550,6 +551,119 @@ async def cancel_karte_payment(laufzettel_id: int, client_transaction_id: str, d
     """Cancel pending card payment"""
     pending = _pending_payments.pop(client_transaction_id, None)
     return {"cancelled": pending is not None}
+
+
+# In-memory store for pending hosted checkouts (checkout_id -> {laufzettel_id, created_at})
+_pending_checkouts: dict = {}
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/checkout")
+async def pay_checkout_link(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Create a SumUp hosted checkout and return the customer-facing payment URL"""
+    import uuid
+    import httpx
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+    if not (SUMUP_API_KEY and SUMUP_MERCHANT_CODE):
+        raise HTTPException(status_code=503, detail="SumUp hosted checkout not configured")
+
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == laufzettel_id
+    ).all()
+    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+
+    payload = {
+        "checkout_reference": str(uuid.uuid4()),
+        "amount": round(total, 2),
+        "currency": "EUR",
+        "merchant_code": SUMUP_MERCHANT_CODE,
+        "description": f"Laufzettel #{laufzettel_id}",
+        "hosted_checkout": {"enabled": True},
+    }
+
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            "https://api.sumup.com/v0.1/checkouts",
+            headers={"Authorization": f"Bearer {SUMUP_API_KEY}"},
+            json=payload,
+            timeout=15,
+        )
+    if r.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"SumUp API error: {r.text}")
+
+    data = r.json()
+    checkout_id = data["id"]
+    _pending_checkouts[checkout_id] = {"laufzettel_id": laufzettel_id}
+
+    return {
+        "checkout_id": checkout_id,
+        "checkout_url": data.get("hosted_checkout_url", ""),
+        "amount": f"{total:.2f}",
+        "valid_until": data.get("valid_until"),
+        "status": "PENDING",
+    }
+
+
+@router.get("/api/laufzettel/{laufzettel_id}/pay/checkout/status")
+async def get_checkout_status(
+    laufzettel_id: int,
+    checkout_id: str,
+    db: Session = Depends(get_db),
+):
+    """Poll SumUp for hosted checkout status; auto-confirms the Laufzettel when paid"""
+    from datetime import datetime, timezone
+    import httpx
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if lz and lz.payment_method == "karte":
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return {"status": "PAID", "laufzettel": d}
+
+    if not (SUMUP_API_KEY and SUMUP_MERCHANT_CODE):
+        raise HTTPException(status_code=503, detail="SumUp not configured")
+
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            f"https://api.sumup.com/v0.1/checkouts/{checkout_id}",
+            headers={"Authorization": f"Bearer {SUMUP_API_KEY}"},
+            timeout=10,
+        )
+    if r.status_code == 404:
+        return {"status": "NOT_FOUND"}
+    if r.status_code != 200:
+        return {"status": "ERROR"}
+
+    sumup_status = r.json().get("status", "PENDING")
+
+    if sumup_status == "PAID" and lz and not lz.payment_method:
+        lz.payment_method = "karte"
+        lz.paid_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        _pending_checkouts.pop(checkout_id, None)
+        return {"status": "PAID", "laufzettel": d}
+
+    return {"status": sumup_status}
+
+
+@router.delete("/api/laufzettel/{laufzettel_id}/pay/checkout")
+async def cancel_checkout(laufzettel_id: int, checkout_id: str):
+    """Clean up a pending hosted checkout"""
+    _pending_checkouts.pop(checkout_id, None)
+    return {"cancelled": True}
 
 
 @router.delete("/api/laufzettel/{laufzettel_id}/pay")

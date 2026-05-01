@@ -806,6 +806,9 @@ function renderPaymentSection(total, hasAnyPrice) {
 
     if (!paymentConfig.sumup_configured) karteBtn.style.display = "none";
 
+    const checkoutBtn = document.getElementById("pay-checkout-btn");
+    if (!paymentConfig.checkout_link_available) checkoutBtn.style.display = "none";
+
     if (locked) {
         buttons.classList.add("hidden");
         banner.classList.remove("hidden");
@@ -1106,3 +1109,137 @@ function closeKarteModal() {
 }
 document.getElementById("karte-modal-close").addEventListener("click", closeKarteModal);
 document.getElementById("karte-close-btn").addEventListener("click", closeKarteModal);
+
+// Hosted checkout (customer-facing Apple/Google Pay QR)
+let checkoutCurrentId = null;
+let checkoutPollAbort = null;
+
+async function doCheckoutPayment() {
+    const modal = document.getElementById("checkout-modal");
+    const statusText = document.getElementById("checkout-status-text");
+    const actions = document.getElementById("checkout-actions");
+    const body = document.getElementById("checkout-body");
+    const spinner = body.querySelector(".karte-spinner");
+
+    checkoutPollAbort = new AbortController();
+    checkoutCurrentId = null;
+
+    statusText.textContent = "Zahlungslink wird erstellt…";
+    statusText.style.color = "";
+    spinner.style.display = "";
+    actions.style.display = "none";
+    modal.classList.remove("hidden");
+
+    const oldArea = document.getElementById("checkout-qr-area");
+    if (oldArea) oldArea.remove();
+
+    let initData;
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/checkout`, {
+            method: "POST",
+            signal: checkoutPollAbort.signal,
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+            statusText.style.color = "var(--danger)";
+            spinner.style.display = "none";
+            actions.style.display = "";
+            return;
+        }
+        initData = await res.json();
+        checkoutCurrentId = initData.checkout_id;
+    } catch (e) {
+        if (e.name === "AbortError") return;
+        statusText.textContent = "Netzwerkfehler beim Erstellen des Zahlungslinks.";
+        statusText.style.color = "var(--danger)";
+        spinner.style.display = "none";
+        actions.style.display = "";
+        return;
+    }
+
+    spinner.style.display = "none";
+    statusText.textContent = `Betrag: ${initData.amount} € – QR-Code mit dem Handy scannen`;
+
+    const qrArea = document.createElement("div");
+    qrArea.id = "checkout-qr-area";
+    qrArea.style.cssText = "display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem;align-items:center;";
+    qrArea.innerHTML = `
+        <div id="checkout-qr-canvas" style="background:#fff;padding:12px;border-radius:8px;display:inline-block;"></div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);text-align:center;margin:0;">
+            QR-Code scannen → im Browser zahlen (Apple Pay, Google Pay, Karte)
+        </p>
+        <a href="${initData.checkout_url}" class="btn btn-payment btn-payment-checkout" style="text-align:center;text-decoration:none;width:100%;" target="_blank">
+            🔗 Link öffnen (gleiches Gerät)
+        </a>
+        <p id="checkout-poll-status" style="font-size:0.85rem;color:var(--text-secondary);text-align:center;margin:0;">
+            Warte auf Zahlung…
+        </p>`;
+    body.appendChild(qrArea);
+
+    if (typeof QRCode !== "undefined") {
+        new QRCode(document.getElementById("checkout-qr-canvas"), {
+            text: initData.checkout_url,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M,
+        });
+    }
+
+    actions.style.display = "";
+
+    const POLL_INTERVAL_MS = 5000;
+    const poll = async () => {
+        if (checkoutPollAbort.signal.aborted) return;
+        try {
+            const r = await fetch(
+                `/api/laufzettel/${LAUFZETTEL_ID}/pay/checkout/status?checkout_id=${encodeURIComponent(checkoutCurrentId)}`,
+                { signal: checkoutPollAbort.signal }
+            );
+            const data = await r.json();
+            const pollStatus = document.getElementById("checkout-poll-status");
+            if (data.status === "PAID") {
+                statusText.textContent = "✓ Zahlung erfolgreich!";
+                statusText.style.color = "var(--success)";
+                if (pollStatus) pollStatus.remove();
+                if (data.laufzettel) {
+                    currentData = data.laufzettel;
+                    renderInfo();
+                    renderMaterial();
+                }
+            } else if (data.status === "FAILED" || data.status === "EXPIRED") {
+                statusText.textContent = data.status === "EXPIRED"
+                    ? "Zahlungslink abgelaufen."
+                    : "Zahlung fehlgeschlagen.";
+                statusText.style.color = "var(--danger)";
+                if (pollStatus) pollStatus.textContent = "";
+            } else {
+                setTimeout(poll, POLL_INTERVAL_MS);
+            }
+        } catch (e) {
+            if (e.name !== "AbortError") setTimeout(poll, POLL_INTERVAL_MS);
+        }
+    };
+    setTimeout(poll, POLL_INTERVAL_MS);
+}
+
+function closeCheckoutModal() {
+    if (checkoutPollAbort) {
+        checkoutPollAbort.abort();
+        checkoutPollAbort = null;
+    }
+    if (checkoutCurrentId) {
+        fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/checkout?checkout_id=${encodeURIComponent(checkoutCurrentId)}`, {
+            method: "DELETE",
+        }).catch(() => {});
+        checkoutCurrentId = null;
+    }
+    document.getElementById("checkout-modal").classList.add("hidden");
+    const qrArea = document.getElementById("checkout-qr-area");
+    if (qrArea) qrArea.remove();
+}
+document.getElementById("checkout-modal-close").addEventListener("click", closeCheckoutModal);
+document.getElementById("checkout-close-btn").addEventListener("click", closeCheckoutModal);
+document.getElementById("checkout-modal-overlay").addEventListener("click", closeCheckoutModal);

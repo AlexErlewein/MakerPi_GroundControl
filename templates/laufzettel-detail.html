@@ -316,6 +316,9 @@
             <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
                 💳 mit Karte bezahlen
             </button>
+            <button id="pay-checkout-btn" class="btn btn-payment btn-payment-checkout" onclick="doCheckoutPayment()">
+                📱 Kunden-QR (Apple/Google Pay)
+            </button>
         </div>
     </div>
 
@@ -357,6 +360,24 @@
         </div>
     </div>
 
+    <!-- Checkout Link Modal -->
+    <div id="checkout-modal" class="modal hidden">
+        <div class="modal-overlay" id="checkout-modal-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Online-Zahlung (Apple/Google Pay)</h3>
+                <button class="modal-close" id="checkout-modal-close">✕</button>
+            </div>
+            <div class="karte-body" id="checkout-body">
+                <div class="karte-spinner"></div>
+                <p id="checkout-status-text">Zahlungslink wird erstellt…</p>
+            </div>
+            <div class="modal-actions" id="checkout-actions" style="display:none;">
+                <button type="button" class="btn btn-secondary" id="checkout-close-btn">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Karte Modal -->
     <div id="karte-modal" class="modal hidden">
         <div class="modal-overlay"></div>
@@ -379,7 +400,7 @@
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script src="/static/js/laufzettel-detail.js?v=12"></script>
+    <script src="/static/js/laufzettel-detail.js?v=13"></script>
     <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>

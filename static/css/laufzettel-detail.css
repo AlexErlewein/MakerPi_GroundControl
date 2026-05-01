@@ -264,6 +264,11 @@
     color: #fff;
 }
 
+.btn-payment-checkout {
+    background: #6f42c1;
+    color: #fff;
+}
+
 /* Locked banner */
 .payment-locked-banner {
     display: flex;
