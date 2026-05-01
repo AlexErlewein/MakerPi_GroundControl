@@ -40,6 +40,10 @@
                     <p class="stat-value" id="device-count">-</p>
                 </div>
                 <div class="stat-card">
+                    <h3>Zigbee Devices</h3>
+                    <p class="stat-value" id="zigbee-device-count">-</p>
+                </div>
+                <div class="stat-card">
                     <h3>Messages</h3>
                     <p class="stat-value" id="message-count">-</p>
                 </div>
@@ -51,7 +55,7 @@
 
             <!-- Devices Section -->
             <section class="section">
-                <h2>Devices</h2>
+                <h2>Native Devices</h2>
                 <div class="table-container">
                     <table id="devices-table">
                         <thead>
@@ -64,6 +68,29 @@
                         </thead>
                         <tbody id="devices-body">
                             <tr><td colspan="4">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Zigbee Devices Section -->
+            <section class="section">
+                <h2>Zigbee Devices</h2>
+                <div class="table-container">
+                    <table id="zigbee-devices-table">
+                        <thead>
+                            <tr>
+                                <th>Friendly Name</th>
+                                <th>IEEE Address</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Battery</th>
+                                <th>Link Quality</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zigbee-devices-body">
+                            <tr><td colspan="7">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
