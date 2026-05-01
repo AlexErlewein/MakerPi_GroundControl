@@ -1007,6 +1007,38 @@ async function doKartePayment() {
         });
 
         actions.style.display = "";
+
+        // Poll SumUp in the background; auto-confirm once payment is detected
+        const switchTxnId = initData.client_transaction_id;
+        const SWITCH_POLL_MS = 5000;
+        const pollSwitch = async () => {
+            if (kartePollAbort.signal.aborted) return;
+            try {
+                const r = await fetch(
+                    `/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/status?client_transaction_id=${encodeURIComponent(switchTxnId)}`,
+                    { signal: kartePollAbort.signal }
+                );
+                const pollData = await r.json();
+                if (pollData.status === "SUCCESSFUL") {
+                    if (pollData.laufzettel) {
+                        currentData = pollData.laufzettel;
+                        renderInfo();
+                        renderMaterial();
+                    }
+                    const confirmBtn = document.getElementById("karte-switch-confirm-btn");
+                    if (confirmBtn) confirmBtn.style.display = "none";
+                    statusText.textContent = "✓ Zahlung erfolgreich bestätigt!";
+                    statusText.style.color = "var(--success)";
+                } else if (pollData.status === "TIMEOUT" || pollData.status === "NOT_FOUND") {
+                    // Stop polling; manual confirm remains available
+                } else {
+                    setTimeout(pollSwitch, SWITCH_POLL_MS);
+                }
+            } catch (e) {
+                if (e.name !== "AbortError") setTimeout(pollSwitch, SWITCH_POLL_MS);
+            }
+        };
+        setTimeout(pollSwitch, SWITCH_POLL_MS);
         return;
     }
 

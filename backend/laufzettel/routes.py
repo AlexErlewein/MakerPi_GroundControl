@@ -513,13 +513,42 @@ async def get_karte_status(
     pending = _pending_payments.get(client_transaction_id)
     if not pending:
         return {"status": "NOT_FOUND"}
-    
+
     # Check timeout (1 minute)
     if datetime.now(timezone.utc) > pending["expires_at"]:
         # Clean up expired
         del _pending_payments[client_transaction_id]
         return {"status": "TIMEOUT"}
-    
+
+    # For payment_switch, actively poll SumUp to detect completion automatically
+    if pending["mode"] == "payment_switch" and SUMUP_API_KEY:
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.get(
+                    "https://api.sumup.com/v1.0/me/transactions",
+                    headers={"Authorization": f"Bearer {SUMUP_API_KEY}"},
+                    params={"foreign_transaction_id": pending["foreign_tx_id"], "limit": 1},
+                    timeout=10,
+                )
+            if r.status_code == 200:
+                for item in r.json().get("items", []):
+                    if item.get("status") == "SUCCESSFUL":
+                        if lz and not lz.payment_method:
+                            lz.payment_method = "karte"
+                            lz.paid_at = datetime.now(timezone.utc)
+                            db.commit()
+                            db.refresh(lz)
+                        d = lz.to_dict()
+                        materials = db.query(LaufzettelMaterial).filter(
+                            LaufzettelMaterial.laufzettel_id == lz.id
+                        ).all()
+                        d["material"] = [m.to_dict() for m in materials]
+                        _pending_payments.pop(client_transaction_id, None)
+                        return {"status": "SUCCESSFUL", "laufzettel": d}
+        except Exception:
+            pass  # fall through to PENDING on network / API errors
+
     return {"status": pending["status"]}
 
 
