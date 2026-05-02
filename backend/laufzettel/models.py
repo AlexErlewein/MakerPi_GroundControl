@@ -1,8 +1,8 @@
 """Laufzettel models - work orders and material entries"""
 
 import json
-from datetime import datetime, timezone, date as date_type
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Text, UniqueConstraint
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -35,7 +35,6 @@ class Laufzettel(Base):
     payment_notes = Column(String, nullable=True)  # free-text note (e.g. for cash payments)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (UniqueConstraint("uid", "date", name="uq_laufzettel_uid_date"),)
 
     def to_dict(self):
         start_ts = _naive_to_utc(self.start) if self.start else None

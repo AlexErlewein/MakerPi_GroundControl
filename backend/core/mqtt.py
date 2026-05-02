@@ -415,11 +415,15 @@ def handle_device_message(topic: str, payload: str):
                     lauf_db = LaufzettelSession()
                     try:
                         today = dt_date.today()
-                        existing = lauf_db.query(Laufzettel).filter(
+                        today_lz = lauf_db.query(Laufzettel).filter(
                             Laufzettel.uid == uid,
                             Laufzettel.date == today,
-                        ).first()
-                        if not existing:
+                        ).all()
+                        # Find the first open (unpaid) Laufzettel for today
+                        open_lz = next((lz for lz in today_lz if not lz.payment_method), None)
+                        if open_lz is None:
+                            # No open Laufzettel – create a new one
+                            # (covers first scan of day AND re-scan after all are paid)
                             new_lz = Laufzettel(
                                 uid=uid,
                                 date=today,
@@ -431,14 +435,13 @@ def handle_device_message(topic: str, payload: str):
                             lauf_db.add(new_lz)
                             lauf_db.commit()
                         else:
-                            # Add device to nodes if not present
-                            nodes = json.loads(existing.nodes or "[]")
+                            # Update existing open Laufzettel
+                            nodes = json.loads(open_lz.nodes or "[]")
                             if device_id not in nodes:
                                 nodes.append(device_id)
-                                existing.nodes = json.dumps(nodes)
-                            # Update mitglied_id if not yet set
-                            if not existing.mitglied_id and mitglied_db_id:
-                                existing.mitglied_id = mitglied_db_id
+                                open_lz.nodes = json.dumps(nodes)
+                            if not open_lz.mitglied_id and mitglied_db_id:
+                                open_lz.mitglied_id = mitglied_db_id
                             lauf_db.commit()
                     finally:
                         lauf_db.close()

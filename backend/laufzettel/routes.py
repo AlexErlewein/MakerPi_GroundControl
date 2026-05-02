@@ -104,12 +104,13 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
     else:
         entry_date = dt_date.today()
 
-    existing = db.query(Laufzettel).filter(
+    existing_open = db.query(Laufzettel).filter(
         Laufzettel.uid == uid,
         Laufzettel.date == entry_date,
+        Laufzettel.payment_method == None,
     ).first()
-    if existing:
-        return JSONResponse(status_code=400, content={"detail": f"Laufzettel for {uid} on {entry_date} already exists"})
+    if existing_open:
+        return JSONResponse(status_code=400, content={"detail": f"An open (unpaid) Laufzettel for {uid} on {entry_date} already exists (id={existing_open.id})"})
 
     start_dt = None
     if data.start:
