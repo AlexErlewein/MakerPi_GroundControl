@@ -326,10 +326,13 @@
             const rowMenge = document.getElementById('kat-row-menge');
             const rowMinute = document.getElementById('kat-row-minute');
             rowDim.classList.add('hidden'); rowMenge.classList.add('hidden'); rowMinute.classList.add('hidden');
-            if (pm === 'per_gram' || pm === 'per_volume_cm3' || pm === 'per_volume_l') {
+            if (pm === 'per_volume_cm3' || pm === 'per_volume_l') {
                 rowDim.classList.remove('hidden');
             } else if (pm === 'per_minute') {
                 rowMinute.classList.remove('hidden');
+            } else if (pm === 'per_gram') {
+                rowMenge.classList.remove('hidden');
+                document.getElementById('kat-menge-label').textContent = unit || 'Gramm';
             } else {
                 rowMenge.classList.remove('hidden');
                 document.getElementById('kat-menge-label').textContent = unit || 'Menge';
@@ -346,11 +349,8 @@
             const pm = selectedKategorie.pricing_model;
             let total = 0, preview = '';
             if (pm === 'per_gram') {
-                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-                const vol = l * b * h;
-                if (vol > 0) { total = vol * selectedVariante.price; preview = `${vol.toFixed(1)} cm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+                const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
+                if (m > 0) { total = m * selectedVariante.price; preview = `${m} g × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
             } else if (pm === 'per_volume_cm3') {
                 const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
                 const b = parseFloat(document.getElementById('kat-breite').value) || 0;
@@ -432,12 +432,10 @@
                     body.unit = selectedKategorie.unit || 'Stk';
                     const pm = selectedKategorie.pricing_model;
                     if (pm === 'per_gram') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
-                        body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                        body.menge = menge;
+                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
                     } else if (pm === 'per_volume_cm3') {
                         const l = parseFloat(document.getElementById('kat-laenge').value);
                         const b = parseFloat(document.getElementById('kat-breite').value);
