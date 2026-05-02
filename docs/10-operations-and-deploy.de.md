@@ -1,279 +1,193 @@
 # Betrieb und Deployment
 
-Diese Seite beschreibt den laufenden Betrieb, Deployment-Optionen und Wartung.
+Diese Seite beschreibt den laufenden Betrieb, Deployment und Wartung des Produktivsystems.
 
-## Deployment-Optionen
+## Systemübersicht
 
-### 1. Raspberry Pi (Produktion)
+| Dienst | Port | Systemd-Unit | Beschreibung |
+|--------|------|--------------|--------------|
+| GroundControl App | 8000 | `groundcontrol.service` | Haupt-Webanwendung (FastAPI) |
+| Docs | 8001 | `groundcontrol-docs.service` | Dokumentationsseite |
+| SQLite Web | 8002 | `sqlite-web.service` | Datenbank-Browser (intern) |
+| Auto-Deploy Timer | — | `groundcontrol-autodeploy.timer` | Pollt alle 5 min git, deployed automatisch |
 
-**Hardware:**
-- Raspberry Pi 4 (4GB+ empfohlen)
-- SD-Karte (32GB+ Class 10)
-- Ethernet-Verbindung (stabiler als WLAN)
+**Projektpfad auf dem Pi:** `/home/dev/Code/MakerPi_GroundControl`
 
-**Setup:**
+---
 
-```bash
-# 1. System aktualisieren
-sudo apt update && sudo apt upgrade -y
+## Deploy-Workflow
 
-# 2. Setup-Skript ausführen
-curl -fsSL https://raw.githubusercontent.com/.../setup.sh | bash
-
-# 3. Konfiguration anpassen
-sudo nano /opt/makerpi/config/config.json
-
-# 4. Service neustarten
-sudo systemctl restart makerpi-groundcontrol
-```
-
-### 2. Docker (fortgeschritten)
-
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+Das Deploy-Script (`scripts/deploy.sh`) ist **git-basiert**: Änderungen werden lokal committed, gepusht, und der Pi führt einen `git reset --hard` auf `origin/main` aus – keine rsync-Konflikte mehr.
 
 ```bash
-docker build -t makerpi .
-docker run -p 8000:8000 -v $(pwd)/config:/app/config makerpi
+# Normaler Deploy (committed + pushed + Pi aktualisiert + Service neugestartet)
+./scripts/deploy.sh
+
+# Mit DB-Migration (neue Spalten hinzufügen)
+./scripts/deploy.sh --migrate
+
+# Mit Dependency-Update (nach requirements.txt Änderungen)
+./scripts/deploy.sh --update-deps
 ```
 
-### 3. Lokale Entwicklung
+### Was das Script tut
 
-Siehe [Schnellstart](./01-quickstart).
+1. Prüft auf uncommitted Changes → fragt nach Commit-Message → `git commit` + `git push`
+2. Stellt Verbindung her (Tailscale bevorzugt, Fallback auf lokale IP)
+3. Auf Pi: `git fetch && git reset --hard origin/main`
+4. Optional: Migrations-Script, pip install
+5. `sudo systemctl restart groundcontrol`
 
-## Lokale DNS (für Pi)
+### Auto-Deploy
 
-Eintrag in der lokalen `/etc/hosts` oder Router-DNS:
-
-```
-192.168.1.100    makerpi.local
-```
-
-Oder Avahi/mDNS verwenden (automatisch auf Raspberry Pi OS):
+Ein systemd-Timer läuft alle **5 Minuten** und führt `scripts/auto-deploy.sh` aus – sobald ein neuer Commit auf `origin/main` erscheint, wird automatisch deployt und der Service neugestartet.
 
 ```bash
-# Auf dem Pi
-sudo apt install avahi-daemon
-# Erreichbar unter: http://makerpi.local
+# Timer-Status prüfen
+sudo systemctl status groundcontrol-autodeploy.timer
+
+# Letzten Auto-Deploy Log sehen
+sudo journalctl -u groundcontrol-autodeploy -n 30
 ```
 
-## Reverse Proxy (nginx)
+---
 
-Für externen Zugriff mit SSL:
-
-```nginx
-server {
-    listen 80;
-    server_name makerpi.example.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name makerpi.example.com;
-
-    ssl_certificate /etc/letsencrypt/live/makerpi.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/makerpi.example.com/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-## Backup
-
-### Wichtige Dateien
-
-```
-config/config.json          # Konfiguration
-backend/*.db                # SQLite-Datenbanken
-```
-
-### Automatisches Backup
+## Dienste verwalten
 
 ```bash
-#!/bin/bash
-# /opt/makerpi/scripts/backup.sh
+# Status aller Dienste
+sudo systemctl status groundcontrol groundcontrol-docs sqlite-web
 
-BACKUP_DIR="/backup/makerpi"
-DATE=$(date +%Y%m%d_%H%M%S)
+# Logs in Echtzeit
+sudo journalctl -u groundcontrol -f
 
-mkdir -p $BACKUP_DIR
+# Neustart
+sudo systemctl restart groundcontrol
 
-# Datenbanken sichern
-cp /opt/makerpi/backend/*.db $BACKUP_DIR/db_$DATE.sqlite
-
-# Konfiguration sichern
-cp /opt/makerpi/config/config.json $BACKUP_DIR/config_$DATE.json
-
-# Alte Backups löschen (älter als 30 Tage)
-find $BACKUP_DIR -name "*.sqlite" -mtime +30 -delete
-find $BACKUP_DIR -name "*.json" -mtime +30 -delete
-```
-
-**Cron-Job:**
-
-```bash
-# Täglich um 3 Uhr
-0 3 * * * /opt/makerpi/scripts/backup.sh
-```
-
-## Monitoring
-
-### Systemd Service Status
-
-```bash
-sudo systemctl status makerpi-groundcontrol
-sudo journalctl -u makerpi-groundcontrol -f
+# Docs-Service
+sudo systemctl restart groundcontrol-docs
 ```
 
 ### Health-Check
 
 ```bash
 curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
-### Logs
+---
+
+## Konfiguration
+
+Alle Einstellungen in `config/config.json` (gitignored, nur auf dem Pi):
+
+```json
+{
+  "pi_host": "192.168.3.228",
+  "tailscale_ip": "100.78.55.14",
+  "pi_user": "dev",
+  "project_dir": "/home/dev/Code/MakerPi_GroundControl",
+  "sumup_api_key": "sup_sk_...",
+  "sumup_affiliate_key": "...",
+  "sumup_merchant_code": "...",
+  "sumup_reader_id": ""
+}
+```
+
+---
+
+## Backup
+
+### Wichtige Dateien
+
+```
+config/config.json      # Konfiguration (nicht in git!)
+laufzettel.db           # Laufzettel + Material
+members.db              # Mitglieder + RFID-Tags
+catalog.db              # Materialkatalog
+auth.db                 # Benutzerkonten
+core.db                 # MQTT-Nachrichten, Gerätestatus
+```
+
+### Manuelles Backup
 
 ```bash
-# In Echtzeit beobachten
-tail -f /var/log/makerpi/app.log
-
-# Letzte 100 Zeilen
-tail -n 100 /var/log/makerpi/app.log
+# Auf dem Pi
+cd /home/dev/Code/MakerPi_GroundControl
+DATE=$(date +%Y%m%d_%H%M%S)
+mkdir -p ~/backups
+cp *.db ~/backups/db_$DATE/
+cp config/config.json ~/backups/db_$DATE/
 ```
 
-## Updates
-
-### Manuelles Update
-
-```bash
-# 1. Backup erstellen
-./scripts/backup.sh
-
-# 2. Code aktualisieren
-cd /opt/makerpi
-git pull origin main
-
-# 3. Abhängigkeiten aktualisieren
-pip install -r requirements.txt
-
-# 4. Datenbank-Migrationen prüfen
-# (automatisch bei Start)
-
-# 5. Service neustarten
-sudo systemctl restart makerpi-groundcontrol
-```
-
-### Automatische Updates (optional)
-
-```bash
-# Weekly-Update via Cron
-0 4 * * 1 cd /opt/makerpi && git pull && pip install -r requirements.txt && sudo systemctl restart makerpi-groundcontrol
-```
+---
 
 ## Troubleshooting
 
 ### Service startet nicht
 
 ```bash
-# Logs prüfen
-sudo journalctl -u makerpi-groundcontrol -n 50
-
+sudo journalctl -u groundcontrol -n 50 --no-pager
 # Konfiguration validieren
-python -c "import json; json.load(open('config/config.json'))"
-
-# Berechtigungen prüfen
-ls -la /opt/makerpi/
+python3 -c "import json; json.load(open('config/config.json'))"
 ```
 
 ### Datenbank-Fehler
 
 ```bash
-# SQLite-Integrität prüfen
-sqlite3 backend/groundcontrol.db "PRAGMA integrity_check;"
+sqlite3 laufzettel.db "PRAGMA integrity_check;"
 
-# Bei Problemen: Backup einspielen
-systemctl stop makerpi-groundcontrol
-cp /backup/makerpi/db_20250101_120000.sqlite backend/groundcontrol.db
-systemctl start makerpi-groundcontrol
+# Backup einspielen
+sudo systemctl stop groundcontrol
+cp ~/backups/db_20260101_120000/laufzettel.db .
+sudo systemctl start groundcontrol
 ```
 
 ### MQTT-Verbindungsprobleme
 
 ```bash
-# Mosquitto-Status prüfen
 sudo systemctl status mosquitto
-
-# Test-Message senden
-mosquitto_pub -t "test/topic" -m "hello"
-
-# Topics überwachen
-mosquitto_sub -t "#" -v
+mosquitto_sub -t "#" -v   # Topics live überwachen
 ```
+
+### Auto-Deploy schlägt fehl
+
+```bash
+sudo systemctl reset-failed groundcontrol-autodeploy.service
+sudo journalctl -u groundcontrol-autodeploy -n 20
+```
+
+---
 
 ## Sicherheit
 
-### Standard-Sicherheitsmaßnahmen
-
 1. **Admin-Passwort ändern** nach erster Anmeldung
-2. **Firewall:** Nur Port 8000 (oder 443 mit nginx) öffnen
-3. **Keine Produktionsdaten** in Git committen
-4. **Regelmäßige Backups**
-
-### Netzwerk-Isolierung
+2. **config/config.json** nie committen (in `.gitignore`)
+3. **Firewall:** Ports 8000/8001 nur im lokalen Netz oder via Tailscale
 
 ```bash
-# Firewall-Regeln (ufw)
-sudo ufw allow 8000/tcp  # App
-sudo ufw allow 1883/tcp  # MQTT (nur wenn extern benötigt)
+sudo ufw allow 8000/tcp
+sudo ufw allow 8001/tcp
+sudo ufw allow 1883/tcp  # MQTT, nur intern
 sudo ufw enable
 ```
 
-## Leistungsoptimierung
-
-### Raspberry Pi
-
-```bash
-# Boot-Performance
-sudo raspi-config  # → Performance → GPU-Speicher minimieren
-
-# SD-Karten-IO optimieren
-sudo nano /etc/sysctl.conf
-# vm.swappiness=10
-# vm.vfs_cache_pressure=50
-```
-
-### Datenbank
-
-- SQLite ist für < 100k Einträge ausreichend
-- Bei größeren Datenmengen: PostgreSQL in Erwägung ziehen
-- Regelmäßiges `VACUUM` für Fragmentierung
+---
 
 ## Wartungs-Checkliste
 
 ### Wöchentlich
 
-- [ ] Logs auf Fehler prüfen
-- [ ] Backup-Integrität testen
-- [ ] Festplattenspeicher prüfen (`df -h`)
+- [ ] `sudo journalctl -u groundcontrol --since "7 days ago" | grep ERROR`
+- [ ] Festplattenspeicher: `df -h`
+- [ ] Datenbankgröße: `ls -lh *.db`
 
 ### Monatlich
 
-- [ ] System-Updates einspielen (`sudo apt update`)
-- [ ] Datenbank-Dateigröße prüfen
-- [ ] Inaktive Tags bereinigen
+- [ ] System-Updates: `sudo apt update && sudo apt upgrade`
+- [ ] Datenbank-Vacuum: `sqlite3 laufzettel.db "VACUUM;"`
 
 ### Jährlich
 
 - [ ] Passwörter rotieren
 - [ ] SD-Karte ersetzen (Verschleiß)
-- [ ] Hardware-Reinigung

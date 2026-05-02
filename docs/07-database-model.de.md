@@ -60,6 +60,8 @@ erDiagram
         string nodes
         string payment_method
         datetime paid_at
+        string payment_transaction_id
+        string payment_notes
         datetime created_at
     }
     LaufzettelMaterial {
@@ -220,6 +222,8 @@ Ein Datensatz pro Karteninhaber pro Tag. Verknüpft mit Mitglied via `mitglied_i
 | `nodes` | TEXT | JSON-Liste der Geräte-IDs |
 | `payment_method` | TEXT | `bar` / `karte` — null bis zur Zahlung |
 | `paid_at` | DATETIME | UTC-Zeitstempel der Zahlung — null bis zur Zahlung |
+| `payment_transaction_id` | TEXT | SumUp `transaction_code` (z.B. `TAAA2VBGK7C`) oder Checkout-ID |
+| `payment_notes` | TEXT | Freitext-Notiz (Barzahlung, optional) |
 | `created_at` | DATETIME | Auto (UTC) |
 | — | UNIQUE | `(uid, date)` |
 
@@ -293,6 +297,17 @@ flowchart LR
 
 ## Migrations-Ansatz
 
-Jedes Modul nutzt SQLAlchemy `create_all()` beim Start, um seine eigenen Tabellen zu erstellen. Es gibt keine automatische Migration für Schema-Änderungen — jedes Modul verwaltet seine Datenbank unabhängig.
+Jedes Modul nutzt SQLAlchemy `create_all()` beim Start, um seine eigenen Tabellen zu erstellen. Für Schema-Änderungen (neue Spalten) gibt es Migrations-Skripte unter `scripts/`:
+
+```bash
+# Neue Zahlungsfelder (payment_transaction_id, payment_notes) zu laufzettel hinzufügen
+.venv/bin/python scripts/migrate_payment_fields.py
+```
+
+Beim Deploy mit `--migrate` Flag wird das Skript automatisch ausgeführt:
+
+```bash
+./scripts/deploy.sh --migrate
+```
 
 Wenn Schema-Änderungen häufiger werden, ist **Alembic** pro Modul die empfohlene nächste Stufe. Siehe [Extension Guide](./12-extension-guide).

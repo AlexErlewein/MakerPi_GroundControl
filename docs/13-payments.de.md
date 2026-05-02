@@ -8,11 +8,11 @@ Sobald ein Laufzettel Materialeinträge mit einem Gesamtbetrag > 0 hat, erschein
 
 | Methode | Integration | Ablauf |
 |---------|-------------|--------|
-| **Bar** | Nativ | Admin bestätigt Bareingang manuell |
+| **Bar** | Nativ | Admin bestätigt Bareingang manuell, optionale Notiz möglich |
 | **Karte (Solo)** | SumUp Cloud API | Betrag wird direkt ans gepaarte Solo-Terminal gesendet |
-| **Karte (Payment Switch)** | SumUp URL-Scheme | App-Link öffnet SumUp-App mit vorausgefülltem Betrag |
+| **Karte (Payment Switch)** | SumUp URL-Scheme | QR-Code + App-Link, automatische Bestätigung per Polling |
 
-Nach jeder Zahlung wird der Laufzettel gesperrt: keine Bearbeitung mehr möglich.
+Nach jeder Zahlung wird der Laufzettel gesperrt: keine Bearbeitung mehr möglich. Die gespeicherten Zahlungsdetails (Methode, Zeitstempel, Transaktions-ID, Notiz) sind im Banner und im PDF-Export sichtbar.
 
 ---
 
@@ -47,6 +47,7 @@ Alle Werte können auch als Umgebungsvariablen gesetzt werden: `SUMUP_API_KEY`, 
 ## Barzahlung
 
 - Admin klickt „Bar bezahlen", bestätigt den angezeigten Betrag
+- Optionales **Notizfeld** (z.B. Kassenbon-Nummer) wird in `payment_notes` gespeichert
 - Sofortige Verbuchung, kein externer Service nötig
 
 ---
@@ -77,9 +78,11 @@ sequenceDiagram
     end
 
     Note over Terminal: Kunde tippt Karte
-    API->>DB: payment_method="karte"
+    API->>DB: payment_method="karte", payment_transaction_id=transaction_code
     UI->>UI: Laufzettel gesperrt
 ```
+
+> **SumUp-Beschreibung:** Der an SumUp gesendete Titel lautet `"Laufzettel #ID – Membername"` für einfachere Suche im SumUp-Dashboard.
 
 ---
 
@@ -95,21 +98,30 @@ sequenceDiagram
     participant UI
     participant API
     participant SumUpApp
+    participant SumUpCloud
 
     Admin->>UI: "Mit Karte zahlen" klicken
     UI->>API: POST /pay/karte
-    API-->>UI: payment_url (sumupmerchant://...)
-    UI->>UI: "SumUp App öffnen"-Button anzeigen
-    Admin->>SumUpApp: App-Link tippen
-    SumUpApp->>SumUpApp: Betrag vorausgefüllt, Zahlung durchführen
-    Note over Admin: Zahlung am Terminal abschließen
-    Admin->>UI: "Zahlung bestätigen" klicken
-    UI->>API: POST /pay/karte/confirm-mock
-    API->>DB: payment_method="karte"
-    UI->>UI: Laufzettel gesperrt
+    API-->>UI: payment_url (sumupmerchant://...) + QR-Code-Daten
+    UI->>UI: QR-Code + "SumUp App öffnen"-Button anzeigen
+    Admin->>SumUpApp: App-Link tippen oder QR scannen
+    SumUpApp->>SumUpApp: Betrag + Titel vorausgefüllt, Zahlung durchführen
+
+    loop Polling (alle 5s, max 5 min)
+        UI->>API: GET /pay/karte/status
+        API->>SumUpCloud: GET /v0.1/me/transactions/history
+        SumUpCloud-->>API: Letzte Transaktionen
+        Note over API: Suche nach product_summary = "Laufzettel #ID"
+        API-->>UI: PENDING / SUCCESSFUL
+    end
+
+    API->>DB: payment_method="karte", payment_transaction_id=transaction_code
+    UI->>UI: Laufzettel automatisch gesperrt
 ```
 
-> **Hinweis:** Die manuelle Bestätigung ist nötig, da SumUp keinen Callback-Mechanismus für die Handy-App bietet.
+> **Automatische Erkennung:** Nach Abschluss der Zahlung in der SumUp-App pollt das Backend die SumUp-Transaktionshistorie und erkennt die Zahlung anhand des `product_summary`-Felds (`"Laufzettel #ID – Membername"`). Die SumUp `transaction_code` (z.B. `TAAA2VBGK7C`) wird als `payment_transaction_id` gespeichert.
+>
+> **Kein manueller Bestätigungs-Button:** Die Erkennung erfolgt vollautomatisch.
 
 ---
 
@@ -131,10 +143,11 @@ Für Tests ohne echtes Terminal:
 | Methode | Endpunkt | Beschreibung |
 |---|---|---|
 | `GET` | `/api/payment/config` | Konfigurationsstatus inkl. `payment_mode` |
-| `POST` | `/api/laufzettel/{id}/pay/bar` | Barzahlung erfassen |
+| `POST` | `/api/laufzettel/{id}/pay/bar` | Barzahlung erfassen (Body: `{"notes": "..."}`) |
 | `POST` | `/api/laufzettel/{id}/pay/karte` | Kartenzahlung initiieren |
-| `GET` | `/api/laufzettel/{id}/pay/karte/status` | Zahlungsstatus prüfen (Solo-Modus) |
-| `POST` | `/api/laufzettel/{id}/pay/karte/confirm-mock` | Zahlung manuell bestätigen (Mock / Payment Switch) |
+| `GET` | `/api/laufzettel/{id}/pay/karte/status` | Zahlungsstatus pollen (Solo + Payment Switch) |
+| `POST` | `/api/laufzettel/{id}/pay/checkout` | Hosted Checkout (Apple/Google Pay) erstellen |
+| `GET` | `/api/laufzettel/{id}/pay/checkout/{checkout_id}/status` | Checkout-Status pollen |
 | `DELETE` | `/api/laufzettel/{id}/pay/karte` | Laufende Kartenzahlung abbrechen |
 | `DELETE` | `/api/laufzettel/{id}/pay` | Zahlungsstatus zurücksetzen (Admin) |
 
@@ -144,11 +157,27 @@ Für Tests ohne echtes Terminal:
 {
   "sumup_configured": true,
   "sumup_mock": false,
-  "payment_mode": "payment_switch"
+  "payment_mode": "payment_switch",
+  "checkout_link_available": true
 }
 ```
 
 Mögliche Werte für `payment_mode`: `"solo"`, `"payment_switch"`, `"mock"`, `null`.
+
+---
+
+## Gespeicherte Zahlungsdetails
+
+Nach jeder Zahlung werden folgende Felder am Laufzettel gespeichert:
+
+| Feld | Inhalt |
+|------|--------|
+| `payment_method` | `"bar"` oder `"karte"` |
+| `paid_at` | UTC-Zeitstempel der Zahlung |
+| `payment_transaction_id` | SumUp `transaction_code` (z.B. `TAAA2VBGK7C`) oder Checkout-ID |
+| `payment_notes` | Freitext-Notiz (nur Barzahlung) |
+
+Diese Felder erscheinen im **Bezahlt-Banner** auf der Detailseite und im **PDF-Export**.
 
 ---
 
@@ -157,6 +186,6 @@ Mögliche Werte für `payment_mode`: `"solo"`, `"payment_switch"`, `"mock"`, `nu
 - API-Keys nie im Frontend exponieren
 - Keys in `config/config.json` (gitignored) oder als Umgebungsvariablen
 
-## Tagesabschluss
+## Tagesabschluss / Abstimmung
 
-SumUp-Transaktionen erscheinen im SumUp-Dashboard und in der SumUp-App. GroundControl speichert nur den Status (bezahlt/nicht bezahlt), keine Transaktionsdetails. Für detaillierte Auswertungen den SumUp-Export verwenden.
+SumUp-Transaktionen erscheinen im SumUp-Dashboard und in der SumUp-App. GroundControl speichert den SumUp `transaction_code` (z.B. `TAAA2VBGK7C`) in `payment_transaction_id` – damit lässt sich jede Zahlung direkt im SumUp-Dashboard nachschlagen und einem Laufzettel zuordnen.
