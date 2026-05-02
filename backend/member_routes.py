@@ -398,8 +398,12 @@ async def login_via_rfid(
 
     if not user:
         role = "admin" if is_admin_card else "member"
+        # Use member's real name as username; fall back to member_ID if already taken
+        desired_username = mitglied.name.strip() if mitglied.name else f"member_{mitglied.id}"
+        existing = auth_db.query(User).filter(User.username == desired_username).first()
+        username = desired_username if not existing else f"member_{mitglied.id}"
         user = User(
-            username=f"member_{mitglied.id}",
+            username=username,
             hashed_password="",
             role=role,
             mitglied_id=mitglied.id,
