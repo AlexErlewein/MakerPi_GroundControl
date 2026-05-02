@@ -31,6 +31,8 @@ class Laufzettel(Base):
     nodes = Column(Text, default="[]")  # JSON array of device_ids
     payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte'
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    payment_transaction_id = Column(String, nullable=True)  # SumUp transaction ID
+    payment_notes = Column(String, nullable=True)  # free-text note (e.g. for cash payments)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
     __table_args__ = (UniqueConstraint("uid", "date", name="uq_laufzettel_uid_date"),)
@@ -49,6 +51,8 @@ class Laufzettel(Base):
             "nodes": json.loads(self.nodes) if self.nodes else [],
             "payment_method": self.payment_method,
             "paid_at": paid_ts.isoformat() if paid_ts else None,
+            "payment_transaction_id": self.payment_transaction_id,
+            "payment_notes": self.payment_notes,
             "created_at": _naive_to_utc(self.created_at).isoformat() if self.created_at else None,
         }
 

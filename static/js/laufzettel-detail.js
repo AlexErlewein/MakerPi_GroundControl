@@ -342,6 +342,26 @@ function downloadPDF() {
             <tbody>${materialRows || `<tr><td colspan="6" style="padding:8px 10px;color:#9ca3af;">Keine Materialeinträge.</td></tr>`}</tbody>
         </table>
         ${taxSummarySection}
+        ${d.payment_method ? `
+        <div style="margin-top:18px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;">
+            <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:4px;">✓ Zahlung</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                <tr>
+                    <td style="color:#6b7280;padding:2px 0;width:130px;">Methode</td>
+                    <td style="font-weight:600;">${d.payment_method === "bar" ? "Bar" : "Karte / SumUp"}</td>
+                    <td style="color:#6b7280;padding:2px 0;width:130px;">Datum</td>
+                    <td>${d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "-"}</td>
+                </tr>
+                ${d.payment_transaction_id ? `<tr>
+                    <td style="color:#6b7280;padding:2px 0;">Transaktions-ID</td>
+                    <td colspan="3" style="font-family:monospace;font-size:10px;">${d.payment_transaction_id}</td>
+                </tr>` : ""}
+                ${d.payment_notes ? `<tr>
+                    <td style="color:#6b7280;padding:2px 0;">Notiz</td>
+                    <td colspan="3" style="font-style:italic;">${d.payment_notes}</td>
+                </tr>` : ""}
+            </table>
+        </div>` : ""}
     </div>`;
 
     const el = document.createElement("div");
@@ -817,6 +837,20 @@ function renderPaymentSection(total, hasAnyPrice) {
         const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
         document.getElementById("payment-locked-text").textContent =
             `${label}${paidDate ? " – " + paidDate : ""}`;
+        const txnEl = document.getElementById("payment-locked-txn");
+        if (d.payment_transaction_id) {
+            txnEl.textContent = `TXN: ${d.payment_transaction_id}`;
+            txnEl.style.display = "";
+        } else {
+            txnEl.style.display = "none";
+        }
+        const notesEl = document.getElementById("payment-locked-notes");
+        if (d.payment_notes) {
+            notesEl.textContent = d.payment_notes;
+            notesEl.style.display = "";
+        } else {
+            notesEl.style.display = "none";
+        }
         // Lock material table actions
         document.querySelectorAll("#material-body .btn-danger, #material-body .btn-secondary").forEach(
             (btn) => { btn.disabled = true; btn.style.opacity = "0.4"; btn.style.cursor = "not-allowed"; }
@@ -831,6 +865,7 @@ function renderPaymentSection(total, hasAnyPrice) {
 function openBarModal() {
     const total = getTotal();
     document.getElementById("bar-total-display").textContent = fmtEur(total);
+    document.getElementById("bar-notes-input").value = "";
     document.getElementById("bar-modal").classList.remove("hidden");
 }
 function closeBarModal() {
@@ -840,7 +875,12 @@ async function confirmBarPayment() {
     const btn = document.getElementById("bar-confirm-btn");
     btn.disabled = true;
     btn.textContent = "…";
-    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/bar`, { method: "POST" });
+    const notes = (document.getElementById("bar-notes-input").value || "").trim();
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/bar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes }),
+    });
     btn.disabled = false;
     btn.textContent = "Bezahlt ✓";
     if (res.ok) {
@@ -977,9 +1017,9 @@ async function doKartePayment() {
             <a href="${initData.payment_url}" class="btn btn-payment btn-payment-karte" style="text-align:center;text-decoration:none;width:100%;" target="_blank">
                 📲 SumUp App öffnen (gleiches Gerät)
             </a>
-            <button type="button" class="btn btn-success" id="karte-switch-confirm-btn" style="width:100%;">
-                ✓ Zahlung bestätigen
-            </button>`;
+            <p style="font-size:0.82rem;color:var(--text-secondary);text-align:center;margin:0;">
+                ⏳ Warte auf Zahlungsbestätigung von SumUp…
+            </p>`;
 
         // Generate QR code
         if (typeof QRCode !== "undefined") {
@@ -992,19 +1032,6 @@ async function doKartePayment() {
                 correctLevel: QRCode.CorrectLevel.M,
             });
         }
-
-        document.getElementById("karte-switch-confirm-btn").addEventListener("click", async () => {
-            const confirmRes = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/karte/confirm-mock`, { method: "POST" });
-            if (confirmRes.ok) {
-                currentData = await confirmRes.json();
-                renderInfo();
-                renderMaterial();
-                switchDiv.remove();
-                statusText.textContent = "✓ Zahlung als bezahlt markiert.";
-                statusText.style.color = "var(--success)";
-            }
-            actions.style.display = "";
-        });
 
         actions.style.display = "";
 
@@ -1025,12 +1052,12 @@ async function doKartePayment() {
                         renderInfo();
                         renderMaterial();
                     }
-                    const confirmBtn = document.getElementById("karte-switch-confirm-btn");
-                    if (confirmBtn) confirmBtn.style.display = "none";
+                    if (switchDiv) switchDiv.remove();
                     statusText.textContent = "✓ Zahlung erfolgreich bestätigt!";
                     statusText.style.color = "var(--success)";
                 } else if (pollData.status === "TIMEOUT" || pollData.status === "NOT_FOUND") {
-                    // Stop polling; manual confirm remains available
+                    statusText.textContent = "⚠️ Zahlung nicht bestätigt – bitte im SumUp-Dashboard prüfen.";
+                    statusText.style.color = "var(--warning, #f59e0b)";
                 } else {
                     setTimeout(pollSwitch, SWITCH_POLL_MS);
                 }

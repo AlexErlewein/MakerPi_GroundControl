@@ -306,7 +306,11 @@
     <div id="payment-section" class="section hidden">
         <div id="payment-locked-banner" class="payment-locked-banner hidden">
             <span id="payment-locked-icon">✓</span>
-            <span id="payment-locked-text"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <span id="payment-locked-text"></span>
+                <span id="payment-locked-txn" style="font-size:0.8rem;color:var(--text-secondary);font-family:monospace;"></span>
+                <span id="payment-locked-notes" style="font-size:0.82rem;color:var(--text-secondary);font-style:italic;"></span>
+            </div>
             <button id="reset-payment-btn" class="btn btn-sm btn-danger" onclick="openResetPaymentModal()" style="margin-left:auto;">Zahlung zurücksetzen</button>
         </div>
         <div id="payment-buttons" class="payment-buttons">
@@ -352,6 +356,10 @@
             <div class="bar-payment-body">
                 <div class="bar-total-label">Zu zahlender Betrag</div>
                 <div class="bar-total-amount" id="bar-total-display">0,00 €</div>
+                <div style="margin-top:1rem;">
+                    <label for="bar-notes-input" style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:4px;">Notiz (optional)</label>
+                    <input type="text" id="bar-notes-input" placeholder="z.B. Kassenbon Nr. 42" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text);font-size:0.9rem;box-sizing:border-box;">
+                </div>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="bar-cancel-btn">Abbrechen</button>
@@ -400,11 +408,7 @@
         const LAUFZETTEL_ID = {{ laufzettel_id }};
     </script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<<<<<<< HEAD
-    <script src="/static/js/laufzettel-detail.js?v=12"></script>
-=======
-    <script src="/static/js/laufzettel-detail.js?v=14"></script>
->>>>>>> 771042278cd7f95d44961cb4d9ae80aa4309d704
+    <script src="/static/js/laufzettel-detail.js?v=15"></script>
     <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
