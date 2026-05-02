@@ -23,10 +23,16 @@
             </div>
             <div class="header-right">
                 <span class="user-info">Angemeldet als: {{ user.username }}</span>
+                <div id="admin-bar" style="display: none;">
+                    <button id="admin-unlock-btn" class="btn btn-admin">🔓 Admin-Bereich</button>
+                </div>
+                <div id="admin-verified" style="display: none;">
+                    <button onclick="exitAdminMode()" class="btn btn-secondary">🔒 Admin-Modus beenden</button>
+                </div>
             </div>
         </header>
 
-        <main>
+        <main class="lz-detail-main">
             <!-- Info Card -->
             <section class="lz-info-card section">
                 <div class="section-header">
@@ -250,22 +256,17 @@
     </div>
     {% endif %}
 
-    {% if not read_only %}
     <script>
-        const LAUFZETTEL_ID = {{ laufzettel.id }};
-        const KATALOG_DATA = {{ katalog | tojson | safe }};
         const MATERIALS_DATA = {{ materials | tojson | safe }};
-        let katalog = KATALOG_DATA || [];
         let materials = MATERIALS_DATA || [];
-        let currentMatMode = 'freitext';
-        let selectedVariante = null;
-        let selectedKategorie = null;
+        let katalog = [];
 
-        async function loadKatalog() {
-            const res = await fetch('/api/katalog');
-            katalog = await res.json();
-            populateLocationSelect();
-            renderMaterials();
+        function esc(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
         }
 
         function getLocationForVariante(varianteId) {
@@ -340,6 +341,63 @@
             }
             tbody.innerHTML = rows.join('');
         }
+
+        async function loadKatalog() {
+            const res = await fetch('/api/katalog');
+            katalog = await res.json();
+            const sel = document.getElementById('kat-select-location');
+            if (sel) populateLocationSelect();
+            renderMaterials();
+        }
+
+        // Initial render (katalog empty → groups show as Freitext until loaded)
+        renderMaterials();
+        loadKatalog();
+
+        async function checkSession() {
+            try {
+                const res = await fetch('/api/auth/session');
+                const session = await res.json();
+                const adminBar = document.getElementById('admin-bar');
+                const adminVerified = document.getElementById('admin-verified');
+                if (session.is_admin_capable && !session.admin_verified) {
+                    adminBar.style.display = 'block'; adminVerified.style.display = 'none';
+                } else if (session.admin_verified) {
+                    adminBar.style.display = 'none'; adminVerified.style.display = 'block';
+                }
+            } catch (err) { console.error('Failed to check session:', err); }
+        }
+
+        const _adminUnlockBtn = document.getElementById('admin-unlock-btn');
+        if (_adminUnlockBtn) {
+            _adminUnlockBtn.addEventListener('click', async () => {
+                const password = prompt('Admin-Passwort eingeben:');
+                if (!password) return;
+                const formData = new FormData(); formData.append('password', password);
+                try {
+                    const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
+                    if (res.ok) window.location.href = '/dashboard';
+                    else alert('Falsches Passwort oder keine Admin-Berechtigung');
+                } catch (err) { alert('Fehler beim Verifizieren'); }
+            });
+        }
+
+        async function exitAdminMode() {
+            await fetch('/api/auth/logout-admin', { method: 'POST' });
+            window.location.reload();
+        }
+
+        checkSession();
+    </script>
+
+    {% if not read_only %}
+    <script>
+        const LAUFZETTEL_ID = {{ laufzettel.id }};
+        const KATALOG_DATA = {{ katalog | tojson | safe }};
+        if (KATALOG_DATA && KATALOG_DATA.length) katalog = KATALOG_DATA;
+        let currentMatMode = 'freitext';
+        let selectedVariante = null;
+        let selectedKategorie = null;
 
         function populateLocationSelect() {
             const sel = document.getElementById('kat-select-location');
@@ -653,19 +711,10 @@
         document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
         document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
         document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
-
-        function esc(str) {
-            return String(str || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
-
-        // Initial render with server-provided data
-        renderMaterials();
-        // Then load fresh katalog and re-render
-        loadKatalog();
+    </script>
+    {% else %}
+    <script>
+        // Read-only: katalog already loaded by shared block above, render is done
     </script>
     {% endif %}
     <script src="/static/js/theme.js"></script>

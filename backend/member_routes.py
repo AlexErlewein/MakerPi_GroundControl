@@ -14,6 +14,8 @@ from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 from backend.laufzettel.routes import MaterialCreate
 from backend.members.db import get_db as get_members_db
 from backend.members.models import Mitglied, RFIDTag
+from backend.catalog.db import get_db as get_catalog_db
+from backend.catalog.models import Location, MaterialKategorie, MaterialVariante
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -185,6 +187,7 @@ async def member_laufzettel_detail(
     laufzettel_id: int,
     db: Session = Depends(get_laufzettel_db),
     auth_db: Session = Depends(get_auth_db),
+    catalog_db: Session = Depends(get_catalog_db),
 ):
     """Show member's laufzettel detail - read only (history view)"""
     username = request.session.get("user")
@@ -213,6 +216,24 @@ async def member_laufzettel_detail(
     total = sum(m.calculated_price or 0 for m in materials)
     materials_dicts = [m.to_dict() for m in materials]
 
+    # Load catalog tree for location grouping in frontend
+    locations = catalog_db.query(Location).order_by(Location.name).all()
+    katalog_data = []
+    for loc in locations:
+        loc_dict = loc.to_dict()
+        kategorien = catalog_db.query(MaterialKategorie).filter(
+            MaterialKategorie.location_id == loc.id
+        ).order_by(MaterialKategorie.name).all()
+        loc_dict["kategorien"] = []
+        for kat in kategorien:
+            kat_dict = kat.to_dict()
+            varianten = catalog_db.query(MaterialVariante).filter(
+                MaterialVariante.kategorie_id == kat.id
+            ).order_by(MaterialVariante.name).all()
+            kat_dict["varianten"] = [v.to_dict() for v in varianten]
+            loc_dict["kategorien"].append(kat_dict)
+        katalog_data.append(loc_dict)
+
     return templates.TemplateResponse(
         "member-laufzettel-detail.html",
         {
@@ -223,7 +244,7 @@ async def member_laufzettel_detail(
             "user": user,
             "read_only": laufzettel.payment_method is not None,
             "back_url": "/member/laufzettel/historie",
-            "katalog": [],
+            "katalog": katalog_data,
         },
     )
 
