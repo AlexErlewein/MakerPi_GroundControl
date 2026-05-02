@@ -317,7 +317,7 @@
             selectedVariante = null;
             if (!selectedKategorie || !selectedKategorie.varianten) return;
             selectedVariante = selectedKategorie.varianten.find(v => v.id === varId);
-            if (selectedVariante) showKatInputFields(selectedVariante.pricing_model, selectedKategorie.unit);
+            if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
         }
 
         function showKatInputFields(pm, unit) {
@@ -343,7 +343,7 @@
 
         function recalcPrice() {
             if (!selectedVariante) return;
-            const pm = selectedVariante.pricing_model;
+            const pm = selectedKategorie.pricing_model;
             let total = 0, preview = '';
             if (pm === 'per_gram') {
                 const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
@@ -429,7 +429,7 @@
                 body.variante_id = selectedVariante.id;
                 body.name = selectedVariante.name;
                 body.unit = selectedKategorie.unit || 'Stk';
-                const pm = selectedVariante.pricing_model;
+                const pm = selectedKategorie.pricing_model;
                 if (pm === 'per_gram') {
                     const l = parseFloat(document.getElementById('kat-laenge').value);
                     const b = parseFloat(document.getElementById('kat-breite').value);

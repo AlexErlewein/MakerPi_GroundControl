@@ -398,7 +398,7 @@
             hidePricePreview();
             if (!varId || !selectedKategorie) { selectedVariante = null; return; }
             selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
-            if (selectedVariante) showKatInputFields(selectedVariante.pricing_model, selectedKategorie.unit);
+            if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
             recalcPrice();
         }
 
