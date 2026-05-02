@@ -520,77 +520,82 @@
 
         document.getElementById('material-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            let body = {};
+            try {
+                let body = {};
 
-            if (currentMatMode === 'freitext') {
-                const totalPrice = parseFloat(document.getElementById('field-mat-total-price').value);
-                body = {
-                    name: document.getElementById('field-mat-name').value.trim(),
-                    menge: parseFloat(document.getElementById('field-mat-menge').value) || null,
-                    unit: document.getElementById('field-mat-unit').value.trim() || null,
-                    calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
-                    tax_rate: 19,
-                };
-            } else {
-                if (!selectedVariante || !selectedKategorie) {
-                    alert('Bitte Standort, Kategorie und Variante auswählen.');
-                    return;
-                }
-                const pm = selectedKategorie.pricing_model;
-                body.variante_id = selectedVariante.id;
-                body.unit = selectedKategorie.unit || null;
-                body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
-                body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
-
-                if (pm === 'per_gram') {
-                    const menge = parseFloat(document.getElementById('kat-menge-gram').value);
-                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                    body.menge = menge;
-                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                } else if (pm === 'per_volume_cm3') {
-                    const l = parseFloat(document.getElementById('kat-laenge').value);
-                    const b = parseFloat(document.getElementById('kat-breite').value);
-                    const h = parseFloat(document.getElementById('kat-hoehe').value);
-                    if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                    body.laenge_cm = l;
-                    body.breite_cm = b;
-                    body.hoehe_cm = h;
-                    body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
-                } else if (pm === 'per_volume_l') {
-                    const l = parseFloat(document.getElementById('kat-laenge').value);
-                    const b = parseFloat(document.getElementById('kat-breite').value);
-                    const h = parseFloat(document.getElementById('kat-hoehe').value);
-                    if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                    body.laenge_cm = l;
-                    body.breite_cm = b;
-                    body.hoehe_cm = h;
-                    body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
-                } else if (pm === 'per_minute') {
-                    const menge = parseFloat(document.getElementById('kat-menge-minute').value);
-                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
-                    body.menge = menge;
-                    body.unit = 'min';
-                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                if (currentMatMode === 'freitext') {
+                    const totalPrice = parseFloat(document.getElementById('field-mat-total-price').value);
+                    body = {
+                        name: document.getElementById('field-mat-name').value.trim(),
+                        menge: parseFloat(document.getElementById('field-mat-menge').value) || null,
+                        unit: document.getElementById('field-mat-unit').value.trim() || null,
+                        calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
+                        tax_rate: 19,
+                    };
                 } else {
-                    const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                    body.menge = menge;
-                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                    if (!selectedVariante || !selectedKategorie) {
+                        alert('Bitte Standort, Kategorie und Variante auswählen.');
+                        return;
+                    }
+                    const pm = selectedKategorie.pricing_model;
+                    body.variante_id = selectedVariante.id;
+                    body.unit = selectedKategorie.unit || null;
+                    body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
+                    body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
+
+                    if (pm === 'per_gram') {
+                        const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                        body.menge = menge;
+                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_volume_cm3') {
+                        const l = parseFloat(document.getElementById('kat-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-breite').value);
+                        const h = parseFloat(document.getElementById('kat-hoehe').value);
+                        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                        body.laenge_cm = l;
+                        body.breite_cm = b;
+                        body.hoehe_cm = h;
+                        body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_volume_l') {
+                        const l = parseFloat(document.getElementById('kat-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-breite').value);
+                        const h = parseFloat(document.getElementById('kat-hoehe').value);
+                        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                        body.laenge_cm = l;
+                        body.breite_cm = b;
+                        body.hoehe_cm = h;
+                        body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_minute') {
+                        const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
+                        body.menge = menge;
+                        body.unit = 'min';
+                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                    } else {
+                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                        body.menge = menge;
+                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                    }
                 }
-            }
 
-            const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
+                const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
 
-            if (res.ok) {
-                closeModal();
-                location.reload();
-            } else {
-                const err = await res.json();
-                alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'));
+                if (res.ok) {
+                    closeModal();
+                    location.reload();
+                } else {
+                    const err = await res.json();
+                    alert('Fehler: ' + (err.detail || JSON.stringify(err)));
+                }
+            } catch (err) {
+                alert('Interner Fehler: ' + err.message);
+                console.error(err);
             }
         });
 
