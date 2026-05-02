@@ -448,7 +448,7 @@ function openAddMaterial() {
     document.getElementById("field-mat-unit-price").value = "";
     document.getElementById("field-mat-total-price").value = "";
     document.getElementById("field-mat-tax-rate").value = "19";
-    setMatMode("freitext");
+    setMatMode("katalog");
     document.getElementById("material-modal").classList.remove("hidden");
     document.getElementById("field-mat-name").focus();
 }
