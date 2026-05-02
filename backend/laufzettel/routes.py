@@ -362,8 +362,12 @@ async def get_payment_config():
     }
 
 
+class BarPayRequest(BaseModel):
+    notes: str = ""
+
+
 @router.post("/api/laufzettel/{laufzettel_id}/pay/bar")
-async def pay_bar(laufzettel_id: int, db: Session = Depends(get_db)):
+async def pay_bar(laufzettel_id: int, body: BarPayRequest = BarPayRequest(), db: Session = Depends(get_db)):
     """Mark Laufzettel as paid with cash"""
     from datetime import datetime, timezone
     
@@ -374,6 +378,8 @@ async def pay_bar(laufzettel_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Already paid")
     lz.payment_method = "bar"
     lz.paid_at = datetime.now(timezone.utc)
+    if body.notes:
+        lz.payment_notes = body.notes.strip()
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
@@ -421,13 +427,16 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     if SUMUP_READER_ID and SUMUP_API_KEY and SUMUP_MERCHANT_CODE:
         # Solo Cloud API: initiate checkout on terminal
         import httpx
+        lz_desc = f"Laufzettel #{laufzettel_id}"
+        if lz.owner_name:
+            lz_desc += f" – {lz.owner_name}"
         payload = {
             "total_amount": {
                 "currency": "EUR",
                 "minor_unit": 2,
                 "value": int(round(total * 100)),
             },
-            "description": f"Laufzettel #{laufzettel_id}",
+            "description": lz_desc,
             "affiliate": {
                 "app_id": "MakerPi.GroundControl",
                 "foreign_transaction_id": txn_id,
@@ -462,12 +471,15 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     elif SUMUP_AFFILIATE_KEY:
         # Payment Switch: generate URL scheme for SumUp app handoff
         from urllib.parse import urlencode
+        lz_title = f"Laufzettel #{laufzettel_id}"
+        if lz.owner_name:
+            lz_title += f" – {lz.owner_name}"
         params = {
             "affiliate-key": SUMUP_AFFILIATE_KEY,
             "amount": amount_str,
             "currency": "EUR",
             "foreign-tx-id": txn_id,
-            "title": f"Laufzettel #{laufzettel_id}",
+            "title": lz_title,
         }
         payment_url = "sumupmerchant://pay/1.0?" + urlencode(params)
         _pending_payments[txn_id] = {
@@ -520,23 +532,30 @@ async def get_karte_status(
         del _pending_payments[client_transaction_id]
         return {"status": "TIMEOUT"}
 
-    # For payment_switch, actively poll SumUp to detect completion automatically
+    # For payment_switch, poll recent SumUp transactions and match by product_summary
+    # (SumUp does not expose foreign-tx-id from URL scheme as a filterable field)
     if pending["mode"] == "payment_switch" and SUMUP_API_KEY:
         import httpx
+        lz_summary_prefix = f"Laufzettel #{laufzettel_id}"
         try:
             async with httpx.AsyncClient() as client:
                 r = await client.get(
-                    "https://api.sumup.com/v1.0/me/transactions",
+                    "https://api.sumup.com/v0.1/me/transactions/history",
                     headers={"Authorization": f"Bearer {SUMUP_API_KEY}"},
-                    params={"foreign_transaction_id": pending["foreign_tx_id"], "limit": 1},
+                    params={"limit": 10, "order": "descending"},
                     timeout=10,
                 )
             if r.status_code == 200:
                 for item in r.json().get("items", []):
-                    if item.get("status") == "SUCCESSFUL":
+                    summary = item.get("product_summary", "")
+                    if (
+                        item.get("status") == "SUCCESSFUL"
+                        and summary.startswith(lz_summary_prefix)
+                    ):
                         if lz and not lz.payment_method:
                             lz.payment_method = "karte"
                             lz.paid_at = datetime.now(timezone.utc)
+                            lz.payment_transaction_id = item.get("transaction_code") or item.get("id")
                             db.commit()
                             db.refresh(lz)
                         d = lz.to_dict()
@@ -675,6 +694,7 @@ async def get_checkout_status(
     if sumup_status == "PAID" and lz and not lz.payment_method:
         lz.payment_method = "karte"
         lz.paid_at = datetime.now(timezone.utc)
+        lz.payment_transaction_id = checkout_id
         db.commit()
         db.refresh(lz)
         d = lz.to_dict()
@@ -703,6 +723,8 @@ async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     lz.payment_method = None
     lz.paid_at = None
+    lz.payment_transaction_id = None
+    lz.payment_notes = None
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
