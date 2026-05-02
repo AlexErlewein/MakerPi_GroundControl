@@ -11,10 +11,9 @@ from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
 from backend.laufzettel.db import get_db as get_laufzettel_db
 from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
+from backend.laufzettel.routes import MaterialCreate
 from backend.members.db import get_db as get_members_db
 from backend.members.models import Mitglied, RFIDTag
-from backend.catalog.db import get_db as get_catalog_db
-from backend.catalog.models import MaterialVariante, MaterialKategorie
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -262,12 +261,9 @@ async def member_konto(
 
 @router.post("/api/member/laufzettel/{laufzettel_id}/material")
 async def member_add_material(
-    request: Request,
     laufzettel_id: int,
-    variant_id: int,
-    menge: float,
+    mat: MaterialCreate,
     laufzettel_db: Session = Depends(get_laufzettel_db),
-    catalog_db: Session = Depends(get_catalog_db),
     user: User = Depends(require_member),
 ):
     """Member adds material to their own laufzettel"""
@@ -284,36 +280,24 @@ async def member_add_material(
     if laufzettel.payment_method:
         raise HTTPException(400, "Cannot add materials to paid laufzettel")
 
-    variant = (
-        catalog_db.query(MaterialVariante)
-        .filter(MaterialVariante.id == variant_id)
-        .first()
-    )
-
-    if not variant:
-        raise HTTPException(404, "Material variant not found")
-
-    kategorie = (
-        catalog_db.query(MaterialKategorie)
-        .filter(MaterialKategorie.id == variant.kategorie_id)
-        .first()
-    )
-
-    calculated_price = variant.price * menge
-
-    material = LaufzettelMaterial(
+    new_mat = LaufzettelMaterial(
         laufzettel_id=laufzettel_id,
-        name=variant.name,
-        variante_id=variant_id,
-        menge=menge,
-        unit=kategorie.unit if kategorie else None,
-        calculated_price=calculated_price,
+        name=mat.name,
+        menge=mat.menge,
+        variante_id=mat.variante_id,
+        unit=mat.unit,
+        laenge_cm=mat.laenge_cm,
+        breite_cm=mat.breite_cm,
+        hoehe_cm=mat.hoehe_cm,
+        calculated_price=mat.calculated_price,
+        tax_rate=mat.tax_rate if mat.tax_rate is not None else None,
     )
 
-    laufzettel_db.add(material)
+    laufzettel_db.add(new_mat)
     laufzettel_db.commit()
+    laufzettel_db.refresh(new_mat)
 
-    return {"success": True, "material_id": material.id}
+    return new_mat.to_dict()
 
 
 @router.get("/api/member/me")
