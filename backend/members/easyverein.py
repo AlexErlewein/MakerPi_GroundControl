@@ -1,6 +1,7 @@
 """easyVerein sync service - fetches members from easyVerein API v2.0"""
 
 import logging
+import asyncio
 from datetime import datetime, timezone, date
 from typing import Optional
 import httpx
@@ -13,8 +14,34 @@ logger = logging.getLogger(__name__)
 
 EASYVEREIN_API_BASE = "https://easyverein.com/api/v2.0"
 
+# Rate limiting settings
+PAGE_SIZE = 50  # Smaller pages to avoid rate limits
+REQUEST_DELAY = 0.5  # Seconds between requests
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # Seconds to wait after 429 error
+
 # Track sync status in memory (could be persisted to DB if needed)
 _last_sync_result: Optional[dict] = None
+
+
+async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, params: Optional[dict] = None) -> httpx.Response:
+    """Fetch URL with retry logic for rate limiting (429)"""
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = await client.get(url, headers=headers, params=params)
+            if response.status_code == 429:
+                logger.warning(f"Rate limited (429), waiting {RETRY_DELAY}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1))  # Exponential backoff
+                continue
+            response.raise_for_status()
+            return response
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
+                logger.warning(f"Rate limited (429), waiting {RETRY_DELAY}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1))
+                continue
+            raise
+    raise httpx.HTTPStatusError("Max retries exceeded", request=None, response=None)
 
 
 def get_auth_headers() -> dict:
@@ -155,18 +182,21 @@ async def sync_members_from_easyverein() -> dict:
         ev_members = []
         
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # Build URL with optional org ID and high page size
+            # Build URL with optional org ID and smaller page size (rate limiting)
             url = f"{EASYVEREIN_API_BASE}/member/"
-            params = {"page_size": 200}  # Fetch up to 200 members per page
+            params = {"page_size": PAGE_SIZE}  # Smaller pages to avoid rate limits
             if EASYVEREIN_ORG_ID:
                 params["organization"] = EASYVEREIN_ORG_ID
             
-            # Fetch all pages
+            # Fetch all pages with rate limiting
             next_url = url
             while next_url:
                 logger.info(f"Fetching members from easyVerein: {next_url} (params: {params})")
-                response = await client.get(next_url, headers=headers, params=params if next_url == url else None)
-                response.raise_for_status()
+                response = await fetch_with_retry(client, next_url, headers, params if next_url == url else None)
+                
+                # Rate limiting: wait between requests
+                if next_url != url:
+                    await asyncio.sleep(REQUEST_DELAY)
                 
                 data = response.json()
                 
@@ -196,11 +226,12 @@ async def sync_members_from_easyverein() -> dict:
             try:
                 for ev_member in ev_members:
                     try:
-                        # Fetch contact details if URL is available
+                        # Fetch contact details if URL is available (with rate limiting)
                         contact_details = None
                         contact_url = ev_member.get("contactDetails")
                         if contact_url and isinstance(contact_url, str):
                             contact_details = await fetch_contact_details(client, headers, contact_url)
+                            await asyncio.sleep(0.2)  # Small delay between contact detail requests
                         
                         mapped = map_easyverein_member(ev_member, contact_details)
                         if not mapped:
