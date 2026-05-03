@@ -87,6 +87,7 @@ function renderTable() {
             const matBadge = `<span class="material-count ${matCount === 0 ? "zero" : ""}">${matCount}</span>`;
             return `
         <tr>
+            <td>${lz.id}</td>
             <td>${esc(lz.date || "-")}</td>
             <td>${esc(lz.owner_name || "-")}</td>
             <td>${esc(lz.member_id || "-")}</td>
