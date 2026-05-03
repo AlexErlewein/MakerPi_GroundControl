@@ -124,6 +124,11 @@ function startNfcScan() {
         const uid = data.uid.toUpperCase();
         document.getElementById("f-nfc-uid").value = uid;
         setScanStatus(`✓ UID gescannt: ${uid}`, "ok");
+
+        // If editing an existing member, also write member data to the card
+        if (editingId) {
+            writeCardForMember(editingId, uid, configuredReader);
+        }
     };
 
     evtSource.onerror = (e) => {
@@ -133,6 +138,26 @@ function startNfcScan() {
         resetScanButton();
         setScanStatus("Verbindungsfehler beim Warten auf Scan.", "error");
     };
+}
+
+async function writeCardForMember(mitgliedId, uid, deviceId) {
+    setScanStatus(`✓ UID gescannt: ${uid} – schreibe Daten auf Karte…`, "info");
+    try {
+        const res = await fetch(`/api/mitglieder/${mitgliedId}/enroll-card`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ device_id: deviceId, uid }),
+        });
+        if (res.ok) {
+            const result = await res.json();
+            setScanStatus(`✓ UID gescannt: ${uid} – Karte wird beschrieben (${result.request_id})`, "ok");
+        } else {
+            const err = await res.json().catch(() => ({}));
+            setScanStatus(`✓ UID gescannt: ${uid} – Schreiben fehlgeschlagen: ${err.detail || res.status}`, "error");
+        }
+    } catch (e) {
+        setScanStatus(`✓ UID gescannt: ${uid} – Fehler beim Schreiben: ${e.message}`, "error");
+    }
 }
 
 async function loadEnrollmentReader() {
