@@ -11,7 +11,8 @@
       "Bash(systemctl status:*)",
       "Bash(sudo journalctl:*)",
       "Bash(sudo ss:*)",
-      "Bash(find /home/alex/MakerPi_GroundControl/backend -name *.py)"
+      "Bash(find /home/alex/MakerPi_GroundControl/backend -name *.py)",
+      "Bash(git rm *)"
     ]
   }
 }
