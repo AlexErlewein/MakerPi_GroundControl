@@ -269,6 +269,11 @@
     color: #fff;
 }
 
+.btn-payment-wero {
+    background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+    color: #fff;
+}
+
 /* Locked banner */
 .payment-locked-banner {
     display: flex;
@@ -349,6 +354,15 @@
 
 /* Karte modal */
 .karte-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 20px 16px;
+    gap: 16px;
+}
+
+/* Wero modal */
+.wero-body {
     display: flex;
     flex-direction: column;
     align-items: center;

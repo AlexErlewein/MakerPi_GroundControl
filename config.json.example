@@ -8,6 +8,10 @@
     "sumup_reader_id": "",
     "sumup_affiliate_key": "YOUR_AFFILIATE_KEY_HERE",
     "sumup_mock": false,
+    "wero_enabled": true,
+    "wero_mock": true,
+    "wero_merchant_id": "YOUR_WERO_MERCHANT_ID",
+    "wero_api_key": "YOUR_WERO_API_KEY",
     "easyverein_api_key": "YOUR_EASYVEREIN_API_KEY_HERE",
     "easyverein_org_id": "YOUR_ORG_ID_HERE",
     "enrollment_reader_id": ""

@@ -24,6 +24,12 @@ SUMUP_READER_ID: str = _cfg.get("sumup_reader_id", os.environ.get("SUMUP_READER_
 SUMUP_AFFILIATE_KEY: str = _cfg.get("sumup_affiliate_key", os.environ.get("SUMUP_AFFILIATE_KEY", ""))
 SUMUP_MOCK: bool = _cfg.get("sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true")
 
+# Wero payment configuration
+WERO_ENABLED: bool = _cfg.get("wero_enabled", os.environ.get("WERO_ENABLED", "false").lower() == "true")
+WERO_MOCK: bool = _cfg.get("wero_mock", os.environ.get("WERO_MOCK", "true").lower() == "true")
+WERO_MERCHANT_ID: str = _cfg.get("wero_merchant_id", os.environ.get("WERO_MERCHANT_ID", ""))
+WERO_API_KEY: str = _cfg.get("wero_api_key", os.environ.get("WERO_API_KEY", ""))
+
 # Auth configuration
 SECRET_KEY: str = _cfg.get("secret_key", os.environ.get("SECRET_KEY", "fallback-secret-change-me"))
 ADMIN_USERNAME: str = _cfg.get("admin_username", "admin")

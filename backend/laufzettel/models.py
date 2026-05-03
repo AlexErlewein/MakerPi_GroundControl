@@ -29,7 +29,7 @@ class Laufzettel(Base):
     member_id = Column(String, nullable=True)
     mitglied_id = Column(Integer, nullable=True, index=True)  # soft ref to members.mitglieder.id
     nodes = Column(Text, default="[]")  # JSON array of device_ids
-    payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte'
+    payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte' | 'wero'
     paid_at = Column(DateTime(timezone=True), nullable=True)
     payment_transaction_id = Column(String, nullable=True)  # SumUp transaction ID
     payment_notes = Column(String, nullable=True)  # free-text note (e.g. for cash payments)

@@ -352,6 +352,7 @@ async def delete_material(laufzettel_id: int, material_id: int, db: Session = De
 # ── Payment API ───────────────────────────────────────────────────────────────
 
 from backend.config import SUMUP_API_KEY, SUMUP_MERCHANT_CODE, SUMUP_READER_ID, SUMUP_AFFILIATE_KEY, SUMUP_MOCK
+from backend.config import WERO_ENABLED, WERO_MOCK, WERO_MERCHANT_ID, WERO_API_KEY
 
 
 @router.get("/api/payment/config")
@@ -375,6 +376,8 @@ async def get_payment_config():
         "reader_id": SUMUP_READER_ID if sumup_configured else None,
         "payment_mode": payment_mode,
         "checkout_link_available": sumup_configured and not SUMUP_MOCK,
+        "wero_configured": WERO_ENABLED,
+        "wero_mock": WERO_MOCK,
     }
 
 
@@ -749,3 +752,151 @@ async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
     ).all()
     d["material"] = [m.to_dict() for m in materials]
     return d
+
+
+# ── Wero Payment API ────────────────────────────────────────────────────────
+
+# In-memory store for pending Wero payments (checkout_id -> {laufzettel_id, created_at, status})
+_pending_wero_payments: dict = {}
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/wero")
+async def pay_wero(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Initiate Wero payment - returns QR code URL for customer scan"""
+    from datetime import datetime, timezone, timedelta
+    import uuid
+
+    if not WERO_ENABLED:
+        raise HTTPException(status_code=503, detail="Wero payment not enabled")
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+
+    # Calculate total from material entries
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == laufzettel_id
+    ).all()
+    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+    amount_str = f"{total:.2f}"
+
+    # Generate checkout ID
+    checkout_id = str(uuid.uuid4())
+
+    if WERO_MOCK:
+        # Mock mode: simulate Wero payment flow
+        _pending_wero_payments[checkout_id] = {
+            "laufzettel_id": laufzettel_id,
+            "created_at": datetime.now(timezone.utc),
+            "status": "PENDING",
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+            "amount": amount_str,
+            "mock": True,
+        }
+        # Generate a mock QR code URL (would be a real Wero link in production)
+        mock_payment_url = f"wero://pay?amount={amount_str}&currency=EUR&checkout={checkout_id}"
+        return {
+            "mock": True,
+            "checkout_id": checkout_id,
+            "payment_url": mock_payment_url,
+            "amount": amount_str,
+            "status": "PENDING",
+            "expires_at": _pending_wero_payments[checkout_id]["expires_at"].isoformat(),
+        }
+
+    # Real Wero API integration (to be implemented when credentials available)
+    # This would call the Wero API to create a payment request
+    raise HTTPException(status_code=501, detail="Wero API integration not yet implemented")
+
+
+@router.get("/api/laufzettel/{laufzettel_id}/pay/wero/status")
+async def get_wero_status(
+    laufzettel_id: int,
+    checkout_id: str,
+    db: Session = Depends(get_db)
+):
+    """Check status of Wero payment"""
+    from datetime import datetime, timezone
+
+    # Check if already paid directly
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if lz and lz.payment_method == "wero":
+        d = lz.to_dict()
+        materials = db.query(LaufzettelMaterial).filter(
+            LaufzettelMaterial.laufzettel_id == lz.id
+        ).all()
+        d["material"] = [m.to_dict() for m in materials]
+        return {"status": "PAID", "laufzettel": d}
+
+    # Check pending payments
+    pending = _pending_wero_payments.get(checkout_id)
+    if not pending:
+        return {"status": "NOT_FOUND"}
+
+    # Check timeout
+    if datetime.now(timezone.utc) > pending["expires_at"]:
+        del _pending_wero_payments[checkout_id]
+        return {"status": "TIMEOUT"}
+
+    # Mock mode: auto-confirm after 3 seconds (for testing)
+    if pending.get("mock") and pending["status"] == "PENDING":
+        elapsed = (datetime.now(timezone.utc) - pending["created_at"]).total_seconds()
+        if elapsed > 3:
+            # Auto-confirm in mock mode
+            if lz and not lz.payment_method:
+                lz.payment_method = "wero"
+                lz.paid_at = datetime.now(timezone.utc)
+                lz.payment_transaction_id = f"WERO-MOCK-{checkout_id[:8]}"
+                db.commit()
+                db.refresh(lz)
+            d = lz.to_dict()
+            materials = db.query(LaufzettelMaterial).filter(
+                LaufzettelMaterial.laufzettel_id == lz.id
+            ).all()
+            d["material"] = [m.to_dict() for m in materials]
+            _pending_wero_payments.pop(checkout_id, None)
+            return {"status": "PAID", "laufzettel": d}
+
+    return {"status": pending["status"]}
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/pay/wero/confirm")
+async def confirm_wero_payment(laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)):
+    """Manually confirm Wero payment (for mock mode or when webhook fails)"""
+    from datetime import datetime, timezone
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+
+    pending = _pending_wero_payments.get(checkout_id)
+    if pending and pending.get("laufzettel_id") != laufzettel_id:
+        raise HTTPException(status_code=400, detail="Checkout ID does not match Laufzettel")
+
+    lz.payment_method = "wero"
+    lz.paid_at = datetime.now(timezone.utc)
+    lz.payment_transaction_id = f"WERO-{checkout_id[:8]}" if pending else None
+    db.commit()
+    db.refresh(lz)
+
+    # Clean up pending
+    if checkout_id in _pending_wero_payments:
+        del _pending_wero_payments[checkout_id]
+
+    d = lz.to_dict()
+    materials = db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == lz.id
+    ).all()
+    d["material"] = [m.to_dict() for m in materials]
+    return d
+
+
+@router.delete("/api/laufzettel/{laufzettel_id}/pay/wero")
+async def cancel_wero_payment(laufzettel_id: int, checkout_id: str):
+    """Cancel pending Wero payment"""
+    pending = _pending_wero_payments.pop(checkout_id, None)
+    return {"cancelled": pending is not None}

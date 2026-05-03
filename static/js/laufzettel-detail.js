@@ -830,10 +830,17 @@ function renderPaymentSection(total, hasAnyPrice) {
     const checkoutBtn = document.getElementById("pay-checkout-btn");
     if (!paymentConfig.checkout_link_available) checkoutBtn.style.display = "none";
 
+    const weroBtn = document.getElementById("pay-wero-btn");
+    if (paymentConfig.wero_configured) {
+        weroBtn.classList.remove("hidden");
+    } else {
+        weroBtn.classList.add("hidden");
+    }
+
     if (locked) {
         buttons.classList.add("hidden");
         banner.classList.remove("hidden");
-        const methodLabels = { bar: "Bar bezahlt", karte: "Per Karte bezahlt" };
+        const methodLabels = { bar: "Bar bezahlt", karte: "Per Karte bezahlt", wero: "Per Wero bezahlt" };
         const label = methodLabels[d.payment_method] || "Bezahlt";
         const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
         document.getElementById("payment-locked-text").textContent =
@@ -1303,6 +1310,174 @@ function closeCheckoutModal() {
 document.getElementById("checkout-modal-close").addEventListener("click", closeCheckoutModal);
 document.getElementById("checkout-close-btn").addEventListener("click", closeCheckoutModal);
 document.getElementById("checkout-modal-overlay").addEventListener("click", closeCheckoutModal);
+
+// ── Wero Payment ────────────────────────────────────────────────────────────
+
+let weroPollAbort = null;
+let weroCurrentCheckoutId = null;
+
+async function doWeroPayment() {
+    const modal = document.getElementById("wero-modal");
+    const statusText = document.getElementById("wero-status-text");
+    const actions = document.getElementById("wero-actions");
+    const body = document.getElementById("wero-body");
+    const spinner = body.querySelector(".karte-spinner");
+    const qrSection = document.getElementById("wero-qr-section");
+
+    weroPollAbort = new AbortController();
+    weroCurrentCheckoutId = null;
+
+    // Reset modal state
+    statusText.textContent = "Zahlungslink wird erstellt…";
+    statusText.style.color = "";
+    spinner.style.display = "";
+    actions.style.display = "none";
+    qrSection.classList.add("hidden");
+    const oldQr = document.getElementById("wero-qr-container");
+    oldQr.innerHTML = "";
+    modal.classList.remove("hidden");
+
+    let initData;
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/wero`, {
+            method: "POST",
+            signal: weroPollAbort.signal,
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+            statusText.style.color = "var(--danger)";
+            spinner.style.display = "none";
+            actions.style.display = "";
+            return;
+        }
+        initData = await res.json();
+        weroCurrentCheckoutId = initData.checkout_id;
+    } catch (e) {
+        if (e.name === "AbortError") {
+            statusText.textContent = "Zahlung abgebrochen.";
+            statusText.style.color = "var(--warning)";
+        } else {
+            statusText.textContent = "Netzwerkfehler beim Erstellen des Wero-Links.";
+            statusText.style.color = "var(--danger)";
+        }
+        spinner.style.display = "none";
+        actions.style.display = "";
+        return;
+    }
+
+    spinner.style.display = "none";
+    statusText.textContent = "Scanne den QR-Code mit deiner Banking-App:";
+
+    // Show QR code section
+    document.getElementById("wero-amount-display").textContent = initData.amount + " €";
+    qrSection.classList.remove("hidden");
+
+    // Generate QR code for Wero payment URL
+    if (typeof QRCode !== "undefined") {
+        new QRCode(document.getElementById("wero-qr-container"), {
+            text: initData.payment_url,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M,
+        });
+    }
+
+    actions.style.display = "";
+
+    // Poll for payment status
+    const POLL_INTERVAL_MS = 3000;
+    const poll = async () => {
+        if (weroPollAbort.signal.aborted) return;
+        try {
+            const r = await fetch(
+                `/api/laufzettel/${LAUFZETTEL_ID}/pay/wero/status?checkout_id=${encodeURIComponent(weroCurrentCheckoutId)}`,
+                { signal: weroPollAbort.signal }
+            );
+            const pollData = await r.json();
+
+            if (pollData.status === "PAID") {
+                statusText.textContent = "✓ Zahlung erfolgreich bestätigt!";
+                statusText.style.color = "var(--success)";
+                if (pollData.laufzettel) {
+                    currentData = pollData.laufzettel;
+                    renderInfo();
+                    renderMaterial();
+                }
+                // Auto-close after success
+                setTimeout(() => closeWeroModal(), 1500);
+            } else if (pollData.status === "TIMEOUT" || pollData.status === "NOT_FOUND") {
+                statusText.textContent = "⚠️ Zahlung nicht bestätigt – bitte erneut versuchen.";
+                statusText.style.color = "var(--warning, #f59e0b)";
+            } else {
+                setTimeout(poll, POLL_INTERVAL_MS);
+            }
+        } catch (e) {
+            if (e.name !== "AbortError") setTimeout(poll, POLL_INTERVAL_MS);
+        }
+    };
+    setTimeout(poll, POLL_INTERVAL_MS);
+}
+
+async function confirmWeroPayment() {
+    if (!weroCurrentCheckoutId) return;
+    const btn = document.getElementById("wero-confirm-btn");
+    btn.disabled = true;
+    btn.textContent = "…";
+
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/wero/confirm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ checkout_id: weroCurrentCheckoutId }),
+        });
+        if (res.ok) {
+            currentData = await res.json();
+            renderInfo();
+            renderMaterial();
+            closeWeroModal();
+        } else {
+            const err = await res.json();
+            btn.disabled = false;
+            btn.textContent = "✓ Bezahlt";
+            alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = "✓ Bezahlt";
+        alert("Netzwerkfehler");
+    }
+}
+
+function closeWeroModal() {
+    const modal = document.getElementById("wero-modal");
+
+    if (weroPollAbort) {
+        weroPollAbort.abort();
+        weroPollAbort = null;
+    }
+
+    if (weroCurrentCheckoutId) {
+        fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/wero?checkout_id=${encodeURIComponent(weroCurrentCheckoutId)}`, {
+            method: "DELETE",
+        }).catch(() => {});
+        weroCurrentCheckoutId = null;
+    }
+
+    modal.classList.add("hidden");
+    document.getElementById("wero-status-text").style.color = "";
+    document.getElementById("wero-qr-section").classList.add("hidden");
+    document.getElementById("wero-qr-container").innerHTML = "";
+    const btn = document.getElementById("wero-confirm-btn");
+    btn.disabled = false;
+    btn.textContent = "✓ Bezahlt";
+}
+
+document.getElementById("wero-modal-close").addEventListener("click", closeWeroModal);
+document.getElementById("wero-cancel-btn").addEventListener("click", closeWeroModal);
+document.getElementById("wero-modal-overlay").addEventListener("click", closeWeroModal);
 
 // ── Delete Laufzettel ─────────────────────────────────────────────────────────
 
