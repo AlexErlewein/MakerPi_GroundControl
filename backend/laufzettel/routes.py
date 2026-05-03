@@ -317,6 +317,21 @@ async def update_material(
     return existing.to_dict()
 
 
+@router.delete("/api/laufzettel/{laufzettel_id}")
+async def delete_laufzettel(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
+    """Delete a Laufzettel and all its material entries"""
+    from backend.auth.dependencies import is_admin_verified
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    db.query(LaufzettelMaterial).filter(LaufzettelMaterial.laufzettel_id == laufzettel_id).delete()
+    db.delete(lz)
+    db.commit()
+    return {"deleted": laufzettel_id}
+
+
 @router.delete("/api/laufzettel/{laufzettel_id}/material/{material_id}")
 async def delete_material(laufzettel_id: int, material_id: int, db: Session = Depends(get_db)):
     """Delete a material entry"""

@@ -55,6 +55,7 @@ async function loadPaymentConfig() {
 function renderInfo() {
     const d = currentData;
     document.getElementById("lz-id-display").textContent = `#${d.id}`;
+    document.getElementById("view-lz-nr").textContent = d.id || "-";
     document.getElementById("view-date").textContent = d.date || "-";
     document.getElementById("view-start").textContent = d.start ? new Date(d.start).toLocaleString() : "-";
     document.getElementById("view-owner").textContent = d.owner_name || "-";
@@ -1302,3 +1303,40 @@ function closeCheckoutModal() {
 document.getElementById("checkout-modal-close").addEventListener("click", closeCheckoutModal);
 document.getElementById("checkout-close-btn").addEventListener("click", closeCheckoutModal);
 document.getElementById("checkout-modal-overlay").addEventListener("click", closeCheckoutModal);
+
+// ── Delete Laufzettel ─────────────────────────────────────────────────────────
+
+function openDeleteModal() {
+    document.getElementById("delete-lz-id-display").textContent = LAUFZETTEL_ID;
+    document.getElementById("delete-lz-modal").classList.remove("hidden");
+}
+
+function closeDeleteModal() {
+    document.getElementById("delete-lz-modal").classList.add("hidden");
+}
+
+async function confirmDeleteLaufzettel() {
+    const confirmBtn = document.getElementById("delete-lz-confirm");
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Wird gelöscht…";
+    try {
+        const response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, { method: "DELETE" });
+        if (response.ok) {
+            window.location.href = "/laufzettel";
+        } else {
+            const err = await response.json().catch(() => ({}));
+            alert(`Fehler beim Löschen: ${err.detail || response.status}`);
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Ja, endgültig löschen";
+        }
+    } catch (e) {
+        alert(`Fehler: ${e.message}`);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Ja, endgültig löschen";
+    }
+}
+
+document.getElementById("delete-lz-close").addEventListener("click", closeDeleteModal);
+document.getElementById("delete-lz-cancel").addEventListener("click", closeDeleteModal);
+document.getElementById("delete-lz-overlay").addEventListener("click", closeDeleteModal);
+document.getElementById("delete-lz-confirm").addEventListener("click", confirmDeleteLaufzettel);

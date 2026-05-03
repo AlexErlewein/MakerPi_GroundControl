@@ -31,6 +31,7 @@
                 <button id="refresh-btn" class="btn btn-primary">
                     <span class="btn-icon">↻</span> Refresh
                 </button>
+                <button id="delete-lz-btn" class="btn btn-danger" onclick="openDeleteModal()">Delete</button>
             </div>
         </header>
 
@@ -44,6 +45,10 @@
 
                 <!-- View Mode -->
                 <div id="info-view" class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Laufzettel Nr.</span>
+                        <span class="info-value" id="view-lz-nr">-</span>
+                    </div>
                     <div class="info-item">
                         <span class="info-label">Date</span>
                         <span class="info-value" id="view-date">-</span>
@@ -400,6 +405,25 @@
             </div>
             <div class="modal-actions" id="karte-actions" style="display:none;">
                 <button type="button" class="btn btn-secondary" id="karte-close-btn">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-lz-modal" class="modal hidden">
+        <div class="modal-overlay" id="delete-lz-overlay"></div>
+        <div class="modal-box modal-box-payment">
+            <div class="modal-header">
+                <h3>Laufzettel löschen?</h3>
+                <button class="modal-close" id="delete-lz-close">✕</button>
+            </div>
+            <div class="bar-payment-body" style="text-align:center;padding:1.5rem 1rem;">
+                <p style="font-size:1.1rem;margin-bottom:0.5rem;">⚠️ Laufzettel #<span id="delete-lz-id-display"></span> wirklich löschen?</p>
+                <p style="color:var(--text-secondary);font-size:0.9rem;">Diese Aktion kann nicht rückgängig gemacht werden. Alle Materialeinträge werden ebenfalls gelöscht.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="delete-lz-cancel">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="delete-lz-confirm">Ja, endgültig löschen</button>
             </div>
         </div>
     </div>
