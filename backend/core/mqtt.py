@@ -383,9 +383,12 @@ def handle_device_message(topic: str, payload: str):
                     device_id=device_id,
                     validated=validated,
                     owner_name=owner_name,
-                    tag_type=data.get("type"),
+                    tag_type=data.get("tag_type"),
                     atqa=data.get("atqa"),
                     sak=data.get("sak"),
+                    card_member_id=data.get("member_id"),
+                    card_name=data.get("name"),
+                    card_email=data.get("email"),
                 )
                 db.add(scan)
                 

@@ -51,7 +51,7 @@ function renderTags() {
 function renderScans() {
     const tbody = document.getElementById("scans-body");
     if (allScans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="empty">No scans recorded yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="empty">No scans recorded yet.</td></tr>';
         return;
     }
     tbody.innerHTML = allScans
@@ -60,6 +60,13 @@ function renderScans() {
             const registerBtn = isUnknown
                 ? `<button class="btn btn-sm btn-success" onclick="openAddFromScan('${scan.uid}')">+ Register</button>`
                 : "";
+            const cardParts = [];
+            if (scan.card_name) cardParts.push(esc(scan.card_name));
+            if (scan.card_member_id) cardParts.push('<small>ID: ' + esc(scan.card_member_id) + '</small>');
+            if (scan.card_email) cardParts.push('<small>' + esc(scan.card_email) + '</small>');
+            const cardDataHtml = cardParts.length
+                ? '<span class="badge badge-ok">GNDCTRL</span> ' + cardParts.join('<br>')
+                : '<span class="muted">-</span>';
             return `
         <tr class="${isUnknown ? "row-unknown" : ""}">
             <td>${formatDate(scan.timestamp)}</td>
@@ -74,6 +81,7 @@ function renderScans() {
             <td>${esc(scan.tag_type || "-")}</td>
             <td><code>${esc(scan.atqa || "-")}</code></td>
             <td><code>${esc(scan.sak || "-")}</code></td>
+            <td>${cardDataHtml}</td>
             <td>${esc(scan.member_id || "-")}</td>
             <td>${esc(scan.member_name || "-")}</td>
             <td>${registerBtn}</td>

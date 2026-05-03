@@ -75,6 +75,9 @@ class TagScan(Base):
     tag_type = Column(String, nullable=True)
     atqa = Column(String, nullable=True)
     sak = Column(String, nullable=True)
+    card_member_id = Column(String, nullable=True)
+    card_name = Column(String, nullable=True)
+    card_email = Column(String, nullable=True)
 
     def to_dict(self):
         ts = _naive_to_utc(self.timestamp) if self.timestamp else None
@@ -88,6 +91,9 @@ class TagScan(Base):
             "tag_type": self.tag_type,
             "atqa": self.atqa,
             "sak": self.sak,
+            "card_member_id": self.card_member_id,
+            "card_name": self.card_name,
+            "card_email": self.card_email,
         }
 
 

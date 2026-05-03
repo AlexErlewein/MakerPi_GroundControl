@@ -1,6 +1,6 @@
 """Core database - owns core.db"""
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from backend.config import CORE_DB_URL
 from .models import Base
@@ -19,3 +19,10 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Auto-migrate: add card data columns to tag_scans if missing
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tag_scans)"))]
+        for col in ("card_member_id", "card_name", "card_email"):
+            if col not in cols:
+                conn.execute(text(f"ALTER TABLE tag_scans ADD COLUMN {col} TEXT"))
+        conn.commit()
