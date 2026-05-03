@@ -26,21 +26,28 @@ _last_sync_result: Optional[dict] = None
 
 async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, params: Optional[dict] = None) -> httpx.Response:
     """Fetch URL with retry logic for rate limiting (429)"""
+    last_exception = None
     for attempt in range(MAX_RETRIES):
         try:
             response = await client.get(url, headers=headers, params=params)
             if response.status_code == 429:
-                logger.warning(f"Rate limited (429), waiting {RETRY_DELAY}s before retry {attempt + 1}/{MAX_RETRIES}")
-                await asyncio.sleep(RETRY_DELAY * (attempt + 1))  # Exponential backoff
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(wait_time)  # Exponential backoff
                 continue
             response.raise_for_status()
             return response
         except httpx.HTTPStatusError as e:
+            last_exception = e
             if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
-                logger.warning(f"Rate limited (429), waiting {RETRY_DELAY}s before retry {attempt + 1}/{MAX_RETRIES}")
-                await asyncio.sleep(RETRY_DELAY * (attempt + 1))
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(wait_time)
                 continue
             raise
+    # Should never reach here, but just in case
+    if last_exception:
+        raise last_exception
     raise httpx.HTTPStatusError("Max retries exceeded", request=None, response=None)
 
 
@@ -283,7 +290,10 @@ async def sync_members_from_easyverein() -> dict:
         return result
         
     except httpx.HTTPStatusError as e:
-        error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
+        if e.response is not None:
+            error_msg = f"HTTP error {e.response.status_code}: {e.response.text[:200]}"
+        else:
+            error_msg = f"HTTP error: {str(e)}"
         logger.error(error_msg)
         result = {
             "last_sync": datetime.now(timezone.utc).isoformat(),
