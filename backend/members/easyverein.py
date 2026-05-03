@@ -64,16 +64,17 @@ def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> O
             return None
         member_id = str(member_id_raw).strip()
         
-        # Name comes from contactDetails
+        # Name comes from contactDetails - prioritize firstName + familyName
         name = None
         if contact_details:
-            name = contact_details.get("name", "").strip()
-            # Fallback: combine firstName + familyName if name is not available
+            # Prefer combining firstName + familyName (individual fields)
+            first = contact_details.get("firstName", "").strip()
+            family = contact_details.get("familyName", "").strip()
+            if first or family:
+                name = f"{first} {family}".strip()
+            # Fallback to aggregated name field if individual fields are empty
             if not name:
-                first = contact_details.get("firstName", "").strip()
-                family = contact_details.get("familyName", "").strip()
-                if first or family:
-                    name = f"{first} {family}".strip()
+                name = contact_details.get("name", "").strip()
         
         if not name:
             # Last resort: use emailOrUserName or skip
