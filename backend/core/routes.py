@@ -405,6 +405,29 @@ async def scan_stream(request: Request):
     )
 
 
+@router.get("/api/write-result")
+async def get_write_result(device_id: str, request_id: str, db: Session = Depends(get_db)):
+    """Poll for NFC card write result published by PicoW to {device_id}/write_response"""
+    topic = f"{device_id}/write_response"
+    cutoff = datetime.utcnow() - timedelta(seconds=60)
+    messages = (
+        db.query(MQTTMessage)
+        .filter(MQTTMessage.topic == topic, MQTTMessage.timestamp >= cutoff)
+        .order_by(MQTTMessage.timestamp.desc())
+        .limit(20)
+        .all()
+    )
+    import json as _json
+    for msg in messages:
+        try:
+            payload = _json.loads(msg.payload)
+            if payload.get("request_id") == request_id:
+                return {"found": True, "success": payload.get("success"), "error": payload.get("error"), "uid": payload.get("uid")}
+        except Exception:
+            continue
+    return {"found": False}
+
+
 class EnrollmentReaderUpdate(BaseModel):
     enrollment_reader_id: str
 

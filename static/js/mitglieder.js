@@ -142,22 +142,46 @@ function startNfcScan() {
 
 async function writeCardForMember(mitgliedId, uid, deviceId) {
     setScanStatus(`✓ UID gescannt: ${uid} – schreibe Daten auf Karte…`, "info");
+    let requestId = null;
     try {
         const res = await fetch(`/api/mitglieder/${mitgliedId}/enroll-card`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ device_id: deviceId, uid }),
         });
-        if (res.ok) {
-            const result = await res.json();
-            setScanStatus(`✓ UID gescannt: ${uid} – Karte wird beschrieben (${result.request_id})`, "ok");
-        } else {
+        if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             setScanStatus(`✓ UID gescannt: ${uid} – Schreiben fehlgeschlagen: ${err.detail || res.status}`, "error");
+            return;
         }
+        const result = await res.json();
+        requestId = result.request_id;
+        setScanStatus(`✓ UID gescannt: ${uid} – Warte auf Bestätigung vom Reader…`, "info");
     } catch (e) {
         setScanStatus(`✓ UID gescannt: ${uid} – Fehler beim Schreiben: ${e.message}`, "error");
+        return;
     }
+
+    // Poll for write result (max 30s, 1s interval)
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+            const poll = await fetch(`/api/write-result?device_id=${encodeURIComponent(deviceId)}&request_id=${encodeURIComponent(requestId)}`);
+            if (poll.ok) {
+                const data = await poll.json();
+                if (data.found) {
+                    if (data.success) {
+                        setScanStatus(`✓ Karte erfolgreich beschrieben (UID: ${uid})`, "ok");
+                    } else {
+                        setScanStatus(`✗ Schreiben fehlgeschlagen: ${data.error || "Unbekannter Fehler"}`, "error");
+                    }
+                    return;
+                }
+            }
+        } catch (_) { /* retry */ }
+    }
+    setScanStatus(`✓ UID gescannt: ${uid} – Timeout: Keine Bestätigung vom Reader erhalten`, "error");
 }
 
 async function loadEnrollmentReader() {
