@@ -38,3 +38,4 @@ config/config.json
 # OS
 .DS_Store
 Thumbs.db
+.omc/project-memory.json

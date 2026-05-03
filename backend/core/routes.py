@@ -91,6 +91,64 @@ async def device_detail_page(device_id: str, request: Request):
 
 # ── API ──────────────────────────────────────────────────────────────────────
 
+@router.get("/api/database/stats")
+async def get_database_stats(db: Session = Depends(get_db)):
+    """Get database file info and aggregate stats for the database page"""
+    db_path = Path("core.db")
+    try:
+        size_bytes = db_path.stat().st_size
+        if size_bytes < 1024:
+            size_human = f"{size_bytes} B"
+        elif size_bytes < 1024 ** 2:
+            size_human = f"{size_bytes / 1024:.1f} KB"
+        else:
+            size_human = f"{size_bytes / 1024 ** 2:.1f} MB"
+    except OSError:
+        size_bytes = 0
+        size_human = "Unknown"
+
+    total_devices = db.query(Device).count()
+    nfc_ok = db.query(Device).filter(Device.nfc_ok == 1).count()
+    nfc_error = db.query(Device).filter(Device.nfc_ok == 0).count()
+    nfc_unknown = total_devices - nfc_ok - nfc_error
+
+    # online/offline based on last_seen within 2 minutes
+    cutoff = datetime.utcnow() - timedelta(minutes=2)
+    online = db.query(Device).filter(Device.last_seen >= cutoff).count()
+    offline = total_devices - online
+
+    oldest_device = db.query(func.min(Device.last_seen)).scalar()
+    newest_device = db.query(func.max(Device.last_seen)).scalar()
+
+    total_messages = db.query(MQTTMessage).count()
+    topic_count = db.query(MQTTMessage.topic).distinct().count()
+    oldest_message = db.query(func.min(MQTTMessage.timestamp)).scalar()
+    newest_message = db.query(func.max(MQTTMessage.timestamp)).scalar()
+
+    return {
+        "database": {
+            "file_path": str(db_path.resolve()),
+            "size_human": size_human,
+        },
+        "devices": {
+            "total": total_devices,
+            "online": online,
+            "offline": offline,
+            "nfc_ok": nfc_ok,
+            "nfc_error": nfc_error,
+            "nfc_unknown": nfc_unknown,
+        },
+        "messages": {
+            "total": total_messages,
+            "topics": topic_count,
+            "oldest": oldest_message.isoformat() if oldest_message else None,
+            "newest": newest_message.isoformat() if newest_message else None,
+        },
+        "devices_oldest_seen": oldest_device.isoformat() if oldest_device else None,
+        "devices_newest_seen": newest_device.isoformat() if newest_device else None,
+    }
+
+
 @router.get("/api/status")
 async def get_status(db: Session = Depends(get_db)):
     """Get system status overview"""
@@ -145,6 +203,20 @@ async def get_device(device_id: str, db: Session = Depends(get_db)):
         "topic_counts": [{"topic": t.topic, "count": t.count} for t in topic_counts],
         "recent_messages": [m.to_dict() for m in recent_messages],
     }
+
+
+@router.delete("/api/devices/{device_id}")
+async def delete_device(device_id: str, request: Request, db: Session = Depends(get_db)):
+    """Delete a device record"""
+    from backend.auth.dependencies import is_admin_verified
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+    device = db.query(Device).filter(Device.device_id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    db.delete(device)
+    db.commit()
+    return {"deleted": device_id}
 
 
 @router.get("/api/messages")
