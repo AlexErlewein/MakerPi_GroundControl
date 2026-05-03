@@ -342,6 +342,7 @@ def handle_device_message(topic: str, payload: str):
                 from backend.members.db import SessionLocal as MembersSession
                 members_db = MembersSession()
                 mitglied_db_id = None
+                member_id_str = None
                 try:
                     from backend.members.models import RFIDTag, Mitglied
                     # Primary: check Mitglied.nfc_uid (the card enrolled via Mitglieder UI)
@@ -352,7 +353,8 @@ def handle_device_message(topic: str, payload: str):
                         validated = 1
                         owner_name = mitglied.name
                         mitglied_db_id = mitglied.id
-                        logger.info("[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s", owner_name, mitglied_db_id)
+                        member_id_str = mitglied.member_id
+                        logger.info("[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s member_id=%r", owner_name, mitglied_db_id, member_id_str)
                     else:
                         logger.info("[SCAN] uid=%r not found in Mitglied.nfc_uid, checking RFIDTag", uid)
                         # Fallback: legacy RFIDTag table
@@ -370,6 +372,7 @@ def handle_device_message(topic: str, payload: str):
                                 ).first()
                                 if m:
                                     mitglied_db_id = m.id
+                                    member_id_str = m.member_id
                         else:
                             logger.warning("[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated", uid)
                 finally:
@@ -429,6 +432,7 @@ def handle_device_message(topic: str, payload: str):
                                 date=today,
                                 start=_utcnow(),
                                 owner_name=owner_name,
+                                member_id=member_id_str,
                                 mitglied_id=mitglied_db_id,
                                 nodes=json.dumps([device_id]),
                             )
@@ -442,6 +446,8 @@ def handle_device_message(topic: str, payload: str):
                                 open_lz.nodes = json.dumps(nodes)
                             if not open_lz.mitglied_id and mitglied_db_id:
                                 open_lz.mitglied_id = mitglied_db_id
+                            if not open_lz.member_id and member_id_str:
+                                open_lz.member_id = member_id_str
                             lauf_db.commit()
                     finally:
                         lauf_db.close()
