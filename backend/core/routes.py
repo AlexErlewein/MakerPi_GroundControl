@@ -257,12 +257,40 @@ async def get_scans(
     validated: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    """List recent tag scans"""
+    """List recent tag scans, enriched with member info"""
     q = db.query(TagScan)
     if validated is not None:
         q = q.filter(TagScan.validated == (1 if validated else 0))
     scans = q.order_by(TagScan.timestamp.desc()).limit(limit).all()
-    return [s.to_dict() for s in scans]
+    results = [s.to_dict() for s in scans]
+
+    # Enrich with member_id and member_name from members.db
+    uids = {r["uid"] for r in results if r["uid"]}
+    if uids:
+        try:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import Mitglied, RFIDTag as MRFIDTag
+            members_db = MembersSession()
+            try:
+                uid_to_member = {}
+                for m in members_db.query(Mitglied).filter(Mitglied.nfc_uid.in_(uids)).all():
+                    uid_to_member[m.nfc_uid] = {"member_id": m.member_id, "member_name": m.name}
+                for tag in members_db.query(MRFIDTag).filter(MRFIDTag.uid.in_(uids - uid_to_member.keys())).all():
+                    if tag.member_id:
+                        m = members_db.query(Mitglied).filter(Mitglied.member_id == tag.member_id).first()
+                        uid_to_member[tag.uid] = {"member_id": tag.member_id, "member_name": m.name if m else tag.owner_name}
+            finally:
+                members_db.close()
+            for r in results:
+                info = uid_to_member.get(r["uid"], {})
+                r["member_id"] = info.get("member_id")
+                r["member_name"] = info.get("member_name")
+        except Exception:
+            for r in results:
+                r["member_id"] = None
+                r["member_name"] = None
+
+    return results
 
 
 @router.get("/api/scans/stats")

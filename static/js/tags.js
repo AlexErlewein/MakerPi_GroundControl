@@ -10,7 +10,7 @@ async function loadTags() {
 }
 
 async function loadScans() {
-    const res = await fetch("/api/tags/scans?limit=100");
+    const res = await fetch("/api/scans?limit=100");
     allScans = await res.json();
     renderScans();
     document.getElementById("scan-count").textContent = allScans.length;
@@ -51,7 +51,7 @@ function renderTags() {
 function renderScans() {
     const tbody = document.getElementById("scans-body");
     if (allScans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No scans recorded yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty">No scans recorded yet.</td></tr>';
         return;
     }
     tbody.innerHTML = allScans
@@ -72,6 +72,10 @@ function renderScans() {
             <td>${esc(scan.owner_name || "-")}</td>
             <td><code class="uid">${scan.uid}</code></td>
             <td>${esc(scan.tag_type || "-")}</td>
+            <td><code>${esc(scan.atqa || "-")}</code></td>
+            <td><code>${esc(scan.sak || "-")}</code></td>
+            <td>${esc(scan.member_id || "-")}</td>
+            <td>${esc(scan.member_name || "-")}</td>
             <td>${registerBtn}</td>
         </tr>`;
         })
