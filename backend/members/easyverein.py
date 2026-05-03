@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 
 EASYVEREIN_API_BASE = "https://easyverein.com/api/v2.0"
 
-# Rate limiting settings
-PAGE_SIZE = 50  # Smaller pages to avoid rate limits
-REQUEST_DELAY = 0.5  # Seconds between requests
-MAX_RETRIES = 3
-RETRY_DELAY = 2  # Seconds to wait after 429 error
+# Rate limiting settings - CONSERVATIVE to avoid 429 errors
+PAGE_SIZE = 25  # Very small pages
+REQUEST_DELAY = 3.0  # 3 seconds between page requests
+MAX_RETRIES = 5
+RETRY_DELAY = 10  # 10 seconds to wait after 429 error (exponential: 10, 20, 30...)
 
 # Track sync status in memory (could be persisted to DB if needed)
 _last_sync_result: Optional[dict] = None
@@ -238,7 +238,7 @@ async def sync_members_from_easyverein() -> dict:
                         contact_url = ev_member.get("contactDetails")
                         if contact_url and isinstance(contact_url, str):
                             contact_details = await fetch_contact_details(client, headers, contact_url)
-                            await asyncio.sleep(0.2)  # Small delay between contact detail requests
+                            await asyncio.sleep(1.0)  # 1 second delay between contact detail requests
                         
                         mapped = map_easyverein_member(ev_member, contact_details)
                         if not mapped:
