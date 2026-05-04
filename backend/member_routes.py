@@ -9,6 +9,7 @@ import logging
 
 from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
+from backend.auth.dependencies import is_member_session_valid
 from backend.laufzettel.db import get_db as get_laufzettel_db
 from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 from backend.laufzettel.routes import MaterialCreate
@@ -41,6 +42,8 @@ def require_member(request: Request, db: Session = Depends(get_auth_db)):
 @router.get("/member")
 async def member_dashboard(request: Request, db: Session = Depends(get_auth_db)):
     """Member dashboard - redirects to their open laufzettel"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -59,6 +62,8 @@ async def member_laufzettel_open(
     auth_db: Session = Depends(get_auth_db),
 ):
     """Show member's current open (unpaid) laufzettel"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -134,6 +139,8 @@ async def member_laufzettel_historie(
     auth_db: Session = Depends(get_auth_db),
 ):
     """Show member's paid laufzettel history"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -190,6 +197,8 @@ async def member_laufzettel_detail(
     catalog_db: Session = Depends(get_catalog_db),
 ):
     """Show member's laufzettel detail - read only (history view)"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -256,6 +265,8 @@ async def member_konto(
     members_db: Session = Depends(get_members_db),
 ):
     """Show member account info"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)

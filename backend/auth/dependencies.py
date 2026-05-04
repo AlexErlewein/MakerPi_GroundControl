@@ -10,6 +10,7 @@ from backend.config import SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ADMIN_TIMEOUT_MINUTES = 10
+MEMBER_TIMEOUT_MINUTES = 3
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -61,6 +62,37 @@ def is_admin_verified(request: Request) -> bool:
         # Timeout expired, clear admin verification
         session["admin_verified"] = False
         session["admin_verified_at"] = None
+        return False
+    
+    # Update last activity
+    session["last_activity"] = now.isoformat()
+    return True
+
+
+def is_member_session_valid(request: Request) -> bool:
+    """Check if member session is still valid (3min timeout)"""
+    session = request.session
+    if not session.get("user"):
+        return False
+    
+    last_activity = session.get("last_activity")
+    
+    if not last_activity:
+        return False
+    
+    # Parse ISO format string to datetime
+    try:
+        last_activity_dt = datetime.fromisoformat(last_activity)
+        if last_activity_dt.tzinfo is None:
+            last_activity_dt = last_activity_dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return False
+    
+    # Check 3min timeout
+    now = datetime.now(timezone.utc)
+    if (now - last_activity_dt).total_seconds() > (MEMBER_TIMEOUT_MINUTES * 60):
+        # Timeout expired, clear session
+        session.clear()
         return False
     
     # Update last activity
