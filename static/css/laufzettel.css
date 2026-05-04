@@ -116,8 +116,8 @@
 
 /* Admin unlock button styles */
 .btn-admin {
-    background: #d7d9d3;
-    color: #1a1a1a;
+    background: #827f77;
+    color: #ffffff;
     border: none;
     padding: 10px 20px;
     border-radius: 8px;
@@ -125,21 +125,21 @@
     cursor: pointer;
     transition: all 0.25s ease;
     font-size: 0.9rem;
-    box-shadow: 0 2px 8px rgba(215, 217, 211, 0.25);
+    box-shadow: 0 2px 8px rgba(130, 127, 119, 0.3);
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
 
 .btn-admin:hover {
-    background: #e2e4de;
+    background: #918e86;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(215, 217, 211, 0.35);
+    box-shadow: 0 4px 12px rgba(130, 127, 119, 0.4);
 }
 
 .btn-admin:active {
     transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(215, 217, 211, 0.25);
+    box-shadow: 0 2px 6px rgba(130, 127, 119, 0.3);
 }
 
 [data-theme="light"] .btn-admin {
