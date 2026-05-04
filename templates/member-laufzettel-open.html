@@ -225,6 +225,18 @@
             <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
         </div>
     </div>
+    <!-- Admin Password Modal -->
+    <div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
+            <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">🔓 Admin-Passwort</h3>
+            <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
+            <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
+                <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
+            </div>
+        </div>
+    </div>
     <style>
         @keyframes member-pulse {
             0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
@@ -565,16 +577,41 @@
             } catch (err) { console.error('Failed to check session:', err); }
         }
 
-        document.getElementById('admin-unlock-btn').addEventListener('click', async () => {
-            const password = prompt('Admin-Passwort eingeben:');
+        document.getElementById('admin-unlock-btn').addEventListener('click', () => {
+            document.getElementById('admin-pw-modal').style.display = 'flex';
+            document.getElementById('admin-pw-input').value = '';
+            document.getElementById('admin-pw-error').style.display = 'none';
+            document.getElementById('admin-pw-input').focus();
+        });
+
+        document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAdminPw();
+        });
+
+        function closeAdminPwModal() {
+            document.getElementById('admin-pw-modal').style.display = 'none';
+        }
+
+        async function submitAdminPw() {
+            const password = document.getElementById('admin-pw-input').value;
             if (!password) return;
+            const errEl = document.getElementById('admin-pw-error');
+            errEl.style.display = 'none';
             const formData = new FormData(); formData.append('password', password);
             try {
                 const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
-                if (res.ok) window.location.href = '/dashboard';
-                else alert('Falsches Passwort oder keine Admin-Berechtigung');
-            } catch (err) { alert('Fehler beim Verifizieren'); }
-        });
+                if (res.ok) { window.location.href = '/dashboard'; }
+                else {
+                    errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
+                    errEl.style.display = 'block';
+                    document.getElementById('admin-pw-input').value = '';
+                    document.getElementById('admin-pw-input').focus();
+                }
+            } catch (err) {
+                errEl.textContent = 'Fehler beim Verifizieren';
+                errEl.style.display = 'block';
+            }
+        }
 
         async function exitAdminMode() {
             await fetch('/api/auth/logout-admin', { method: 'POST' });
