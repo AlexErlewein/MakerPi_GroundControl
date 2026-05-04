@@ -15,17 +15,17 @@ logger = logging.getLogger(__name__)
 EASYVEREIN_API_BASE = "https://easyverein.com/api/v2.0"
 
 # Rate limiting settings - CONSERVATIVE to avoid 429 errors
-PAGE_SIZE = 25  # Very small pages
-REQUEST_DELAY = 3.0  # 3 seconds between page requests
-MAX_RETRIES = 5
-RETRY_DELAY = 10  # 10 seconds to wait after 429 error (exponential: 10, 20, 30...)
+PAGE_SIZE = 10  # Very small pages to avoid disconnection
+REQUEST_DELAY = 5.0  # 5 seconds between page requests
+MAX_RETRIES = 3
+RETRY_DELAY = 15  # 15 seconds to wait after errors (exponential: 15, 30, 45...)
 
 # Track sync status in memory (could be persisted to DB if needed)
 _last_sync_result: Optional[dict] = None
 
 
 async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, params: Optional[dict] = None) -> httpx.Response:
-    """Fetch URL with retry logic for rate limiting (429)"""
+    """Fetch URL with retry logic for rate limiting (429) and disconnection errors"""
     last_exception = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -42,6 +42,23 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, p
             if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
                 wait_time = RETRY_DELAY * (attempt + 1)
                 logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+        except httpx.RemoteProtocolError as e:
+            # Server disconnected without response - retry with longer delay
+            last_exception = e
+            if attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(f"Server disconnected, waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+        except Exception as e:
+            last_exception = e
+            if attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(f"Request failed ({type(e).__name__}), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
                 await asyncio.sleep(wait_time)
                 continue
             raise
@@ -188,7 +205,10 @@ async def sync_members_from_easyverein() -> dict:
         headers = get_auth_headers()
         ev_members = []
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # Configure timeout and connection limits to prevent disconnection
+        timeout = httpx.Timeout(60.0, connect=30.0)
+        limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
             # Build URL with optional org ID and smaller page size (rate limiting)
             url = f"{EASYVEREIN_API_BASE}/member/"
             params = {"page_size": PAGE_SIZE}  # Smaller pages to avoid rate limits
@@ -197,9 +217,15 @@ async def sync_members_from_easyverein() -> dict:
             
             # Fetch all pages with rate limiting
             next_url = url
+            page_count = 0
             while next_url:
-                logger.info(f"Fetching members from easyVerein: {next_url} (params: {params})")
-                response = await fetch_with_retry(client, next_url, headers, params if next_url == url else None)
+                page_count += 1
+                logger.info(f"Fetching members from easyVerein: {next_url} (params: {params}) - page {page_count}")
+                try:
+                    response = await fetch_with_retry(client, next_url, headers, params if next_url == url else None)
+                except Exception as e:
+                    logger.error(f"Failed to fetch page {page_count}: {e}")
+                    raise
                 
                 # Rate limiting: wait between requests
                 if next_url != url:
