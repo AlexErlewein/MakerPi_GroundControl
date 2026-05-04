@@ -114,11 +114,27 @@ def verify_admin_password(request: Request, db: Session, password: str) -> bool:
     username = request.session.get("user")
     user = db.query(User).filter(User.username == username).first()
     
-    if not user or user.role != "admin":
+    if not user:
         return False
     
-    if not verify_password(password, user.hashed_password):
-        return False
+    # Try auth DB password first (for admin users created via password)
+    if user.hashed_password and verify_password(password, user.hashed_password):
+        pass  # Password verified
+    else:
+        # Try member login password (for members with admin RFID tags)
+        from backend.members.db import get_db as get_members_db
+        from backend.members.models import Mitglied
+        members_db = next(get_members_db())
+        try:
+            mitglied = members_db.query(Mitglied).filter(
+                Mitglied.id == user.mitglied_id
+            ).first()
+            if not mitglied or not mitglied.login_password_hash:
+                return False
+            if not verify_password(password, mitglied.login_password_hash):
+                return False
+        finally:
+            members_db.close()
     
     # Set admin verified
     now = datetime.now(timezone.utc)
