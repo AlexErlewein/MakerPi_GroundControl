@@ -102,9 +102,18 @@ async def unified_login(
                     member_user.username = mitglied.login_username
                     db.commit()
 
+                # Check if member has admin RFID tag
+                from backend.members.models import RFIDTag
+                admin_tag = members_db.query(RFIDTag).filter(
+                    RFIDTag.member_id == mitglied.member_id,
+                    RFIDTag.is_admin == True,
+                    RFIDTag.active == 1,
+                ).first()
+                has_admin = bool(admin_tag) or (member_user and member_user.role == "admin")
+
                 request.session["user"] = mitglied.login_username
                 request.session["mitglied_id"] = mitglied.id
-                request.session["is_admin_capable"] = False
+                request.session["is_admin_capable"] = has_admin
                 request.session["admin_verified"] = False
                 request.session["admin_verified_at"] = None
                 request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
