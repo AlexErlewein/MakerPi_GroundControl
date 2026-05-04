@@ -432,6 +432,10 @@ class EnrollmentReaderUpdate(BaseModel):
     enrollment_reader_id: str
 
 
+class PaymentReaderUpdate(BaseModel):
+    payment_reader_id: str
+
+
 @router.get("/api/settings/enrollment-reader")
 async def get_enrollment_reader(db: Session = Depends(get_db)):
     """Get the current enrollment reader device ID and list of known devices."""
@@ -457,3 +461,70 @@ async def set_enrollment_reader(data: EnrollmentReaderUpdate):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to persist config: {exc}")
     return {"enrollment_reader_id": new_id}
+
+
+@router.get("/api/settings/payment-reader")
+async def get_payment_reader(db: Session = Depends(get_db)):
+    """Get the current payment reader device ID and list of known devices."""
+    devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    return {
+        "payment_reader_id": _app_config.PAYMENT_READER_ID,
+        "devices": [d.device_id for d in devices],
+    }
+
+
+@router.put("/api/settings/payment-reader")
+async def set_payment_reader(data: PaymentReaderUpdate):
+    """Update the payment reader device ID in memory and persist to config.json."""
+    new_id = data.payment_reader_id.strip()
+    _app_config.PAYMENT_READER_ID = new_id
+    cfg_path = Path("config/config.json")
+    try:
+        cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+        cfg["payment_reader_id"] = new_id
+        cfg_path.write_text(json.dumps(cfg, indent=4, ensure_ascii=False))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist config: {exc}")
+    return {"payment_reader_id": new_id}
+
+
+@router.get("/api/scans/payment-stream")
+async def payment_scan_stream(request: Request):
+    """SSE endpoint: streams NFC scan events filtered by payment_reader_id.
+    Same mechanism as /api/scans/stream but for the payment checkout reader.
+    """
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    entry = (queue, loop)
+    scan_subscribers.append(entry)
+
+    async def event_generator():
+        try:
+            reader_id = _app_config.PAYMENT_READER_ID
+            yield f"event: config\ndata: {json.dumps({'payment_reader_id': reader_id})}\n\n"
+
+            deadline = loop.time() + 120
+            while True:
+                if await request.is_disconnected():
+                    break
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    yield f"event: timeout\ndata: {json.dumps({'message': 'timeout'})}\n\n"
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=min(remaining, 1.0))
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            if entry in scan_subscribers:
+                scan_subscribers.remove(entry)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

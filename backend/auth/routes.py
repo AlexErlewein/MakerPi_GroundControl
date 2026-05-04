@@ -10,7 +10,7 @@ from .models import User
 from .dependencies import (
     verify_password, get_password_hash, get_user, seed_admin_user,
     is_admin_verified, verify_admin_password, get_session_info,
-    require_admin, ADMIN_TIMEOUT_MINUTES
+    require_admin, is_member_session_valid, ADMIN_TIMEOUT_MINUTES
 )
 
 router = APIRouter()
@@ -140,6 +140,14 @@ async def logout_admin(request: Request):
 async def session_info(request: Request):
     """Get current session information"""
     return get_session_info(request)
+
+
+@router.post("/api/auth/heartbeat")
+async def heartbeat(request: Request):
+    """Update last activity timestamp and check session validity"""
+    if not is_member_session_valid(request):
+        return JSONResponse({"valid": False}, status_code=401)
+    return {"valid": True}
 
 
 @router.post("/api/auth/verify-admin")

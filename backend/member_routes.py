@@ -9,6 +9,7 @@ import logging
 
 from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
+from backend.auth.dependencies import is_member_session_valid
 from backend.laufzettel.db import get_db as get_laufzettel_db
 from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 from backend.laufzettel.routes import MaterialCreate
@@ -41,6 +42,8 @@ def require_member(request: Request, db: Session = Depends(get_auth_db)):
 @router.get("/member")
 async def member_dashboard(request: Request, db: Session = Depends(get_auth_db)):
     """Member dashboard - redirects to their open laufzettel"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -59,6 +62,8 @@ async def member_laufzettel_open(
     auth_db: Session = Depends(get_auth_db),
 ):
     """Show member's current open (unpaid) laufzettel"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -134,6 +139,8 @@ async def member_laufzettel_historie(
     auth_db: Session = Depends(get_auth_db),
 ):
     """Show member's paid laufzettel history"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -190,6 +197,8 @@ async def member_laufzettel_detail(
     catalog_db: Session = Depends(get_catalog_db),
 ):
     """Show member's laufzettel detail - read only (history view)"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -256,6 +265,8 @@ async def member_konto(
     members_db: Session = Depends(get_members_db),
 ):
     """Show member account info"""
+    if not is_member_session_valid(request):
+        return RedirectResponse("/", status_code=302)
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/", status_code=302)
@@ -437,3 +448,140 @@ async def login_via_rfid(
         "is_admin_capable": request.session["is_admin_capable"],
         "redirect": "/member",
     }
+
+
+# ── Kasse (Payment Checkout) ────────────────────────────────────────────────
+
+@router.get("/kasse")
+async def kasse_page(request: Request):
+    """Standalone payment checkout page — no auth required."""
+    return templates.TemplateResponse("kasse.html", {"request": request})
+
+
+@router.get("/api/kasse/lookup")
+async def kasse_lookup(
+    uid: str,
+    laufzettel_db: Session = Depends(get_laufzettel_db),
+    members_db: Session = Depends(get_members_db),
+):
+    """Look up a member's open laufzettel by NFC UID."""
+    uid = uid.strip().upper()
+
+    mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == uid).first()
+    if not mitglied:
+        return JSONResponse({"error": "Unbekannte Karte"}, status_code=404)
+
+    # Find open (unpaid) laufzettel for this member
+    open_lz = (
+        laufzettel_db.query(Laufzettel)
+        .filter(
+            Laufzettel.mitglied_id == mitglied.id,
+            Laufzettel.payment_method.is_(None),
+        )
+        .order_by(Laufzettel.created_at.desc())
+        .first()
+    )
+
+    # Fallback: try uid-based lookup
+    if not open_lz:
+        open_lz = (
+            laufzettel_db.query(Laufzettel)
+            .filter(
+                Laufzettel.uid == uid,
+                Laufzettel.mitglied_id.is_(None),
+                Laufzettel.payment_method.is_(None),
+            )
+            .order_by(Laufzettel.created_at.desc())
+            .first()
+        )
+
+    if not open_lz:
+        return JSONResponse(
+            {"error": "Kein offener Laufzettel gefunden", "mitglied": mitglied.name},
+            status_code=404,
+        )
+
+    # Get materials total
+    materials = (
+        laufzettel_db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == open_lz.id)
+        .all()
+    )
+    total = sum(m.calculated_price or 0 for m in materials)
+
+    return {
+        "mitglied": {
+            "id": mitglied.id,
+            "name": mitglied.name,
+            "member_id": mitglied.member_id,
+        },
+        "laufzettel": {
+            "id": open_lz.id,
+            "date": str(open_lz.date) if open_lz.date else None,
+            "material_count": len(materials),
+            "total": round(total, 2),
+        },
+    }
+
+
+@router.post("/api/kasse/verify-admin-card")
+async def kasse_verify_admin_card(
+    request: Request,
+    members_db: Session = Depends(get_members_db),
+    auth_db: Session = Depends(get_auth_db),
+):
+    """Verify an admin NFC card and create an admin session for payment."""
+    from datetime import datetime, timezone
+
+    body = await request.json()
+    rfid_uid = body.get("rfid_uid", "").strip().upper()
+
+    if not rfid_uid:
+        return JSONResponse({"success": False, "error": "Keine UID"}, status_code=400)
+
+    # Check RFIDTag for admin flag
+    tag = members_db.query(RFIDTag).filter(
+        RFIDTag.uid == rfid_uid, RFIDTag.active == 1
+    ).first()
+
+    is_admin_card = bool(tag and tag.is_admin)
+
+    if not is_admin_card:
+        # Also check if the associated user is an admin
+        mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+        if mitglied:
+            user = auth_db.query(User).filter(User.mitglied_id == mitglied.id).first()
+            if user and user.role == "admin":
+                is_admin_card = True
+
+    if not is_admin_card:
+        return JSONResponse(
+            {"success": False, "error": "Keine Admin-Berechtigung"},
+            status_code=403,
+        )
+
+    # Create admin session
+    # Find or create user for admin card holder
+    mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+    if not mitglied and tag and tag.member_id:
+        mitglied = members_db.query(Mitglied).filter(
+            Mitglied.member_id == tag.member_id
+        ).first()
+
+    user = None
+    if mitglied:
+        user = auth_db.query(User).filter(User.mitglied_id == mitglied.id).first()
+
+    if user:
+        request.session["user"] = user.username
+        request.session["mitglied_id"] = user.mitglied_id
+    else:
+        request.session["user"] = tag.owner_name or "admin"
+        request.session["mitglied_id"] = None
+
+    request.session["is_admin_capable"] = True
+    request.session["admin_verified"] = True
+    request.session["admin_verified_at"] = datetime.now(timezone.utc).isoformat()
+    request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+
+    return {"success": True}

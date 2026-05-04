@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasse - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/kasse.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
+</head>
+<body class="kasse-page">
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
+
+    <div class="kasse-container">
+        <div class="kasse-header">
+            <img src="/graphics/H3ckeLogo.svg" class="kasse-logo" alt="H3cke MakerSpace">
+            <h1>Kasse</h1>
+            <p class="subtitle">Laufzettel bezahlen</p>
+        </div>
+
+        <div class="kasse-card">
+            <!-- Phase 1: Waiting for member scan -->
+            <div id="scan-phase">
+                <div class="kasse-scan-area">
+                    <div class="scanning-animation">
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                    </div>
+                    <div class="kasse-scan-text">Halte deine Mitgliederkarte an den Reader...</div>
+                </div>
+                <div id="scan-error" class="kasse-error"></div>
+            </div>
+
+            <!-- Phase 2: Member identified, show laufzettel summary -->
+            <div id="member-phase" class="kasse-member-info">
+                <h2 class="member-name" id="member-name"></h2>
+                <p class="member-id" id="member-id-display"></p>
+
+                <div class="lz-summary">
+                    <div class="lz-summary-row">
+                        <span class="lz-summary-label">Laufzettel</span>
+                        <span class="lz-summary-value" id="lz-id-display">#—</span>
+                    </div>
+                    <div class="lz-summary-row">
+                        <span class="lz-summary-label">Datum</span>
+                        <span class="lz-summary-value" id="lz-date-display">—</span>
+                    </div>
+                    <div class="lz-summary-row">
+                        <span class="lz-summary-label">Positionen</span>
+                        <span class="lz-summary-value" id="lz-count-display">—</span>
+                    </div>
+                    <div class="lz-summary-row">
+                        <span class="lz-summary-label">Gesamt</span>
+                        <span class="lz-total-value" id="lz-total-display">0,00 €</span>
+                    </div>
+                </div>
+
+                <button class="btn-pay" id="btn-pay" onclick="startAdminUnlock()">
+                    💳 Jetzt bezahlen
+                </button>
+                <button class="btn-reset" onclick="resetKasse()">← Andere Karte scannen</button>
+            </div>
+        </div>
+
+        <div class="kasse-footer">
+            <p>H3cke e.V. MakerSpace</p>
+        </div>
+    </div>
+
+    <!-- Admin Unlock Modal -->
+    <div id="admin-modal" class="kasse-modal-overlay">
+        <div class="kasse-modal">
+            <div class="modal-icon">🔐</div>
+            <h3>Bitte von Admin freischalten lassen</h3>
+            <p>Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
+
+            <div id="admin-error" class="admin-error"></div>
+
+            <div class="admin-scan-area">
+                <div class="scanning-animation">
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
+                </div>
+                <div class="kasse-scan-text">Warte auf Admin-Karte...</div>
+            </div>
+
+            <button class="btn-cancel-modal" onclick="cancelAdminUnlock()">Abbrechen</button>
+        </div>
+    </div>
+
+    <script>
+        let paymentReaderId = '';
+        let scanSource = null;
+        let adminScanSource = null;
+        let currentLaufzettelId = null;
+        let currentMemberUid = null;
+
+        // ── Phase 1: Listen for member NFC scan ─────────────────────
+
+        function startScanListener() {
+            if (scanSource) {
+                scanSource.close();
+                scanSource = null;
+            }
+
+            scanSource = new EventSource('/api/scans/payment-stream');
+
+            scanSource.addEventListener('config', (e) => {
+                const data = JSON.parse(e.data);
+                paymentReaderId = data.payment_reader_id || '';
+                console.log('[Kasse] payment reader:', paymentReaderId);
+            });
+
+            scanSource.addEventListener('timeout', () => {
+                scanSource.close();
+                scanSource = null;
+                // Restart listener
+                setTimeout(startScanListener, 500);
+            });
+
+            scanSource.onmessage = async (e) => {
+                const data = JSON.parse(e.data);
+                if (paymentReaderId && data.device_id !== paymentReaderId) return;
+
+                const uid = data.uid.toUpperCase();
+                console.log('[Kasse] Member scan:', uid);
+
+                // Close stream while processing
+                scanSource.close();
+                scanSource = null;
+
+                await lookupMember(uid);
+            };
+
+            scanSource.onerror = () => {
+                scanSource.close();
+                scanSource = null;
+                setTimeout(startScanListener, 2000);
+            };
+        }
+
+        async function lookupMember(uid) {
+            const errorEl = document.getElementById('scan-error');
+            errorEl.classList.remove('visible');
+
+            try {
+                const res = await fetch(`/api/kasse/lookup?uid=${encodeURIComponent(uid)}`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    let msg = data.error || 'Fehler beim Laden';
+                    if (data.mitglied) {
+                        msg += ` (${data.mitglied})`;
+                    }
+                    errorEl.textContent = msg;
+                    errorEl.classList.add('visible');
+                    // Resume scanning
+                    setTimeout(() => {
+                        errorEl.classList.remove('visible');
+                        startScanListener();
+                    }, 4000);
+                    return;
+                }
+
+                // Show member info
+                currentLaufzettelId = data.laufzettel.id;
+                currentMemberUid = uid;
+
+                document.getElementById('member-name').textContent = data.mitglied.name;
+                document.getElementById('member-id-display').textContent = data.mitglied.member_id || '';
+                document.getElementById('lz-id-display').textContent = `#${data.laufzettel.id}`;
+                document.getElementById('lz-date-display').textContent = data.laufzettel.date || '—';
+                document.getElementById('lz-count-display').textContent = `${data.laufzettel.material_count} Einträge`;
+                document.getElementById('lz-total-display').textContent =
+                    data.laufzettel.total.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+                document.getElementById('scan-phase').style.display = 'none';
+                document.getElementById('member-phase').classList.add('visible');
+
+            } catch (err) {
+                console.error('[Kasse] Lookup error:', err);
+                errorEl.textContent = 'Verbindungsfehler';
+                errorEl.classList.add('visible');
+                setTimeout(() => {
+                    errorEl.classList.remove('visible');
+                    startScanListener();
+                }, 3000);
+            }
+        }
+
+        // ── Phase 2: Admin card unlock ──────────────────────────────
+
+        function startAdminUnlock() {
+            document.getElementById('admin-modal').classList.add('visible');
+            document.getElementById('admin-error').classList.remove('visible');
+
+            if (adminScanSource) {
+                adminScanSource.close();
+                adminScanSource = null;
+            }
+
+            adminScanSource = new EventSource('/api/scans/payment-stream');
+
+            adminScanSource.addEventListener('config', () => {});
+
+            adminScanSource.addEventListener('timeout', () => {
+                adminScanSource.close();
+                adminScanSource = null;
+                // Restart listener for admin
+                adminScanSource = new EventSource('/api/scans/payment-stream');
+                setupAdminScanHandlers();
+            });
+
+            setupAdminScanHandlers();
+        }
+
+        function setupAdminScanHandlers() {
+            if (!adminScanSource) return;
+
+            adminScanSource.onmessage = async (e) => {
+                const data = JSON.parse(e.data);
+                if (paymentReaderId && data.device_id !== paymentReaderId) return;
+
+                const uid = data.uid.toUpperCase();
+                console.log('[Kasse] Admin scan attempt:', uid);
+
+                // Don't accept the same card as the member
+                if (uid === currentMemberUid) {
+                    const errEl = document.getElementById('admin-error');
+                    errEl.textContent = 'Bitte eine andere (Admin-)Karte verwenden';
+                    errEl.classList.add('visible');
+                    setTimeout(() => errEl.classList.remove('visible'), 3000);
+                    return;
+                }
+
+                adminScanSource.close();
+                adminScanSource = null;
+
+                await verifyAdminCard(uid);
+            };
+
+            adminScanSource.onerror = () => {
+                adminScanSource.close();
+                adminScanSource = null;
+                setTimeout(() => {
+                    if (document.getElementById('admin-modal').classList.contains('visible')) {
+                        adminScanSource = new EventSource('/api/scans/payment-stream');
+                        setupAdminScanHandlers();
+                    }
+                }, 2000);
+            };
+        }
+
+        async function verifyAdminCard(uid) {
+            const errEl = document.getElementById('admin-error');
+            errEl.classList.remove('visible');
+
+            try {
+                const res = await fetch('/api/kasse/verify-admin-card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rfid_uid: uid }),
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    // Redirect to admin laufzettel detail
+                    window.location.href = `/laufzettel/${currentLaufzettelId}?from=kasse`;
+                } else {
+                    errEl.textContent = data.error || 'Keine Admin-Berechtigung';
+                    errEl.classList.add('visible');
+                    setTimeout(() => errEl.classList.remove('visible'), 4000);
+                    // Resume admin scan listening
+                    adminScanSource = new EventSource('/api/scans/payment-stream');
+                    setupAdminScanHandlers();
+                }
+            } catch (err) {
+                console.error('[Kasse] Admin verify error:', err);
+                errEl.textContent = 'Verbindungsfehler';
+                errEl.classList.add('visible');
+                setTimeout(() => {
+                    errEl.classList.remove('visible');
+                    adminScanSource = new EventSource('/api/scans/payment-stream');
+                    setupAdminScanHandlers();
+                }, 3000);
+            }
+        }
+
+        function cancelAdminUnlock() {
+            document.getElementById('admin-modal').classList.remove('visible');
+            if (adminScanSource) {
+                adminScanSource.close();
+                adminScanSource = null;
+            }
+        }
+
+        // ── Reset ───────────────────────────────────────────────────
+
+        function resetKasse() {
+            document.getElementById('scan-phase').style.display = '';
+            document.getElementById('member-phase').classList.remove('visible');
+            document.getElementById('scan-error').classList.remove('visible');
+            currentLaufzettelId = null;
+            currentMemberUid = null;
+            startScanListener();
+        }
+
+        // ── Init ────────────────────────────────────────────────────
+        startScanListener();
+    </script>
+    <script src="/static/js/theme.js"></script>
+</body>
+</html>

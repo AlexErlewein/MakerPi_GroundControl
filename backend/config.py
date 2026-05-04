@@ -42,6 +42,9 @@ EASYVEREIN_ORG_ID: str = _cfg.get("easyverein_org_id", os.environ.get("EASYVEREI
 # NFC Enrollment Reader - the dedicated device used for enrolling member cards
 ENROLLMENT_READER_ID: str = _cfg.get("enrollment_reader_id", os.environ.get("ENROLLMENT_READER_ID", ""))
 
+# NFC Payment Reader - the dedicated device used for payment checkout
+PAYMENT_READER_ID: str = _cfg.get("payment_reader_id", os.environ.get("PAYMENT_READER_ID", ""))
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"
