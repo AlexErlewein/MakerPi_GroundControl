@@ -7,6 +7,21 @@ let selectedKategorie = null;
 let logoDataUrl = null;
 let paymentConfig = { sumup_configured: false };
 
+// ── Origin awareness (from= param) ─────────────────────────
+const _fromParam = new URLSearchParams(window.location.search).get("from");
+if (_fromParam) {
+    const backLink = document.getElementById("back-link");
+    if (backLink) {
+        if (_fromParam === "kasse") {
+            backLink.href = "/kasse";
+            backLink.textContent = "← Zurück zur Kasse";
+        } else if (_fromParam === "member") {
+            backLink.href = "/member/laufzettel";
+            backLink.textContent = "← Zurück zum Auftrag";
+        }
+    }
+}
+
 // ── Data loading ─────────────────────────────────────────────
 
 async function loadLogo() {
@@ -1497,7 +1512,8 @@ async function confirmDeleteLaufzettel() {
     try {
         const response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, { method: "DELETE" });
         if (response.ok) {
-            window.location.href = "/laufzettel";
+            const dest = _fromParam === "kasse" ? "/kasse" : _fromParam === "member" ? "/member/laufzettel" : "/laufzettel";
+            window.location.href = dest;
         } else {
             const err = await response.json().catch(() => ({}));
             alert(`Fehler beim Löschen: ${err.detail || response.status}`);

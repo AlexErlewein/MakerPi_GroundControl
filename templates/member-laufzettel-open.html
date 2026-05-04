@@ -75,6 +75,17 @@
                 </div>
             </section>
 
+            <!-- Payment Button -->
+            <section class="section" style="text-align:center;padding:24px 0;">
+                <button class="btn-pay" id="btn-member-pay" onclick="startMemberAdminUnlock()" style="
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                    color: white; border: none; padding: 16px 32px; border-radius: 12px;
+                    font-size: 1.15rem; font-weight: 700; cursor: pointer;
+                    box-shadow: 0 4px 15px rgba(34,197,94,0.3); transition: all 0.25s;
+                    display: inline-flex; align-items: center; gap: 10px;
+                ">💳 Jetzt bezahlen</button>
+            </section>
+
             {% else %}
 
             <div class="lz-info-card">
@@ -194,6 +205,31 @@
             </form>
         </div>
     </div>
+
+    <!-- Admin Unlock Modal for Payment -->
+    <div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
+            <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
+            <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
+            <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
+            <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
+            <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
+                <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
+                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
+                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
+                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
+                </div>
+                <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
+            </div>
+            <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
+        </div>
+    </div>
+    <style>
+        @keyframes member-pulse {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+    </style>
 
     <script>
         const LAUFZETTEL_ID = {{ open_lz.id }};
@@ -542,6 +578,82 @@
         async function exitAdminMode() {
             await fetch('/api/auth/logout-admin', { method: 'POST' });
             window.location.reload();
+        }
+
+        // ── Payment admin unlock ─────────────────────────────────
+        let memberAdminScanSource = null;
+
+        function startMemberAdminUnlock() {
+            const modal = document.getElementById('member-admin-modal');
+            modal.style.display = 'flex';
+            document.getElementById('member-admin-error').style.display = 'none';
+
+            if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
+
+            memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+            memberAdminScanSource.addEventListener('config', () => {});
+            memberAdminScanSource.addEventListener('timeout', () => {
+                memberAdminScanSource.close();
+                memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                setupMemberAdminHandlers();
+            });
+            setupMemberAdminHandlers();
+        }
+
+        function setupMemberAdminHandlers() {
+            if (!memberAdminScanSource) return;
+            memberAdminScanSource.onmessage = async (e) => {
+                const data = JSON.parse(e.data);
+                const uid = data.uid.toUpperCase();
+                memberAdminScanSource.close();
+                memberAdminScanSource = null;
+                await verifyMemberAdminCard(uid);
+            };
+            memberAdminScanSource.onerror = () => {
+                memberAdminScanSource.close();
+                memberAdminScanSource = null;
+                setTimeout(() => {
+                    if (document.getElementById('member-admin-modal').style.display === 'flex') {
+                        memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                        setupMemberAdminHandlers();
+                    }
+                }, 2000);
+            };
+        }
+
+        async function verifyMemberAdminCard(uid) {
+            const errEl = document.getElementById('member-admin-error');
+            errEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/kasse/verify-admin-card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rfid_uid: uid }),
+                });
+                const result = await res.json();
+                if (result.success) {
+                    window.location.href = `/laufzettel/${LAUFZETTEL_ID}?from=member`;
+                } else {
+                    errEl.textContent = result.error || 'Keine Admin-Berechtigung';
+                    errEl.style.display = 'block';
+                    setTimeout(() => { errEl.style.display = 'none'; }, 4000);
+                    memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                    setupMemberAdminHandlers();
+                }
+            } catch (err) {
+                errEl.textContent = 'Verbindungsfehler';
+                errEl.style.display = 'block';
+                setTimeout(() => {
+                    errEl.style.display = 'none';
+                    memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                    setupMemberAdminHandlers();
+                }, 3000);
+            }
+        }
+
+        function cancelMemberAdminUnlock() {
+            document.getElementById('member-admin-modal').style.display = 'none';
+            if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
         }
 
         renderMaterials();
