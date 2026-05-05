@@ -6,7 +6,7 @@
     <title>Katalog - MakerPi GroundControl</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/tags.css">
-    <link rel="stylesheet" href="/static/css/katalog.css?v=2">
+    <link rel="stylesheet" href="/static/css/katalog.css?v=3">
     <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
 </head>
 <body>
@@ -26,6 +26,7 @@
                 </nav>
             </div>
             <div class="header-actions">
+                <button id="bulk-import-btn" class="btn btn-primary">⬆ Bulk Import</button>
                 <button id="add-location-btn" class="btn btn-success">+ Standort</button>
                 <button id="refresh-btn" class="btn btn-primary">
                     <span class="btn-icon">↻</span> Refresh
@@ -139,7 +140,70 @@
         </div>
     </div>
 
-    <script src="/static/js/katalog.js?v=3"></script>
+    <!-- Bulk Import Modal -->
+    <div id="bulk-modal" class="modal hidden">
+        <div class="modal-overlay" id="bulk-overlay"></div>
+        <div class="modal-box modal-wide">
+            <div class="modal-header">
+                <h3>Bulk Import</h3>
+                <button class="modal-close" id="bulk-modal-close">✕</button>
+            </div>
+
+            <div class="bulk-tabs">
+                <button class="bulk-tab-btn active" data-tab="entry" id="tab-btn-entry">Eingabe</button>
+                <button class="bulk-tab-btn" data-tab="csv" id="tab-btn-csv">CSV Import</button>
+            </div>
+
+            <!-- Eingabe Tab -->
+            <div id="bulk-tab-entry" class="bulk-tab-panel">
+                <div class="form-group" style="margin-top:16px;">
+                    <label for="bulk-standort-select">Standort</label>
+                    <select id="bulk-standort-select"></select>
+                </div>
+                <div class="form-group" id="bulk-new-standort-group" style="display:none;">
+                    <label for="bulk-new-standort-name">Name des neuen Standorts</label>
+                    <input type="text" id="bulk-new-standort-name" placeholder="z.B. Töpferei">
+                </div>
+
+                <div id="bulk-kat-list"></div>
+
+                <button type="button" class="btn btn-secondary" id="bulk-add-kat-btn" style="margin-top:10px;">
+                    + Kategorie hinzufügen
+                </button>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="bulk-entry-cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-success" id="bulk-entry-save">Alles speichern</button>
+                </div>
+            </div>
+
+            <!-- CSV Tab -->
+            <div id="bulk-tab-csv" class="bulk-tab-panel hidden">
+                <div class="bulk-csv-info">
+                    <p>Erwartet wird eine CSV-Datei mit folgenden Spalten (erste Zeile = Header):</p>
+                    <code>standort,kategorie,preismodell,einheit,steuersatz,variante,preis</code>
+                    <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
+                        Preismodell-Werte: <em>per_unit, per_gram, per_volume_cm3, per_volume_l, per_minute</em><br>
+                        Steuersatz-Werte: <em>0, 7, 19</em><br>
+                        Einheit: leer lassen wenn nicht zutreffend.<br>
+                        Preis: Dezimalpunkt (kein Komma), z.B. <em>0.05</em>
+                    </p>
+                </div>
+                <div class="form-group" style="margin-top:16px;">
+                    <label for="bulk-csv-file">CSV-Datei auswählen</label>
+                    <input type="file" id="bulk-csv-file" accept=".csv,text/csv">
+                </div>
+                <div id="csv-preview" class="hidden"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="bulk-csv-cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-success hidden" id="bulk-csv-save">CSV importieren</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/static/js/katalog.js?v=4"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

@@ -283,3 +283,429 @@ document.getElementById("variante-overlay").addEventListener("click", closeVaria
 document.getElementById("refresh-btn").addEventListener("click", loadKatalog);
 
 loadKatalog();
+
+// ── Bulk Import ─────────────────────────────────────────────────────────────
+
+let bulkKatCounter = 0;
+let csvParsedData = null;
+
+const PRICING_OPTIONS = [
+    { value: "per_unit",       label: "pro Einheit" },
+    { value: "per_gram",       label: "pro Gramm" },
+    { value: "per_volume_cm3", label: "pro Volumen cm³" },
+    { value: "per_volume_l",   label: "pro Liter" },
+    { value: "per_minute",     label: "pro Minute" },
+];
+
+function openBulkModal() {
+    bulkKatCounter = 0;
+    csvParsedData = null;
+
+    const sel = document.getElementById("bulk-standort-select");
+    sel.innerHTML = katalog.map(
+        (loc) => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`
+    ).join("");
+    sel.insertAdjacentHTML(
+        "beforeend",
+        `<option value="__new__">-- Neuen Standort erstellen --</option>`
+    );
+
+    document.getElementById("bulk-new-standort-group").style.display = "none";
+    document.getElementById("bulk-new-standort-name").value = "";
+    document.getElementById("bulk-kat-list").innerHTML = "";
+    document.getElementById("csv-preview").classList.add("hidden");
+    document.getElementById("bulk-csv-save").classList.add("hidden");
+    document.getElementById("bulk-csv-file").value = "";
+    switchBulkTab("entry");
+
+    document.getElementById("bulk-modal").classList.remove("hidden");
+}
+
+function closeBulkModal() {
+    document.getElementById("bulk-modal").classList.add("hidden");
+}
+
+function switchBulkTab(tabName) {
+    document.querySelectorAll(".bulk-tab-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll(".bulk-tab-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", panel.id !== `bulk-tab-${tabName}`);
+    });
+}
+
+function buildPricingOptions(selectedValue) {
+    return PRICING_OPTIONS.map(
+        (o) => `<option value="${o.value}"${o.value === selectedValue ? " selected" : ""}>${o.label}</option>`
+    ).join("");
+}
+
+function addKategorieRow(prefill = {}) {
+    const idx      = bulkKatCounter++;
+    const name     = prefill.name          || "";
+    const pricing  = prefill.pricing_model || "per_unit";
+    const unit     = prefill.unit          || "";
+    const tax      = prefill.tax_rate      != null ? prefill.tax_rate : 19;
+
+    const html = `
+    <div class="bulk-kat-block" data-kat-index="${idx}">
+        <div class="bulk-kat-header">
+            <span class="bulk-kat-label">Kategorie ${idx + 1}</span>
+            <button type="button" class="btn btn-sm btn-danger bulk-remove-kat">−</button>
+        </div>
+        <div class="bulk-kat-fields">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" class="kat-name" placeholder="z.B. Ton" value="${esc(name)}">
+            </div>
+            <div class="form-group">
+                <label>Preismodell</label>
+                <select class="kat-pricing">${buildPricingOptions(pricing)}</select>
+            </div>
+            <div class="form-group">
+                <label>Einheit <span class="optional">(Anzeige)</span></label>
+                <input type="text" class="kat-unit" placeholder="z.B. g" value="${esc(unit)}">
+            </div>
+            <div class="form-group">
+                <label>Steuersatz</label>
+                <select class="kat-tax">
+                    <option value="19"${tax == 19 ? " selected" : ""}>19 % (Regelsteuersatz)</option>
+                    <option value="7"${tax == 7  ? " selected" : ""}>7 % (ermäßigt)</option>
+                    <option value="0"${tax == 0  ? " selected" : ""}>0 % (steuerfrei)</option>
+                </select>
+            </div>
+        </div>
+        <div class="bulk-var-list" data-kat-index="${idx}"></div>
+        <button type="button" class="btn btn-sm btn-secondary bulk-add-var" data-kat-index="${idx}">+ Variante</button>
+    </div>`;
+
+    document.getElementById("bulk-kat-list").insertAdjacentHTML("beforeend", html);
+
+    if (prefill.varianten) {
+        prefill.varianten.forEach((v) => addVarianteRow(idx, v));
+    }
+}
+
+function addVarianteRow(katIndex, prefill = {}) {
+    const name  = prefill.name  || "";
+    const price = prefill.price != null ? prefill.price : "";
+
+    const html = `
+    <div class="bulk-var-row">
+        <input type="text"   class="var-name"  placeholder="Varianten-Name" value="${esc(name)}">
+        <input type="number" class="var-price" placeholder="Preis" step="any" min="0" value="${price !== "" ? price : ""}">
+        <button type="button" class="btn btn-sm btn-danger bulk-remove-var">−</button>
+    </div>`;
+
+    const varList = document.querySelector(`.bulk-var-list[data-kat-index="${katIndex}"]`);
+    if (varList) varList.insertAdjacentHTML("beforeend", html);
+}
+
+// Event delegation for dynamic elements inside bulk-kat-list
+document.getElementById("bulk-kat-list").addEventListener("click", (e) => {
+    if (e.target.classList.contains("bulk-remove-kat")) {
+        e.target.closest(".bulk-kat-block").remove();
+    }
+    if (e.target.classList.contains("bulk-remove-var")) {
+        e.target.closest(".bulk-var-row").remove();
+    }
+    if (e.target.classList.contains("bulk-add-var")) {
+        addVarianteRow(parseInt(e.target.dataset.katIndex, 10));
+    }
+});
+
+function collectBulkFormData() {
+    const sel = document.getElementById("bulk-standort-select");
+    let locationName;
+    if (sel.value === "__new__") {
+        locationName = document.getElementById("bulk-new-standort-name").value.trim();
+        if (!locationName) {
+            alert("Bitte den Namen des neuen Standorts eingeben.");
+            return null;
+        }
+    } else {
+        locationName = sel.value;
+    }
+
+    const kategorien = [];
+    document.querySelectorAll(".bulk-kat-block").forEach((katBlock) => {
+        const name = katBlock.querySelector(".kat-name").value.trim();
+        if (!name) return;
+
+        const varianten = [];
+        katBlock.querySelectorAll(".bulk-var-row").forEach((row) => {
+            const vName  = row.querySelector(".var-name").value.trim();
+            const vPrice = parseFloat(row.querySelector(".var-price").value);
+            if (!vName || isNaN(vPrice)) return;
+            varianten.push({ name: vName, price: vPrice });
+        });
+
+        kategorien.push({
+            name,
+            pricing_model: katBlock.querySelector(".kat-pricing").value,
+            unit: katBlock.querySelector(".kat-unit").value.trim() || null,
+            tax_rate: parseFloat(katBlock.querySelector(".kat-tax").value),
+            varianten,
+        });
+    });
+
+    if (kategorien.length === 0) {
+        alert("Bitte mindestens eine Kategorie mit Namen hinzufügen.");
+        return null;
+    }
+
+    return { location_name: locationName, kategorien };
+}
+
+async function submitBulkImport(payload) {
+    const saveBtn = document.getElementById("bulk-entry-save");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Speichert…";
+
+    try {
+        const res = await fetch("/api/katalog/bulk-import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            closeBulkModal();
+            await loadKatalog();
+            alert(
+                `Erfolgreich importiert!\n` +
+                `Standort: ${data.location.name}\n` +
+                `Kategorien erstellt: ${data.created_kategorien}\n` +
+                `Varianten erstellt: ${data.created_varianten}`
+            );
+        } else {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Import fehlgeschlagen"));
+        }
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Alles speichern";
+    }
+}
+
+// Minimal RFC 4180-aware CSV line parser
+function parseCSVLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQuotes) {
+            if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+            else if (ch === '"') { inQuotes = false; }
+            else { current += ch; }
+        } else {
+            if (ch === '"') { inQuotes = true; }
+            else if (ch === ',') { result.push(current); current = ""; }
+            else { current += ch; }
+        }
+    }
+    result.push(current);
+    return result;
+}
+
+function parseCsvAndPreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+        if (lines.length < 2) {
+            alert("CSV ist leer oder enthält nur den Header.");
+            return;
+        }
+
+        const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+        const expectedCols = ["standort", "kategorie", "preismodell", "einheit", "steuersatz", "variante", "preis"];
+        const missing = expectedCols.filter((c) => !header.includes(c));
+        if (missing.length > 0) {
+            alert("CSV-Header fehlt Spalten: " + missing.join(", "));
+            return;
+        }
+
+        const col = (row, name) => (row[header.indexOf(name)] || "").trim();
+
+        const errors = [];
+        const grouped = new Map();
+
+        lines.slice(1).forEach((line, i) => {
+            const row = parseCSVLine(line);
+            const standort    = col(row, "standort");
+            const kategorie   = col(row, "kategorie");
+            const preismodell = col(row, "preismodell") || "per_unit";
+            const einheit     = col(row, "einheit") || null;
+            const steuersatzStr = col(row, "steuersatz");
+            const variante    = col(row, "variante");
+            const preisStr    = col(row, "preis");
+
+            if (!standort || !kategorie || !variante) {
+                errors.push(`Zeile ${i + 2}: standort, kategorie und variante sind Pflicht.`);
+                return;
+            }
+
+            const steuersatz = steuersatzStr !== "" ? parseFloat(steuersatzStr) : 19;
+            const preis = parseFloat(preisStr.replace(",", "."));
+            if (isNaN(preis)) {
+                errors.push(`Zeile ${i + 2}: Ungültiger Preis "${preisStr}".`);
+                return;
+            }
+
+            const key = `${standort}|${kategorie}|${preismodell}|${einheit}|${steuersatz}`;
+            if (!grouped.has(key)) {
+                grouped.set(key, { standort, kategorie, preismodell, einheit, steuersatz, varianten: [] });
+            }
+            grouped.get(key).varianten.push({ name: variante, price: preis });
+        });
+
+        if (errors.length > 0) {
+            alert("CSV-Fehler:\n" + errors.join("\n"));
+            return;
+        }
+
+        const byStandort = new Map();
+        for (const entry of grouped.values()) {
+            if (!byStandort.has(entry.standort)) byStandort.set(entry.standort, []);
+            byStandort.get(entry.standort).push({
+                name: entry.kategorie,
+                pricing_model: entry.preismodell,
+                unit: entry.einheit,
+                tax_rate: entry.steuersatz,
+                varianten: entry.varianten,
+            });
+        }
+
+        csvParsedData = Array.from(byStandort.entries()).map(([loc, kats]) => ({
+            location_name: loc,
+            kategorien: kats,
+        }));
+
+        renderCsvPreview(csvParsedData);
+        document.getElementById("bulk-csv-save").classList.remove("hidden");
+    };
+    reader.readAsText(file, "utf-8");
+}
+
+function renderCsvPreview(payloads) {
+    const preview = document.getElementById("csv-preview");
+    let html = "";
+    for (const payload of payloads) {
+        html += `<h4 class="csv-preview-loc">📍 ${esc(payload.location_name)}</h4>`;
+        html += `<table class="csv-preview-table">
+            <thead>
+                <tr>
+                    <th>Kategorie</th><th>Preismodell</th><th>Einheit</th>
+                    <th>MwSt.</th><th>Variante</th><th>Preis</th>
+                </tr>
+            </thead><tbody>`;
+        for (const kat of payload.kategorien) {
+            if (kat.varianten.length === 0) {
+                html += `<tr>
+                    <td>${esc(kat.name)}</td><td>${esc(kat.pricing_model)}</td>
+                    <td>${esc(kat.unit || "—")}</td><td>${kat.tax_rate} %</td>
+                    <td colspan="2" style="color:var(--text-secondary)">Keine Varianten</td>
+                </tr>`;
+            } else {
+                kat.varianten.forEach((v, vi) => {
+                    if (vi === 0) {
+                        html += `<tr>
+                            <td rowspan="${kat.varianten.length}">${esc(kat.name)}</td>
+                            <td rowspan="${kat.varianten.length}">${esc(kat.pricing_model)}</td>
+                            <td rowspan="${kat.varianten.length}">${esc(kat.unit || "—")}</td>
+                            <td rowspan="${kat.varianten.length}">${kat.tax_rate} %</td>
+                            <td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td>
+                        </tr>`;
+                    } else {
+                        html += `<tr><td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td></tr>`;
+                    }
+                });
+            }
+        }
+        html += `</tbody></table>`;
+    }
+    preview.innerHTML = html;
+    preview.classList.remove("hidden");
+}
+
+async function importFromCsvPreview() {
+    if (!csvParsedData || csvParsedData.length === 0) return;
+
+    const saveBtn = document.getElementById("bulk-csv-save");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Importiert…";
+
+    let totalKat = 0, totalVar = 0;
+    const errors = [];
+
+    for (const payload of csvParsedData) {
+        try {
+            const res = await fetch("/api/katalog/bulk-import", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                totalKat += data.created_kategorien;
+                totalVar += data.created_varianten;
+            } else {
+                const err = await res.json();
+                errors.push(`${payload.location_name}: ${err.detail || "Fehler"}`);
+            }
+        } catch (_) {
+            errors.push(`${payload.location_name}: Netzwerkfehler`);
+        }
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "CSV importieren";
+
+    if (errors.length > 0) {
+        alert("Einige Standorte konnten nicht importiert werden:\n" + errors.join("\n"));
+    }
+    if (totalKat > 0 || totalVar > 0) {
+        closeBulkModal();
+        await loadKatalog();
+        alert(
+            `CSV-Import abgeschlossen!\nKategorien erstellt: ${totalKat}\nVarianten erstellt: ${totalVar}`
+        );
+    }
+}
+
+// Event wiring
+document.getElementById("bulk-import-btn").addEventListener("click", openBulkModal);
+document.getElementById("bulk-modal-close").addEventListener("click", closeBulkModal);
+document.getElementById("bulk-overlay").addEventListener("click", closeBulkModal);
+document.getElementById("bulk-entry-cancel").addEventListener("click", closeBulkModal);
+document.getElementById("bulk-csv-cancel").addEventListener("click", closeBulkModal);
+
+document.querySelectorAll(".bulk-tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => switchBulkTab(btn.dataset.tab));
+});
+
+document.getElementById("bulk-add-kat-btn").addEventListener("click", () => addKategorieRow());
+
+document.getElementById("bulk-standort-select").addEventListener("change", (e) => {
+    const newGroup = document.getElementById("bulk-new-standort-group");
+    newGroup.style.display = e.target.value === "__new__" ? "block" : "none";
+    if (e.target.value === "__new__") {
+        document.getElementById("bulk-new-standort-name").focus();
+    }
+});
+
+document.getElementById("bulk-entry-save").addEventListener("click", async () => {
+    const payload = collectBulkFormData();
+    if (!payload) return;
+    await submitBulkImport(payload);
+});
+
+document.getElementById("bulk-csv-file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    parseCsvAndPreview(file);
+});
+
+document.getElementById("bulk-csv-save").addEventListener("click", importFromCsvPreview);
