@@ -58,12 +58,13 @@ async def startup():
 
 # ── Pages ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/laufzettel", response_class=HTMLResponse)
 async def laufzettel_page(request: Request):
     """Render Laufzettel list page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
@@ -71,15 +72,17 @@ async def laufzettel_page(request: Request):
 
 
 @router.get("/laufzettel/{laufzettel_id}", response_class=HTMLResponse)
-async def laufzettel_detail_page(request: Request, laufzettel_id: int, db: Session = Depends(get_db)):
+async def laufzettel_detail_page(
+    request: Request, laufzettel_id: int, db: Session = Depends(get_db)
+):
     """Render Laufzettel detail/edit page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    
+
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
@@ -90,34 +93,49 @@ async def laufzettel_detail_page(request: Request, laufzettel_id: int, db: Sessi
 
 # ── API ──────────────────────────────────────────────────────────────────────
 
+
 @router.post("/api/laufzettel")
 async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db)):
     """Manually create a new Laufzettel entry"""
     from datetime import datetime, date as dt_date
-    
+
     uid = data.uid.upper()
     if data.date:
         try:
             entry_date = dt_date.fromisoformat(data.date)
         except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid date format, use YYYY-MM-DD"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid date format, use YYYY-MM-DD"},
+            )
     else:
         entry_date = dt_date.today()
 
-    existing_open = db.query(Laufzettel).filter(
-        Laufzettel.uid == uid,
-        Laufzettel.date == entry_date,
-        Laufzettel.payment_method == None,
-    ).first()
+    existing_open = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.uid == uid,
+            Laufzettel.date == entry_date,
+            Laufzettel.payment_method == None,
+        )
+        .first()
+    )
     if existing_open:
-        return JSONResponse(status_code=400, content={"detail": f"An open (unpaid) Laufzettel for {uid} on {entry_date} already exists (id={existing_open.id})"})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": f"An open (unpaid) Laufzettel for {uid} on {entry_date} already exists (id={existing_open.id})"
+            },
+        )
 
     start_dt = None
     if data.start:
         try:
             start_dt = datetime.fromisoformat(data.start)
         except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid start datetime format"})
+            return JSONResponse(
+                status_code=400, content={"detail": "Invalid start datetime format"}
+            )
 
     # Auto-resolve owner_name and mitglied_id from Mitglied.nfc_uid if not provided
     resolved_mitglied_id = data.member_id  # keep string member_id for legacy
@@ -126,9 +144,12 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
     try:
         from backend.members.db import SessionLocal as MembersSession
         from backend.members.models import Mitglied, RFIDTag
+
         members_db = MembersSession()
         try:
-            mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == uid).first()
+            mitglied = (
+                members_db.query(Mitglied).filter(Mitglied.nfc_uid == uid).first()
+            )
             if mitglied:
                 resolved_mitglied_db_id = mitglied.id
                 if not resolved_owner_name:
@@ -136,14 +157,22 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
                 if not resolved_mitglied_id:
                     resolved_mitglied_id = mitglied.member_id
             else:
-                tag = members_db.query(RFIDTag).filter(RFIDTag.uid == uid, RFIDTag.active == 1).first()
+                tag = (
+                    members_db.query(RFIDTag)
+                    .filter(RFIDTag.uid == uid, RFIDTag.active == 1)
+                    .first()
+                )
                 if tag:
                     if not resolved_owner_name:
                         resolved_owner_name = tag.owner_name
                     if not resolved_mitglied_id:
                         resolved_mitglied_id = tag.member_id
                     if tag.member_id:
-                        m = members_db.query(Mitglied).filter(Mitglied.member_id == tag.member_id).first()
+                        m = (
+                            members_db.query(Mitglied)
+                            .filter(Mitglied.member_id == tag.member_id)
+                            .first()
+                        )
                         if m:
                             resolved_mitglied_db_id = m.id
         finally:
@@ -169,10 +198,12 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
 
 
 @router.get("/api/laufzettel")
-async def get_laufzettel(uid: Optional[str] = None, date: Optional[str] = None, db: Session = Depends(get_db)):
+async def get_laufzettel(
+    uid: Optional[str] = None, date: Optional[str] = None, db: Session = Depends(get_db)
+):
     """List all Laufzettel entries, optionally filtered"""
     from datetime import date as dt_date
-    
+
     query = db.query(Laufzettel)
     if uid:
         query = query.filter(Laufzettel.uid == uid.upper())
@@ -181,14 +212,19 @@ async def get_laufzettel(uid: Optional[str] = None, date: Optional[str] = None, 
             parsed_date = dt_date.fromisoformat(date)
             query = query.filter(Laufzettel.date == parsed_date)
         except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid date format, use YYYY-MM-DD"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid date format, use YYYY-MM-DD"},
+            )
     entries = query.order_by(Laufzettel.date.desc(), Laufzettel.start.desc()).all()
     result = []
     for lz in entries:
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         result.append(d)
     return result
@@ -201,9 +237,11 @@ async def get_laufzettel_detail(laufzettel_id: int, db: Session = Depends(get_db
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 
@@ -211,30 +249,39 @@ async def get_laufzettel_detail(laufzettel_id: int, db: Session = Depends(get_db
 @router.get("/api/tags/{uid}/laufzettel")
 async def get_laufzettel_for_tag(uid: str, db: Session = Depends(get_db)):
     """Get all Laufzettel entries for a specific tag"""
-    entries = db.query(Laufzettel).filter(
-        Laufzettel.uid == uid.upper()
-    ).order_by(Laufzettel.date.desc()).all()
+    entries = (
+        db.query(Laufzettel)
+        .filter(Laufzettel.uid == uid.upper())
+        .order_by(Laufzettel.date.desc())
+        .all()
+    )
     result = []
     for lz in entries:
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         result.append(d)
     return result
 
 
 @router.put("/api/laufzettel/{laufzettel_id}")
-async def update_laufzettel(laufzettel_id: int, data: LaufzettelUpdate, db: Session = Depends(get_db)):
+async def update_laufzettel(
+    laufzettel_id: int, data: LaufzettelUpdate, db: Session = Depends(get_db)
+):
     """Update editable fields of a Laufzettel"""
     from datetime import datetime
-    
+
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     if lz.payment_method:
-        raise HTTPException(status_code=409, detail="Laufzettel is already paid and locked")
+        raise HTTPException(
+            status_code=409, detail="Laufzettel is already paid and locked"
+        )
     if data.owner_name is not None:
         lz.owner_name = data.owner_name
     if data.member_id is not None:
@@ -247,21 +294,27 @@ async def update_laufzettel(laufzettel_id: int, data: LaufzettelUpdate, db: Sess
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 
 
 @router.post("/api/laufzettel/{laufzettel_id}/material")
-async def add_material(laufzettel_id: int, mat: MaterialCreate, db: Session = Depends(get_db)):
+async def add_material(
+    laufzettel_id: int, mat: MaterialCreate, db: Session = Depends(get_db)
+):
     """Add a material entry to a Laufzettel"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     if lz.payment_method:
-        raise HTTPException(status_code=409, detail="Laufzettel is already paid and locked")
+        raise HTTPException(
+            status_code=409, detail="Laufzettel is already paid and locked"
+        )
     new_mat = LaufzettelMaterial(
         laufzettel_id=laufzettel_id,
         name=mat.name,
@@ -282,16 +335,25 @@ async def add_material(laufzettel_id: int, mat: MaterialCreate, db: Session = De
 
 @router.put("/api/laufzettel/{laufzettel_id}/material/{material_id}")
 async def update_material(
-    laufzettel_id: int, material_id: int, mat: MaterialUpdate, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    material_id: int,
+    mat: MaterialUpdate,
+    db: Session = Depends(get_db),
 ):
     """Update a material entry"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if lz and lz.payment_method:
-        raise HTTPException(status_code=409, detail="Laufzettel is already paid and locked")
-    existing = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.id == material_id,
-        LaufzettelMaterial.laufzettel_id == laufzettel_id,
-    ).first()
+        raise HTTPException(
+            status_code=409, detail="Laufzettel is already paid and locked"
+        )
+    existing = (
+        db.query(LaufzettelMaterial)
+        .filter(
+            LaufzettelMaterial.id == material_id,
+            LaufzettelMaterial.laufzettel_id == laufzettel_id,
+        )
+        .first()
+    )
     if not existing:
         raise HTTPException(status_code=404, detail="Material entry not found")
     if mat.name is not None:
@@ -318,30 +380,43 @@ async def update_material(
 
 
 @router.delete("/api/laufzettel/{laufzettel_id}")
-async def delete_laufzettel(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
+async def delete_laufzettel(
+    laufzettel_id: int, request: Request, db: Session = Depends(get_db)
+):
     """Delete a Laufzettel and all its material entries"""
     from backend.auth.dependencies import is_admin_verified
+
     if not is_admin_verified(request):
         raise HTTPException(status_code=403, detail="Admin verification required")
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
-    db.query(LaufzettelMaterial).filter(LaufzettelMaterial.laufzettel_id == laufzettel_id).delete()
+    db.query(LaufzettelMaterial).filter(
+        LaufzettelMaterial.laufzettel_id == laufzettel_id
+    ).delete()
     db.delete(lz)
     db.commit()
     return {"deleted": laufzettel_id}
 
 
 @router.delete("/api/laufzettel/{laufzettel_id}/material/{material_id}")
-async def delete_material(laufzettel_id: int, material_id: int, db: Session = Depends(get_db)):
+async def delete_material(
+    laufzettel_id: int, material_id: int, db: Session = Depends(get_db)
+):
     """Delete a material entry"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if lz and lz.payment_method:
-        raise HTTPException(status_code=409, detail="Laufzettel is already paid and locked")
-    mat = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.id == material_id,
-        LaufzettelMaterial.laufzettel_id == laufzettel_id,
-    ).first()
+        raise HTTPException(
+            status_code=409, detail="Laufzettel is already paid and locked"
+        )
+    mat = (
+        db.query(LaufzettelMaterial)
+        .filter(
+            LaufzettelMaterial.id == material_id,
+            LaufzettelMaterial.laufzettel_id == laufzettel_id,
+        )
+        .first()
+    )
     if not mat:
         raise HTTPException(status_code=404, detail="Material entry not found")
     db.delete(mat)
@@ -351,7 +426,13 @@ async def delete_material(laufzettel_id: int, material_id: int, db: Session = De
 
 # ── Payment API ───────────────────────────────────────────────────────────────
 
-from backend.config import SUMUP_API_KEY, SUMUP_MERCHANT_CODE, SUMUP_READER_ID, SUMUP_AFFILIATE_KEY, SUMUP_MOCK
+from backend.config import (
+    SUMUP_API_KEY,
+    SUMUP_MERCHANT_CODE,
+    SUMUP_READER_ID,
+    SUMUP_AFFILIATE_KEY,
+    SUMUP_MOCK,
+)
 from backend.config import WERO_ENABLED, WERO_MOCK, WERO_MERCHANT_ID, WERO_API_KEY
 
 
@@ -386,10 +467,14 @@ class BarPayRequest(BaseModel):
 
 
 @router.post("/api/laufzettel/{laufzettel_id}/pay/bar")
-async def pay_bar(laufzettel_id: int, body: BarPayRequest = BarPayRequest(), db: Session = Depends(get_db)):
+async def pay_bar(
+    laufzettel_id: int,
+    body: BarPayRequest = BarPayRequest(),
+    db: Session = Depends(get_db),
+):
     """Mark Laufzettel as paid with cash"""
     from datetime import datetime, timezone
-    
+
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
@@ -402,9 +487,11 @@ async def pay_bar(laufzettel_id: int, body: BarPayRequest = BarPayRequest(), db:
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 
@@ -418,16 +505,16 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     """Initiate card payment - returns transaction ID for polling"""
     from datetime import datetime, timezone, timedelta
     import uuid
-    
+
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     if lz.payment_method:
         raise HTTPException(status_code=409, detail="Already paid")
-    
+
     # Generate transaction ID
     txn_id = str(uuid.uuid4())
-    
+
     if SUMUP_MOCK:
         # Mock mode: return transaction ID for immediate confirmation
         return {
@@ -437,15 +524,18 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
         }
 
     # Calculate total from material entries
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == laufzettel_id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
     total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
     amount_str = f"{total:.2f}"
 
     if SUMUP_READER_ID and SUMUP_API_KEY and SUMUP_MERCHANT_CODE:
         # Solo Cloud API: initiate checkout on terminal
         import httpx
+
         lz_desc = f"Laufzettel #{laufzettel_id}"
         if lz.owner_name:
             lz_desc += f" – {lz.owner_name}"
@@ -460,7 +550,9 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
                 "app_id": "MakerPi.GroundControl",
                 "foreign_transaction_id": txn_id,
                 "key": SUMUP_AFFILIATE_KEY,
-            } if SUMUP_AFFILIATE_KEY else None,
+            }
+            if SUMUP_AFFILIATE_KEY
+            else None,
         }
         if payload["affiliate"] is None:
             del payload["affiliate"]
@@ -490,6 +582,7 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     elif SUMUP_AFFILIATE_KEY:
         # Payment Switch: generate URL scheme for SumUp app handoff
         from urllib.parse import urlencode
+
         lz_title = f"Laufzettel #{laufzettel_id}"
         if lz.owner_name:
             lz_title += f" – {lz.owner_name}"
@@ -518,28 +611,30 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
             "status": "PENDING",
         }
 
-    raise HTTPException(status_code=503, detail="Keine SumUp-Zahlungsmethode konfiguriert")
+    raise HTTPException(
+        status_code=503, detail="Keine SumUp-Zahlungsmethode konfiguriert"
+    )
 
 
 @router.get("/api/laufzettel/{laufzettel_id}/pay/karte/status")
 async def get_karte_status(
-    laufzettel_id: int,
-    client_transaction_id: str,
-    db: Session = Depends(get_db)
+    laufzettel_id: int, client_transaction_id: str, db: Session = Depends(get_db)
 ):
     """Check status of card payment"""
     from datetime import datetime, timezone
-    
+
     # Check if already paid directly
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if lz and lz.payment_method == "karte":
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         return {"status": "SUCCESSFUL", "laufzettel": d}
-    
+
     # Check pending payments
     pending = _pending_payments.get(client_transaction_id)
     if not pending:
@@ -555,6 +650,7 @@ async def get_karte_status(
     # (SumUp does not expose foreign-tx-id from URL scheme as a filterable field)
     if pending["mode"] == "payment_switch" and SUMUP_API_KEY:
         import httpx
+
         lz_summary_prefix = f"Laufzettel #{laufzettel_id}"
         try:
             async with httpx.AsyncClient() as client:
@@ -567,20 +663,23 @@ async def get_karte_status(
             if r.status_code == 200:
                 for item in r.json().get("items", []):
                     summary = item.get("product_summary", "")
-                    if (
-                        item.get("status") == "SUCCESSFUL"
-                        and summary.startswith(lz_summary_prefix)
+                    if item.get("status") == "SUCCESSFUL" and summary.startswith(
+                        lz_summary_prefix
                     ):
                         if lz and not lz.payment_method:
                             lz.payment_method = "karte"
                             lz.paid_at = datetime.now(timezone.utc)
-                            lz.payment_transaction_id = item.get("transaction_code") or item.get("id")
+                            lz.payment_transaction_id = item.get(
+                                "transaction_code"
+                            ) or item.get("id")
                             db.commit()
                             db.refresh(lz)
                         d = lz.to_dict()
-                        materials = db.query(LaufzettelMaterial).filter(
-                            LaufzettelMaterial.laufzettel_id == lz.id
-                        ).all()
+                        materials = (
+                            db.query(LaufzettelMaterial)
+                            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+                            .all()
+                        )
                         d["material"] = [m.to_dict() for m in materials]
                         _pending_payments.pop(client_transaction_id, None)
                         return {"status": "SUCCESSFUL", "laufzettel": d}
@@ -594,27 +693,31 @@ async def get_karte_status(
 async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     """Confirm mock card payment"""
     from datetime import datetime, timezone
-    
+
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     if lz.payment_method:
         raise HTTPException(status_code=409, detail="Already paid")
-    
+
     lz.payment_method = "karte"
     lz.paid_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 
 
 @router.delete("/api/laufzettel/{laufzettel_id}/pay/karte")
-async def cancel_karte_payment(laufzettel_id: int, client_transaction_id: str, db: Session = Depends(get_db)):
+async def cancel_karte_payment(
+    laufzettel_id: int, client_transaction_id: str, db: Session = Depends(get_db)
+):
     """Cancel pending card payment"""
     pending = _pending_payments.pop(client_transaction_id, None)
     return {"cancelled": pending is not None}
@@ -636,11 +739,15 @@ async def pay_checkout_link(laufzettel_id: int, db: Session = Depends(get_db)):
     if lz.payment_method:
         raise HTTPException(status_code=409, detail="Already paid")
     if not (SUMUP_API_KEY and SUMUP_MERCHANT_CODE):
-        raise HTTPException(status_code=503, detail="SumUp hosted checkout not configured")
+        raise HTTPException(
+            status_code=503, detail="SumUp hosted checkout not configured"
+        )
 
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == laufzettel_id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
     total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
 
     payload = {
@@ -688,9 +795,11 @@ async def get_checkout_status(
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if lz and lz.payment_method == "karte":
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         return {"status": "PAID", "laufzettel": d}
 
@@ -717,9 +826,11 @@ async def get_checkout_status(
         db.commit()
         db.refresh(lz)
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         _pending_checkouts.pop(checkout_id, None)
         return {"status": "PAID", "laufzettel": d}
@@ -747,9 +858,11 @@ async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 
@@ -776,9 +889,11 @@ async def pay_wero(laufzettel_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Already paid")
 
     # Calculate total from material entries
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == laufzettel_id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
     total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
     amount_str = f"{total:.2f}"
 
@@ -796,7 +911,9 @@ async def pay_wero(laufzettel_id: int, db: Session = Depends(get_db)):
             "mock": True,
         }
         # Generate a mock QR code URL (would be a real Wero link in production)
-        mock_payment_url = f"wero://pay?amount={amount_str}&currency=EUR&checkout={checkout_id}"
+        mock_payment_url = (
+            f"wero://pay?amount={amount_str}&currency=EUR&checkout={checkout_id}"
+        )
         return {
             "mock": True,
             "checkout_id": checkout_id,
@@ -808,14 +925,14 @@ async def pay_wero(laufzettel_id: int, db: Session = Depends(get_db)):
 
     # Real Wero API integration (to be implemented when credentials available)
     # This would call the Wero API to create a payment request
-    raise HTTPException(status_code=501, detail="Wero API integration not yet implemented")
+    raise HTTPException(
+        status_code=501, detail="Wero API integration not yet implemented"
+    )
 
 
 @router.get("/api/laufzettel/{laufzettel_id}/pay/wero/status")
 async def get_wero_status(
-    laufzettel_id: int,
-    checkout_id: str,
-    db: Session = Depends(get_db)
+    laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)
 ):
     """Check status of Wero payment"""
     from datetime import datetime, timezone
@@ -824,9 +941,11 @@ async def get_wero_status(
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if lz and lz.payment_method == "wero":
         d = lz.to_dict()
-        materials = db.query(LaufzettelMaterial).filter(
-            LaufzettelMaterial.laufzettel_id == lz.id
-        ).all()
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .all()
+        )
         d["material"] = [m.to_dict() for m in materials]
         return {"status": "PAID", "laufzettel": d}
 
@@ -852,9 +971,11 @@ async def get_wero_status(
                 db.commit()
                 db.refresh(lz)
             d = lz.to_dict()
-            materials = db.query(LaufzettelMaterial).filter(
-                LaufzettelMaterial.laufzettel_id == lz.id
-            ).all()
+            materials = (
+                db.query(LaufzettelMaterial)
+                .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+                .all()
+            )
             d["material"] = [m.to_dict() for m in materials]
             _pending_wero_payments.pop(checkout_id, None)
             return {"status": "PAID", "laufzettel": d}
@@ -863,7 +984,9 @@ async def get_wero_status(
 
 
 @router.post("/api/laufzettel/{laufzettel_id}/pay/wero/confirm")
-async def confirm_wero_payment(laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)):
+async def confirm_wero_payment(
+    laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)
+):
     """Manually confirm Wero payment (for mock mode or when webhook fails)"""
     from datetime import datetime, timezone
 
@@ -875,7 +998,9 @@ async def confirm_wero_payment(laufzettel_id: int, checkout_id: str, db: Session
 
     pending = _pending_wero_payments.get(checkout_id)
     if pending and pending.get("laufzettel_id") != laufzettel_id:
-        raise HTTPException(status_code=400, detail="Checkout ID does not match Laufzettel")
+        raise HTTPException(
+            status_code=400, detail="Checkout ID does not match Laufzettel"
+        )
 
     lz.payment_method = "wero"
     lz.paid_at = datetime.now(timezone.utc)
@@ -888,9 +1013,11 @@ async def confirm_wero_payment(laufzettel_id: int, checkout_id: str, db: Session
         del _pending_wero_payments[checkout_id]
 
     d = lz.to_dict()
-    materials = db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == lz.id
-    ).all()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     d["material"] = [m.to_dict() for m in materials]
     return d
 

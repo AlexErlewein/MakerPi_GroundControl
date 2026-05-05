@@ -29,7 +29,9 @@ class Mitglied(Base):
     joined_date = Column(Date, nullable=True)
     notes = Column(Text, nullable=True)
     # Login credentials (optional - for cardless login)
-    nfc_uid = Column(String, unique=True, nullable=True, index=True)  # Primary NFC card UID
+    nfc_uid = Column(
+        String, unique=True, nullable=True, index=True
+    )  # Primary NFC card UID
     login_username = Column(String, unique=True, nullable=True, index=True)
     login_password_hash = Column(String, nullable=True)
 

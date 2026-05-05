@@ -20,7 +20,9 @@ if "nfc_uid" in columns:
 else:
     # SQLite does not support ADD COLUMN ... UNIQUE directly
     cur.execute("ALTER TABLE mitglieder ADD COLUMN nfc_uid TEXT")
-    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_mitglieder_nfc_uid ON mitglieder (nfc_uid) WHERE nfc_uid IS NOT NULL")
+    cur.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_mitglieder_nfc_uid ON mitglieder (nfc_uid) WHERE nfc_uid IS NOT NULL"
+    )
     conn.commit()
     print("Column 'nfc_uid' added to mitglieder table with unique index.")
 

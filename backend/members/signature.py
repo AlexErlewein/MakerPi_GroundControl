@@ -31,9 +31,7 @@ def generate_card_signature(member_id: str, uid: str, name: str) -> str:
     message = f"{member_id}:{uid_normalized}:{name}"
 
     signature = hmac.new(
-        SECRET_KEY.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256
+        SECRET_KEY.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 
     return signature

@@ -51,6 +51,7 @@ async def shutdown_scheduler():
     scheduler.shutdown()
     logger.info("APScheduler shutdown")
 
+
 # Session middleware (required for auth)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
@@ -74,9 +75,13 @@ app.include_router(catalog_router)
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "modules": ["auth", "core", "members", "laufzettel", "catalog"]}
+    return {
+        "status": "ok",
+        "modules": ["auth", "core", "members", "laufzettel", "catalog"],
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -25,10 +25,13 @@ def _migrate(conn):
     cur.execute("PRAGMA table_info(laufzettel)")
     existing = {row[1] for row in cur.fetchall()}
     for col, sql in [
-        ("mitglied_id",            "ALTER TABLE laufzettel ADD COLUMN mitglied_id INTEGER"),
-        ("created_at",             "ALTER TABLE laufzettel ADD COLUMN created_at DATETIME"),
-        ("payment_transaction_id", "ALTER TABLE laufzettel ADD COLUMN payment_transaction_id VARCHAR"),
-        ("payment_notes",          "ALTER TABLE laufzettel ADD COLUMN payment_notes VARCHAR"),
+        ("mitglied_id", "ALTER TABLE laufzettel ADD COLUMN mitglied_id INTEGER"),
+        ("created_at", "ALTER TABLE laufzettel ADD COLUMN created_at DATETIME"),
+        (
+            "payment_transaction_id",
+            "ALTER TABLE laufzettel ADD COLUMN payment_transaction_id VARCHAR",
+        ),
+        ("payment_notes", "ALTER TABLE laufzettel ADD COLUMN payment_notes VARCHAR"),
     ]:
         if col not in existing:
             cur.execute(sql)
@@ -40,7 +43,9 @@ def _migrate(conn):
 
     # ── 2. Drop UNIQUE(uid, date) constraint if present ────────────────────────
     # SQLite doesn't support DROP CONSTRAINT – requires table recreation.
-    cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='laufzettel'")
+    cur.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='laufzettel'"
+    )
     row = cur.fetchone()
     if row and "uq_laufzettel_uid_date" in (row[0] or ""):
         cur.executescript("""

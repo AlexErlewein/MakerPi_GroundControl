@@ -1,4 +1,5 @@
 """Migration: add payment_transaction_id and payment_notes to laufzettel table"""
+
 import sqlite3
 import os
 

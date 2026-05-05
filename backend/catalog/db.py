@@ -21,7 +21,11 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
         try:
-            conn.execute(text("ALTER TABLE material_kategorie ADD COLUMN tax_rate REAL DEFAULT 19.0"))
+            conn.execute(
+                text(
+                    "ALTER TABLE material_kategorie ADD COLUMN tax_rate REAL DEFAULT 19.0"
+                )
+            )
             conn.commit()
         except Exception:
             pass

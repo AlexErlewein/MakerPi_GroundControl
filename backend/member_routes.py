@@ -89,12 +89,16 @@ async def member_laufzettel_open(
         # Fallback: if not found by mitglied_id, try uid-based lookup
         if not open_lz:
             from backend.members.db import get_db as get_members_db_fn
+
             members_db = next(get_members_db_fn())
             try:
                 from backend.members.models import Mitglied as _Mitglied
-                mitglied = members_db.query(_Mitglied).filter(
-                    _Mitglied.id == user.mitglied_id
-                ).first()
+
+                mitglied = (
+                    members_db.query(_Mitglied)
+                    .filter(_Mitglied.id == user.mitglied_id)
+                    .first()
+                )
                 if mitglied and mitglied.nfc_uid:
                     open_lz = (
                         db.query(Laufzettel)
@@ -230,15 +234,21 @@ async def member_laufzettel_detail(
     katalog_data = []
     for loc in locations:
         loc_dict = loc.to_dict()
-        kategorien = catalog_db.query(MaterialKategorie).filter(
-            MaterialKategorie.location_id == loc.id
-        ).order_by(MaterialKategorie.name).all()
+        kategorien = (
+            catalog_db.query(MaterialKategorie)
+            .filter(MaterialKategorie.location_id == loc.id)
+            .order_by(MaterialKategorie.name)
+            .all()
+        )
         loc_dict["kategorien"] = []
         for kat in kategorien:
             kat_dict = kat.to_dict()
-            varianten = catalog_db.query(MaterialVariante).filter(
-                MaterialVariante.kategorie_id == kat.id
-            ).order_by(MaterialVariante.name).all()
+            varianten = (
+                catalog_db.query(MaterialVariante)
+                .filter(MaterialVariante.kategorie_id == kat.id)
+                .order_by(MaterialVariante.name)
+                .all()
+            )
             kat_dict["varianten"] = [v.to_dict() for v in varianten]
             loc_dict["kategorien"].append(kat_dict)
         katalog_data.append(loc_dict)
@@ -374,48 +384,62 @@ async def login_via_rfid(
     logger.info("[RFID-LOGIN] Attempt with uid=%r", rfid_uid)
 
     # Primary lookup: find member directly by nfc_uid
-    mitglied = members_db.query(Mitglied).filter(
-        Mitglied.nfc_uid == rfid_uid
-    ).first()
-    logger.info("[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None)
+    mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+    logger.info(
+        "[RFID-LOGIN] Mitglied by nfc_uid: %s", mitglied.name if mitglied else None
+    )
 
     # Also check legacy RFIDTag table for admin flag
     tag = members_db.query(RFIDTag).filter(RFIDTag.uid == rfid_uid).first()
     logger.info("[RFID-LOGIN] RFIDTag found: %s", bool(tag))
 
     if not mitglied and not tag:
-        logger.warning("[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid)
+        logger.warning(
+            "[RFID-LOGIN] uid=%r not found in nfc_uid or rfid_tags", rfid_uid
+        )
         return JSONResponse(
-            {"success": False, "error": "Unknown RFID card"},
-            status_code=404
+            {"success": False, "error": "Unknown RFID card"}, status_code=404
         )
 
     # If tag exists but mitglied not found via nfc_uid, try via RFIDTag.member_id
     if not mitglied and tag:
-        mitglied = members_db.query(Mitglied).filter(
-            Mitglied.member_id == tag.member_id
-        ).first()
-        logger.info("[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s", tag.member_id, mitglied.name if mitglied else None)
+        mitglied = (
+            members_db.query(Mitglied)
+            .filter(Mitglied.member_id == tag.member_id)
+            .first()
+        )
+        logger.info(
+            "[RFID-LOGIN] Mitglied via RFIDTag.member_id=%r: %s",
+            tag.member_id,
+            mitglied.name if mitglied else None,
+        )
 
     if not mitglied:
-        logger.warning("[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid)
+        logger.warning(
+            "[RFID-LOGIN] uid=%r: tag found but no associated Mitglied", rfid_uid
+        )
         return JSONResponse(
             {"success": False, "error": "No member associated with this card"},
             status_code=404,
         )
 
     is_admin_card = bool(tag and tag.is_admin)
-    logger.info("[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s", mitglied.name, mitglied.id, is_admin_card)
+    logger.info(
+        "[RFID-LOGIN] Mitglied=%r id=%s, is_admin_card=%s",
+        mitglied.name,
+        mitglied.id,
+        is_admin_card,
+    )
 
     # Find or create user for this member
-    user = auth_db.query(User).filter(
-        User.mitglied_id == mitglied.id
-    ).first()
+    user = auth_db.query(User).filter(User.mitglied_id == mitglied.id).first()
 
     if not user:
         role = "admin" if is_admin_card else "member"
         # Use member's real name as username; fall back to member_ID if already taken
-        desired_username = mitglied.name.strip() if mitglied.name else f"member_{mitglied.id}"
+        desired_username = (
+            mitglied.name.strip() if mitglied.name else f"member_{mitglied.id}"
+        )
         existing = auth_db.query(User).filter(User.username == desired_username).first()
         username = desired_username if not existing else f"member_{mitglied.id}"
         user = User(
@@ -451,6 +475,7 @@ async def login_via_rfid(
 
 
 # ── Kasse (Payment Checkout) ────────────────────────────────────────────────
+
 
 @router.get("/kasse")
 async def kasse_page(request: Request):
@@ -540,15 +565,19 @@ async def kasse_verify_admin_card(
         return JSONResponse({"success": False, "error": "Keine UID"}, status_code=400)
 
     # Check RFIDTag for admin flag
-    tag = members_db.query(RFIDTag).filter(
-        RFIDTag.uid == rfid_uid, RFIDTag.active == 1
-    ).first()
+    tag = (
+        members_db.query(RFIDTag)
+        .filter(RFIDTag.uid == rfid_uid, RFIDTag.active == 1)
+        .first()
+    )
 
     is_admin_card = bool(tag and tag.is_admin)
 
     if not is_admin_card:
         # Also check if the associated user is an admin
-        mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+        mitglied = (
+            members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
+        )
         if mitglied:
             user = auth_db.query(User).filter(User.mitglied_id == mitglied.id).first()
             if user and user.role == "admin":
@@ -564,9 +593,11 @@ async def kasse_verify_admin_card(
     # Find or create user for admin card holder
     mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
     if not mitglied and tag and tag.member_id:
-        mitglied = members_db.query(Mitglied).filter(
-            Mitglied.member_id == tag.member_id
-        ).first()
+        mitglied = (
+            members_db.query(Mitglied)
+            .filter(Mitglied.member_id == tag.member_id)
+            .first()
+        )
 
     user = None
     if mitglied:

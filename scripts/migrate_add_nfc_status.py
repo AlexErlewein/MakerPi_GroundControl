@@ -11,6 +11,7 @@ from pathlib import Path
 # Database path
 DB_PATH = Path(__file__).parent.parent / "groundcontrol.db"
 
+
 def migrate():
     """Add nfc_ok and nfc_error columns to devices table"""
     print(f"Using database: {DB_PATH}")
@@ -59,6 +60,7 @@ def migrate():
         sys.exit(1)
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     migrate()

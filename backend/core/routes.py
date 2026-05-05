@@ -32,16 +32,18 @@ async def shutdown():
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     """Show landing page - redirects to member view if logged in"""
     from fastapi.templating import Jinja2Templates
+
     templates = Jinja2Templates(directory="templates")
-    
+
     # Unified login: everyone goes to /member first
     if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
-    
+
     # Not logged in - show landing page with login options
     return templates.TemplateResponse("landing.html", {"request": request})
 
@@ -51,17 +53,17 @@ async def dashboard(request: Request):
     """Render main dashboard - requires admin verification"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import is_admin_verified
-    
+
     templates = Jinja2Templates(directory="templates")
-    
+
     # Must be logged in
     if not request.session.get("user"):
         return RedirectResponse("/", status_code=302)
-    
+
     # Must have admin verified
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)
-    
+
     return templates.TemplateResponse("index.html", {"request": request})
 
 
@@ -70,7 +72,7 @@ async def database_page(request: Request):
     """Render database info page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
@@ -86,10 +88,13 @@ async def device_detail_page(device_id: str, request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("device-detail.html", {"request": request, "device_id": device_id})
+    return templates.TemplateResponse(
+        "device-detail.html", {"request": request, "device_id": device_id}
+    )
 
 
 # ── API ──────────────────────────────────────────────────────────────────────
+
 
 @router.get("/api/database/stats")
 async def get_database_stats(db: Session = Depends(get_db)):
@@ -99,10 +104,10 @@ async def get_database_stats(db: Session = Depends(get_db)):
         size_bytes = db_path.stat().st_size
         if size_bytes < 1024:
             size_human = f"{size_bytes} B"
-        elif size_bytes < 1024 ** 2:
+        elif size_bytes < 1024**2:
             size_human = f"{size_bytes / 1024:.1f} KB"
         else:
-            size_human = f"{size_bytes / 1024 ** 2:.1f} MB"
+            size_human = f"{size_bytes / 1024**2:.1f} MB"
     except OSError:
         size_bytes = 0
         size_human = "Unknown"
@@ -154,11 +159,13 @@ async def get_status(db: Session = Depends(get_db)):
     """Get system status overview"""
     devices = db.query(Device).count()
     online_devices = db.query(Device).filter(Device.status == "online").count()
-    messages_24h = db.query(MQTTMessage).filter(
-        MQTTMessage.timestamp >= datetime.utcnow() - timedelta(hours=24)
-    ).count()
+    messages_24h = (
+        db.query(MQTTMessage)
+        .filter(MQTTMessage.timestamp >= datetime.utcnow() - timedelta(hours=24))
+        .count()
+    )
     total_messages = db.query(MQTTMessage).count()
-    
+
     return {
         "devices_total": devices,
         "devices_online": online_devices,
@@ -206,9 +213,12 @@ async def get_device(device_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/api/devices/{device_id}")
-async def delete_device(device_id: str, request: Request, db: Session = Depends(get_db)):
+async def delete_device(
+    device_id: str, request: Request, db: Session = Depends(get_db)
+):
     """Delete a device record"""
     from backend.auth.dependencies import is_admin_verified
+
     if not is_admin_verified(request):
         raise HTTPException(status_code=403, detail="Admin verification required")
     device = db.query(Device).filter(Device.device_id == device_id).first()
@@ -221,9 +231,7 @@ async def delete_device(device_id: str, request: Request, db: Session = Depends(
 
 @router.get("/api/messages")
 async def get_messages(
-    limit: int = 100,
-    topic: Optional[str] = None,
-    db: Session = Depends(get_db)
+    limit: int = 100, topic: Optional[str] = None, db: Session = Depends(get_db)
 ):
     """List recent MQTT messages"""
     q = db.query(MQTTMessage)
@@ -236,11 +244,18 @@ async def get_messages(
 @router.get("/api/messages/stats")
 async def get_message_stats(db: Session = Depends(get_db)):
     """Get message statistics by topic prefix"""
-    stats = db.query(
-        func.substr(MQTTMessage.topic, 1, func.instr(MQTTMessage.topic, "/") - 1).label("prefix"),
-        func.count(MQTTMessage.id).label("count")
-    ).filter(MQTTMessage.topic.like("%/%")).group_by("prefix").all()
-    
+    stats = (
+        db.query(
+            func.substr(
+                MQTTMessage.topic, 1, func.instr(MQTTMessage.topic, "/") - 1
+            ).label("prefix"),
+            func.count(MQTTMessage.id).label("count"),
+        )
+        .filter(MQTTMessage.topic.like("%/%"))
+        .group_by("prefix")
+        .all()
+    )
+
     return [{"prefix": s.prefix or "(root)", "count": s.count} for s in stats]
 
 
@@ -253,9 +268,7 @@ async def get_topics(db: Session = Depends(get_db)):
 
 @router.get("/api/scans")
 async def get_scans(
-    limit: int = 50,
-    validated: Optional[bool] = None,
-    db: Session = Depends(get_db)
+    limit: int = 50, validated: Optional[bool] = None, db: Session = Depends(get_db)
 ):
     """List recent tag scans, enriched with member info"""
     q = db.query(TagScan)
@@ -270,15 +283,32 @@ async def get_scans(
         try:
             from backend.members.db import SessionLocal as MembersSession
             from backend.members.models import Mitglied, RFIDTag as MRFIDTag
+
             members_db = MembersSession()
             try:
                 uid_to_member = {}
-                for m in members_db.query(Mitglied).filter(Mitglied.nfc_uid.in_(uids)).all():
-                    uid_to_member[m.nfc_uid] = {"member_id": m.member_id, "member_name": m.name}
-                for tag in members_db.query(MRFIDTag).filter(MRFIDTag.uid.in_(uids - uid_to_member.keys())).all():
+                for m in (
+                    members_db.query(Mitglied).filter(Mitglied.nfc_uid.in_(uids)).all()
+                ):
+                    uid_to_member[m.nfc_uid] = {
+                        "member_id": m.member_id,
+                        "member_name": m.name,
+                    }
+                for tag in (
+                    members_db.query(MRFIDTag)
+                    .filter(MRFIDTag.uid.in_(uids - uid_to_member.keys()))
+                    .all()
+                ):
                     if tag.member_id:
-                        m = members_db.query(Mitglied).filter(Mitglied.member_id == tag.member_id).first()
-                        uid_to_member[tag.uid] = {"member_id": tag.member_id, "member_name": m.name if m else tag.owner_name}
+                        m = (
+                            members_db.query(Mitglied)
+                            .filter(Mitglied.member_id == tag.member_id)
+                            .first()
+                        )
+                        uid_to_member[tag.uid] = {
+                            "member_id": tag.member_id,
+                            "member_name": m.name if m else tag.owner_name,
+                        }
             finally:
                 members_db.close()
             for r in results:
@@ -310,6 +340,7 @@ async def get_scan_stats(db: Session = Depends(get_db)):
 
 # ── Zigbee Devices API ───────────────────────────────────────────────────────
 
+
 @router.get("/api/zigbee-devices")
 async def get_zigbee_devices(db: Session = Depends(get_db)):
     """List all discovered Zigbee devices"""
@@ -320,9 +351,9 @@ async def get_zigbee_devices(db: Session = Depends(get_db)):
 @router.get("/api/zigbee-devices/{ieee_address}")
 async def get_zigbee_device(ieee_address: str, db: Session = Depends(get_db)):
     """Get single Zigbee device details by IEEE address"""
-    device = db.query(ZigbeeDevice).filter(
-        ZigbeeDevice.ieee_address == ieee_address
-    ).first()
+    device = (
+        db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee_address).first()
+    )
     if not device:
         raise HTTPException(status_code=404, detail="Zigbee device not found")
     return device.to_dict()
@@ -330,15 +361,13 @@ async def get_zigbee_device(ieee_address: str, db: Session = Depends(get_db)):
 
 @router.get("/api/zigbee-devices/{ieee_address}/messages")
 async def get_zigbee_device_messages(
-    ieee_address: str,
-    limit: int = 50,
-    db: Session = Depends(get_db)
+    ieee_address: str, limit: int = 50, db: Session = Depends(get_db)
 ):
     """Get recent MQTT messages for a specific Zigbee device"""
     # Search by IEEE address or friendly name in MQTT topics
-    device = db.query(ZigbeeDevice).filter(
-        ZigbeeDevice.ieee_address == ieee_address
-    ).first()
+    device = (
+        db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee_address).first()
+    )
     if not device:
         raise HTTPException(status_code=404, detail="Zigbee device not found")
 
@@ -350,11 +379,11 @@ async def get_zigbee_device_messages(
     # Query messages that match any of the search terms in the topic
     q = db.query(MQTTMessage)
     filter_conditions = [
-        MQTTMessage.topic.like(f"zigbee2mqtt/%{term}%")
-        for term in search_terms
+        MQTTMessage.topic.like(f"zigbee2mqtt/%{term}%") for term in search_terms
     ]
     if filter_conditions:
         from sqlalchemy import or_
+
         q = q.filter(or_(*filter_conditions))
 
     messages = q.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
@@ -377,7 +406,7 @@ async def scan_stream(request: Request):
             # First event: send configured reader id so the client can filter
             reader_id = _app_config.ENROLLMENT_READER_ID
             yield f"event: config\ndata: {json.dumps({'enrollment_reader_id': reader_id})}\n\n"
-            
+
             deadline = loop.time() + 30
             while True:
                 if await request.is_disconnected():
@@ -387,7 +416,9 @@ async def scan_stream(request: Request):
                     yield f"event: timeout\ndata: {json.dumps({'message': 'timeout'})}\n\n"
                     break
                 try:
-                    event = await asyncio.wait_for(queue.get(), timeout=min(remaining, 1.0))
+                    event = await asyncio.wait_for(
+                        queue.get(), timeout=min(remaining, 1.0)
+                    )
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue
@@ -406,7 +437,9 @@ async def scan_stream(request: Request):
 
 
 @router.get("/api/write-result")
-async def get_write_result(device_id: str, request_id: str, db: Session = Depends(get_db)):
+async def get_write_result(
+    device_id: str, request_id: str, db: Session = Depends(get_db)
+):
     """Poll for NFC card write result published by PicoW to {device_id}/write_response"""
     topic = f"{device_id}/write_response"
     cutoff = datetime.utcnow() - timedelta(seconds=60)
@@ -418,11 +451,17 @@ async def get_write_result(device_id: str, request_id: str, db: Session = Depend
         .all()
     )
     import json as _json
+
     for msg in messages:
         try:
             payload = _json.loads(msg.payload)
             if payload.get("request_id") == request_id:
-                return {"found": True, "success": payload.get("success"), "error": payload.get("error"), "uid": payload.get("uid")}
+                return {
+                    "found": True,
+                    "success": payload.get("success"),
+                    "error": payload.get("error"),
+                    "uid": payload.get("uid"),
+                }
         except Exception:
             continue
     return {"found": False}
@@ -512,7 +551,9 @@ async def payment_scan_stream(request: Request):
                     yield f"event: timeout\ndata: {json.dumps({'message': 'timeout'})}\n\n"
                     break
                 try:
-                    event = await asyncio.wait_for(queue.get(), timeout=min(remaining, 1.0))
+                    event = await asyncio.wait_for(
+                        queue.get(), timeout=min(remaining, 1.0)
+                    )
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue

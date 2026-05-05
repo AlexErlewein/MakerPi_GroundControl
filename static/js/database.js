@@ -1,10 +1,11 @@
-// Database Page JavaScript
+// Devices Page JavaScript
 
 const API_BASE = '';
-const REFRESH_INTERVAL = 10000; // 10 seconds
+const REFRESH_INTERVAL = 500; // 0.5 seconds
 
 let refreshTimer = null;
 let allDevices = [];
+let expandedZigbee = new Set(); // Track expanded zigbee rows
 
 // DOM Elements
 const refreshBtn = document.getElementById('refresh-btn');
@@ -17,15 +18,22 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
     setupEventListeners();
     startAutoRefresh();
+    loadEnrollmentReaderSettings();
 });
 
 // Event Listeners
 function setupEventListeners() {
     refreshBtn.addEventListener('click', loadAllData);
-
     statusFilter.addEventListener('change', filterDevices);
     nfcFilter.addEventListener('change', filterDevices);
     deviceSearch.addEventListener('input', debounce(filterDevices, 300));
+
+    const topicFilterEl = document.getElementById('topic-filter');
+    if (topicFilterEl) {
+        topicFilterEl.addEventListener('input', debounce(() => {
+            loadMessages(topicFilterEl.value);
+        }, 300));
+    }
 
     // Export buttons
     document.querySelectorAll('.export-btn').forEach(btn => {
@@ -36,85 +44,180 @@ function setupEventListeners() {
 // Load all data
 async function loadAllData() {
     await Promise.all([
-        loadDatabaseStats(),
-        loadDevices()
+        loadStats(),
+        loadDevices(),
+        loadZigbeeDevices(),
+        loadMessages((document.getElementById('topic-filter') || {}).value || '')
     ]);
 }
 
-// Load database statistics
-async function loadDatabaseStats() {
+// Load stats
+async function loadStats() {
     try {
         const response = await fetch(`${API_BASE}/api/database/stats`);
-        if (!response.ok) {
-            throw new Error(`API error ${response.status}`);
-        }
+        if (!response.ok) return;
         const stats = await response.json();
 
-        // Database info
-        document.getElementById('db-path').textContent = stats.database.file_path;
-        document.getElementById('db-size').textContent = stats.database.size_human;
-
-        // Device stats
-        document.getElementById('device-count').textContent = stats.devices.total;
-        document.getElementById('online-count').textContent = stats.devices.online;
-        document.getElementById('offline-count').textContent = stats.devices.offline;
-        document.getElementById('nfc-ok-count').textContent = stats.devices.nfc_ok;
-        document.getElementById('nfc-error-count').textContent = stats.devices.nfc_error;
-        document.getElementById('nfc-unknown-count').textContent = stats.devices.nfc_unknown;
-
-        // Message stats
-        document.getElementById('message-count').textContent = stats.messages.total;
-        document.getElementById('topic-count').textContent = stats.messages.topics;
-        document.getElementById('oldest-message').textContent = stats.messages.oldest
-            ? formatDateTime(stats.messages.oldest)
-            : 'No data';
-        document.getElementById('newest-message').textContent = stats.messages.newest
-            ? formatDateTime(stats.messages.newest)
-            : 'No data';
-
-        // Activity stats
-        document.getElementById('oldest-device').textContent = stats.devices_oldest_seen
-            ? formatDateTime(stats.devices_oldest_seen)
-            : 'No data';
-        document.getElementById('newest-device').textContent = stats.devices_newest_seen
-            ? formatDateTime(stats.devices_newest_seen)
-            : 'No data';
-
+        const el = (id) => document.getElementById(id);
+        if (el('device-count')) el('device-count').textContent = stats.devices.total;
+        if (el('online-count')) el('online-count').textContent = stats.devices.online;
+        if (el('offline-count')) el('offline-count').textContent = stats.devices.offline;
+        if (el('message-count')) el('message-count').textContent = stats.messages.total;
+        if (el('topic-count')) el('topic-count').textContent = stats.messages.topics;
     } catch (error) {
-        console.error('Failed to load database stats:', error);
+        console.error('Failed to load stats:', error);
     }
 }
 
-// Load devices
+// Load native devices
 async function loadDevices() {
     try {
         const response = await fetch(`${API_BASE}/api/devices`);
-        if (!response.ok) {
-            throw new Error(`API error ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`API error ${response.status}`);
         allDevices = await response.json();
         filterDevices();
     } catch (error) {
         console.error('Failed to load devices:', error);
         const tbody = document.getElementById('devices-body');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="6" class="error-text">Error loading devices: ${escapeHtml(error.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="error-text">Error loading devices</td></tr>`;
         }
     }
 }
 
-// Filter devices
+// Load Zigbee devices
+async function loadZigbeeDevices() {
+    try {
+        const response = await fetch(`${API_BASE}/api/zigbee-devices`);
+        if (!response.ok) throw new Error(`API error ${response.status}`);
+        const devices = await response.json();
+
+        const countEl = document.getElementById('zigbee-device-count');
+        if (countEl) countEl.textContent = devices.length;
+
+        const tbody = document.getElementById('zigbee-devices-body');
+        if (!tbody) return;
+
+        if (devices.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7">No Zigbee devices found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => {
+            const effectiveStatus = getEffectiveStatus(device.last_seen);
+            const displayName = device.friendly_name || device.ieee_address || 'Unknown';
+            const isExpanded = expandedZigbee.has(device.ieee_address);
+            const batteryDisplay = device.battery != null
+                ? `<span class="battery-level ${device.battery < 20 ? 'low' : device.battery < 50 ? 'medium' : 'good'}">${device.battery}%</span>`
+                : '—';
+            const lqDisplay = device.linkquality != null
+                ? `<span class="linkquality ${device.linkquality < 50 ? 'weak' : device.linkquality < 100 ? 'medium' : 'good'}">${device.linkquality}</span>`
+                : '—';
+
+            let rows = `
+            <tr class="zigbee-row ${isExpanded ? 'expanded' : ''}" data-ieee="${escapeHtml(device.ieee_address || '')}">
+                <td class="expand-toggle" onclick="toggleZigbeeRow('${escapeHtml(device.ieee_address || '')}')">
+                    <span class="expand-arrow">${isExpanded ? '▼' : '▶'}</span>
+                </td>
+                <td><strong>${escapeHtml(displayName)}</strong></td>
+                <td>${escapeHtml(device.model || '—')}</td>
+                <td><span class="status-badge ${effectiveStatus}">${effectiveStatus}</span></td>
+                <td>${batteryDisplay}</td>
+                <td>${lqDisplay}</td>
+                <td>${formatTime(device.last_seen)}</td>
+            </tr>`;
+
+            if (isExpanded) {
+                rows += renderZigbeeProperties(device);
+            }
+
+            return rows;
+        }).join('');
+    } catch (error) {
+        console.error('Failed to load Zigbee devices:', error);
+    }
+}
+
+// Toggle expanded zigbee row
+function toggleZigbeeRow(ieee) {
+    if (expandedZigbee.has(ieee)) {
+        expandedZigbee.delete(ieee);
+    } else {
+        expandedZigbee.add(ieee);
+    }
+    loadZigbeeDevices();
+}
+
+// Render zigbee device properties sub-row
+function renderZigbeeProperties(device) {
+    let props = {};
+    try {
+        if (device.raw_payload) {
+            props = JSON.parse(device.raw_payload);
+        }
+    } catch (e) { /* ignore parse errors */ }
+
+    // Filter out internal/already-shown keys
+    const skipKeys = new Set(['battery', 'linkquality', 'last_seen', 'update', 'update_available']);
+    const entries = Object.entries(props).filter(([k]) => !skipKeys.has(k));
+
+    if (entries.length === 0) {
+        return `<tr class="zigbee-props-row"><td colspan="7"><div class="props-grid"><em>No properties available</em></div></td></tr>`;
+    }
+
+    const propsHtml = entries.map(([key, value]) => {
+        let displayValue = value;
+        if (typeof value === 'object' && value !== null) {
+            displayValue = JSON.stringify(value);
+        }
+        return `<div class="prop-item"><span class="prop-key">${escapeHtml(key)}</span><span class="prop-value">${escapeHtml(String(displayValue))}</span></div>`;
+    }).join('');
+
+    return `<tr class="zigbee-props-row"><td colspan="7"><div class="props-grid">${propsHtml}</div></td></tr>`;
+}
+
+// Load messages
+async function loadMessages(topicFilter) {
+    try {
+        let url = `${API_BASE}/api/messages?limit=50`;
+        if (topicFilter) {
+            url += `&topic=${encodeURIComponent(topicFilter)}`;
+        }
+        const response = await fetch(url);
+        if (!response.ok) return;
+        const messages = await response.json();
+
+        const container = document.getElementById('messages-container');
+        if (!container) return;
+
+        if (messages.length === 0) {
+            container.innerHTML = '<p>No messages found</p>';
+            return;
+        }
+
+        container.innerHTML = messages.map(msg => `
+            <div class="message">
+                <span class="message-time">${formatTime(msg.timestamp)}</span>
+                <span class="message-topic">${escapeHtml(msg.topic)}</span>
+                <div class="message-payload">${escapeHtml(msg.payload)}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load messages:', error);
+    }
+}
+
+// Filter native devices
 function filterDevices() {
-    const status = statusFilter.value;
-    const nfc = nfcFilter.value;
-    const search = deviceSearch.value.toLowerCase();
+    const status = statusFilter ? statusFilter.value : '';
+    const nfc = nfcFilter ? nfcFilter.value : '';
+    const search = deviceSearch ? deviceSearch.value.toLowerCase() : '';
 
     let filtered = allDevices;
 
     if (status) {
-        filtered = filtered.filter(d => d.status === status);
+        filtered = filtered.filter(d => getEffectiveStatus(d.last_seen) === status);
     }
-
     if (nfc === 'ok') {
         filtered = filtered.filter(d => d.nfc_ok === 1);
     } else if (nfc === 'error') {
@@ -122,7 +225,6 @@ function filterDevices() {
     } else if (nfc === 'unknown') {
         filtered = filtered.filter(d => d.nfc_ok === null || d.nfc_ok === undefined);
     }
-
     if (search) {
         filtered = filtered.filter(d =>
             d.device_id.toLowerCase().includes(search) ||
@@ -133,9 +235,10 @@ function filterDevices() {
     renderDevices(filtered);
 }
 
-// Render devices table
+// Render native devices table
 function renderDevices(devices) {
     const tbody = document.getElementById('devices-body');
+    if (!tbody) return;
 
     if (devices.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6">No devices match the current filters</td></tr>';
@@ -150,9 +253,7 @@ function renderDevices(devices) {
                 <code>${escapeHtml(device.device_id)}</code>
             </a></td>
             <td>${escapeHtml(device.name || 'Unnamed')}</td>
-            <td>
-                <span class="status-badge ${effectiveStatus}">${effectiveStatus}</span>
-            </td>
+            <td><span class="status-badge ${effectiveStatus}">${effectiveStatus}</span></td>
             <td>
                 ${device.nfc_ok === 1 ? '<span class="nfc-badge nfc-ok">✓ OK</span>'
                   : device.nfc_ok === 0 ? '<span class="nfc-badge nfc-error">✗ Error</span>'
@@ -171,95 +272,119 @@ function renderDevices(devices) {
 
 // Delete device
 async function deleteDevice(deviceId) {
-    if (!confirm(`Are you sure you want to delete device "${deviceId}"?\n\nThis will remove the device from the database. The device will reappear if it sends a new heartbeat.`)) {
-        return;
-    }
-
+    if (!confirm(`Delete device "${deviceId}"?\nIt will reappear if it sends a new heartbeat.`)) return;
     try {
-        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`, {
-            method: 'DELETE',
-        });
-
-        if (response.ok) {
-            // Reload devices after successful deletion
-            await loadDevices();
-            await loadDatabaseStats();
-        } else {
+        const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+        if (!response.ok) {
             const error = await response.json();
-            alert(`Failed to delete device: ${error.detail || 'Unknown error'}`);
+            alert(`Failed: ${error.detail || 'Unknown error'}`);
         }
     } catch (error) {
-        console.error('Failed to delete device:', error);
-        alert(`Error deleting device: ${error.message}`);
+        alert(`Error: ${error.message}`);
     }
 }
 
 // Export data
-async function exportData(type) {
+function exportData(type) {
+    window.open(`${API_BASE}/api/export/${type}`, '_blank');
+}
+
+// ── Enrollment Reader Settings ────────────────────────────────────────────────
+
+function setEnrollmentStatus(msg, type) {
+    const el = document.getElementById('enrollment-reader-status');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = msg;
+    el.style.background = type === 'ok' ? '#1a3a1a' : type === 'error' ? '#3a1a1a' : '#1a2a3a';
+    el.style.color = type === 'ok' ? '#3fb950' : type === 'error' ? '#f85149' : '#79c0ff';
+    el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
+}
+
+async function loadEnrollmentReaderSettings() {
     try {
-        const url = `${API_BASE}/api/export/${type}`;
-        window.open(url, '_blank');
-    } catch (error) {
-        console.error('Failed to export:', error);
+        const res = await fetch('/api/settings/enrollment-reader');
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById('enrollment-reader-select');
+        if (!select) return;
+
+        const current = data.enrollment_reader_id || '';
+        select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
+        (data.devices || []).forEach(id => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id;
+            if (id === current) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        const saveBtn = document.getElementById('save-enrollment-reader');
+        if (saveBtn && !saveBtn._listenerAttached) {
+            saveBtn._listenerAttached = true;
+            saveBtn.addEventListener('click', saveEnrollmentReader);
+        }
+    } catch (e) {
+        console.error('Failed to load enrollment reader settings:', e);
     }
 }
 
-// Auto-refresh
-function startAutoRefresh() {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
+async function saveEnrollmentReader() {
+    const select = document.getElementById('enrollment-reader-select');
+    const saveBtn = document.getElementById('save-enrollment-reader');
+    if (!select) return;
+    const newId = select.value;
+    saveBtn.disabled = true;
+    try {
+        const res = await fetch('/api/settings/enrollment-reader', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollment_reader_id: newId }),
+        });
+        if (res.ok) {
+            setEnrollmentStatus(newId ? `✓ Reader: ${newId}` : '✓ Kein Reader konfiguriert', 'ok');
+        } else {
+            const err = await res.json();
+            setEnrollmentStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
+        }
+    } catch (e) {
+        setEnrollmentStatus('Verbindungsfehler', 'error');
+    } finally {
+        saveBtn.disabled = false;
     }
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────────────────────
+
+function startAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(loadAllData, REFRESH_INTERVAL);
 }
 
-// Get effective status based on last_seen timestamp
+// ── Utilities ────────────────────────────────────────────────────────────────
+
 function getEffectiveStatus(lastSeen) {
     if (!lastSeen) return 'unknown';
-
     const lastSeenDate = new Date(lastSeen);
     if (isNaN(lastSeenDate.getTime())) return 'unknown';
-
-    const now = new Date();
-    const diff = now - lastSeenDate;
-
-    // Offline if no heartbeat for 2 minutes
-    if (diff > 120000) {
-        return 'offline';
-    }
-
-    return 'online';
+    const diff = Date.now() - lastSeenDate.getTime();
+    return diff > 120000 ? 'offline' : 'online';
 }
 
-// Utility functions
 function formatTime(timestamp) {
-    if (!timestamp) return 'Unknown';
-
+    if (!timestamp) return '—';
     const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Invalid';
-    
-    const now = new Date();
-    const diff = now - date;
-
+    if (isNaN(date.getTime())) return '—';
+    const diff = Date.now() - date.getTime();
     if (diff < 60000) return 'Just now';
-    if (diff < 3600000) {
-        const minutes = Math.floor(diff / 60000);
-        return `${minutes}m ago`;
-    }
-    if (diff < 86400000) {
-        const hours = Math.floor(diff / 3600000);
-        return `${hours}h ago`;
-    }
-    return date.toLocaleDateString();
-}
-
-function formatDateTime(timestamp) {
-    if (!timestamp) return 'Unknown';
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Invalid';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return date.toLocaleString();
 }
 
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -267,12 +392,8 @@ function escapeHtml(text) {
 
 function debounce(func, wait) {
     let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
+    return function(...args) {
         clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+        timeout = setTimeout(() => func(...args), wait);
     };
 }

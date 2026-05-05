@@ -29,23 +29,23 @@ def get_auth_headers() -> dict:
 
 def fetch_members():
     headers = get_auth_headers()
-    
+
     with httpx.Client(timeout=60.0) as client:
         # Build URL with optional org ID
         url = f"{EASYVEREIN_API_BASE}/member/"
         params = {"page_size": 10}  # Just fetch first 10 for debugging
         if EASYVEREIN_ORG_ID:
             params["organization"] = EASYVEREIN_ORG_ID
-        
+
         print(f"Fetching members from: {url}")
         print(f"Params: {params}")
         print("-" * 60)
-        
+
         response = client.get(url, headers=headers, params=params)
         response.raise_for_status()
-        
+
         data = response.json()
-        
+
         # Handle both list and paginated response
         if isinstance(data, list):
             members = data
@@ -53,10 +53,10 @@ def fetch_members():
             members = data["results"]
         else:
             members = []
-        
+
         print(f"Total members fetched: {len(members)}")
         print("=" * 60)
-        
+
         for i, member in enumerate(members[:5], 1):  # Show first 5
             print(f"\n--- Member {i} ---")
             print(f"Raw member fields: {list(member.keys())}")
@@ -66,7 +66,7 @@ def fetch_members():
             print(f"  joinDate: {member.get('joinDate')}")
             print(f"  resignationDate: {member.get('resignationDate')}")
             print(f"  _isBlocked: {member.get('_isBlocked')}")
-            
+
             # Fetch contact details
             contact_url = member.get("contactDetails")
             if contact_url and isinstance(contact_url, str):
@@ -75,7 +75,7 @@ def fetch_members():
                     contact_resp = client.get(contact_url, headers=headers)
                     contact_resp.raise_for_status()
                     contact = contact_resp.json()
-                    
+
                     print(f"  Contact fields: {list(contact.keys())}")
                     print(f"    name: '{contact.get('name', 'N/A')}'")
                     print(f"    firstName: '{contact.get('firstName', 'N/A')}'")
@@ -85,7 +85,7 @@ def fetch_members():
                     print(f"    companyEmail: '{contact.get('companyEmail', 'N/A')}'")
                     print(f"    mobilePhone: '{contact.get('mobilePhone', 'N/A')}'")
                     print(f"    phone: '{contact.get('phone', 'N/A')}'")
-                    
+
                     # Show what our mapping would produce
                     name = contact.get("name", "").strip()
                     if not name:
@@ -95,14 +95,14 @@ def fetch_members():
                             name = f"{first} {family}".strip()
                     if not name:
                         name = member.get("emailOrUserName", "").strip()
-                    
+
                     print(f"\n  --> Mapped name would be: '{name}'")
-                    
+
                 except Exception as e:
                     print(f"  ERROR fetching contact details: {e}")
             else:
                 print(f"  No contactDetails URL: {contact_url}")
-            
+
             print("-" * 40)
 
 

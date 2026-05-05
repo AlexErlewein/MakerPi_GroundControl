@@ -24,7 +24,9 @@ RETRY_DELAY = 15  # 15 seconds to wait after errors (exponential: 15, 30, 45...)
 _last_sync_result: Optional[dict] = None
 
 
-async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, params: Optional[dict] = None) -> httpx.Response:
+async def fetch_with_retry(
+    client: httpx.AsyncClient, url: str, headers: dict, params: Optional[dict] = None
+) -> httpx.Response:
     """Fetch URL with retry logic for rate limiting (429) and disconnection errors"""
     last_exception = None
     for attempt in range(MAX_RETRIES):
@@ -32,7 +34,9 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, p
             response = await client.get(url, headers=headers, params=params)
             if response.status_code == 429:
                 wait_time = RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                logger.warning(
+                    f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
                 await asyncio.sleep(wait_time)  # Exponential backoff
                 continue
             response.raise_for_status()
@@ -41,7 +45,9 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, p
             last_exception = e
             if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
                 wait_time = RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                logger.warning(
+                    f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
                 await asyncio.sleep(wait_time)
                 continue
             raise
@@ -50,7 +56,9 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, p
             last_exception = e
             if attempt < MAX_RETRIES - 1:
                 wait_time = RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Server disconnected, waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                logger.warning(
+                    f"Server disconnected, waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
                 await asyncio.sleep(wait_time)
                 continue
             raise
@@ -58,7 +66,9 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str, headers: dict, p
             last_exception = e
             if attempt < MAX_RETRIES - 1:
                 wait_time = RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Request failed ({type(e).__name__}), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}")
+                logger.warning(
+                    f"Request failed ({type(e).__name__}), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
                 await asyncio.sleep(wait_time)
                 continue
             raise
@@ -94,7 +104,9 @@ def get_sync_status() -> dict:
     return _last_sync_result
 
 
-async def fetch_contact_details(client: httpx.AsyncClient, headers: dict, contact_url: str) -> Optional[dict]:
+async def fetch_contact_details(
+    client: httpx.AsyncClient, headers: dict, contact_url: str
+) -> Optional[dict]:
     """Fetch contact details for a member"""
     try:
         response = await client.get(contact_url, headers=headers)
@@ -105,16 +117,20 @@ async def fetch_contact_details(client: httpx.AsyncClient, headers: dict, contac
         return None
 
 
-def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> Optional[dict]:
+def map_easyverein_member(
+    ev_member: dict, contact_details: Optional[dict]
+) -> Optional[dict]:
     """Map easyVerein member data to GroundControl Mitglied format"""
     try:
         # Member ID is in membershipNumber field
         member_id_raw = ev_member.get("membershipNumber")
         if not member_id_raw:
-            logger.warning(f"Skipping member without membershipNumber: {ev_member.get('id')}")
+            logger.warning(
+                f"Skipping member without membershipNumber: {ev_member.get('id')}"
+            )
             return None
         member_id = str(member_id_raw).strip()
-        
+
         # Name comes from contactDetails - prioritize firstName + familyName
         name = None
         if contact_details:
@@ -126,26 +142,30 @@ def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> O
             # Fallback to aggregated name field if individual fields are empty
             if not name:
                 name = contact_details.get("name", "").strip()
-        
+
         if not name:
             # Last resort: use emailOrUserName or skip
             name = ev_member.get("emailOrUserName", "").strip()
             if not name:
                 logger.warning(f"Skipping member without name: {member_id}")
                 return None
-        
+
         # Email from contactDetails
         email = None
         if contact_details:
-            email = contact_details.get("email") or contact_details.get("privateEmail") or contact_details.get("companyEmail")
+            email = (
+                contact_details.get("email")
+                or contact_details.get("privateEmail")
+                or contact_details.get("companyEmail")
+            )
         if not email:
             email = ev_member.get("emailOrUserName")
-        
+
         # Phone from contactDetails
         phone = None
         if contact_details:
             phone = contact_details.get("mobilePhone") or contact_details.get("phone")
-        
+
         # Determine status from various fields
         # Active if: not an application, no resignation date, not blocked
         status = "active"
@@ -155,7 +175,7 @@ def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> O
             status = "inactive"  # Member has resigned
         elif ev_member.get("_isBlocked"):
             status = "inactive"  # Blocked member
-        
+
         # Join date
         joined_date = None
         join_date_str = ev_member.get("joinDate")
@@ -165,7 +185,7 @@ def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> O
                 joined_date = date.fromisoformat(join_date_str[:10])
             except (ValueError, IndexError):
                 pass
-        
+
         return {
             "member_id": member_id,
             "name": name,
@@ -183,7 +203,7 @@ def map_easyverein_member(ev_member: dict, contact_details: Optional[dict]) -> O
 async def sync_members_from_easyverein() -> dict:
     """Sync members from easyVerein API to local database"""
     global _last_sync_result
-    
+
     if not EASYVEREIN_API_KEY:
         result = {
             "last_sync": datetime.now(timezone.utc).isoformat(),
@@ -195,16 +215,16 @@ async def sync_members_from_easyverein() -> dict:
         }
         _last_sync_result = result
         return result
-    
+
     created_count = 0
     updated_count = 0
     error_count = 0
     skipped_count = 0
-    
+
     try:
         headers = get_auth_headers()
         ev_members = []
-        
+
         # Configure timeout and connection limits to prevent disconnection
         timeout = httpx.Timeout(60.0, connect=30.0)
         limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
@@ -214,25 +234,29 @@ async def sync_members_from_easyverein() -> dict:
             params = {"page_size": PAGE_SIZE}  # Smaller pages to avoid rate limits
             if EASYVEREIN_ORG_ID:
                 params["organization"] = EASYVEREIN_ORG_ID
-            
+
             # Fetch all pages with rate limiting
             next_url = url
             page_count = 0
             while next_url:
                 page_count += 1
-                logger.info(f"Fetching members from easyVerein: {next_url} (params: {params}) - page {page_count}")
+                logger.info(
+                    f"Fetching members from easyVerein: {next_url} (params: {params}) - page {page_count}"
+                )
                 try:
-                    response = await fetch_with_retry(client, next_url, headers, params if next_url == url else None)
+                    response = await fetch_with_retry(
+                        client, next_url, headers, params if next_url == url else None
+                    )
                 except Exception as e:
                     logger.error(f"Failed to fetch page {page_count}: {e}")
                     raise
-                
+
                 # Rate limiting: wait between requests
                 if next_url != url:
                     await asyncio.sleep(REQUEST_DELAY)
-                
+
                 data = response.json()
-                
+
                 # Handle both list and paginated response
                 if isinstance(data, list):
                     page_members = data
@@ -243,17 +267,19 @@ async def sync_members_from_easyverein() -> dict:
                 else:
                     page_members = []
                     next_url = None
-                
+
                 ev_members.extend(page_members)
-                logger.info(f"Fetched {len(page_members)} members (total: {len(ev_members)})")
-                
+                logger.info(
+                    f"Fetched {len(page_members)} members (total: {len(ev_members)})"
+                )
+
                 # Safety limit - don't fetch more than 1000 members
                 if len(ev_members) >= 1000:
                     logger.warning("Reached 1000 member limit, stopping pagination")
                     break
-            
+
             logger.info(f"Total members fetched from easyVerein: {len(ev_members)}")
-            
+
             # Get database session
             db = SessionLocal()
             try:
@@ -263,19 +289,25 @@ async def sync_members_from_easyverein() -> dict:
                         contact_details = None
                         contact_url = ev_member.get("contactDetails")
                         if contact_url and isinstance(contact_url, str):
-                            contact_details = await fetch_contact_details(client, headers, contact_url)
-                            await asyncio.sleep(1.0)  # 1 second delay between contact detail requests
-                        
+                            contact_details = await fetch_contact_details(
+                                client, headers, contact_url
+                            )
+                            await asyncio.sleep(
+                                1.0
+                            )  # 1 second delay between contact detail requests
+
                         mapped = map_easyverein_member(ev_member, contact_details)
                         if not mapped:
                             skipped_count += 1
                             continue
-                        
+
                         # Check if member already exists by member_id
-                        existing = db.query(Mitglied).filter(
-                            Mitglied.member_id == mapped["member_id"]
-                        ).first()
-                        
+                        existing = (
+                            db.query(Mitglied)
+                            .filter(Mitglied.member_id == mapped["member_id"])
+                            .first()
+                        )
+
                         if existing:
                             # Update existing member
                             existing.name = mapped["name"]
@@ -292,17 +324,21 @@ async def sync_members_from_easyverein() -> dict:
                             new_member = Mitglied(**mapped)
                             db.add(new_member)
                             created_count += 1
-                            
+
                     except Exception as e:
-                        logger.error(f"Error processing member {ev_member.get('id')}: {e}")
+                        logger.error(
+                            f"Error processing member {ev_member.get('id')}: {e}"
+                        )
                         error_count += 1
-                
+
                 db.commit()
-                logger.info(f"Sync complete: {created_count} created, {updated_count} updated, {skipped_count} skipped, {error_count} errors")
-                
+                logger.info(
+                    f"Sync complete: {created_count} created, {updated_count} updated, {skipped_count} skipped, {error_count} errors"
+                )
+
             finally:
                 db.close()
-        
+
         result = {
             "last_sync": datetime.now(timezone.utc).isoformat(),
             "success": True,
@@ -314,7 +350,7 @@ async def sync_members_from_easyverein() -> dict:
         }
         _last_sync_result = result
         return result
-        
+
     except httpx.HTTPStatusError as e:
         if e.response is not None:
             error_msg = f"HTTP error {e.response.status_code}: {e.response.text[:200]}"
@@ -332,7 +368,7 @@ async def sync_members_from_easyverein() -> dict:
         }
         _last_sync_result = result
         return result
-        
+
     except Exception as e:
         error_msg = f"Sync failed: {str(e)}"
         logger.error(error_msg)

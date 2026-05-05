@@ -53,12 +53,13 @@ async def startup():
 
 # ── Page ─────────────────────────────────────────────────────────────────────
 
+
 @router.get("/katalog", response_class=HTMLResponse)
 async def katalog_page(request: Request):
     """Render Katalog management page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
@@ -67,6 +68,7 @@ async def katalog_page(request: Request):
 
 # ── Full Catalog API ─────────────────────────────────────────────────────────
 
+
 @router.get("/api/katalog")
 async def get_full_katalog(db: Session = Depends(get_db)):
     """Return full catalog tree: locations with their categories and variants"""
@@ -74,15 +76,21 @@ async def get_full_katalog(db: Session = Depends(get_db)):
     result = []
     for loc in locations:
         loc_dict = loc.to_dict()
-        kategorien = db.query(MaterialKategorie).filter(
-            MaterialKategorie.location_id == loc.id
-        ).order_by(MaterialKategorie.name).all()
+        kategorien = (
+            db.query(MaterialKategorie)
+            .filter(MaterialKategorie.location_id == loc.id)
+            .order_by(MaterialKategorie.name)
+            .all()
+        )
         loc_dict["kategorien"] = []
         for kat in kategorien:
             kat_dict = kat.to_dict()
-            varianten = db.query(MaterialVariante).filter(
-                MaterialVariante.kategorie_id == kat.id
-            ).order_by(MaterialVariante.name).all()
+            varianten = (
+                db.query(MaterialVariante)
+                .filter(MaterialVariante.kategorie_id == kat.id)
+                .order_by(MaterialVariante.name)
+                .all()
+            )
             kat_dict["varianten"] = [v.to_dict() for v in varianten]
             loc_dict["kategorien"].append(kat_dict)
         result.append(loc_dict)
@@ -90,6 +98,7 @@ async def get_full_katalog(db: Session = Depends(get_db)):
 
 
 # ── Locations API ─────────────────────────────────────────────────────────────
+
 
 @router.get("/api/katalog/locations")
 async def list_locations(db: Session = Depends(get_db)):
@@ -102,7 +111,9 @@ async def create_location(data: LocationCreate, db: Session = Depends(get_db)):
     """Create a new location"""
     existing = db.query(Location).filter(Location.name == data.name).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Location '{data.name}' already exists")
+        raise HTTPException(
+            status_code=400, detail=f"Location '{data.name}' already exists"
+        )
     loc = Location(name=data.name)
     db.add(loc)
     db.commit()
@@ -111,7 +122,9 @@ async def create_location(data: LocationCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/api/katalog/locations/{loc_id}")
-async def update_location(loc_id: int, data: LocationUpdate, db: Session = Depends(get_db)):
+async def update_location(
+    loc_id: int, data: LocationUpdate, db: Session = Depends(get_db)
+):
     """Update a location"""
     loc = db.query(Location).filter(Location.id == loc_id).first()
     if not loc:
@@ -136,8 +149,11 @@ async def delete_location(loc_id: int, db: Session = Depends(get_db)):
 
 # ── Kategorien API ────────────────────────────────────────────────────────────
 
+
 @router.get("/api/katalog/kategorien")
-async def list_kategorien(location_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def list_kategorien(
+    location_id: Optional[int] = None, db: Session = Depends(get_db)
+):
     """List all material categories"""
     q = db.query(MaterialKategorie)
     if location_id:
@@ -162,7 +178,9 @@ async def create_kategorie(data: KategorieCreate, db: Session = Depends(get_db))
 
 
 @router.put("/api/katalog/kategorien/{kat_id}")
-async def update_kategorie(kat_id: int, data: KategorieUpdate, db: Session = Depends(get_db)):
+async def update_kategorie(
+    kat_id: int, data: KategorieUpdate, db: Session = Depends(get_db)
+):
     """Update a material category"""
     k = db.query(MaterialKategorie).filter(MaterialKategorie.id == kat_id).first()
     if not k:
@@ -193,8 +211,11 @@ async def delete_kategorie(kat_id: int, db: Session = Depends(get_db)):
 
 # ── Varianten API ─────────────────────────────────────────────────────────────
 
+
 @router.get("/api/katalog/varianten")
-async def list_varianten(kategorie_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def list_varianten(
+    kategorie_id: Optional[int] = None, db: Session = Depends(get_db)
+):
     """List all material variants"""
     q = db.query(MaterialVariante)
     if kategorie_id:
@@ -217,7 +238,9 @@ async def create_variante(data: VarianteCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/api/katalog/varianten/{var_id}")
-async def update_variante(var_id: int, data: VarianteUpdate, db: Session = Depends(get_db)):
+async def update_variante(
+    var_id: int, data: VarianteUpdate, db: Session = Depends(get_db)
+):
     """Update a material variant"""
     v = db.query(MaterialVariante).filter(MaterialVariante.id == var_id).first()
     if not v:

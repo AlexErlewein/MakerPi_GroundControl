@@ -24,7 +24,10 @@ def _migrate(conn):
     existing = {row[1] for row in cur.fetchall()}
     migrations = [
         ("login_username", "ALTER TABLE mitglieder ADD COLUMN login_username TEXT"),
-        ("login_password_hash", "ALTER TABLE mitglieder ADD COLUMN login_password_hash TEXT"),
+        (
+            "login_password_hash",
+            "ALTER TABLE mitglieder ADD COLUMN login_password_hash TEXT",
+        ),
         ("nfc_uid", "ALTER TABLE mitglieder ADD COLUMN nfc_uid TEXT"),
     ]
     for col, sql in migrations:

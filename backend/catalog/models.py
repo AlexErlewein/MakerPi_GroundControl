@@ -22,7 +22,9 @@ class MaterialKategorie(Base):
     id = Column(Integer, primary_key=True, index=True)
     location_id = Column(Integer, index=True)
     name = Column(String)
-    pricing_model = Column(String, default="per_unit")  # per_gram | per_volume_cm3 | per_volume_l | per_minute | per_unit
+    pricing_model = Column(
+        String, default="per_unit"
+    )  # per_gram | per_volume_cm3 | per_volume_l | per_minute | per_unit
     unit = Column(String, nullable=True)  # display unit
     tax_rate = Column(Float, default=19.0)  # 0 | 7 | 19
 

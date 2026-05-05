@@ -355,3 +355,118 @@
         display: none;
     }
 }
+
+/* ── Zigbee Expandable Rows ──────────────────────────────────────────────── */
+
+.zigbee-row {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.zigbee-row:hover {
+    background: var(--bg-tertiary, #161b22);
+}
+
+.zigbee-row.expanded {
+    background: var(--bg-tertiary, #161b22);
+}
+
+.expand-toggle {
+    text-align: center;
+    width: 30px;
+    padding: 8px 4px !important;
+    user-select: none;
+}
+
+.expand-arrow {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #8b949e);
+    transition: transform 0.2s;
+}
+
+.zigbee-props-row td {
+    padding: 0 !important;
+    border-top: none !important;
+    background: var(--bg-tertiary, #0d1117);
+}
+
+.props-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    padding: 12px 16px 12px 46px;
+}
+
+.prop-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    background: var(--card-bg, #161b22);
+    border: 1px solid var(--border, #30363d);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.prop-key {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #8b949e);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.prop-value {
+    font-size: 0.85rem;
+    color: var(--text-primary, #e6edf3);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+/* ── Messages Section ────────────────────────────────────────────────────── */
+
+.messages-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border, #30363d);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.message {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border, #21262d);
+    font-size: 0.85rem;
+}
+
+.message:last-child {
+    border-bottom: none;
+}
+
+.message-time {
+    color: var(--text-secondary, #8b949e);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.message-topic {
+    color: var(--accent, #58a6ff);
+    font-weight: 500;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.message-payload {
+    grid-column: 1 / -1;
+    color: var(--text-primary, #c9d1d9);
+    font-family: monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 60px;
+    overflow: hidden;
+    opacity: 0.8;
+}

@@ -16,28 +16,28 @@ def check_email_names():
     db = SessionLocal()
     try:
         # Find members where name contains @ (email-like)
-        members = db.query(Mitglied).filter(Mitglied.name.like('%@%')).all()
-        
+        members = db.query(Mitglied).filter(Mitglied.name.like("%@%")).all()
+
         print(f"Found {len(members)} members with email-like names:")
         print("=" * 60)
-        
+
         for m in members:
             print(f"  member_id: {m.member_id}")
             print(f"  name:      {m.name}")
             print(f"  email:     {m.email}")
             print(f"  status:    {m.status}")
             print("-" * 40)
-        
+
         # Also show some regular members for comparison
         print("\n\nSample of normal members (for comparison):")
         print("=" * 60)
-        normal = db.query(Mitglied).filter(~Mitglied.name.like('%@%')).limit(5).all()
+        normal = db.query(Mitglied).filter(~Mitglied.name.like("%@%")).limit(5).all()
         for m in normal:
             print(f"  member_id: {m.member_id}")
             print(f"  name:      {m.name}")
             print(f"  email:     {m.email}")
             print("-" * 40)
-            
+
     finally:
         db.close()
 

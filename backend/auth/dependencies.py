@@ -41,13 +41,13 @@ def is_admin_verified(request: Request) -> bool:
     session = request.session
     if not session.get("admin_verified"):
         return False
-    
+
     admin_verified_at = session.get("admin_verified_at")
     last_activity = session.get("last_activity")
-    
+
     if not admin_verified_at or not last_activity:
         return False
-    
+
     # Parse ISO format strings to datetime
     try:
         last_activity_dt = datetime.fromisoformat(last_activity)
@@ -55,7 +55,7 @@ def is_admin_verified(request: Request) -> bool:
             last_activity_dt = last_activity_dt.replace(tzinfo=timezone.utc)
     except (ValueError, TypeError):
         return False
-    
+
     # Check 10min timeout
     now = datetime.now(timezone.utc)
     if (now - last_activity_dt).total_seconds() > (ADMIN_TIMEOUT_MINUTES * 60):
@@ -63,7 +63,7 @@ def is_admin_verified(request: Request) -> bool:
         session["admin_verified"] = False
         session["admin_verified_at"] = None
         return False
-    
+
     # Update last activity
     session["last_activity"] = now.isoformat()
     return True
@@ -74,12 +74,12 @@ def is_member_session_valid(request: Request) -> bool:
     session = request.session
     if not session.get("user"):
         return False
-    
+
     last_activity = session.get("last_activity")
-    
+
     if not last_activity:
         return False
-    
+
     # Parse ISO format string to datetime
     try:
         last_activity_dt = datetime.fromisoformat(last_activity)
@@ -87,14 +87,14 @@ def is_member_session_valid(request: Request) -> bool:
             last_activity_dt = last_activity_dt.replace(tzinfo=timezone.utc)
     except (ValueError, TypeError):
         return False
-    
+
     # Check 3min timeout
     now = datetime.now(timezone.utc)
     if (now - last_activity_dt).total_seconds() > (MEMBER_TIMEOUT_MINUTES * 60):
         # Timeout expired, clear session
         session.clear()
         return False
-    
+
     # Update last activity
     session["last_activity"] = now.isoformat()
     return True
@@ -104,19 +104,19 @@ def verify_admin_password(request: Request, db: Session, password: str) -> bool:
     """Verify admin password and enable admin mode"""
     if not request.session.get("user"):
         return False
-    
+
     # Check if user is admin-capable
     is_admin_capable = request.session.get("is_admin_capable", False)
     if not is_admin_capable:
         return False
-    
+
     # Get user and verify password
     username = request.session.get("user")
     user = db.query(User).filter(User.username == username).first()
-    
+
     if not user:
         return False
-    
+
     # Try auth DB password first (for admin users created via password)
     if user.hashed_password and verify_password(password, user.hashed_password):
         pass  # Password verified
@@ -124,18 +124,21 @@ def verify_admin_password(request: Request, db: Session, password: str) -> bool:
         # Try member login password (for members with admin RFID tags)
         from backend.members.db import get_db as get_members_db
         from backend.members.models import Mitglied
+
         members_db = next(get_members_db())
         try:
-            mitglied = members_db.query(Mitglied).filter(
-                Mitglied.id == user.mitglied_id
-            ).first()
+            mitglied = (
+                members_db.query(Mitglied)
+                .filter(Mitglied.id == user.mitglied_id)
+                .first()
+            )
             if not mitglied or not mitglied.login_password_hash:
                 return False
             if not verify_password(password, mitglied.login_password_hash):
                 return False
         finally:
             members_db.close()
-    
+
     # Set admin verified
     now = datetime.now(timezone.utc)
     request.session["admin_verified"] = True
@@ -179,7 +182,7 @@ def seed_admin_user():
             username=ADMIN_USERNAME,
             hashed_password=hashed,
             role="admin",
-            mitglied_id=None
+            mitglied_id=None,
         )
         db.add(admin)
         db.commit()

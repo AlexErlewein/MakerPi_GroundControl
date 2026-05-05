@@ -16,6 +16,7 @@ class CardWriteRequest(BaseModel):
     device_id: str  # PicoW device ID (e.g., "picow_nfc_01")
     uid: str  # Expected UID to write to (for verification)
 
+
 router = APIRouter()
 
 
@@ -69,12 +70,13 @@ async def startup():
 
 # ── Pages ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/mitglieder", response_class=HTMLResponse)
 async def mitglieder_page(request: Request):
     """Render member database page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
@@ -86,7 +88,7 @@ async def tags_page(request: Request):
     """Render RFID tag management page"""
     from fastapi.templating import Jinja2Templates
     from backend.auth.dependencies import check_auth
-    
+
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
@@ -95,16 +97,19 @@ async def tags_page(request: Request):
 
 # ── Mitglied API ──────────────────────────────────────────────────────────────
 
+
 @router.get("/api/mitglieder")
-async def get_mitglieder(search: str = None, status: str = None, db: Session = Depends(get_db)):
+async def get_mitglieder(
+    search: str = None, status: str = None, db: Session = Depends(get_db)
+):
     """List all members, optionally filtered"""
     q = db.query(Mitglied)
     if search:
         like = f"%{search}%"
         q = q.filter(
-            (Mitglied.name.ilike(like)) |
-            (Mitglied.member_id.ilike(like)) |
-            (Mitglied.email.ilike(like))
+            (Mitglied.name.ilike(like))
+            | (Mitglied.member_id.ilike(like))
+            | (Mitglied.email.ilike(like))
         )
     if status:
         q = q.filter(Mitglied.status == status)
@@ -119,27 +124,38 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="member_id already exists")
     # Check if login_username already exists (if provided)
     if data.login_username:
-        existing_login = db.query(Mitglied).filter(Mitglied.login_username == data.login_username).first()
+        existing_login = (
+            db.query(Mitglied)
+            .filter(Mitglied.login_username == data.login_username)
+            .first()
+        )
         if existing_login:
             raise HTTPException(status_code=400, detail="login_username already exists")
     nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
     if nfc_uid:
         clash = db.query(Mitglied).filter(Mitglied.nfc_uid == nfc_uid).first()
         if clash:
-            raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
+            raise HTTPException(
+                status_code=400, detail="nfc_uid already assigned to another member"
+            )
     from datetime import date as dt_date
     from backend.auth.dependencies import get_password_hash
+
     m = Mitglied(
         member_id=data.member_id,
         name=data.name,
         email=data.email,
         phone=data.phone,
         status=data.status or "active",
-        joined_date=dt_date.fromisoformat(data.joined_date) if data.joined_date else None,
+        joined_date=dt_date.fromisoformat(data.joined_date)
+        if data.joined_date
+        else None,
         notes=data.notes,
         nfc_uid=nfc_uid,
         login_username=data.login_username,
-        login_password_hash=get_password_hash(data.login_password) if data.login_password else None,
+        login_password_hash=get_password_hash(data.login_password)
+        if data.login_password
+        else None,
     )
     db.add(m)
     db.commit()
@@ -148,15 +164,19 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/api/mitglieder/{mitglied_id}")
-async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = Depends(get_db)):
+async def update_mitglied(
+    mitglied_id: int, data: MitgliedUpdate, db: Session = Depends(get_db)
+):
     """Update a member"""
     m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
     if not m:
         raise HTTPException(status_code=404, detail="Member not found")
     if data.member_id is not None:
-        clash = db.query(Mitglied).filter(
-            Mitglied.member_id == data.member_id, Mitglied.id != mitglied_id
-        ).first()
+        clash = (
+            db.query(Mitglied)
+            .filter(Mitglied.member_id == data.member_id, Mitglied.id != mitglied_id)
+            .first()
+        )
         if clash:
             raise HTTPException(status_code=400, detail="member_id already exists")
         m.member_id = data.member_id
@@ -170,32 +190,48 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
         m.status = data.status
     if data.joined_date is not None:
         from datetime import date as dt_date
-        m.joined_date = dt_date.fromisoformat(data.joined_date) if data.joined_date else None
+
+        m.joined_date = (
+            dt_date.fromisoformat(data.joined_date) if data.joined_date else None
+        )
     if data.notes is not None:
         m.notes = data.notes
     if data.nfc_uid is not None:
         nfc_uid = data.nfc_uid.upper() if data.nfc_uid else None
         if nfc_uid:
-            clash = db.query(Mitglied).filter(
-                Mitglied.nfc_uid == nfc_uid, Mitglied.id != mitglied_id
-            ).first()
+            clash = (
+                db.query(Mitglied)
+                .filter(Mitglied.nfc_uid == nfc_uid, Mitglied.id != mitglied_id)
+                .first()
+            )
             if clash:
-                raise HTTPException(status_code=400, detail="nfc_uid already assigned to another member")
+                raise HTTPException(
+                    status_code=400, detail="nfc_uid already assigned to another member"
+                )
         m.nfc_uid = nfc_uid
     # Handle login credentials
     if data.login_username is not None:
         # Check if username already taken by another member
         if data.login_username != m.login_username:
-            existing = db.query(Mitglied).filter(
-                Mitglied.login_username == data.login_username,
-                Mitglied.id != mitglied_id
-            ).first()
+            existing = (
+                db.query(Mitglied)
+                .filter(
+                    Mitglied.login_username == data.login_username,
+                    Mitglied.id != mitglied_id,
+                )
+                .first()
+            )
             if existing:
-                raise HTTPException(status_code=400, detail="login_username already exists")
+                raise HTTPException(
+                    status_code=400, detail="login_username already exists"
+                )
         m.login_username = data.login_username if data.login_username else None
     if data.login_password is not None:
         from backend.auth.dependencies import get_password_hash
-        m.login_password_hash = get_password_hash(data.login_password) if data.login_password else None
+
+        m.login_password_hash = (
+            get_password_hash(data.login_password) if data.login_password else None
+        )
     db.commit()
     db.refresh(m)
     return m.to_dict()
@@ -203,10 +239,12 @@ async def update_mitglied(mitglied_id: int, data: MitgliedUpdate, db: Session = 
 
 # ── easyVerein Sync API (must be before /{mitglied_id}) ───────────────────────
 
+
 @router.get("/api/mitglieder/sync-status")
 async def get_easyverein_sync_status(request: Request):
     """Get the last easyVerein sync status"""
     from backend.auth.dependencies import check_auth
+
     if not check_auth(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     return get_sync_status()
@@ -216,6 +254,7 @@ async def get_easyverein_sync_status(request: Request):
 async def trigger_easyverein_sync(request: Request):
     """Manually trigger easyVerein sync (admin only)"""
     from backend.auth.dependencies import is_admin_verified
+
     if not is_admin_verified(request):
         raise HTTPException(status_code=403, detail="Admin verification required")
     result = await sync_members_from_easyverein()
@@ -243,6 +282,7 @@ async def delete_mitglied(mitglied_id: int, db: Session = Depends(get_db)):
 
 
 # ── RFID Tag API ───────────────────────────────────────────────────────────────
+
 
 @router.get("/api/tags")
 async def get_tags(db: Session = Depends(get_db)):
@@ -315,12 +355,13 @@ async def delete_tag(uid: str, db: Session = Depends(get_db)):
 
 # ── Card Enrollment (Write to NFC) ───────────────────────────────────────────
 
+
 @router.post("/api/mitglieder/{mitglied_id}/enroll-card")
 async def enroll_card(
     mitglied_id: int,
     req: CardWriteRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """Trigger NFC card enrollment - writes member data to card via PicoW.
 
@@ -328,6 +369,7 @@ async def enroll_card(
     their card, the data will be written and verified.
     """
     from backend.auth.dependencies import check_auth
+
     if not check_auth(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -353,7 +395,7 @@ async def enroll_card(
         name=m.name,
         email=m.email or "",
         signature=signature,
-        request_id=request_id
+        request_id=request_id,
     )
 
     if not success:
@@ -364,5 +406,5 @@ async def enroll_card(
         "message": f"Present card to {req.device_id} within 30 seconds",
         "request_id": request_id,
         "member_id": m.member_id,
-        "uid": req.uid
+        "uid": req.uid,
     }

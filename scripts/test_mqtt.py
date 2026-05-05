@@ -11,15 +11,19 @@ import paho.mqtt.client as mqtt
 BROKER = sys.argv[1] if len(sys.argv) > 1 else "localhost"
 PORT = 1883
 
+
 def on_connect(client, userdata, flags, reason_code, properties):
     print(f"✅ Connected to {BROKER}:{PORT}")
     client.subscribe("#")
 
+
 def on_message(client, userdata, msg):
     print(f"📨 {msg.topic}: {msg.payload.decode()}")
 
+
 def on_disconnect(client, userdata, reason_code, properties):
     print(f"❌ Disconnected: {reason_code}")
+
 
 print(f"Connecting to MQTT broker at {BROKER}...")
 

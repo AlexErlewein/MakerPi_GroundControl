@@ -27,14 +27,19 @@ class Laufzettel(Base):
     start = Column(DateTime(timezone=True), nullable=True)
     owner_name = Column(String, nullable=True)
     member_id = Column(String, nullable=True)
-    mitglied_id = Column(Integer, nullable=True, index=True)  # soft ref to members.mitglieder.id
+    mitglied_id = Column(
+        Integer, nullable=True, index=True
+    )  # soft ref to members.mitglieder.id
     nodes = Column(Text, default="[]")  # JSON array of device_ids
-    payment_method = Column(String, nullable=True)  # 'bar' | 'paypal' | 'karte' | 'wero'
+    payment_method = Column(
+        String, nullable=True
+    )  # 'bar' | 'paypal' | 'karte' | 'wero'
     paid_at = Column(DateTime(timezone=True), nullable=True)
     payment_transaction_id = Column(String, nullable=True)  # SumUp transaction ID
-    payment_notes = Column(String, nullable=True)  # free-text note (e.g. for cash payments)
+    payment_notes = Column(
+        String, nullable=True
+    )  # free-text note (e.g. for cash payments)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
-
 
     def to_dict(self):
         start_ts = _naive_to_utc(self.start) if self.start else None
@@ -52,7 +57,9 @@ class Laufzettel(Base):
             "paid_at": paid_ts.isoformat() if paid_ts else None,
             "payment_transaction_id": self.payment_transaction_id,
             "payment_notes": self.payment_notes,
-            "created_at": _naive_to_utc(self.created_at).isoformat() if self.created_at else None,
+            "created_at": _naive_to_utc(self.created_at).isoformat()
+            if self.created_at
+            else None,
         }
 
 
@@ -71,7 +78,9 @@ class LaufzettelMaterial(Base):
     breite_cm = Column(Float, nullable=True)
     hoehe_cm = Column(Float, nullable=True)
     calculated_price = Column(Float, nullable=True)
-    tax_rate = Column(Float, nullable=True)  # snapshotted from MaterialKategorie; None treated as 19.0
+    tax_rate = Column(
+        Float, nullable=True
+    )  # snapshotted from MaterialKategorie; None treated as 19.0
 
     def to_dict(self):
         return {
@@ -85,5 +94,7 @@ class LaufzettelMaterial(Base):
             "breite_cm": self.breite_cm,
             "hoehe_cm": self.hoehe_cm,
             "calculated_price": self.calculated_price,
-            "tax_rate": 0.0 if self.tax_rate is not None and self.tax_rate == 0 else self.tax_rate,
+            "tax_rate": 0.0
+            if self.tax_rate is not None and self.tax_rate == 0
+            else self.tax_rate,
         }

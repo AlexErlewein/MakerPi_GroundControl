@@ -39,7 +39,7 @@ def init_mqtt():
     mqtt_client = mqtt.Client()
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
-    
+
     try:
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.loop_start()
@@ -57,7 +57,14 @@ def shutdown_mqtt():
         logger.info("Disconnected from MQTT broker")
 
 
-def send_card_write_command(device_id: str, member_id: str, name: str, email: str, signature: str, request_id: str = "") -> bool:
+def send_card_write_command(
+    device_id: str,
+    member_id: str,
+    name: str,
+    email: str,
+    signature: str,
+    request_id: str = "",
+) -> bool:
     """Send a write command to a PicoW NFC Reader to write member data to a card.
 
     Args:
@@ -77,15 +84,17 @@ def send_card_write_command(device_id: str, member_id: str, name: str, email: st
         return False
 
     topic = f"{device_id}/command"
-    payload = json.dumps({
-        "action": "write_card",
-        "member_id": member_id,
-        "name": name,
-        "email": email,
-        "signature": signature,
-        "sector": 1,
-        "request_id": request_id
-    })
+    payload = json.dumps(
+        {
+            "action": "write_card",
+            "member_id": member_id,
+            "name": name,
+            "email": email,
+            "signature": signature,
+            "sector": 1,
+            "request_id": request_id,
+        }
+    )
 
     try:
         result = mqtt_client.publish(topic, payload, qos=1)
@@ -115,7 +124,7 @@ def on_message(client, userdata, msg):
         payload_str = msg.payload.decode("utf-8") if msg.payload else ""
     except UnicodeDecodeError:
         payload_str = str(msg.payload)
-    
+
     # Store message
     db = SessionLocal()
     try:
@@ -132,7 +141,7 @@ def on_message(client, userdata, msg):
         db.rollback()
     finally:
         db.close()
-    
+
     # Handle specific message types
     try:
         handle_device_message(msg.topic, payload_str)
@@ -177,22 +186,26 @@ def _update_or_create_zigbee_device(
     # Try to find by IEEE address first
     zigbee_device = None
     if device_identifier.startswith("0x"):
-        zigbee_device = db.query(ZigbeeDevice).filter(
-            ZigbeeDevice.ieee_address == device_identifier
-        ).first()
+        zigbee_device = (
+            db.query(ZigbeeDevice)
+            .filter(ZigbeeDevice.ieee_address == device_identifier)
+            .first()
+        )
     else:
         # Try by friendly name
-        zigbee_device = db.query(ZigbeeDevice).filter(
-            ZigbeeDevice.friendly_name == device_identifier
-        ).first()
+        zigbee_device = (
+            db.query(ZigbeeDevice)
+            .filter(ZigbeeDevice.friendly_name == device_identifier)
+            .first()
+        )
 
     # If still not found, try to match by ieee_address in the data
     if not zigbee_device and isinstance(data, dict):
         ieee = data.get("ieee_address") or data.get("device", {}).get("ieeeAddr")
         if ieee:
-            zigbee_device = db.query(ZigbeeDevice).filter(
-                ZigbeeDevice.ieee_address == ieee
-            ).first()
+            zigbee_device = (
+                db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee).first()
+            )
 
     if not zigbee_device:
         zigbee_device = ZigbeeDevice()
@@ -211,7 +224,11 @@ def _update_or_create_zigbee_device(
             zigbee_device.friendly_name = data["friendly_name"]
 
         # IEEE address from data
-        ieee = data.get("ieee_address") or data.get("ieeeAddr") or data.get("device", {}).get("ieeeAddr")
+        ieee = (
+            data.get("ieee_address")
+            or data.get("ieeeAddr")
+            or data.get("device", {}).get("ieeeAddr")
+        )
         if ieee and not zigbee_device.ieee_address:
             zigbee_device.ieee_address = ieee
 
@@ -227,7 +244,9 @@ def _update_or_create_zigbee_device(
         if "state" in data:
             state = data["state"]
             if isinstance(state, str):
-                zigbee_device.status = "online" if state.upper() in ("ON", "OPEN") else "offline"
+                zigbee_device.status = (
+                    "online" if state.upper() in ("ON", "OPEN") else "offline"
+                )
 
         # Metrics
         if zigbee_device.battery is None:
@@ -274,9 +293,13 @@ def handle_zigbee2mqtt_message(topic: str, payload: str) -> bool:
                         for dev in devices:
                             if dev.get("type") == "Coordinator":
                                 continue  # Skip coordinator
-                            friendly = dev.get("friendly_name") or dev.get("ieee_address")
+                            friendly = dev.get("friendly_name") or dev.get(
+                                "ieee_address"
+                            )
                             if friendly:
-                                _update_or_create_zigbee_device(db, friendly, json.dumps(dev), True)
+                                _update_or_create_zigbee_device(
+                                    db, friendly, json.dumps(dev), True
+                                )
                                 db.commit()
                 except json.JSONDecodeError:
                     pass
@@ -317,7 +340,7 @@ def handle_device_message(topic: str, payload: str):
             device = Device(device_id=device_id, name=device_id)
             db.add(device)
         device.last_seen = _utcnow()
-        
+
         # Handle status updates (heartbeat or status subtopic)
         if subtopic in ("status", "heartbeat"):
             try:
@@ -328,7 +351,7 @@ def handle_device_message(topic: str, payload: str):
                     device.nfc_ok = 1 if nfc_ok else 0
             except json.JSONDecodeError:
                 device.status = payload
-        
+
         # Handle NFC scan (subtopic 'scan' or 'tag')
         if subtopic in ("scan", "tag"):
             try:
@@ -336,48 +359,71 @@ def handle_device_message(topic: str, payload: str):
                 uid = data.get("uid", "").upper()
                 validated = 0
                 owner_name = None
-                
+
                 logger.info("[SCAN] Received uid=%r device_id=%r", uid, device_id)
                 # Check against members database
                 from backend.members.db import SessionLocal as MembersSession
+
                 members_db = MembersSession()
                 mitglied_db_id = None
                 member_id_str = None
                 try:
                     from backend.members.models import RFIDTag, Mitglied
+
                     # Primary: check Mitglied.nfc_uid (the card enrolled via Mitglieder UI)
-                    mitglied = members_db.query(Mitglied).filter(
-                        Mitglied.nfc_uid == uid
-                    ).first()
+                    mitglied = (
+                        members_db.query(Mitglied)
+                        .filter(Mitglied.nfc_uid == uid)
+                        .first()
+                    )
                     if mitglied:
                         validated = 1
                         owner_name = mitglied.name
                         mitglied_db_id = mitglied.id
                         member_id_str = mitglied.member_id
-                        logger.info("[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s member_id=%r", owner_name, mitglied_db_id, member_id_str)
+                        logger.info(
+                            "[SCAN] Matched Mitglied.nfc_uid: name=%r id=%s member_id=%r",
+                            owner_name,
+                            mitglied_db_id,
+                            member_id_str,
+                        )
                     else:
-                        logger.info("[SCAN] uid=%r not found in Mitglied.nfc_uid, checking RFIDTag", uid)
+                        logger.info(
+                            "[SCAN] uid=%r not found in Mitglied.nfc_uid, checking RFIDTag",
+                            uid,
+                        )
                         # Fallback: legacy RFIDTag table
-                        tag = members_db.query(RFIDTag).filter(
-                            RFIDTag.uid == uid, RFIDTag.active == 1
-                        ).first()
+                        tag = (
+                            members_db.query(RFIDTag)
+                            .filter(RFIDTag.uid == uid, RFIDTag.active == 1)
+                            .first()
+                        )
                         if tag:
                             validated = 1
                             owner_name = tag.owner_name
-                            logger.info("[SCAN] Matched RFIDTag: owner=%r member_id=%r", owner_name, tag.member_id)
+                            logger.info(
+                                "[SCAN] Matched RFIDTag: owner=%r member_id=%r",
+                                owner_name,
+                                tag.member_id,
+                            )
                             # Try to resolve mitglied_id via member_id field
                             if tag.member_id:
-                                m = members_db.query(Mitglied).filter(
-                                    Mitglied.member_id == tag.member_id
-                                ).first()
+                                m = (
+                                    members_db.query(Mitglied)
+                                    .filter(Mitglied.member_id == tag.member_id)
+                                    .first()
+                                )
                                 if m:
                                     mitglied_db_id = m.id
                                     member_id_str = m.member_id
                         else:
-                            logger.warning("[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated", uid)
+                            logger.warning(
+                                "[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated",
+                                uid,
+                            )
                 finally:
                     members_db.close()
-                
+
                 scan = TagScan(
                     uid=uid,
                     device_id=device_id,
@@ -391,42 +437,63 @@ def handle_device_message(topic: str, payload: str):
                     card_email=data.get("email"),
                 )
                 db.add(scan)
-                
+
                 # Notify SSE subscribers about this scan
-                logger.info("[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r", len(scan_subscribers), uid, device_id)
+                logger.info(
+                    "[SCAN] Notifying %d SSE subscriber(s) uid=%r device_id=%r",
+                    len(scan_subscribers),
+                    uid,
+                    device_id,
+                )
                 _notify_scan_subscribers(uid, device_id)
 
                 # Publish scan result to LilyGo display (and other displays)
                 global mqtt_client
                 if mqtt_client:
                     try:
-                        response_payload = json.dumps({
-                            "uid": uid,
-                            "owner_name": owner_name,
-                            "member_id": str(mitglied_db_id) if mitglied_db_id else None,
-                            "validated": bool(validated),
-                            "source": "REMOTE"
-                        })
+                        response_payload = json.dumps(
+                            {
+                                "uid": uid,
+                                "owner_name": owner_name,
+                                "member_id": str(mitglied_db_id)
+                                if mitglied_db_id
+                                else None,
+                                "validated": bool(validated),
+                                "source": "REMOTE",
+                            }
+                        )
                         mqtt_client.publish("lilygo/user_info", response_payload)
-                        logger.info("[SCAN] Published to lilygo/user_info: uid=%r validated=%s", uid, validated)
+                        logger.info(
+                            "[SCAN] Published to lilygo/user_info: uid=%r validated=%s",
+                            uid,
+                            validated,
+                        )
                     except Exception as e:
-                        logger.error(f"[SCAN] Failed to publish to lilygo/user_info: {e}")
+                        logger.error(
+                            f"[SCAN] Failed to publish to lilygo/user_info: {e}"
+                        )
 
                 # Auto-create Laufzettel for validated scans
                 if validated:
                     from datetime import date as dt_date
                     from backend.laufzettel.db import SessionLocal as LaufzettelSession
                     from backend.laufzettel.models import Laufzettel
-                    
+
                     lauf_db = LaufzettelSession()
                     try:
                         today = dt_date.today()
-                        today_lz = lauf_db.query(Laufzettel).filter(
-                            Laufzettel.uid == uid,
-                            Laufzettel.date == today,
-                        ).all()
+                        today_lz = (
+                            lauf_db.query(Laufzettel)
+                            .filter(
+                                Laufzettel.uid == uid,
+                                Laufzettel.date == today,
+                            )
+                            .all()
+                        )
                         # Find the first open (unpaid) Laufzettel for today
-                        open_lz = next((lz for lz in today_lz if not lz.payment_method), None)
+                        open_lz = next(
+                            (lz for lz in today_lz if not lz.payment_method), None
+                        )
                         if open_lz is None:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
@@ -456,7 +523,7 @@ def handle_device_message(topic: str, payload: str):
                         lauf_db.close()
             except json.JSONDecodeError:
                 pass
-        
+
         db.commit()
     except Exception as e:
         logger.error(f"Error processing device message: {e}")

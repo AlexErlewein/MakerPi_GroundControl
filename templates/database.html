@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database - MakerPi GroundControl</title>
+    <title>Devices - MakerPi GroundControl</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/database.css">
     <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
@@ -15,8 +15,8 @@
                 <a href="/dashboard"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
                 <nav class="nav">
                     <a href="/dashboard" class="nav-link">Dashboard</a>
-                    <a href="/database" class="nav-link active">Database</a>
-                    <a href="/tags" class="nav-link">Tags</a>
+                    <a href="/database" class="nav-link active">Devices</a>
+                    <a href="/tags" class="nav-link">NFC-Tags</a>
                     <a href="/laufzettel" class="nav-link">Laufzettel</a>
                     <a href="/katalog" class="nav-link">Katalog</a>
                     <a href="/mitglieder" class="nav-link">Mitglieder</a>
@@ -33,35 +33,17 @@
         </header>
 
         <main>
-            <!-- Database Info Card -->
-            <section class="db-info-card">
-                <div class="db-info-header">
-                    <h2>Database File</h2>
-                    <span class="db-badge" id="db-status">Loading...</span>
-                </div>
-                <div class="db-info-grid">
-                    <div class="info-item">
-                        <span class="info-label">File Path</span>
-                        <span class="info-value" id="db-path">-</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Size</span>
-                        <span class="info-value" id="db-size">-</span>
-                    </div>
-                </div>
-            </section>
-
             <!-- Stats Grid -->
             <section class="stats-grid">
                 <!-- Devices Stats -->
                 <div class="stat-card stat-card-devices">
                     <div class="stat-header">
-                        <h3>Devices</h3>
+                        <h3>Native Devices</h3>
                         <button class="export-btn" data-type="devices" title="Export as CSV">⬇</button>
                     </div>
                     <div class="stat-main">
                         <p class="stat-value" id="device-count">-</p>
-                        <p class="stat-label">Total Devices</p>
+                        <p class="stat-label">Total</p>
                     </div>
                     <div class="stat-breakdown">
                         <div class="stat-row">
@@ -75,34 +57,27 @@
                             <strong id="offline-count">-</strong>
                         </div>
                     </div>
-                    <div class="stat-breakdown">
-                        <div class="stat-row">
-                            <span class="nfc-badge nfc-ok">✓</span>
-                            <span>NFC OK:</span>
-                            <strong id="nfc-ok-count">-</strong>
-                        </div>
-                        <div class="stat-row">
-                            <span class="nfc-badge nfc-error">✗</span>
-                            <span>NFC Error:</span>
-                            <strong id="nfc-error-count">-</strong>
-                        </div>
-                        <div class="stat-row">
-                            <span class="nfc-badge nfc-unknown">?</span>
-                            <span>NFC Unknown:</span>
-                            <strong id="nfc-unknown-count">-</strong>
-                        </div>
+                </div>
+
+                <!-- Zigbee Stats -->
+                <div class="stat-card stat-card-messages">
+                    <div class="stat-header">
+                        <h3>Zigbee Devices</h3>
+                    </div>
+                    <div class="stat-main">
+                        <p class="stat-value" id="zigbee-device-count">-</p>
+                        <p class="stat-label">Total</p>
                     </div>
                 </div>
 
                 <!-- Messages Stats -->
-                <div class="stat-card stat-card-messages">
+                <div class="stat-card stat-card-activity">
                     <div class="stat-header">
-                        <h3>Messages</h3>
-                        <button class="export-btn" data-type="messages" title="Export as CSV">⬇</button>
+                        <h3>MQTT Messages</h3>
                     </div>
                     <div class="stat-main">
                         <p class="stat-value" id="message-count">-</p>
-                        <p class="stat-label">Total Messages</p>
+                        <p class="stat-label">Total</p>
                     </div>
                     <div class="stat-breakdown">
                         <div class="stat-row">
@@ -110,38 +85,13 @@
                             <strong id="topic-count">-</strong>
                         </div>
                     </div>
-                    <div class="stat-time-range">
-                        <div class="time-item">
-                            <span class="time-label">Oldest:</span>
-                            <span class="time-value" id="oldest-message">-</span>
-                        </div>
-                        <div class="time-item">
-                            <span class="time-label">Newest:</span>
-                            <span class="time-value" id="newest-message">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Activity Stats -->
-                <div class="stat-card stat-card-activity">
-                    <h3>Device Activity</h3>
-                    <div class="stat-time-range">
-                        <div class="time-item">
-                            <span class="time-label">First Seen:</span>
-                            <span class="time-value" id="oldest-device">-</span>
-                        </div>
-                        <div class="time-item">
-                            <span class="time-label">Last Seen:</span>
-                            <span class="time-value" id="newest-device">-</span>
-                        </div>
-                    </div>
                 </div>
             </section>
 
-            <!-- Device Table with Filters -->
+            <!-- Native Device Table with Filters -->
             <section class="section">
                 <div class="section-header">
-                    <h2>All Devices</h2>
+                    <h2>Native Devices</h2>
                     <div class="filters">
                         <select id="status-filter" class="filter-select">
                             <option value="">All Statuses</option>
@@ -176,10 +126,64 @@
                     </table>
                 </div>
             </section>
+
+            <!-- Zigbee Devices Section -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Zigbee Devices</h2>
+                </div>
+                <div class="table-container">
+                    <table id="zigbee-devices-table">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;"></th>
+                                <th>Friendly Name</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Battery</th>
+                                <th>Link Quality</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zigbee-devices-body">
+                            <tr><td colspan="7">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- NFC Enrollment Reader Settings -->
+            <section class="section">
+                <h2>Einstellungen</h2>
+                <div style="background: var(--card-bg, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 20px; max-width: 560px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC Enrollment Reader</h3>
+                    <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: #8b949e;">
+                        Das Gerät, das beim Klick auf „Jetzt Scannen" im Mitglieder-Dialog verwendet wird, um NFC-Karten zuzuweisen.
+                    </p>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="enrollment-reader-select" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
+                            <option value="">— Keinen Reader auswählen —</option>
+                        </select>
+                        <button id="save-enrollment-reader" class="btn btn-primary" style="white-space: nowrap;">Speichern</button>
+                    </div>
+                    <div id="enrollment-reader-status" style="display: none; margin-top: 10px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
+                </div>
+            </section>
+
+            <!-- Recent Messages -->
+            <section class="section">
+                <h2>Recent Messages</h2>
+                <div class="filter-bar" style="margin-bottom: 12px;">
+                    <input type="text" id="topic-filter" class="filter-input" placeholder="Filter by topic...">
+                </div>
+                <div class="messages-container" id="messages-container">
+                    <p>Loading messages...</p>
+                </div>
+            </section>
         </main>
 
         <footer>
-            <p>MakerPi GroundControl v0.1.0 - Database Overview</p>
+            <p>MakerPi GroundControl v0.1.0</p>
         </footer>
     </div>
 
