@@ -137,5 +137,111 @@ Actions available:
 | Add category | Expand location → "Neue Kategorie" |
 | Add variant | Expand category → "Neue Variante" |
 | Edit/delete | Inline buttons on each row |
+| **Bulk import** | **"⬆ Bulk Import" button** |
 
 > **Tip:** Create the Location first, then the Kategorie (with pricing model), then the Varianten. You can't create a variant without a parent category.
+
+## Bulk Import
+
+The **"⬆ Bulk Import"** button (top-right of the Katalog page) lets you add many items at once without clicking through individual dialogs. It has two modes.
+
+### Browser entry
+
+1. Click **⬆ Bulk Import** → the modal opens on the **Eingabe** tab.
+2. Pick an existing **Standort** from the dropdown, or choose *"Neuen Standort erstellen"* and type a name.
+3. Click **+ Kategorie hinzufügen** to add a category block. Fill in:
+   - Name
+   - Preismodell (`per_unit`, `per_gram`, `per_volume_cm3`, `per_volume_l`, `per_minute`)
+   - Einheit (optional display unit, e.g. `g`, `cm³`)
+   - Steuersatz (0 / 7 / 19 %)
+4. Inside the category block, click **+ Variante** for each variant. Fill in Name and Preis.
+5. Add as many categories and variants as you need.
+6. Click **Alles speichern** — all items are written in one atomic database transaction.
+
+> If a Location with the given name already exists it is reused; it is never duplicated.
+
+### CSV import
+
+1. Click **⬆ Bulk Import** → switch to the **CSV Import** tab.
+2. Choose a `.csv` file from your computer.
+3. The file is parsed **in the browser** — no data is sent yet.
+4. A preview table appears showing the grouped data.
+5. Click **CSV importieren** to write everything to the database.
+
+#### CSV format
+
+The file must have a header row with exactly these column names (order is fixed):
+
+```
+standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+```
+
+| Column | Required | Values / notes |
+|---|---|---|
+| `standort` | yes | Location name |
+| `kategorie` | yes | Category name |
+| `preismodell` | yes | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
+| `einheit` | no | Display unit, e.g. `g`, `cm³` — leave empty if not needed |
+| `steuersatz` | yes | `0`, `7`, or `19` |
+| `variante` | yes | Variant name |
+| `preis` | yes | Price per unit, decimal point (not comma), e.g. `0.05` |
+
+Multiple rows with the same `standort + kategorie + preismodell + einheit + steuersatz` are grouped into one category with multiple variants.
+
+#### Example
+
+```csv
+standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+Töpferei,Ton,per_gram,g,19,fein,0.05
+Töpferei,Ton,per_gram,g,19,grob,0.03
+Töpferei,Glasur,per_unit,Stück,19,transparent,2.50
+Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Eiche,0.0012
+Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Altholz,0.0004
+FabLab,Filament,per_gram,g,19,PLA,0.02
+FabLab,Filament,per_gram,g,19,PETG,0.025
+```
+
+This creates:
+- **Töpferei** → Ton (per_gram, 2 variants) + Glasur (per_unit, 1 variant)
+- **Holz-Werkstatt** → Holz (per_volume_cm3, 2 variants)
+- **FabLab** → Filament (per_gram, 2 variants)
+
+A larger ready-to-use example file is included in the repository at `examples/katalog-bulk-import.csv`.
+
+#### Bulk import API endpoint
+
+The browser form and the CSV import both call the same backend endpoint:
+
+```
+POST /api/katalog/bulk-import
+Content-Type: application/json
+
+{
+  "location_name": "Töpferei",
+  "kategorien": [
+    {
+      "name": "Ton",
+      "pricing_model": "per_gram",
+      "unit": "g",
+      "tax_rate": 19,
+      "varianten": [
+        { "name": "fein", "price": 0.05 },
+        { "name": "grob", "price": 0.03 }
+      ]
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "location": { "id": 1, "name": "Töpferei" },
+  "created_kategorien": 1,
+  "created_varianten": 2
+}
+```
+
+The location is **found or created** by name. All categories and variants are written in a single atomic transaction — if anything fails, nothing is saved.
