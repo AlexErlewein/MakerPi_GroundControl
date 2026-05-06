@@ -403,31 +403,7 @@ def handle_device_message(topic: str, payload: str):
                 card_name = data.get("name")
                 card_email = data.get("email")
                 card_signature = data.get("signature")
-
-                # 3VL signature verification:
-                #   None  = legacy card (no signature data present)
-                #   1     = HMAC signature verified — card was issued by this server
-                #   0     = HMAC signature present but invalid — possible clone attempt
-                card_verified = None
-                if card_signature and card_member_id and card_name:
-                    from backend.members.signature import verify_card_signature
-
-                    if verify_card_signature(
-                        card_member_id, uid, card_name, card_signature
-                    ):
-                        card_verified = 1
-                        logger.info(
-                            "[SCAN] Signature VERIFIED uid=%r member_id=%r",
-                            uid,
-                            card_member_id,
-                        )
-                    else:
-                        card_verified = 0
-                        logger.warning(
-                            "[SCAN] Signature REJECTED uid=%r member_id=%r — possible clone attempt",
-                            uid,
-                            card_member_id,
-                        )
+                card_verified = None  # 3VL: None=legacy, 1=verified, 0=rejected
 
                 logger.info("[SCAN] Received uid=%r device_id=%r", uid, device_id)
                 # Check against members database
@@ -436,6 +412,7 @@ def handle_device_message(topic: str, payload: str):
                 members_db = MembersSession()
                 mitglied_db_id = None
                 member_id_str = None
+                mitglied = None
                 try:
                     from backend.members.models import RFIDTag, Mitglied
 
@@ -485,6 +462,7 @@ def handle_device_message(topic: str, payload: str):
                                 if m:
                                     mitglied_db_id = m.id
                                     member_id_str = m.member_id
+                                    mitglied = m
                         else:
                             logger.warning(
                                 "[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated",
@@ -493,7 +471,44 @@ def handle_device_message(topic: str, payload: str):
                 finally:
                     members_db.close()
 
-                # Apply NFC_SIGNATURE_MODE rules after DB lookup
+                # 3VL signature verification (runs after DB lookup so mitglied.name
+                # is available as fallback when firmware omits name from payload)
+                #   None = legacy card (no signature data present)
+                #   1    = HMAC signature verified — card was issued by this server
+                #   0    = HMAC signature present but invalid — possible clone attempt
+                if card_signature and card_member_id:
+                    from backend.members.signature import verify_card_signature
+
+                    # Use card-provided name if present; else look up from DB.
+                    # The HMAC was generated with the member's name, so we need it
+                    # to recompute the expected signature for comparison.
+                    verify_name = card_name or (mitglied.name if mitglied else None)
+                    if verify_name:
+                        if verify_card_signature(
+                            card_member_id, uid, verify_name, card_signature
+                        ):
+                            card_verified = 1
+                            logger.info(
+                                "[SCAN] Signature VERIFIED uid=%r member_id=%r",
+                                uid,
+                                card_member_id,
+                            )
+                        else:
+                            card_verified = 0
+                            logger.warning(
+                                "[SCAN] Signature REJECTED uid=%r member_id=%r — possible clone attempt",
+                                uid,
+                                card_member_id,
+                            )
+                    else:
+                        card_verified = 0
+                        logger.warning(
+                            "[SCAN] Signature unverifiable uid=%r member_id=%r — member not found in DB",
+                            uid,
+                            card_member_id,
+                        )
+
+                # Apply NFC_SIGNATURE_MODE rules
                 from backend.config import NFC_SIGNATURE_MODE
 
                 if card_verified == 0:
