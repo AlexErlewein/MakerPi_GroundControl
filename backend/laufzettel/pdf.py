@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fpdf import FPDF, XPos, YPos
@@ -11,6 +12,15 @@ from fpdf import FPDF, XPos, YPos
 if TYPE_CHECKING:
     from .models import Laufzettel, LaufzettelMaterial
 
+
+# Corporate Identity Colors (from style.css)
+_CI_ACCENT = (208, 68, 23)  # #d04417 - orange/red
+_CI_BG_PRIMARY = (30, 33, 39)  # #1e2127 - dark theme background
+_CI_TEXT_PRIMARY = (215, 217, 211)  # #d7d9d3 - dark theme text
+_CI_TEXT_SECONDARY = (130, 127, 119)  # #827f77 - dark theme secondary text
+_CI_BORDER = (74, 77, 85)  # #4a4d55 - border color
+_CI_SUCCESS = (53, 119, 48)  # #357730 - success green
+_CI_WARNING = (210, 153, 34)  # #d29922 - warning yellow
 
 _PAYMENT_LABELS = {
     "bar": "Bar",
@@ -65,31 +75,42 @@ def generate_pdf(
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # ── Header ──────────────────────────────────────────────────────────────
+    # ── Header with Logo ─────────────────────────────────────────────────────
+    # Add logo if file exists
+    logo_path = Path("graphics/H3ckeLogo.svg")
+    if logo_path.exists():
+        try:
+            # fpdf2 supports SVG via image method
+            pdf.image(str(logo_path), x=12, y=12, w=25)
+        except Exception:
+            pass  # Logo not available or not supported, skip gracefully
+
+    # Title
     pdf.set_font("Helvetica", style="B", size=18)
-    pdf.set_text_color(30, 30, 30)
+    pdf.set_text_color(*_CI_ACCENT)
     pdf.cell(0, 10, f"Laufzettel #{lz.id}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.set_font("Helvetica", size=9)
-    pdf.set_text_color(120, 120, 120)
+    pdf.set_text_color(*_CI_TEXT_SECONDARY)
     now_str = datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M")
     pdf.cell(0, 5, f"Erstellt am {now_str} UTC", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(2)
 
-    # divider
-    pdf.set_draw_color(200, 200, 200)
+    # divider with corporate color
+    pdf.set_draw_color(*_CI_ACCENT)
     pdf.line(12, pdf.get_y(), 198, pdf.get_y())
+    pdf.set_line_width(0.5)
     pdf.ln(4)
 
     # ── Info table ──────────────────────────────────────────────────────────
-    pdf.set_text_color(30, 30, 30)
+    pdf.set_text_color(*_CI_TEXT_PRIMARY)
     label_w = 38
 
     def info_row(label: str, value: str) -> None:
         pdf.set_font("Helvetica", style="", size=9)
-        pdf.set_text_color(120, 120, 120)
+        pdf.set_text_color(*_CI_TEXT_SECONDARY)
         pdf.cell(label_w, 6, _safe(label))
-        pdf.set_text_color(30, 30, 30)
+        pdf.set_text_color(*_CI_TEXT_PRIMARY)
         pdf.set_font("Helvetica", style="B", size=9)
         pdf.cell(0, 6, _safe(value), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
@@ -102,16 +123,17 @@ def generate_pdf(
 
     # ── Material table ───────────────────────────────────────────────────────
     pdf.set_font("Helvetica", style="B", size=10)
-    pdf.set_text_color(30, 30, 30)
+    pdf.set_text_color(*_CI_ACCENT)
     pdf.cell(0, 7, "Material", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     # column widths (total usable = 186mm)
     col_w = [8, 74, 34, 20, 18, 32]
     headers = ["#", "Name", "Menge / Masse", "Einheit", "MwSt.", "Preis (EUR)"]
 
-    pdf.set_fill_color(243, 244, 246)
+    # Header row with corporate colors
+    pdf.set_fill_color(*_CI_BG_PRIMARY)
     pdf.set_font("Helvetica", style="B", size=8)
-    pdf.set_text_color(60, 60, 60)
+    pdf.set_text_color(*_CI_TEXT_PRIMARY)
     for w, h in zip(col_w, headers):
         pdf.cell(w, 6, h, border="B", fill=True)
     pdf.ln()
@@ -147,9 +169,13 @@ def generate_pdf(
 
         price_str = f"{price:.2f}" if m.calculated_price is not None else "-"
 
-        row_bg = 255 if row_index % 2 == 0 else 249
-        pdf.set_fill_color(row_bg, row_bg, row_bg)
-        pdf.set_text_color(30, 30, 30)
+        # Alternating row colors with corporate theme
+        if row_index % 2 == 0:
+            pdf.set_fill_color(*_CI_BG_PRIMARY)
+            pdf.set_text_color(*_CI_TEXT_PRIMARY)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+            pdf.set_text_color(*_CI_TEXT_PRIMARY)
 
         pdf.cell(col_w[0], 6, str(row_index), fill=True)
         pdf.cell(col_w[1], 6, _safe(m.name), fill=True)
@@ -160,7 +186,7 @@ def generate_pdf(
         pdf.ln()
 
     if not sorted_mats:
-        pdf.set_text_color(150, 150, 150)
+        pdf.set_text_color(*_CI_TEXT_SECONDARY)
         pdf.cell(0, 6, "Keine Materialeintraege.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.ln(4)
@@ -168,13 +194,13 @@ def generate_pdf(
     # ── Tax summary ──────────────────────────────────────────────────────────
     if tax_groups:
         pdf.set_font("Helvetica", style="B", size=10)
-        pdf.set_text_color(30, 30, 30)
+        pdf.set_text_color(*_CI_ACCENT)
         pdf.cell(0, 7, "Steueruebersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         tw = [22, 35, 35, 35]
-        pdf.set_fill_color(243, 244, 246)
+        pdf.set_fill_color(*_CI_BG_PRIMARY)
         pdf.set_font("Helvetica", style="B", size=8)
-        pdf.set_text_color(60, 60, 60)
+        pdf.set_text_color(*_CI_TEXT_PRIMARY)
         for w, h in zip(tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]):
             pdf.cell(w, 6, h, border="B", fill=True)
         pdf.ln()
@@ -184,7 +210,7 @@ def generate_pdf(
         total_brutto = 0.0
 
         pdf.set_font("Helvetica", size=8)
-        pdf.set_text_color(30, 30, 30)
+        pdf.set_text_color(*_CI_TEXT_PRIMARY)
         for rate in sorted(tax_groups.keys(), reverse=True):
             brutto = tax_groups[rate]
             netto = brutto / (1 + rate / 100)
@@ -200,7 +226,7 @@ def generate_pdf(
 
         if len(tax_groups) > 1:
             pdf.set_font("Helvetica", style="B", size=8)
-            pdf.set_draw_color(155, 160, 170)
+            pdf.set_draw_color(*_CI_BORDER)
             pdf.cell(tw[0], 6, "Gesamt", border="T")
             pdf.cell(tw[1], 6, f"{total_netto:.2f}", border="T", align="R")
             pdf.cell(tw[2], 6, f"{total_tax:.2f}", border="T", align="R")
@@ -209,22 +235,23 @@ def generate_pdf(
 
         pdf.ln(3)
         pdf.set_font("Helvetica", style="B", size=11)
-        pdf.set_text_color(5, 122, 85)
+        pdf.set_text_color(*_CI_ACCENT)
         pdf.cell(0, 8, f"Gesamtbetrag (Brutto): {grand_total:.2f} EUR",
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         pdf.ln(2)
 
     # ── Payment section ──────────────────────────────────────────────────────
     if lz.payment_method:
-        pdf.set_fill_color(240, 253, 244)
-        pdf.set_draw_color(134, 239, 172)
+        # Payment box with corporate colors
+        pdf.set_fill_color(*_CI_SUCCESS)
+        pdf.set_draw_color(*_CI_BORDER)
         pdf.set_font("Helvetica", style="B", size=10)
-        pdf.set_text_color(22, 101, 52)
+        pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 7, "Zahlung bestaetigt", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         method_label = _PAYMENT_LABELS.get(lz.payment_method, lz.payment_method)
         pdf.set_font("Helvetica", size=9)
-        pdf.set_text_color(30, 30, 30)
+        pdf.set_text_color(*_CI_TEXT_PRIMARY)
         info_row("Methode:", method_label)
         info_row("Bezahlt am:", _fmt_dt(lz.paid_at) if lz.paid_at else "-")
         if lz.payment_transaction_id:
