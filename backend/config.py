@@ -74,6 +74,18 @@ CARD_WRITER_ID: str = _cfg.get(
     "card_writer_id", os.environ.get("CARD_WRITER_ID", "")
 )
 
+# NFC security
+# "permissive": legacy UID-only cards still work (flagged as unverified in scan log)
+# "strict":     only HMAC-verified cards are accepted (set after all cards are re-enrolled)
+NFC_SIGNATURE_MODE: str = _cfg.get(
+    "nfc_signature_mode", os.environ.get("NFC_SIGNATURE_MODE", "permissive")
+)
+# Optional explicit 6-byte Mifare sector key as a 12-char hex string.
+# Leave empty to auto-derive from SECRET_KEY (recommended).
+MIFARE_SECTOR_KEY: str = _cfg.get(
+    "mifare_sector_key", os.environ.get("MIFARE_SECTOR_KEY", "")
+)
+
 # Google Drive configuration (for automatic PDF upload)
 GOOGLE_DRIVE_ENABLED: bool = _cfg.get(
     "google_drive_enabled",
