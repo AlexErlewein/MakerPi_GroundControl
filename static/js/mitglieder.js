@@ -5,6 +5,18 @@ let activeScanSource = null;
 let scanTimeout = null;
 let nfcScanningMitgliedId = null;
 
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 function esc(str) {
     return String(str || "")
         .replace(/&/g, "&amp;")
