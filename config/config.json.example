@@ -1,0 +1,45 @@
+{
+    "_comment": "Copy this file to config/config.json and fill in your values.",
+
+    "pi_host": "192.168.178.47",
+    "pi_user": "alex",
+    "project_dir": "/home/alex/MakerPi_GroundControl",
+    "tailscale_ip": "",
+
+    "mqtt_broker": "localhost",
+    "mqtt_port": 1883,
+
+    "secret_key": "change-me-to-a-random-secret",
+    "admin_username": "admin",
+    "admin_password": "changeme",
+
+    "sumup_api_key": "",
+    "sumup_merchant_code": "",
+    "sumup_reader_id": "",
+    "sumup_affiliate_key": "",
+    "sumup_mock": true,
+
+    "wero_enabled": false,
+    "wero_mock": true,
+    "wero_merchant_id": "",
+    "wero_api_key": "",
+
+    "easyverein_api_key": "",
+    "easyverein_org_id": "",
+
+    "enrollment_reader_id": "",
+    "payment_reader_id": "",
+
+    "_comment_gdrive": "Google Drive: run 'uv run python scripts/gdrive_auth.py' once to create gdrive_token.json.",
+    "google_drive_enabled": false,
+    "google_drive_client_secrets_file": "config/gdrive_client_secrets.json",
+    "google_drive_token_file": "config/gdrive_token.json",
+    "google_drive_root_folder_id": "",
+
+    "_comment_litestream": "Litestream backups to Backblaze B2. Run scripts/setup-litestream.sh on the Pi.",
+    "litestream_enabled": false,
+    "backblaze_endpoint": "s3.us-west-004.backblazeb2.com",
+    "backblaze_bucket": "makerpi-backups",
+    "backblaze_key_id": "",
+    "backblaze_application_key": ""
+}

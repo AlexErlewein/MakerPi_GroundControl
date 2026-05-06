@@ -69,6 +69,46 @@ PAYMENT_READER_ID: str = _cfg.get(
     "payment_reader_id", os.environ.get("PAYMENT_READER_ID", "")
 )
 
+# Google Drive configuration (for automatic PDF upload)
+GOOGLE_DRIVE_ENABLED: bool = _cfg.get(
+    "google_drive_enabled",
+    os.environ.get("GOOGLE_DRIVE_ENABLED", "false").lower() == "true",
+)
+GOOGLE_DRIVE_CLIENT_SECRETS_FILE: str = _cfg.get(
+    "google_drive_client_secrets_file",
+    os.environ.get("GOOGLE_DRIVE_CLIENT_SECRETS_FILE", "config/gdrive_client_secrets.json"),
+)
+GOOGLE_DRIVE_TOKEN_FILE: str = _cfg.get(
+    "google_drive_token_file",
+    os.environ.get("GOOGLE_DRIVE_TOKEN_FILE", "config/gdrive_token.json"),
+)
+GOOGLE_DRIVE_ROOT_FOLDER_ID: str = _cfg.get(
+    "google_drive_root_folder_id",
+    os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", ""),
+)
+
+# Backblaze B2 / Litestream configuration (for database backups)
+LITESTREAM_ENABLED: bool = _cfg.get(
+    "litestream_enabled",
+    os.environ.get("LITESTREAM_ENABLED", "false").lower() == "true",
+)
+BACKBLAZE_ENDPOINT: str = _cfg.get(
+    "backblaze_endpoint",
+    os.environ.get("BACKBLAZE_ENDPOINT", ""),
+)
+BACKBLAZE_BUCKET: str = _cfg.get(
+    "backblaze_bucket",
+    os.environ.get("BACKBLAZE_BUCKET", ""),
+)
+BACKBLAZE_KEY_ID: str = _cfg.get(
+    "backblaze_key_id",
+    os.environ.get("BACKBLAZE_KEY_ID", ""),
+)
+BACKBLAZE_APPLICATION_KEY: str = _cfg.get(
+    "backblaze_application_key",
+    os.environ.get("BACKBLAZE_APPLICATION_KEY", ""),
+)
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"

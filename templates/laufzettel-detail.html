@@ -107,7 +107,7 @@
                 <div class="section-header">
                     <h2>Material</h2>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="downloadPDF()" class="btn btn-secondary btn-sm">⬇ PDF</button>
+                        <a href="/api/laufzettel/{{ laufzettel_id }}/pdf" download class="btn btn-secondary btn-sm">⬇ PDF</a>
                         <button id="add-spende-btn" class="btn btn-secondary btn-sm" onclick="openSpendeModal()">♥ Spende</button>
                         <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
                     </div>
@@ -460,7 +460,6 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="/static/js/laufzettel-detail.js?v=17"></script>
-    <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

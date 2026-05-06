@@ -1,0 +1,59 @@
+# Litestream configuration for MakerPi GroundControl database backups.
+# Copy this file to config/litestream.yml and fill in your Backblaze B2 credentials.
+# Then run: sudo bash scripts/setup-litestream.sh
+
+dbs:
+  - path: /home/alex/MakerPi_GroundControl/auth.db
+    replicas:
+      - type: s3
+        endpoint: s3.us-west-004.backblazeb2.com   # adjust region to your bucket
+        bucket: makerpi-backups
+        path: groundcontrol/auth
+        access-key-id: YOUR_BACKBLAZE_KEY_ID
+        secret-access-key: YOUR_BACKBLAZE_APPLICATION_KEY
+        retention: 7d                               # keep 7 days of WAL history
+        snapshot-interval: 24h
+
+  - path: /home/alex/MakerPi_GroundControl/members.db
+    replicas:
+      - type: s3
+        endpoint: s3.us-west-004.backblazeb2.com
+        bucket: makerpi-backups
+        path: groundcontrol/members
+        access-key-id: YOUR_BACKBLAZE_KEY_ID
+        secret-access-key: YOUR_BACKBLAZE_APPLICATION_KEY
+        retention: 7d
+        snapshot-interval: 24h
+
+  - path: /home/alex/MakerPi_GroundControl/laufzettel.db
+    replicas:
+      - type: s3
+        endpoint: s3.us-west-004.backblazeb2.com
+        bucket: makerpi-backups
+        path: groundcontrol/laufzettel
+        access-key-id: YOUR_BACKBLAZE_KEY_ID
+        secret-access-key: YOUR_BACKBLAZE_APPLICATION_KEY
+        retention: 7d
+        snapshot-interval: 24h
+
+  - path: /home/alex/MakerPi_GroundControl/catalog.db
+    replicas:
+      - type: s3
+        endpoint: s3.us-west-004.backblazeb2.com
+        bucket: makerpi-backups
+        path: groundcontrol/catalog
+        access-key-id: YOUR_BACKBLAZE_KEY_ID
+        secret-access-key: YOUR_BACKBLAZE_APPLICATION_KEY
+        retention: 7d
+        snapshot-interval: 24h
+
+  - path: /home/alex/MakerPi_GroundControl/core.db
+    replicas:
+      - type: s3
+        endpoint: s3.us-west-004.backblazeb2.com
+        bucket: makerpi-backups
+        path: groundcontrol/core
+        access-key-id: YOUR_BACKBLAZE_KEY_ID
+        secret-access-key: YOUR_BACKBLAZE_APPLICATION_KEY
+        retention: 7d
+        snapshot-interval: 24h
