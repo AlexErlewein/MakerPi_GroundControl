@@ -1,16 +1,51 @@
 """Laufzettel routes - API and pages for work orders"""
 
+import asyncio
+import logging
 from typing import Optional
-from fastapi import APIRouter, Request, Query, Depends, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import json
 
+from backend.config import (
+    SUMUP_API_KEY,
+    SUMUP_MERCHANT_CODE,
+    SUMUP_READER_ID,
+    SUMUP_AFFILIATE_KEY,
+    SUMUP_MOCK,
+    WERO_ENABLED,
+    WERO_MOCK,
+)
 from .db import get_db, init_db
 from .models import Laufzettel, LaufzettelMaterial
+from .pdf import drive_folder_names, generate_pdf, pdf_filename
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _schedule_pdf_upload(lz: Laufzettel, materials: list) -> None:
+    """Fire-and-forget: generate PDF and upload to Google Drive in the background.
+
+    A Drive failure must never affect the payment response.
+    """
+    from backend.gdrive import upload_pdf
+
+    try:
+        pdf_bytes = generate_pdf(lz, materials)
+        filename = pdf_filename(lz)
+        year, month = drive_folder_names(lz)
+        asyncio.create_task(
+            asyncio.get_event_loop().run_in_executor(
+                None, upload_pdf, pdf_bytes, filename, year, month
+            )
+        )
+    except Exception:
+        logger.exception("PDF generation failed for Laufzettel #%s", lz.id)
 
 
 class LaufzettelCreate(BaseModel):
@@ -424,16 +459,30 @@ async def delete_material(
     return {"success": True}
 
 
-# ── Payment API ───────────────────────────────────────────────────────────────
+# ── PDF download ─────────────────────────────────────────────────────────────
 
-from backend.config import (
-    SUMUP_API_KEY,
-    SUMUP_MERCHANT_CODE,
-    SUMUP_READER_ID,
-    SUMUP_AFFILIATE_KEY,
-    SUMUP_MOCK,
-)
-from backend.config import WERO_ENABLED, WERO_MOCK, WERO_MERCHANT_ID, WERO_API_KEY
+
+@router.get("/api/laufzettel/{laufzettel_id}/pdf")
+async def download_pdf(laufzettel_id: int, db: Session = Depends(get_db)):
+    """Generate and return a PDF receipt for the given Laufzettel."""
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
+    pdf_bytes = generate_pdf(lz, materials)
+    filename = pdf_filename(lz)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Payment API ───────────────────────────────────────────────────────────────
 
 
 @router.get("/api/payment/config")
@@ -493,6 +542,7 @@ async def pay_bar(
         .all()
     )
     d["material"] = [m.to_dict() for m in materials]
+    _schedule_pdf_upload(lz, materials)
     return d
 
 
@@ -681,6 +731,7 @@ async def get_karte_status(
                             .all()
                         )
                         d["material"] = [m.to_dict() for m in materials]
+                        _schedule_pdf_upload(lz, materials)
                         _pending_payments.pop(client_transaction_id, None)
                         return {"status": "SUCCESSFUL", "laufzettel": d}
         except Exception:
@@ -711,6 +762,7 @@ async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
         .all()
     )
     d["material"] = [m.to_dict() for m in materials]
+    _schedule_pdf_upload(lz, materials)
     return d
 
 
@@ -832,6 +884,7 @@ async def get_checkout_status(
             .all()
         )
         d["material"] = [m.to_dict() for m in materials]
+        _schedule_pdf_upload(lz, materials)
         _pending_checkouts.pop(checkout_id, None)
         return {"status": "PAID", "laufzettel": d}
 
@@ -977,6 +1030,7 @@ async def get_wero_status(
                 .all()
             )
             d["material"] = [m.to_dict() for m in materials]
+            _schedule_pdf_upload(lz, materials)
             _pending_wero_payments.pop(checkout_id, None)
             return {"status": "PAID", "laufzettel": d}
 
@@ -1019,6 +1073,7 @@ async def confirm_wero_payment(
         .all()
     )
     d["material"] = [m.to_dict() for m in materials]
+    _schedule_pdf_upload(lz, materials)
     return d
 
 
