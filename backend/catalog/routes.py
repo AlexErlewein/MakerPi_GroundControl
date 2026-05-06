@@ -46,6 +46,24 @@ class VarianteUpdate(BaseModel):
     price: Optional[float] = None
 
 
+class BulkVarianteIn(BaseModel):
+    name: str
+    price: float
+
+
+class BulkKategorieIn(BaseModel):
+    name: str
+    pricing_model: str = "per_unit"
+    unit: Optional[str] = None
+    tax_rate: float = 19.0
+    varianten: list[BulkVarianteIn] = []
+
+
+class BulkImportIn(BaseModel):
+    location_name: str
+    kategorien: list[BulkKategorieIn] = []
+
+
 @router.on_event("startup")
 async def startup():
     init_db()
@@ -263,3 +281,71 @@ async def delete_variante(var_id: int, db: Session = Depends(get_db)):
     db.delete(v)
     db.commit()
     return {"success": True}
+
+
+# ── Bulk Import ───────────────────────────────────────────────────────────────
+
+_VALID_PRICING_MODELS = {
+    "per_unit", "per_gram", "per_volume_cm3", "per_volume_l", "per_minute"
+}
+_VALID_TAX_RATES = {0, 7, 19, 0.0, 7.0, 19.0}
+
+
+@router.post("/api/katalog/bulk-import")
+async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
+    """Find-or-create a location then bulk-create all categories and variants in
+    one atomic transaction. Returns a summary of what was created."""
+    for kat in data.kategorien:
+        if kat.pricing_model not in _VALID_PRICING_MODELS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ungültiges Preismodell: '{kat.pricing_model}'",
+            )
+        if kat.tax_rate not in _VALID_TAX_RATES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ungültiger Steuersatz: {kat.tax_rate}. Erlaubt: 0, 7, 19",
+            )
+
+    loc = db.query(Location).filter(Location.name == data.location_name).first()
+    if not loc:
+        loc = Location(name=data.location_name)
+        db.add(loc)
+        db.flush()
+
+    created_kategorien = 0
+    created_varianten = 0
+    try:
+        for kat_data in data.kategorien:
+            kat = MaterialKategorie(
+                location_id=loc.id,
+                name=kat_data.name,
+                pricing_model=kat_data.pricing_model,
+                unit=kat_data.unit,
+                tax_rate=kat_data.tax_rate,
+            )
+            db.add(kat)
+            db.flush()
+            created_kategorien += 1
+            for var_data in kat_data.varianten:
+                db.add(
+                    MaterialVariante(
+                        kategorie_id=kat.id,
+                        name=var_data.name,
+                        price=var_data.price,
+                    )
+                )
+                created_varianten += 1
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Fehler beim Speichern: {str(e)}"
+        )
+
+    return {
+        "success": True,
+        "location": loc.to_dict(),
+        "created_kategorien": created_kategorien,
+        "created_varianten": created_varianten,
+    }

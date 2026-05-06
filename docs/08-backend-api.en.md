@@ -81,6 +81,7 @@ API endpoints are split across module route files (`backend/laufzettel/routes.py
 | `POST` | `/api/katalog/varianten` | Create variante |
 | `PUT` | `/api/katalog/varianten/{id}` | Update variante |
 | `DELETE` | `/api/katalog/varianten/{id}` | Delete variante |
+| `POST` | `/api/katalog/bulk-import` | Bulk-create location + categories + variants atomically |
 
 ### HTML page routes
 

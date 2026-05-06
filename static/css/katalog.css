@@ -313,3 +313,192 @@ select:focus {
     outline: none;
     border-color: var(--accent);
 }
+
+/* ── Bulk Import Modal ──────────────────────────────────────────────────────── */
+
+.modal-box.modal-wide {
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.bulk-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border-color);
+    margin-top: 4px;
+}
+
+.bulk-tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 8px 20px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.bulk-tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.bulk-tab-btn.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+.bulk-tab-panel {
+    padding-top: 8px;
+}
+
+.bulk-kat-block {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 14px;
+    margin-top: 12px;
+}
+
+.bulk-kat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.bulk-kat-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.bulk-kat-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.bulk-var-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.bulk-var-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bulk-var-row .var-name {
+    flex: 2;
+    padding: 7px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.bulk-var-row .var-price {
+    flex: 1;
+    padding: 7px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    min-width: 90px;
+}
+
+.bulk-var-row .var-name:focus,
+.bulk-var-row .var-price:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.bulk-csv-info {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 0.9rem;
+}
+
+.bulk-csv-info code {
+    display: block;
+    font-family: monospace;
+    background: var(--bg-tertiary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin: 6px 0;
+    color: var(--accent);
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+#csv-preview {
+    margin-top: 16px;
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.csv-preview-loc {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 12px 0 6px;
+    color: var(--text-primary);
+}
+
+.csv-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.csv-preview-table th {
+    background: var(--bg-tertiary);
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.csv-preview-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+}
+
+@media (max-width: 600px) {
+    .modal-box.modal-wide {
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .bulk-kat-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .bulk-var-row {
+        flex-wrap: wrap;
+    }
+
+    .bulk-var-row .var-name,
+    .bulk-var-row .var-price {
+        flex: 1 1 100%;
+    }
+}

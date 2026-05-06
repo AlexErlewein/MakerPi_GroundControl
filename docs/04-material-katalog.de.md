@@ -88,6 +88,74 @@ Zugriff über `/katalog`.
 | Variante hinzufügen | `+ Variante` | Konkrete Option erstellen |
 | Bearbeiten | `Bearbeiten` | Name/Preis ändern |
 | Löschen | `Löschen` | Element entfernen |
+| **Bulk Import** | **`⬆ Bulk Import`** | **Viele Einträge auf einmal hinzufügen** |
+
+## Bulk Import
+
+Der **„⬆ Bulk Import"**-Button (oben rechts auf der Katalog-Seite) erlaubt es, viele Einträge auf einmal anzulegen, ohne jeden Schritt einzeln durchklicken zu müssen. Es gibt zwei Modi.
+
+### Browser-Eingabe
+
+1. **⬆ Bulk Import** klicken → Modal öffnet sich auf dem Tab **Eingabe**.
+2. Einen vorhandenen **Standort** aus der Dropdown-Liste wählen oder *„Neuen Standort erstellen"* auswählen und einen Namen eingeben.
+3. **+ Kategorie hinzufügen** klicken. Für jede Kategorie ausfüllen:
+   - Name
+   - Preismodell (`per_unit`, `per_gram`, `per_volume_cm3`, `per_volume_l`, `per_minute`)
+   - Einheit (optionale Anzeige-Einheit, z.B. `g`, `cm³`)
+   - Steuersatz (0 / 7 / 19 %)
+4. Mit **+ Variante** beliebig viele Varianten pro Kategorie anlegen (Name und Preis).
+5. So viele Kategorien und Varianten hinzufügen wie nötig.
+6. **Alles speichern** klicken – alle Einträge werden in einer einzigen atomaren Datenbank-Transaktion gespeichert.
+
+> Existiert ein Standort mit dem eingegebenen Namen bereits, wird er wiederverwendet – nie doppelt angelegt.
+
+### CSV-Import
+
+1. **⬆ Bulk Import** klicken → Tab **CSV Import** auswählen.
+2. Eine `.csv`-Datei vom Computer auswählen.
+3. Die Datei wird **im Browser** geparst – es werden noch keine Daten übertragen.
+4. Eine Vorschau-Tabelle zeigt die gruppierten Daten.
+5. **CSV importieren** klicken, um alles in die Datenbank zu schreiben.
+
+#### CSV-Format
+
+Die Datei muss eine Kopfzeile mit genau diesen Spaltennamen haben (Reihenfolge fest):
+
+```
+standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+```
+
+| Spalte | Pflicht | Werte / Hinweise |
+|--------|---------|------------------|
+| `standort` | ja | Name des Standorts |
+| `kategorie` | ja | Name der Kategorie |
+| `preismodell` | ja | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
+| `einheit` | nein | Anzeige-Einheit, z.B. `g`, `cm³` – leer lassen wenn nicht benötigt |
+| `steuersatz` | ja | `0`, `7` oder `19` |
+| `variante` | ja | Name der Variante |
+| `preis` | ja | Preis pro Einheit, Dezimalpunkt (kein Komma), z.B. `0.05` |
+
+Mehrere Zeilen mit demselben `standort + kategorie + preismodell + einheit + steuersatz` werden zu einer Kategorie mit mehreren Varianten zusammengefasst.
+
+#### Beispiel
+
+```csv
+standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+Töpferei,Ton,per_gram,g,19,fein,0.05
+Töpferei,Ton,per_gram,g,19,grob,0.03
+Töpferei,Glasur,per_unit,Stück,19,transparent,2.50
+Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Eiche,0.0012
+Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Altholz,0.0004
+FabLab,Filament,per_gram,g,19,PLA,0.02
+FabLab,Filament,per_gram,g,19,PETG,0.025
+```
+
+Dieses Beispiel erstellt:
+- **Töpferei** → Ton (per_gram, 2 Varianten) + Glasur (per_unit, 1 Variante)
+- **Holz-Werkstatt** → Holz (per_volume_cm3, 2 Varianten)
+- **FabLab** → Filament (per_gram, 2 Varianten)
+
+Eine größere, direkt einsatzbare Beispieldatei liegt im Repository unter `examples/katalog-bulk-import.csv`.
 
 ## API-Endpunkte
 
@@ -100,6 +168,7 @@ Zugriff über `/katalog`.
 | `POST` | `/api/katalog/kategorien` | Kategorie erstellen |
 | `GET` | `/api/katalog/varianten` | Alle Varianten |
 | `POST` | `/api/katalog/varianten` | Variante erstellen |
+| `POST` | `/api/katalog/bulk-import` | Standort + Kategorien + Varianten auf einmal anlegen |
 
 ## Best Practices
 
