@@ -27,10 +27,8 @@ function esc(str) {
 
 async function loadMitglieder() {
     const search = document.getElementById("filter-search").value.trim();
-    const status = document.getElementById("filter-status").value;
     const params = new URLSearchParams();
     if (search) params.set("search", search);
-    if (status) params.set("status", status);
     const res = await fetch(`/api/mitglieder?${params}`);
     allMitglieder = await res.json();
     render();
