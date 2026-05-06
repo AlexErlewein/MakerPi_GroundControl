@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 # Corporate Identity Colors (from style.css)
 _CI_ACCENT = (208, 68, 23)  # #d04417 - orange/red
 _CI_BG_PRIMARY = (30, 33, 39)  # #1e2127 - dark theme background
-_CI_TEXT_PRIMARY = (215, 217, 211)  # #d7d9d3 - dark theme text
-_CI_TEXT_SECONDARY = (130, 127, 119)  # #827f77 - dark theme secondary text
+_CI_TEXT_PRIMARY = (0, 0, 0)  # #000000 - black text for PDF
+_CI_TEXT_SECONDARY = (80, 80, 80)  # #505050 - dark grey for labels
 _CI_BORDER = (74, 77, 85)  # #4a4d55 - border color
 _CI_SUCCESS = (53, 119, 48)  # #357730 - success green
 _CI_WARNING = (210, 153, 34)  # #d29922 - warning yellow
@@ -78,14 +78,17 @@ def generate_pdf(
     # ── Header with Logo ─────────────────────────────────────────────────────
     # Add logo if file exists
     logo_path = Path("graphics/H3ckeLogo.svg")
+    logo_y = 12
     if logo_path.exists():
         try:
             # fpdf2 supports SVG via image method
-            pdf.image(str(logo_path), x=12, y=12, w=25)
+            pdf.image(str(logo_path), x=12, y=logo_y, w=25)
+            logo_y += 30  # Move title down to avoid overlap with logo
         except Exception:
             pass  # Logo not available or not supported, skip gracefully
 
-    # Title
+    # Title (positioned below logo)
+    pdf.set_y(logo_y)
     pdf.set_font("Helvetica", style="B", size=18)
     pdf.set_text_color(*_CI_ACCENT)
     pdf.cell(0, 10, f"Laufzettel #{lz.id}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
