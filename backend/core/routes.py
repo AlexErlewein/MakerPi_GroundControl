@@ -175,6 +175,29 @@ async def get_status(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/dashboard/stats")
+async def get_dashboard_stats(db: Session = Depends(get_db)):
+    """Get dashboard statistics for tiles"""
+    # Count open Laufzettel (payment_method is None)
+    from backend.laufzettel.db import get_db as get_laufzettel_db
+    from backend.laufzettel.models import Laufzettel
+
+    laufzettel_db = next(get_laufzettel_db())
+    try:
+        open_laufzettel = laufzettel_db.query(Laufzettel).filter(Laufzettel.payment_method.is_(None)).count()
+    finally:
+        laufzettel_db.close()
+
+    # Count offline devices (last_seen > 2 minutes ago)
+    cutoff = datetime.utcnow() - timedelta(minutes=2)
+    offline_devices = db.query(Device).filter(Device.last_seen < cutoff).count()
+
+    return {
+        "open_laufzettel_count": open_laufzettel,
+        "offline_devices_count": offline_devices,
+    }
+
+
 @router.get("/api/devices")
 async def get_devices(db: Session = Depends(get_db)):
     """List all known devices"""

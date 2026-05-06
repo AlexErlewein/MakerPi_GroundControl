@@ -3,6 +3,7 @@ let editingId = null;
 let enrollmentReaderId = "";
 let activeScanSource = null;
 let scanTimeout = null;
+let nfcScanningMitgliedId = null;
 
 function esc(str) {
     return String(str || "")
@@ -25,17 +26,16 @@ async function loadMitglieder() {
 }
 
 function updateStats() {
-    const active = allMitglieder.filter(m => m.status === "active").length;
-    const inactive = allMitglieder.filter(m => m.status === "inactive").length;
-    document.getElementById("total-count").textContent = allMitglieder.length;
-    document.getElementById("active-count").textContent = active;
-    document.getElementById("inactive-count").textContent = inactive;
+    const total = allMitglieder.length;
+    const withTag = allMitglieder.filter(m => m.nfc_uid).length;
+    document.getElementById("total-count").textContent = total;
+    document.getElementById("tag-count").textContent = withTag;
 }
 
 function render() {
     const tbody = document.getElementById("mitglieder-body");
     if (allMitglieder.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="empty">Keine Mitglieder gefunden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Keine Mitglieder gefunden.</td></tr>';
         return;
     }
     tbody.innerHTML = allMitglieder.map(m => `
@@ -45,12 +45,12 @@ function render() {
             <td>${m.email ? `<a href="mailto:${esc(m.email)}" class="email-link">${esc(m.email)}</a>` : '<span class="empty-cell">-</span>'}</td>
             <td>${m.phone ? esc(m.phone) : '<span class="empty-cell">-</span>'}</td>
             <td>${m.nfc_uid ? `<code class="uid">${esc(m.nfc_uid)}</code>` : '<span class="empty-cell">-</span>'}</td>
-            <td><span class="status-badge ${m.status === "active" ? "active" : "inactive"}">${m.status === "active" ? "Aktiv" : "Inaktiv"}</span></td>
-            <td>${m.joined_date ? new Date(m.joined_date).toLocaleDateString("de-DE") : '<span class="empty-cell">-</span>'}</td>
-            <td>${m.has_login ? `<span class="login-badge" title="${esc(m.login_username)}">Login OK</span>` : '<span class="empty-cell">-</span>'}</td>
+            <td>${m.login_username ? `<span class="login-badge" title="${esc(m.login_username)}">Login OK</span>` : '<span class="empty-cell">-</span>'}</td>
             <td>
                 <div class="actions">
+                    <button class="btn btn-sm btn-secondary" onclick="openDetails(${m.id})">Details</button>
                     <button class="btn btn-sm btn-secondary" onclick="openEdit(${m.id})">Bearbeiten</button>
+                    <button class="btn btn-sm ${m.nfc_uid ? "btn-secondary" : "btn-success"}" onclick="openNfcScan(${m.id})">${m.nfc_uid ? "Tag bearbeiten" : "Tag registrieren"}</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteMitglied(${m.id})">Löschen</button>
                 </div>
             </td>
@@ -58,7 +58,7 @@ function render() {
 }
 
 function setScanStatus(msg, type) {
-    const el = document.getElementById("scan-status");
+    const el = document.getElementById("nfc-scan-status");
     if (!msg) { el.style.display = "none"; return; }
     el.style.display = "block";
     el.textContent = msg;
@@ -69,6 +69,7 @@ function setScanStatus(msg, type) {
 
 function resetScanButton() {
     const btn = document.getElementById("btn-scan-nfc");
+    if (!btn) return;
     btn.textContent = "\uD83D\uDD13 Jetzt Scannen";
     btn.disabled = false;
     if (activeScanSource) { activeScanSource.close(); activeScanSource = null; }
@@ -78,6 +79,7 @@ function resetScanButton() {
 function startNfcScan() {
     console.log("[NFC] startNfcScan called, enrollmentReaderId:", enrollmentReaderId);
     const btn = document.getElementById("btn-scan-nfc");
+    if (!btn) return;
     if (activeScanSource) {
         resetScanButton();
         setScanStatus(null);
@@ -122,13 +124,8 @@ function startNfcScan() {
         activeScanSource = null;
         resetScanButton();
         const uid = data.uid.toUpperCase();
-        document.getElementById("f-nfc-uid").value = uid;
+        document.getElementById("nfc-scan-uid").value = uid;
         setScanStatus(`✓ UID gescannt: ${uid}`, "ok");
-
-        // If editing an existing member, also write member data to the card
-        if (editingId) {
-            writeCardForMember(editingId, uid, configuredReader);
-        }
     };
 
     evtSource.onerror = (e) => {
@@ -138,50 +135,6 @@ function startNfcScan() {
         resetScanButton();
         setScanStatus("Verbindungsfehler beim Warten auf Scan.", "error");
     };
-}
-
-async function writeCardForMember(mitgliedId, uid, deviceId) {
-    setScanStatus(`✓ UID gescannt: ${uid} – schreibe Daten auf Karte…`, "info");
-    let requestId = null;
-    try {
-        const res = await fetch(`/api/mitglieder/${mitgliedId}/enroll-card`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_id: deviceId, uid }),
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            setScanStatus(`✓ UID gescannt: ${uid} – Schreiben fehlgeschlagen: ${err.detail || res.status}`, "error");
-            return;
-        }
-        const result = await res.json();
-        requestId = result.request_id;
-        setScanStatus(`✓ UID gescannt: ${uid} – Warte auf Bestätigung vom Reader…`, "info");
-    } catch (e) {
-        setScanStatus(`✓ UID gescannt: ${uid} – Fehler beim Schreiben: ${e.message}`, "error");
-        return;
-    }
-
-    // Poll for write result (max 30s, 1s interval)
-    const deadline = Date.now() + 30000;
-    while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 1000));
-        try {
-            const poll = await fetch(`/api/write-result?device_id=${encodeURIComponent(deviceId)}&request_id=${encodeURIComponent(requestId)}`);
-            if (poll.ok) {
-                const data = await poll.json();
-                if (data.found) {
-                    if (data.success) {
-                        setScanStatus(`✓ Karte erfolgreich beschrieben (UID: ${uid})`, "ok");
-                    } else {
-                        setScanStatus(`✗ Schreiben fehlgeschlagen: ${data.error || "Unbekannter Fehler"}`, "error");
-                    }
-                    return;
-                }
-            }
-        } catch (_) { /* retry */ }
-    }
-    setScanStatus(`✓ UID gescannt: ${uid} – Timeout: Keine Bestätigung vom Reader erhalten`, "error");
 }
 
 async function loadEnrollmentReader() {
@@ -201,11 +154,8 @@ async function loadEnrollmentReader() {
 
 function openAdd() {
     editingId = null;
-    resetScanButton();
-    setScanStatus(null);
     document.getElementById("modal-title").textContent = "Neues Mitglied";
     document.getElementById("mitglied-form").reset();
-    document.getElementById("f-nfc-uid").value = "";
     document.getElementById("mitglied-modal").classList.remove("hidden");
 }
 
@@ -213,24 +163,119 @@ function openEdit(id) {
     const m = allMitglieder.find(x => x.id === id);
     if (!m) return;
     editingId = id;
-    resetScanButton();
-    setScanStatus(null);
     document.getElementById("modal-title").textContent = "Mitglied bearbeiten";
     document.getElementById("f-member-id").value = m.member_id || "";
     document.getElementById("f-name").value = m.name || "";
     document.getElementById("f-email").value = m.email || "";
     document.getElementById("f-phone").value = m.phone || "";
-    document.getElementById("f-status").value = m.status || "active";
-    document.getElementById("f-joined").value = m.joined_date || "";
     document.getElementById("f-notes").value = m.notes || "";
-    document.getElementById("f-nfc-uid").value = m.nfc_uid || "";
+    document.getElementById("f-login-username").value = m.login_username || "";
     document.getElementById("mitglied-modal").classList.remove("hidden");
 }
 
 function closeModal() {
+    document.getElementById("mitglied-modal").classList.add("hidden");
+}
+
+async function openDetails(id) {
+    const m = allMitglieder.find(x => x.id === id);
+    if (!m) return;
+    try {
+        const res = await fetch(`/api/mitglieder/${id}`);
+        if (!res.ok) {
+            alert("Fehler beim Laden der Details");
+            return;
+        }
+        const details = await res.json();
+        const content = document.getElementById("mitglied-details-content");
+        content.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div>
+                    <strong>Member-ID:</strong><br>
+                    ${esc(details.member_id || "-")}
+                </div>
+                <div>
+                    <strong>Name:</strong><br>
+                    ${esc(details.name || "-")}
+                </div>
+                <div>
+                    <strong>E-Mail:</strong><br>
+                    ${details.email ? `<a href="mailto:${esc(details.email)}">${esc(details.email)}</a>` : "-"}
+                </div>
+                <div>
+                    <strong>Telefon:</strong><br>
+                    ${esc(details.phone || "-")}
+                </div>
+                <div>
+                    <strong>NFC-UID:</strong><br>
+                    ${details.nfc_uid ? `<code class="uid">${esc(details.nfc_uid)}</code>` : "-"}
+                </div>
+                <div>
+                    <strong>Login-Username:</strong><br>
+                    ${esc(details.login_username || "-")}
+                </div>
+            </div>
+            <div style="margin-top: 16px;">
+                <strong>Notizen:</strong><br>
+                ${esc(details.notes || "-")}
+            </div>
+            <div style="margin-top: 20px; padding: 12px; background: var(--bg-tertiary, #161b22); border: 1px solid var(--border, #30363d); border-radius: 6px;">
+                <h4 style="margin: 0 0 8px 0; color: var(--text-secondary, #8b949e);">Verfügbare Geräte</h4>
+                <p style="margin: 0; color: var(--text-secondary, #8b949e); font-size: 0.9rem;">Noch nicht implementiert</p>
+            </div>
+        `;
+        document.getElementById("mitglied-details-modal").classList.remove("hidden");
+    } catch (e) {
+        console.error("Failed to load member details:", e);
+        alert("Fehler beim Laden der Details");
+    }
+}
+
+function openNfcScan(id) {
+    const m = allMitglieder.find(x => x.id === id);
+    if (!m) return;
+    nfcScanningMitgliedId = id;
+    const title = m.nfc_uid ? "Tag bearbeiten" : "Tag registrieren";
+    document.getElementById("nfc-modal-title").textContent = title;
+    document.getElementById("nfc-scan-uid").value = m.nfc_uid || "";
+    setScanStatus(null);
+    document.getElementById("nfc-scan-modal").classList.remove("hidden");
+}
+
+function closeNfcModal() {
     resetScanButton();
     setScanStatus(null);
-    document.getElementById("mitglied-modal").classList.add("hidden");
+    document.getElementById("nfc-scan-modal").classList.add("hidden");
+    nfcScanningMitgliedId = null;
+}
+
+function closeDetailsModal() {
+    document.getElementById("mitglied-details-modal").classList.add("hidden");
+}
+
+async function saveNfcUid() {
+    if (!nfcScanningMitgliedId) return;
+    const uid = document.getElementById("nfc-scan-uid").value.trim().toUpperCase() || null;
+    if (!uid) {
+        alert("Bitte eine NFC-UID eingeben oder scannen");
+        return;
+    }
+    try {
+        const res = await fetch(`/api/mitglieder/${nfcScanningMitgliedId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nfc_uid: uid }),
+        });
+        if (res.ok) {
+            closeNfcModal();
+            await loadMitglieder();
+        } else {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+        }
+    } catch (e) {
+        alert("Fehler: " + e.message);
+    }
 }
 
 async function deleteMitglied(id) {
@@ -252,10 +297,7 @@ document.getElementById("mitglied-form").addEventListener("submit", async (e) =>
         name: document.getElementById("f-name").value.trim(),
         email: document.getElementById("f-email").value.trim() || null,
         phone: document.getElementById("f-phone").value.trim() || null,
-        status: document.getElementById("f-status").value,
-        joined_date: document.getElementById("f-joined").value || null,
         notes: document.getElementById("f-notes").value.trim() || null,
-        nfc_uid: document.getElementById("f-nfc-uid").value.trim().toUpperCase() || null,
         login_username: document.getElementById("f-login-username").value.trim() || null,
         login_password: document.getElementById("f-login-password").value.trim() || null,
     };
@@ -337,17 +379,26 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
 document.getElementById("refresh-btn").addEventListener("click", loadMitglieder);
-document.getElementById("filter-btn").addEventListener("click", loadMitglieder);
 document.getElementById("clear-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
-    document.getElementById("filter-status").value = "";
     loadMitglieder();
 });
-document.getElementById("filter-search").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") loadMitglieder();
-});
+document.getElementById("filter-search").addEventListener("input", debounce(() => {
+    loadMitglieder();
+}, 300));
 document.getElementById("sync-easyverein-btn").addEventListener("click", triggerEasyVereinSync);
 document.getElementById("sync-status-card").addEventListener("click", loadSyncStatus);
+
+// Details modal event listeners
+document.getElementById("details-modal-close").addEventListener("click", closeDetailsModal);
+document.getElementById("details-modal-overlay").addEventListener("click", closeDetailsModal);
+
+// NFC scan modal event listeners
+document.getElementById("nfc-modal-close").addEventListener("click", closeNfcModal);
+document.getElementById("nfc-modal-overlay").addEventListener("click", closeNfcModal);
+document.getElementById("nfc-cancel-btn").addEventListener("click", closeNfcModal);
+document.getElementById("btn-scan-nfc").addEventListener("click", startNfcScan);
+document.getElementById("nfc-save-btn").addEventListener("click", saveNfcUid);
 
 loadMitglieder();
 loadSyncStatus();

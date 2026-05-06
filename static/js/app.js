@@ -1,11 +1,29 @@
-// MakerPi GroundControl - Dashboard (minimal MQTT status)
+// MakerPi GroundControl - Dashboard
 
 const API_BASE = '';
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadDashboardStats();
     loadStatus();
+    setInterval(loadDashboardStats, 10000);
     setInterval(loadStatus, 5000);
 });
+
+async function loadDashboardStats() {
+    try {
+        const response = await fetch(`${API_BASE}/api/dashboard/stats`);
+        if (!response.ok) return;
+        const data = await response.json();
+
+        const openLzEl = document.getElementById('open-laufzettel-count');
+        const offlineDevEl = document.getElementById('offline-devices-count');
+
+        if (openLzEl) openLzEl.textContent = data.open_laufzettel_count || 0;
+        if (offlineDevEl) offlineDevEl.textContent = data.offline_devices_count || 0;
+    } catch (error) {
+        console.error('Failed to load dashboard stats:', error);
+    }
+}
 
 async function loadStatus() {
     const statusDot = document.getElementById('status-dot');

@@ -43,12 +43,8 @@
                     <p class="stat-value" id="total-count">-</p>
                 </div>
                 <div class="stat-card">
-                    <h3>Aktiv</h3>
-                    <p class="stat-value" id="active-count">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Inaktiv</h3>
-                    <p class="stat-value" id="inactive-count">-</p>
+                    <h3>Mitglieder mit Tag</h3>
+                    <p class="stat-value" id="tag-count">-</p>
                 </div>
                 <div class="stat-card stat-card-wide" id="sync-status-card" style="cursor: pointer;" title="Klicken für Sync-Details">
                     <h3>easyVerein Sync</h3>
@@ -63,14 +59,8 @@
                     <button id="new-mitglied-btn" class="btn btn-success">+ Neues Mitglied</button>
                     <div class="filter-inputs">
                         <input type="text" id="filter-search" placeholder="Name, Member-ID oder E-Mail...">
-                        <select id="filter-status">
-                            <option value="">Alle Status</option>
-                            <option value="active">Aktiv</option>
-                            <option value="inactive">Inaktiv</option>
-                        </select>
                     </div>
                     <div class="filter-bar-row">
-                        <button id="filter-btn" class="btn btn-primary">Filter</button>
                         <button id="clear-btn" class="btn btn-secondary">Zurücksetzen</button>
                     </div>
                 </div>
@@ -84,14 +74,12 @@
                                 <th>E-Mail</th>
                                 <th>Telefon</th>
                                 <th>NFC-UID</th>
-                                <th>Status</th>
-                                <th>Mitglied seit</th>
                                 <th>Login</th>
                                 <th>Aktionen</th>
                             </tr>
                         </thead>
                         <tbody id="mitglieder-body">
-                            <tr><td colspan="9" class="empty">Lade Mitglieder...</td></tr>
+                            <tr><td colspan="7" class="empty">Lade Mitglieder...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -129,29 +117,9 @@
                         <label for="f-phone">Telefon</label>
                         <input type="text" id="f-phone" placeholder="+49 ...">
                     </div>
-                    <div class="form-group">
-                        <label for="f-status">Status</label>
-                        <select id="f-status">
-                            <option value="active">Aktiv</option>
-                            <option value="inactive">Inaktiv</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="f-joined">Mitglied seit</label>
-                        <input type="date" id="f-joined">
-                    </div>
                     <div class="form-group form-group-full">
                         <label for="f-notes">Notizen</label>
                         <textarea id="f-notes" rows="3" placeholder="Optionale Notizen..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="f-nfc-uid">NFC-Karten-UID</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="text" id="f-nfc-uid" placeholder="z.B. 9CF22507" style="font-family: monospace; text-transform: uppercase; flex: 1;">
-                            <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;" onclick="startNfcScan()">&#128273; Jetzt Scannen</button>
-                        </div>
-                        <div id="scan-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
-                        <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">Eindeutige UID der Mitgliedskarte für automatische Zuweisung beim Laufzettel-Scan.</p>
                     </div>
                 </div>
                 <div class="form-section" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #30363d;">
@@ -178,7 +146,47 @@
         </div>
     </div>
 
-    <script src="/static/js/mitglieder.js?v=4"></script>
+    <!-- Member Details Modal -->
+    <div class="modal hidden" id="mitglied-details-modal">
+        <div class="modal-overlay" id="details-modal-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Mitglied Details</h3>
+                <button class="modal-close" id="details-modal-close">&times;</button>
+            </div>
+            <div id="mitglied-details-content">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- NFC Scan Modal (for tag registration/editing) -->
+    <div class="modal hidden" id="nfc-scan-modal">
+        <div class="modal-overlay" id="nfc-modal-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="nfc-modal-title">Tag registrieren</h3>
+                <button class="modal-close" id="nfc-modal-close">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label>NFC-Karten-UID</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="nfc-scan-uid" placeholder="z.B. 9CF22507" style="font-family: monospace; text-transform: uppercase; flex: 1;">
+                        <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;">&#128273; Jetzt Scannen</button>
+                    </div>
+                    <div id="nfc-scan-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
+                    <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">Eindeutige UID der Mitgliedskarte für automatische Zuweisung beim Laufzettel-Scan.</p>
+                </div>
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" id="nfc-cancel-btn">Abbrechen</button>
+                    <button type="button" class="btn btn-success" id="nfc-save-btn">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/mitglieder.js?v=5"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

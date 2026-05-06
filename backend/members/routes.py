@@ -102,8 +102,8 @@ async def tags_page(request: Request):
 async def get_mitglieder(
     search: str = None, status: str = None, db: Session = Depends(get_db)
 ):
-    """List all members, optionally filtered"""
-    q = db.query(Mitglied)
+    """List all members, optionally filtered (only active members returned)"""
+    q = db.query(Mitglied).filter(Mitglied.status == "active")
     if search:
         like = f"%{search}%"
         q = q.filter(
@@ -111,9 +111,17 @@ async def get_mitglieder(
             | (Mitglied.member_id.ilike(like))
             | (Mitglied.email.ilike(like))
         )
-    if status:
-        q = q.filter(Mitglied.status == status)
+    # status filter is ignored since we only return active members
     return [m.to_dict() for m in q.order_by(Mitglied.name).all()]
+
+
+@router.get("/api/mitglieder/{mitglied_id}")
+async def get_mitglied_details(mitglied_id: int, db: Session = Depends(get_db)):
+    """Get detailed information for a single member"""
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return m.to_dict()
 
 
 @router.post("/api/mitglieder")
