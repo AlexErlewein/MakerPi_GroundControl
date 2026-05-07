@@ -52,17 +52,16 @@ body {
 header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 20px 0;
+    align-items: flex-start;
+    padding: 16px 0;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 30px;
 }
 
 .header-left {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 20px;
+    flex-direction: column;
+    gap: 12px;
 }
 
 header h1 {
