@@ -14,13 +14,15 @@ if TYPE_CHECKING:
 
 
 # Corporate Identity Colors (from style.css)
-_CI_ACCENT = (208, 68, 23)  # #d04417 - orange/red
-_CI_BG_PRIMARY = (30, 33, 39)  # #1e2127 - dark theme background
-_CI_TEXT_PRIMARY = (0, 0, 0)  # #000000 - black text for PDF
-_CI_TEXT_SECONDARY = (80, 80, 80)  # #505050 - dark grey for labels
-_CI_BORDER = (74, 77, 85)  # #4a4d55 - border color
-_CI_SUCCESS = (53, 119, 48)  # #357730 - success green
-_CI_WARNING = (210, 153, 34)  # #d29922 - warning yellow
+_CI_ACCENT = (208, 68, 23)       # #d04417 - orange/red
+_CI_HEADER_BG = (60, 65, 75)     # dark grey for table headers
+_CI_ROW_ALT_BG = (242, 242, 245) # very light grey for alternating data rows
+_CI_TEXT_PRIMARY = (30, 30, 30)  # near-black text for PDF body
+_CI_TEXT_SECONDARY = (100, 100, 105)  # medium grey for labels
+_CI_TEXT_ON_DARK = (255, 255, 255)    # white text on dark header fills
+_CI_BORDER = (180, 180, 185)     # light grey border
+_CI_SUCCESS = (53, 119, 48)      # #357730 - success green
+_CI_WARNING = (210, 153, 34)     # #d29922 - warning yellow
 
 _PAYMENT_LABELS = {
     "bar": "Bar",
@@ -51,17 +53,9 @@ def _fmt_date(d) -> str:
 
 
 def _safe(text: str | None) -> str:
-    """Strip characters fpdf can't encode and return a plain ASCII-safe string."""
+    """Return Latin-1 safe string; German umlauts are supported natively."""
     if text is None:
         return "-"
-    # replace common German umlauts
-    replacements = {
-        "ä": "ae", "ö": "oe", "ü": "ue",
-        "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss",
-    }
-    for char, rep in replacements.items():
-        text = text.replace(char, rep)
-    # strip any remaining non-latin1 characters
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
@@ -134,9 +128,9 @@ def generate_pdf(
     headers = ["#", "Name", "Menge / Masse", "Einheit", "MwSt.", "Preis (EUR)"]
 
     # Header row with corporate colors
-    pdf.set_fill_color(*_CI_BG_PRIMARY)
+    pdf.set_fill_color(*_CI_HEADER_BG)
     pdf.set_font("Helvetica", style="B", size=8)
-    pdf.set_text_color(*_CI_TEXT_PRIMARY)
+    pdf.set_text_color(*_CI_TEXT_ON_DARK)
     for w, h in zip(col_w, headers):
         pdf.cell(w, 6, h, border="B", fill=True)
     pdf.ln()
@@ -172,13 +166,12 @@ def generate_pdf(
 
         price_str = f"{price:.2f}" if m.calculated_price is not None else "-"
 
-        # Alternating row colors with corporate theme
+        # Alternating row colors
         if row_index % 2 == 0:
-            pdf.set_fill_color(*_CI_BG_PRIMARY)
-            pdf.set_text_color(*_CI_TEXT_PRIMARY)
+            pdf.set_fill_color(*_CI_ROW_ALT_BG)
         else:
             pdf.set_fill_color(255, 255, 255)
-            pdf.set_text_color(*_CI_TEXT_PRIMARY)
+        pdf.set_text_color(*_CI_TEXT_PRIMARY)
 
         pdf.cell(col_w[0], 6, str(row_index), fill=True)
         pdf.cell(col_w[1], 6, _safe(m.name), fill=True)
@@ -190,7 +183,7 @@ def generate_pdf(
 
     if not sorted_mats:
         pdf.set_text_color(*_CI_TEXT_SECONDARY)
-        pdf.cell(0, 6, "Keine Materialeintraege.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 6, "Keine Materialeinträge.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.ln(4)
 
@@ -198,12 +191,12 @@ def generate_pdf(
     if tax_groups:
         pdf.set_font("Helvetica", style="B", size=10)
         pdf.set_text_color(*_CI_ACCENT)
-        pdf.cell(0, 7, "Steueruebersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 7, "Steuerübersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         tw = [22, 35, 35, 35]
-        pdf.set_fill_color(*_CI_BG_PRIMARY)
+        pdf.set_fill_color(*_CI_HEADER_BG)
         pdf.set_font("Helvetica", style="B", size=8)
-        pdf.set_text_color(*_CI_TEXT_PRIMARY)
+        pdf.set_text_color(*_CI_TEXT_ON_DARK)
         for w, h in zip(tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]):
             pdf.cell(w, 6, h, border="B", fill=True)
         pdf.ln()
@@ -250,7 +243,7 @@ def generate_pdf(
         pdf.set_draw_color(*_CI_BORDER)
         pdf.set_font("Helvetica", style="B", size=10)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(0, 7, "Zahlung bestaetigt", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 7, "Zahlung bestätigt", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         method_label = _PAYMENT_LABELS.get(lz.payment_method, lz.payment_method)
         pdf.set_font("Helvetica", size=9)
