@@ -424,6 +424,30 @@ def handle_device_message(topic: str, payload: str):
                 finally:
                     members_db.close()
 
+                # Verify card signature — reject card data fields if tampered
+                card_sig = data.get("signature", "")
+                card_member_id = data.get("member_id")
+                card_name = data.get("name")
+                if card_sig and card_member_id and card_name:
+                    from backend.members.signature import verify_card_signature
+                    if not verify_card_signature(card_member_id, uid, card_name, card_sig):
+                        logger.warning(
+                            "[SCAN] Invalid card signature for UID=%s member_id=%s — card data rejected",
+                            uid,
+                            card_member_id,
+                        )
+                        card_member_id = None
+                        card_name = None
+                        data = {**data, "member_id": None, "name": None, "email": None}
+                elif card_member_id and not card_sig:
+                    logger.warning(
+                        "[SCAN] Card data present but no signature for UID=%s — card data rejected",
+                        uid,
+                    )
+                    card_member_id = None
+                    card_name = None
+                    data = {**data, "member_id": None, "name": None, "email": None}
+
                 scan = TagScan(
                     uid=uid,
                     device_id=device_id,

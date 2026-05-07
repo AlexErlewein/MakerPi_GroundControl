@@ -40,14 +40,20 @@ def generate_card_signature(member_id: str, uid: str, name: str) -> str:
 def verify_card_signature(member_id: str, uid: str, name: str, signature: str) -> bool:
     """Verify that a signature matches the expected value.
 
+    Accepts both full (64-char) and truncated (48-char) signatures — cards store
+    only the first 48 chars due to NTAG/MIFARE block size constraints.
+
     Args:
         member_id: External member ID
         uid: NFC card UID in hex format
         name: Member name from card
-        signature: Signature from card (hex string)
+        signature: Signature from card (hex string, 48 or 64 chars)
 
     Returns:
         True if signature is valid
     """
+    if not signature or len(signature) < 16:
+        return False
     expected = generate_card_signature(member_id, uid, name)
-    return hmac.compare_digest(expected.lower(), signature.lower())
+    sig_len = len(signature)
+    return hmac.compare_digest(expected[:sig_len].lower(), signature.lower())
