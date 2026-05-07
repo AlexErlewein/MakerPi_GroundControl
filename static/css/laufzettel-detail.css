@@ -229,8 +229,9 @@
 }
 
 .btn-payment {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 160px;
+    max-width: 240px;
     padding: 14px 20px;
     font-size: 1rem;
     font-weight: 600;
