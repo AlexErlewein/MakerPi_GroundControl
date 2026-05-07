@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buchhaltung - MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
+    <style>
+        .period-toggle { display: flex; gap: 8px; margin-bottom: 24px; }
+        .period-btn {
+            padding: 6px 18px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .period-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        .summary-cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+        .summary-card {
+            flex: 1 1 160px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px 24px;
+        }
+        .summary-card h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+        .summary-card .amount { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin: 28px 0 12px; }
+        .section-header h2 { margin: 0; font-size: 1.1rem; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { color: var(--text-secondary); font-weight: 600; background: var(--bg-tertiary); }
+        tr:hover td { background: var(--bg-tertiary); }
+        .empty-row td { color: var(--text-secondary); text-align: center; padding: 24px; }
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 28px 32px;
+            min-width: 340px;
+            max-width: 480px;
+            width: 100%;
+        }
+        .modal h3 { margin: 0 0 20px; font-size: 1.1rem; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: var(--text-secondary); }
+        .form-group input, .form-group textarea {
+            width: 100%; box-sizing: border-box;
+            padding: 8px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-danger { background: var(--danger); color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .btn-danger:hover { opacity: 0.85; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <a href="/dashboard"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
+                <nav class="nav">
+                    <a href="/dashboard" class="nav-link">Dashboard</a>
+                    <a href="/database" class="nav-link">Devices</a>
+                    <a href="/tags" class="nav-link">NFC-Tags</a>
+                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
+                    <a href="/katalog" class="nav-link">Katalog</a>
+                    <a href="/buchhaltung" class="nav-link active">Buchhaltung</a>
+                    <a href="/mitglieder" class="nav-link">Mitglieder</a>
+                    <a href="/admin/users" class="nav-link">Benutzer</a>
+                    <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <a href="/logout" class="btn btn-secondary">Abmelden</a>
+            </div>
+        </header>
+
+        <main>
+            <div style="margin-bottom: 16px;">
+                <h1 style="font-size: 1.4rem; margin: 0 0 16px;">Buchhaltung</h1>
+
+                <div class="period-toggle">
+                    <button class="period-btn" data-period="week">Woche</button>
+                    <button class="period-btn active" data-period="month">Monat</button>
+                    <button class="period-btn" data-period="year">Jahr</button>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h4>Gesamt</h4>
+                        <div class="amount" id="total-revenue">–</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Materialverkauf</h4>
+                        <div class="amount" id="material-revenue">–</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Spenden</h4>
+                        <div class="amount" id="spende-revenue">–</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <h2>Materialverkauf</h2>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Artikel</th>
+                            <th>Menge</th>
+                            <th>Umsatz</th>
+                        </tr>
+                    </thead>
+                    <tbody id="variant-tbody">
+                        <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section-header">
+                <h2>Spenden</h2>
+                <button class="btn btn-primary" id="add-spende-btn">+ Spende hinzufügen</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Betrag</th>
+                            <th>Spender</th>
+                            <th>Notizen</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="spende-tbody">
+                        <tr class="empty-row"><td colspan="5">Lade Daten...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+
+        <footer>
+            <p>MakerPi GroundControl v0.1.0</p>
+        </footer>
+    </div>
+
+    <!-- Spende Modal -->
+    <div class="modal-overlay" id="spende-modal">
+        <div class="modal">
+            <h3>Spende erfassen</h3>
+            <form id="spende-form">
+                <div class="form-group">
+                    <label for="spende-amount">Betrag (€) *</label>
+                    <input type="number" id="spende-amount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="spende-donor">Spender (optional)</label>
+                    <input type="text" id="spende-donor" placeholder="Anonym">
+                </div>
+                <div class="form-group">
+                    <label for="spende-date">Datum</label>
+                    <input type="date" id="spende-date">
+                </div>
+                <div class="form-group">
+                    <label for="spende-notes">Notizen</label>
+                    <textarea id="spende-notes" rows="3" placeholder="Optionale Notizen..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="spende-cancel-btn">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/buchhaltung.js?v=1"></script>
+    <script src="/static/js/theme.js"></script>
+    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
+</body>
+</html>

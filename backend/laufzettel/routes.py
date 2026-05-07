@@ -543,6 +543,8 @@ async def pay_bar(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    from backend.buchhaltung.accounting import record_laufzettel_payment
+    record_laufzettel_payment(lz, materials)
     return d
 
 
@@ -732,6 +734,8 @@ async def get_karte_status(
                         )
                         d["material"] = [m.to_dict() for m in materials]
                         _schedule_pdf_upload(lz, materials)
+                        from backend.buchhaltung.accounting import record_laufzettel_payment
+                        record_laufzettel_payment(lz, materials)
                         _pending_payments.pop(client_transaction_id, None)
                         return {"status": "SUCCESSFUL", "laufzettel": d}
         except Exception:
@@ -763,6 +767,8 @@ async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    from backend.buchhaltung.accounting import record_laufzettel_payment
+    record_laufzettel_payment(lz, materials)
     return d
 
 
@@ -885,6 +891,8 @@ async def get_checkout_status(
         )
         d["material"] = [m.to_dict() for m in materials]
         _schedule_pdf_upload(lz, materials)
+        from backend.buchhaltung.accounting import record_laufzettel_payment
+        record_laufzettel_payment(lz, materials)
         _pending_checkouts.pop(checkout_id, None)
         return {"status": "PAID", "laufzettel": d}
 
@@ -1031,6 +1039,8 @@ async def get_wero_status(
             )
             d["material"] = [m.to_dict() for m in materials]
             _schedule_pdf_upload(lz, materials)
+            from backend.buchhaltung.accounting import record_laufzettel_payment
+            record_laufzettel_payment(lz, materials)
             _pending_wero_payments.pop(checkout_id, None)
             return {"status": "PAID", "laufzettel": d}
 
@@ -1074,6 +1084,8 @@ async def confirm_wero_payment(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    from backend.buchhaltung.accounting import record_laufzettel_payment
+    record_laufzettel_payment(lz, materials)
     return d
 
 
