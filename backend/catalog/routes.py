@@ -145,7 +145,7 @@ async def get_full_katalog(db: Session = Depends(get_db)):
                 varianten = (
                     db.query(MaterialVariante)
                     .filter(MaterialVariante.unterkategorie_id == ukat.id)
-                    .order_by(MaterialVariante.name)
+                    .order_by(MaterialVariante.id)
                     .all()
                 )
                 ukat_dict["varianten"] = [v.to_dict() for v in varianten]
