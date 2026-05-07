@@ -28,18 +28,35 @@ async def buchhaltung_page(request: Request):
 @router.get("/api/buchhaltung/summary")
 async def get_summary(
     period: str = Query("month", pattern="^(week|month|year)$"),
+    reference_date: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     now = datetime.now(timezone.utc)
-    if period == "week":
-        cutoff = now - timedelta(days=7)
-    elif period == "year":
-        cutoff = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    if reference_date:
+        try:
+            ref = datetime.fromisoformat(reference_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            ref = now
     else:
-        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        ref = now
 
-    verkaufe = db.query(Verkauf).filter(Verkauf.paid_at >= cutoff).all()
-    spenden = db.query(Spende).filter(Spende.date >= cutoff).all()
+    if period == "week":
+        # Monday of the week containing ref
+        monday = ref - timedelta(days=ref.weekday())
+        cutoff = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = cutoff + timedelta(days=7)
+    elif period == "year":
+        cutoff = ref.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = cutoff.replace(year=cutoff.year + 1)
+    else:  # month
+        cutoff = ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if cutoff.month == 12:
+            end = cutoff.replace(year=cutoff.year + 1, month=1)
+        else:
+            end = cutoff.replace(month=cutoff.month + 1)
+
+    verkaufe = db.query(Verkauf).filter(Verkauf.paid_at >= cutoff, Verkauf.paid_at < end).all()
+    spenden = db.query(Spende).filter(Spende.date >= cutoff, Spende.date < end).all()
 
     material_total = sum(v.calculated_price for v in verkaufe)
     spende_total = sum(s.amount for s in spenden)
@@ -62,6 +79,7 @@ async def get_summary(
     return {
         "period": period,
         "cutoff": cutoff.isoformat(),
+        "end": end.isoformat(),
         "material_total": round(material_total, 2),
         "spende_total": round(spende_total, 2),
         "total": round(material_total + spende_total, 2),

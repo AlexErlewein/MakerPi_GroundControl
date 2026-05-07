@@ -1,6 +1,7 @@
 // Buchhaltung - Accounting overview
 
 let currentPeriod = 'month';
+let currentReferenceDate = null; // ISO date string or null = current period
 
 function formatEuro(val) {
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val || 0);
@@ -8,13 +9,83 @@ function formatEuro(val) {
 
 function formatDate(iso) {
     if (!iso) return '–';
-    const d = new Date(iso);
-    return d.toLocaleDateString('de-DE');
+    return new Date(iso).toLocaleDateString('de-DE');
 }
+
+function escHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Period dropdown builders ──────────────────────────────────────────────────
+
+function buildYearOptions() {
+    const currentYear = new Date().getFullYear();
+    const options = [];
+    for (let y = currentYear; y >= currentYear - 4; y--) {
+        options.push({ label: String(y), value: `${y}-06-15` });
+    }
+    return options;
+}
+
+function buildMonthOptions() {
+    const now = new Date();
+    const options = [];
+    for (let i = 0; i < 24; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        options.push({ label, value });
+    }
+    return options;
+}
+
+function buildWeekOptions() {
+    const now = new Date();
+    const options = [];
+    for (let i = 0; i < 16; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i * 7);
+        // Monday of that week
+        const monday = new Date(d);
+        monday.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        // ISO week number
+        const jan4 = new Date(monday.getFullYear(), 0, 4);
+        const weekNum = Math.ceil(((monday - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+
+        const fmt = (dt) => dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        const label = `KW ${weekNum} (${fmt(monday)} – ${fmt(sunday)})`;
+        const value = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+        options.push({ label, value });
+    }
+    return options;
+}
+
+function updatePeriodDropdown() {
+    const select = document.getElementById('period-select');
+    let options = [];
+    if (currentPeriod === 'year')  options = buildYearOptions();
+    if (currentPeriod === 'month') options = buildMonthOptions();
+    if (currentPeriod === 'week')  options = buildWeekOptions();
+
+    select.innerHTML = options.map((o, i) =>
+        `<option value="${o.value}"${i === 0 ? ' selected' : ''}>${escHtml(o.label)}</option>`
+    ).join('');
+    // Default to first option (= current period)
+    currentReferenceDate = options[0]?.value || null;
+}
+
+// ── Load & render ─────────────────────────────────────────────────────────────
 
 async function loadSummary() {
     try {
-        const res = await fetch(`/api/buchhaltung/summary?period=${currentPeriod}`);
+        let url = `/api/buchhaltung/summary?period=${currentPeriod}`;
+        if (currentReferenceDate) url += `&reference_date=${currentReferenceDate}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to load summary');
         const data = await res.json();
 
@@ -56,7 +127,7 @@ function renderSpendeTable(spenden) {
         <td>${formatEuro(s.amount)}</td>
         <td>${escHtml(s.donor_name || 'Anonym')}</td>
         <td>${escHtml(s.notes || '–')}</td>
-        <td><button class="btn-danger" onclick="deleteSpende(${s.id})">Löschen</button></td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteSpende(${s.id})">Löschen</button></td>
     </tr>`).join('');
 }
 
@@ -71,39 +142,32 @@ async function deleteSpende(id) {
     }
 }
 
-function escHtml(str) {
-    if (str == null) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// ── Period toggle ─────────────────────────────────────────────────────────────
 
-// Period toggle
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentPeriod = btn.dataset.period;
+        updatePeriodDropdown();
         loadSummary();
     });
 });
 
-// Spende modal
+document.getElementById('period-select').addEventListener('change', (e) => {
+    currentReferenceDate = e.target.value;
+    loadSummary();
+});
+
+// ── Spende modal ──────────────────────────────────────────────────────────────
+
 const modal = document.getElementById('spende-modal');
 document.getElementById('add-spende-btn').addEventListener('click', () => {
-    // Default date to today
-    const today = new Date().toISOString().slice(0, 10);
-    document.getElementById('spende-date').value = today;
+    document.getElementById('spende-date').value = new Date().toISOString().slice(0, 10);
     modal.classList.add('open');
 });
-document.getElementById('spende-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('open');
-});
-modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.classList.remove('open');
-});
+document.getElementById('spende-cancel-btn').addEventListener('click', () => modal.classList.remove('open'));
+modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
 
 document.getElementById('spende-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -111,22 +175,14 @@ document.getElementById('spende-form').addEventListener('submit', async (e) => {
     const donor_name = document.getElementById('spende-donor').value.trim() || null;
     const date = document.getElementById('spende-date').value || null;
     const notes = document.getElementById('spende-notes').value.trim() || null;
-
-    if (!amount || amount <= 0) {
-        alert('Bitte einen gültigen Betrag eingeben.');
-        return;
-    }
-
+    if (!amount || amount <= 0) { alert('Bitte einen gültigen Betrag eingeben.'); return; }
     try {
         const res = await fetch('/api/buchhaltung/spende', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount, donor_name, date, notes }),
         });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Fehler beim Speichern');
-        }
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Fehler beim Speichern'); }
         modal.classList.remove('open');
         e.target.reset();
         await loadSummary();
@@ -135,5 +191,7 @@ document.getElementById('spende-form').addEventListener('submit', async (e) => {
     }
 });
 
-// Initial load
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+updatePeriodDropdown();
 loadSummary();

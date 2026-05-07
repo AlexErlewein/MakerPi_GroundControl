@@ -99,10 +99,13 @@
             <div style="margin-bottom: 16px;">
                 <h1 style="font-size: 1.4rem; margin: 0 0 16px;">Buchhaltung</h1>
 
-                <div class="period-toggle">
-                    <button class="period-btn" data-period="week">Woche</button>
-                    <button class="period-btn active" data-period="month">Monat</button>
-                    <button class="period-btn" data-period="year">Jahr</button>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px;">
+                    <div class="period-toggle">
+                        <button class="period-btn" data-period="week">Woche</button>
+                        <button class="period-btn active" data-period="month">Monat</button>
+                        <button class="period-btn" data-period="year">Jahr</button>
+                    </div>
+                    <select id="period-select" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.9rem; min-width: 200px;"></select>
                 </div>
 
                 <div class="summary-cards">
