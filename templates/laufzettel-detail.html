@@ -142,6 +142,33 @@
             </section>
         </main>
 
+        <!-- Payment Section (injected by JS after material section) -->
+        <div id="payment-section" class="section hidden">
+            <div id="payment-locked-banner" class="payment-locked-banner hidden">
+                <span id="payment-locked-icon">✓</span>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span id="payment-locked-text"></span>
+                    <span id="payment-locked-txn" style="font-size:0.8rem;color:var(--text-secondary);font-family:monospace;"></span>
+                    <span id="payment-locked-notes" style="font-size:0.82rem;color:var(--text-secondary);font-style:italic;"></span>
+                </div>
+                <button id="reset-payment-btn" class="btn btn-sm btn-danger" onclick="openResetPaymentModal()" style="margin-left:auto;">Zahlung zurücksetzen</button>
+            </div>
+            <div id="payment-buttons" class="payment-buttons">
+                <button id="pay-bar-btn" class="btn btn-payment btn-payment-bar" onclick="openBarModal()">
+                    💵 Bar bezahlen
+                </button>
+                <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
+                    💳 mit Karte bezahlen
+                </button>
+                <button id="pay-checkout-btn" class="btn btn-payment btn-payment-checkout" onclick="doCheckoutPayment()">
+                    📱 Kunden-QR (Apple/Google Pay)
+                </button>
+                <button id="pay-wero-btn" class="btn btn-payment btn-payment-wero hidden" onclick="doWeroPayment()">
+                    ⚡ Wero bezahlen
+                </button>
+            </div>
+        </div>
+
         <footer>
             <p>MakerPi GroundControl v0.1.0 - Laufzettel Detail</p>
         </footer>
@@ -325,33 +352,6 @@
                     <button type="submit" class="btn btn-success">Erfassen</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Payment Section (injected by JS after material section) -->
-    <div id="payment-section" class="section hidden">
-        <div id="payment-locked-banner" class="payment-locked-banner hidden">
-            <span id="payment-locked-icon">✓</span>
-            <div style="display:flex;flex-direction:column;gap:2px;">
-                <span id="payment-locked-text"></span>
-                <span id="payment-locked-txn" style="font-size:0.8rem;color:var(--text-secondary);font-family:monospace;"></span>
-                <span id="payment-locked-notes" style="font-size:0.82rem;color:var(--text-secondary);font-style:italic;"></span>
-            </div>
-            <button id="reset-payment-btn" class="btn btn-sm btn-danger" onclick="openResetPaymentModal()" style="margin-left:auto;">Zahlung zurücksetzen</button>
-        </div>
-        <div id="payment-buttons" class="payment-buttons">
-            <button id="pay-bar-btn" class="btn btn-payment btn-payment-bar" onclick="openBarModal()">
-                💵 Bar bezahlen
-            </button>
-            <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
-                💳 mit Karte bezahlen
-            </button>
-            <button id="pay-checkout-btn" class="btn btn-payment btn-payment-checkout" onclick="doCheckoutPayment()">
-                📱 Kunden-QR (Apple/Google Pay)
-            </button>
-            <button id="pay-wero-btn" class="btn btn-payment btn-payment-wero hidden" onclick="doWeroPayment()">
-                ⚡ Wero bezahlen
-            </button>
         </div>
     </div>
 
