@@ -14,5 +14,7 @@
     "wero_api_key": "YOUR_WERO_API_KEY",
     "easyverein_api_key": "YOUR_EASYVEREIN_API_KEY_HERE",
     "easyverein_org_id": "YOUR_ORG_ID_HERE",
-    "enrollment_reader_id": ""
+    "enrollment_reader_id": "",
+    "payment_reader_id": "",
+    "card_writer_id": ""
 }

@@ -1,8 +1,8 @@
 """Members routes - API and pages for Mitglied and RFIDTag"""
 
 from typing import Optional
-from fastapi import APIRouter, Request, Query, Form, Depends, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from .signature import generate_card_signature
 
 
 class CardWriteRequest(BaseModel):
-    device_id: str  # PicoW device ID (e.g., "picow_nfc_01")
+    device_id: Optional[str] = None  # PicoW device ID; falls back to CARD_WRITER_ID config
     uid: str  # Expected UID to write to (for verification)
 
 
@@ -394,11 +394,16 @@ async def enroll_card(
 
     # Send write command to PicoW
     from backend.core.mqtt import send_card_write_command
+    from backend import config as _cfg
     import uuid
+
+    device_id = req.device_id or _cfg.CARD_WRITER_ID
+    if not device_id:
+        raise HTTPException(status_code=400, detail="No card writer device configured. Set card_writer_id in Devices settings.")
 
     request_id = str(uuid.uuid4())[:8]
     success = send_card_write_command(
-        device_id=req.device_id,
+        device_id=device_id,
         member_id=m.member_id,
         name=m.name,
         email=m.email or "",
@@ -411,7 +416,7 @@ async def enroll_card(
 
     return {
         "success": True,
-        "message": f"Present card to {req.device_id} within 30 seconds",
+        "message": f"Present card to {device_id} within 30 seconds",
         "request_id": request_id,
         "member_id": m.member_id,
         "uid": req.uid,

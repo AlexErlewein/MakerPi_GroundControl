@@ -498,6 +498,10 @@ class PaymentReaderUpdate(BaseModel):
     payment_reader_id: str
 
 
+class CardWriterUpdate(BaseModel):
+    card_writer_id: str
+
+
 @router.get("/api/settings/enrollment-reader")
 async def get_enrollment_reader(db: Session = Depends(get_db)):
     """Get the current enrollment reader device ID and list of known devices."""
@@ -548,6 +552,31 @@ async def set_payment_reader(data: PaymentReaderUpdate):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to persist config: {exc}")
     return {"payment_reader_id": new_id}
+
+
+@router.get("/api/settings/card-writer")
+async def get_card_writer(db: Session = Depends(get_db)):
+    """Get the current card writer device ID and list of known devices."""
+    devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    return {
+        "card_writer_id": _app_config.CARD_WRITER_ID,
+        "devices": [d.device_id for d in devices],
+    }
+
+
+@router.put("/api/settings/card-writer")
+async def set_card_writer(data: CardWriterUpdate):
+    """Update the card writer device ID in memory and persist to config.json."""
+    new_id = data.card_writer_id.strip()
+    _app_config.CARD_WRITER_ID = new_id
+    cfg_path = Path("config/config.json")
+    try:
+        cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+        cfg["card_writer_id"] = new_id
+        cfg_path.write_text(json.dumps(cfg, indent=4, ensure_ascii=False))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist config: {exc}")
+    return {"card_writer_id": new_id}
 
 
 @router.get("/api/scans/payment-stream")

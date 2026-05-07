@@ -69,6 +69,11 @@ PAYMENT_READER_ID: str = _cfg.get(
     "payment_reader_id", os.environ.get("PAYMENT_READER_ID", "")
 )
 
+# NFC Card Writer - the dedicated device used for writing member data to cards
+CARD_WRITER_ID: str = _cfg.get(
+    "card_writer_id", os.environ.get("CARD_WRITER_ID", "")
+)
+
 # Google Drive configuration (for automatic PDF upload)
 GOOGLE_DRIVE_ENABLED: bool = _cfg.get(
     "google_drive_enabled",

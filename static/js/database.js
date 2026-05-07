@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     startAutoRefresh();
     loadEnrollmentReaderSettings();
+    loadCardWriterSettings();
+    loadPaymentReaderSettings();
 });
 
 // Event Listeners
@@ -350,6 +352,138 @@ async function saveEnrollmentReader() {
         }
     } catch (e) {
         setEnrollmentStatus('Verbindungsfehler', 'error');
+    } finally {
+        saveBtn.disabled = false;
+    }
+}
+
+// ── Card Writer Settings ──────────────────────────────────────────────────────
+
+function setCardWriterStatus(msg, type) {
+    const el = document.getElementById('card-writer-status');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = msg;
+    el.style.background = type === 'ok' ? '#1a3a1a' : type === 'error' ? '#3a1a1a' : '#1a2a3a';
+    el.style.color = type === 'ok' ? '#3fb950' : type === 'error' ? '#f85149' : '#79c0ff';
+    el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
+}
+
+async function loadCardWriterSettings() {
+    try {
+        const res = await fetch('/api/settings/card-writer');
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById('card-writer-select');
+        if (!select) return;
+
+        const current = data.card_writer_id || '';
+        select.innerHTML = '<option value="">— Kein Writer auswählen —</option>';
+        (data.devices || []).forEach(id => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id;
+            if (id === current) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        const saveBtn = document.getElementById('save-card-writer');
+        if (saveBtn && !saveBtn._listenerAttached) {
+            saveBtn._listenerAttached = true;
+            saveBtn.addEventListener('click', saveCardWriter);
+        }
+    } catch (e) {
+        console.error('Failed to load card writer settings:', e);
+    }
+}
+
+async function saveCardWriter() {
+    const select = document.getElementById('card-writer-select');
+    const saveBtn = document.getElementById('save-card-writer');
+    if (!select) return;
+    const newId = select.value;
+    saveBtn.disabled = true;
+    try {
+        const res = await fetch('/api/settings/card-writer', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_writer_id: newId }),
+        });
+        if (res.ok) {
+            setCardWriterStatus(newId ? `✓ Writer: ${newId}` : '✓ Kein Writer konfiguriert', 'ok');
+        } else {
+            const err = await res.json();
+            setCardWriterStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
+        }
+    } catch (e) {
+        setCardWriterStatus('Verbindungsfehler', 'error');
+    } finally {
+        saveBtn.disabled = false;
+    }
+}
+
+// ── Payment Reader Settings ───────────────────────────────────────────────────
+
+function setPaymentReaderStatus(msg, type) {
+    const el = document.getElementById('payment-reader-status');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = msg;
+    el.style.background = type === 'ok' ? '#1a3a1a' : type === 'error' ? '#3a1a1a' : '#1a2a3a';
+    el.style.color = type === 'ok' ? '#3fb950' : type === 'error' ? '#f85149' : '#79c0ff';
+    el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
+}
+
+async function loadPaymentReaderSettings() {
+    try {
+        const res = await fetch('/api/settings/payment-reader');
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById('payment-reader-select');
+        if (!select) return;
+
+        const current = data.payment_reader_id || '';
+        select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
+        (data.devices || []).forEach(id => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id;
+            if (id === current) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        const saveBtn = document.getElementById('save-payment-reader');
+        if (saveBtn && !saveBtn._listenerAttached) {
+            saveBtn._listenerAttached = true;
+            saveBtn.addEventListener('click', savePaymentReader);
+        }
+    } catch (e) {
+        console.error('Failed to load payment reader settings:', e);
+    }
+}
+
+async function savePaymentReader() {
+    const select = document.getElementById('payment-reader-select');
+    const saveBtn = document.getElementById('save-payment-reader');
+    if (!select) return;
+    const newId = select.value;
+    saveBtn.disabled = true;
+    try {
+        const res = await fetch('/api/settings/payment-reader', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_reader_id: newId }),
+        });
+        if (res.ok) {
+            setPaymentReaderStatus(newId ? `✓ Reader: ${newId}` : '✓ Kein Reader konfiguriert', 'ok');
+        } else {
+            const err = await res.json();
+            setPaymentReaderStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
+        }
+    } catch (e) {
+        setPaymentReaderStatus('Verbindungsfehler', 'error');
     } finally {
         saveBtn.disabled = false;
     }
