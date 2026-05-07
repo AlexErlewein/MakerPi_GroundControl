@@ -117,6 +117,8 @@
                         <option value="per_volume_l">pro Liter (L × B × H / 1000 × Preis)</option>
                         <option value="per_cubic_meter">pro Kubikmeter m³ (L × B × H / 1.000.000 × Preis)</option>
                         <option value="per_cubic_deci_meter">pro Dezimeter dm³ (L × B × H / 1.000 × Preis)</option>
+                        <option value="per_area_m2">pro Quadratmeter m² (L × B / 10.000 × Preis)</option>
+                        <option value="per_area_dm2">pro Quadratdezimeter dm² (L × B / 100 × Preis)</option>
                         <option value="per_minute">pro Minute (Dauer × Preis)</option>
                     </select>
                 </div>
@@ -210,7 +212,7 @@
                     <p>Erwartet wird eine CSV-Datei mit folgenden Spalten (erste Zeile = Header):</p>
                     <code>standort,kategorie,preismodell,einheit,steuersatz,variante,preis</code>
                     <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
-                        Preismodell-Werte: <em>per_unit, per_gram, per_kilogram, per_volume_cm3, per_volume_l, per_minute</em><br>
+                        Preismodell-Werte: <em>per_unit, per_gram, per_kilogram, per_volume_cm3, per_volume_l, per_volume_m3, per_cubic_meter, per_cubic_deci_meter, per_area_m2, per_area_dm2, per_minute</em><br>
                         Steuersatz-Werte: <em>0, 7, 19</em><br>
                         Einheit: leer lassen wenn nicht zutreffend.<br>
                         Preis: Dezimalpunkt (kein Komma), z.B. <em>0.05</em><br>

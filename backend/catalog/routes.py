@@ -441,6 +441,9 @@ _VALID_PRICING_MODELS = {
     "per_volume_l",
     "per_cubic_meter",
     "per_cubic_deci_meter",
+    "per_volume_m3",
+    "per_area_m2",
+    "per_area_dm2",
     "per_minute",
 }
 _VALID_TAX_RATES = {0, 7, 19, 0.0, 7.0, 19.0}

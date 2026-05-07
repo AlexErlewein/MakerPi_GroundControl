@@ -7,6 +7,9 @@ const PRICING_LABELS = {
     per_volume_l: "pro Liter",
     per_cubic_meter: "pro m³",
     per_cubic_deci_meter: "pro dm³",
+    per_volume_m3: "pro m³",
+    per_area_m2: "pro m²",
+    per_area_dm2: "pro dm²",
     per_minute: "pro Minute",
     per_unit: "pro Stück",
 };
@@ -634,7 +637,22 @@ async function submitBulkImport(payload) {
     }
 }
 
-// Minimal RFC 4180-aware CSV line parser
+// CSV pricing model aliases: accept CSV names → internal names
+const PRICING_MODEL_ALIASES = {
+    per_volume_m3: "per_cubic_meter",
+};
+function normalizePricingModel(pm) {
+    return PRICING_MODEL_ALIASES[pm] || pm;
+}
+
+// Auto-detect tab vs comma separator from the first line
+function detectSeparator(firstLine) {
+    const tabs = (firstLine.match(/\t/g) || []).length;
+    const commas = (firstLine.match(/,/g) || []).length;
+    return tabs > commas ? "\t" : ",";
+}
+
+// Minimal RFC 4180-aware CSV line parser (comma only — tabs use simple split)
 function parseCSVLine(line) {
     const result = [];
     let current = "";
@@ -665,28 +683,37 @@ function parseCsvAndPreview(file) {
             return;
         }
 
-        const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-        const expectedCols = ["standort", "kategorie", "preismodell", "einheit", "steuersatz", "variante", "preis"];
-        const missing = expectedCols.filter((c) => !header.includes(c));
+        const sep = detectSeparator(lines[0]);
+        const splitLine = (l) => sep === "\t" ? l.split("\t") : parseCSVLine(l);
+        const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
+
+        const requiredCols = ["standort", "kategorie", "preismodell", "einheit", "steuersatz", "variante", "preis"];
+        const missing = requiredCols.filter((c) => !header.includes(c));
         if (missing.length > 0) {
             alert("CSV-Header fehlt Spalten: " + missing.join(", "));
             return;
         }
+        const hasUnterkategorie = header.includes("unterkategorie");
 
-        const col = (row, name) => (row[header.indexOf(name)] || "").trim();
+        const col = (row, name) => {
+            const idx = header.indexOf(name);
+            return idx >= 0 ? (row[idx] || "").trim() : "";
+        };
 
         const errors = [];
-        const grouped = new Map();
+        // Tree: standort → kategorie → ukatKey → ukatData
+        const tree = new Map();
 
         lines.slice(1).forEach((line, i) => {
-            const row = parseCSVLine(line);
-            const standort    = col(row, "standort");
-            const kategorie   = col(row, "kategorie");
-            const preismodell = col(row, "preismodell") || "per_unit";
-            const einheit     = col(row, "einheit") || null;
-            const steuersatzStr = col(row, "steuersatz");
-            const variante    = col(row, "variante");
-            const preisStr    = col(row, "preis");
+            const row = splitLine(line);
+            const standort       = col(row, "standort");
+            const kategorie      = col(row, "kategorie");
+            const unterkategorie = hasUnterkategorie ? (col(row, "unterkategorie") || "Standard") : "Standard";
+            const preismodell    = normalizePricingModel(col(row, "preismodell") || "per_unit");
+            const einheit        = col(row, "einheit") || null;
+            const steuersatzStr  = col(row, "steuersatz");
+            const variante       = col(row, "variante");
+            const preisStr       = col(row, "preis");
 
             if (!standort || !kategorie || !variante) {
                 errors.push(`Zeile ${i + 2}: standort, kategorie und variante sind Pflicht.`);
@@ -700,11 +727,16 @@ function parseCsvAndPreview(file) {
                 return;
             }
 
-            const key = `${standort}|${kategorie}|${preismodell}|${einheit}|${steuersatz}`;
-            if (!grouped.has(key)) {
-                grouped.set(key, { standort, kategorie, preismodell, einheit, steuersatz, varianten: [] });
+            if (!tree.has(standort)) tree.set(standort, new Map());
+            const katMap = tree.get(standort);
+            if (!katMap.has(kategorie)) katMap.set(kategorie, new Map());
+            const ukatMap = katMap.get(kategorie);
+
+            const ukatKey = `${unterkategorie}|${preismodell}|${einheit}|${steuersatz}`;
+            if (!ukatMap.has(ukatKey)) {
+                ukatMap.set(ukatKey, { name: unterkategorie, preismodell, einheit, steuersatz, varianten: [] });
             }
-            grouped.get(key).varianten.push({ name: variante, price: preis });
+            ukatMap.get(ukatKey).varianten.push({ name: variante, price: preis });
         });
 
         if (errors.length > 0) {
@@ -712,23 +744,24 @@ function parseCsvAndPreview(file) {
             return;
         }
 
-        const byStandort = new Map();
-        for (const entry of grouped.values()) {
-            if (!byStandort.has(entry.standort)) byStandort.set(entry.standort, []);
-            byStandort.get(entry.standort).push({
-                name: entry.kategorie,
-                pricing_model: entry.preismodell,
-                unit: entry.einheit,
-                tax_rate: entry.steuersatz,
-                varianten: entry.varianten,
-                unterkategorien: [],
-            });
+        csvParsedData = [];
+        for (const [standort, katMap] of tree.entries()) {
+            const kategorien = [];
+            for (const [katName, ukatMap] of katMap.entries()) {
+                const unterkategorien = [];
+                for (const ukatData of ukatMap.values()) {
+                    unterkategorien.push({
+                        name: ukatData.name,
+                        pricing_model: ukatData.preismodell,
+                        unit: ukatData.einheit,
+                        tax_rate: ukatData.steuersatz,
+                        varianten: ukatData.varianten,
+                    });
+                }
+                kategorien.push({ name: katName, unterkategorien });
+            }
+            csvParsedData.push({ location_name: standort, kategorien });
         }
-
-        csvParsedData = Array.from(byStandort.entries()).map(([loc, kats]) => ({
-            location_name: loc,
-            kategorien: kats,
-        }));
 
         renderCsvPreview(csvParsedData);
         document.getElementById("bulk-csv-save").classList.remove("hidden");
@@ -744,31 +777,35 @@ function renderCsvPreview(payloads) {
         html += `<table class="csv-preview-table">
             <thead>
                 <tr>
-                    <th>Kategorie</th><th>Preismodell</th><th>Einheit</th>
-                    <th>MwSt.</th><th>Variante</th><th>Preis</th>
+                    <th>Kategorie</th><th>Unterkategorie</th><th>Preismodell</th>
+                    <th>Einheit</th><th>MwSt.</th><th>Variante</th><th>Preis</th>
                 </tr>
             </thead><tbody>`;
         for (const kat of payload.kategorien) {
-            if (kat.varianten.length === 0) {
-                html += `<tr>
-                    <td>${esc(kat.name)}</td><td>${esc(kat.pricing_model)}</td>
-                    <td>${esc(kat.unit || "—")}</td><td>${kat.tax_rate} %</td>
-                    <td colspan="2" style="color:var(--text-secondary)">Keine Varianten</td>
-                </tr>`;
-            } else {
-                kat.varianten.forEach((v, vi) => {
-                    if (vi === 0) {
-                        html += `<tr>
-                            <td rowspan="${kat.varianten.length}">${esc(kat.name)}</td>
-                            <td rowspan="${kat.varianten.length}">${esc(kat.pricing_model)}</td>
-                            <td rowspan="${kat.varianten.length}">${esc(kat.unit || "—")}</td>
-                            <td rowspan="${kat.varianten.length}">${kat.tax_rate} %</td>
-                            <td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td>
-                        </tr>`;
-                    } else {
-                        html += `<tr><td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td></tr>`;
-                    }
-                });
+            for (const ukat of (kat.unterkategorien || [])) {
+                if (ukat.varianten.length === 0) {
+                    html += `<tr>
+                        <td>${esc(kat.name)}</td><td>${esc(ukat.name)}</td>
+                        <td>${esc(ukat.pricing_model)}</td><td>${esc(ukat.unit || "—")}</td>
+                        <td>${ukat.tax_rate} %</td>
+                        <td colspan="2" style="color:var(--text-secondary)">Keine Varianten</td>
+                    </tr>`;
+                } else {
+                    ukat.varianten.forEach((v, vi) => {
+                        if (vi === 0) {
+                            html += `<tr>
+                                <td rowspan="${ukat.varianten.length}">${esc(kat.name)}</td>
+                                <td rowspan="${ukat.varianten.length}">${esc(ukat.name)}</td>
+                                <td rowspan="${ukat.varianten.length}">${esc(ukat.pricing_model)}</td>
+                                <td rowspan="${ukat.varianten.length}">${esc(ukat.unit || "—")}</td>
+                                <td rowspan="${ukat.varianten.length}">${ukat.tax_rate} %</td>
+                                <td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td>
+                            </tr>`;
+                        } else {
+                            html += `<tr><td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td></tr>`;
+                        }
+                    });
+                }
             }
         }
         html += `</tbody></table>`;

@@ -177,6 +177,10 @@
                             <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
                             <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
                         </div>
+                        <div class="form-row hidden" id="kat-row-area">
+                            <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
+                            <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                        </div>
                         <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
                         <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
                         <div id="kat-price-preview" class="price-preview hidden"></div>
@@ -407,8 +411,12 @@
             const rowMenge = document.getElementById('kat-row-menge');
             const rowMinute = document.getElementById('kat-row-minute');
             rowDim.classList.add('hidden'); rowMenge.classList.add('hidden'); rowMinute.classList.add('hidden');
-            if (pm === 'per_volume_cm3' || pm === 'per_volume_l' || pm === 'per_cubic_meter' || pm === 'per_cubic_deci_meter') {
+            const rowArea = document.getElementById('kat-row-area');
+            rowArea.classList.add('hidden');
+            if (pm === 'per_volume_cm3' || pm === 'per_volume_l' || pm === 'per_cubic_meter' || pm === 'per_cubic_deci_meter' || pm === 'per_volume_m3') {
                 rowDim.classList.remove('hidden');
+            } else if (pm === 'per_area_m2' || pm === 'per_area_dm2') {
+                rowArea.classList.remove('hidden');
             } else if (pm === 'per_minute') {
                 rowMinute.classList.remove('hidden');
             } else if (pm === 'per_gram') {
@@ -462,6 +470,22 @@
                 const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
                 const volDm3 = (l * b * h) / 1000;
                 if (volDm3 > 0) { total = volDm3 * selectedVariante.price; preview = `${volDm3.toFixed(3)} dm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+            } else if (pm === 'per_volume_m3') {
+                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+                const volM3 = (l * b * h) / 1000000;
+                if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+            } else if (pm === 'per_area_m2') {
+                const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
+                const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
+                const areaM2 = (l * b) / 10000;
+                if (areaM2 > 0) { total = areaM2 * selectedVariante.price; preview = `${areaM2.toFixed(4)} m² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+            } else if (pm === 'per_area_dm2') {
+                const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
+                const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
+                const areaDm2 = (l * b) / 100;
+                if (areaDm2 > 0) { total = areaDm2 * selectedVariante.price; preview = `${areaDm2.toFixed(3)} dm² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
             } else if (pm === 'per_minute') {
                 const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
                 if (m > 0) { total = m * selectedVariante.price; preview = `${m} min × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
@@ -571,6 +595,25 @@
                         if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
                         body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
                         body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_volume_m3') {
+                        const l = parseFloat(document.getElementById('kat-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-breite').value);
+                        const h = parseFloat(document.getElementById('kat-hoehe').value);
+                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                        body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_area_m2') {
+                        const l = parseFloat(document.getElementById('kat-area-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-area-breite').value);
+                        if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
+                        body.laenge_cm = l; body.breite_cm = b;
+                        body.calculated_price = parseFloat(((l * b / 10000) * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_area_dm2') {
+                        const l = parseFloat(document.getElementById('kat-area-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-area-breite').value);
+                        if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
+                        body.laenge_cm = l; body.breite_cm = b;
+                        body.calculated_price = parseFloat(((l * b / 100) * selectedVariante.price).toFixed(4));
                     } else if (pm === 'per_minute') {
                         const menge = parseFloat(document.getElementById('kat-menge-minute').value);
                         if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
