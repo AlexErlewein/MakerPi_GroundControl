@@ -49,16 +49,16 @@
 
 .location-actions {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 116px;
+    flex-direction: row;
+    gap: 6px;
     flex-shrink: 0;
+    align-items: center;
 }
 
 .location-actions .btn,
 .kategorie-actions .btn,
 .unterkategorie-actions .btn {
-    width: 100%;
+    min-width: 90px;
     justify-content: center;
     padding: 5px 10px;
     font-size: 0.8rem;
@@ -117,7 +117,7 @@
 
 .kategorie-actions {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 4px;
     min-width: 116px;
     flex-shrink: 0;
@@ -149,7 +149,7 @@
 
 .unterkategorie-actions {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 4px;
     min-width: 116px;
     flex-shrink: 0;
