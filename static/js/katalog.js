@@ -55,17 +55,18 @@ function renderKategorie(kat, loc) {
     const ukats = (kat.unterkategorien || []).map((u) => renderUnterkategorie(u, kat, loc)).join("");
     return `
     <div class="kategorie-block" id="kat-${kat.id}">
-        <div class="kategorie-header">
+        <div class="kategorie-header" onclick="toggleKategorie(${kat.id})">
             <div class="kategorie-title">
+                <span class="kategorie-chevron open" id="chev-kat-${kat.id}">▶</span>
                 🗂 ${esc(kat.name)}
             </div>
-            <div class="kategorie-actions">
+            <div class="kategorie-actions" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditKategorie(${kat.id}, ${loc.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-success" onclick="openAddUnterkategorie(${kat.id})">+ Unterkategorie</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteKategorie(${kat.id})">Löschen</button>
             </div>
         </div>
-        <div class="unterkategorien-list">
+        <div class="kategorie-body" id="kat-body-${kat.id}">
             ${ukats || '<p class="empty" style="padding:6px 0 6px 16px">Keine Unterkategorien. Klicke "+ Unterkategorie".</p>'}
         </div>
     </div>`;
@@ -78,27 +79,30 @@ function renderUnterkategorie(ukat, kat, loc) {
     const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
     return `
     <div class="unterkategorie-block" id="ukat-${ukat.id}">
-        <div class="unterkategorie-header">
+        <div class="unterkategorie-header" onclick="toggleUnterkategorie(${ukat.id})">
             <div class="unterkategorie-title">
+                <span class="unterkategorie-chevron open" id="chev-ukat-${ukat.id}">▶</span>
                 📁 ${esc(ukat.name)}
                 <span class="pricing-badge">${esc(pricingLabel)}</span>
                 ${unit ? `<span class="unit-label">[${esc(unit)}]</span>` : ""}
                 <span class="pricing-badge">${taxRate} % MwSt.</span>
             </div>
-            <div class="unterkategorie-actions">
+            <div class="unterkategorie-actions" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(unit)}')">+ Variante</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteUnterkategorie(${ukat.id})">Löschen</button>
             </div>
         </div>
-        <table class="varianten-table">
-            <thead>
-                <tr><th>Variante</th><th>Preis</th><th>Aktionen</th></tr>
-            </thead>
-            <tbody>
-                ${rows || `<tr><td colspan="3" class="empty">Keine Varianten.</td></tr>`}
-            </tbody>
-        </table>
+        <div class="unterkategorie-body" id="ukat-body-${ukat.id}">
+            <table class="varianten-table">
+                <thead>
+                    <tr><th>Variante</th><th>Preis</th><th>Aktionen</th></tr>
+                </thead>
+                <tbody>
+                    ${rows || `<tr><td colspan="3" class="empty">Keine Varianten.</td></tr>`}
+                </tbody>
+            </table>
+        </div>
     </div>`;
 }
 
@@ -118,6 +122,20 @@ function renderVariante(v, ukat) {
 function toggleLocation(id) {
     const body = document.getElementById(`loc-body-${id}`);
     const chev = document.getElementById(`chev-${id}`);
+    body.classList.toggle("hidden");
+    chev.classList.toggle("open");
+}
+
+function toggleKategorie(id) {
+    const body = document.getElementById(`kat-body-${id}`);
+    const chev = document.getElementById(`chev-kat-${id}`);
+    body.classList.toggle("hidden");
+    chev.classList.toggle("open");
+}
+
+function toggleUnterkategorie(id) {
+    const body = document.getElementById(`ukat-body-${id}`);
+    const chev = document.getElementById(`chev-ukat-${id}`);
     body.classList.toggle("hidden");
     chev.classList.toggle("open");
 }
