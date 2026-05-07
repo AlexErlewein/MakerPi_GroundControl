@@ -468,6 +468,10 @@
             <div class="bar-payment-body" style="text-align:center;padding:1.5rem 1rem;">
                 <p style="font-size:1.1rem;margin-bottom:0.5rem;">⚠️ Laufzettel #<span id="delete-lz-id-display"></span> wirklich löschen?</p>
                 <p style="color:var(--text-secondary);font-size:0.9rem;">Diese Aktion kann nicht rückgängig gemacht werden. Alle Materialeinträge werden ebenfalls gelöscht.</p>
+                <div id="delete-lz-admin-section" class="hidden" style="margin-top:1rem;text-align:left;">
+                    <label style="font-size:0.9rem;color:var(--text-secondary);">Admin-Passwort zur Bestätigung</label>
+                    <input type="password" id="delete-lz-admin-pw" placeholder="Passwort eingeben" style="width:100%;margin-top:4px;">
+                </div>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="delete-lz-cancel">Abbrechen</button>

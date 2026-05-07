@@ -1468,10 +1468,44 @@ function openDeleteModal() {
 
 function closeDeleteModal() {
     document.getElementById("delete-lz-modal").classList.add("hidden");
+    document.getElementById("delete-lz-admin-section").classList.add("hidden");
+    document.getElementById("delete-lz-admin-pw").value = "";
+    document.getElementById("delete-lz-confirm").textContent = "Ja, endgültig löschen";
 }
 
 async function confirmDeleteLaufzettel() {
     const confirmBtn = document.getElementById("delete-lz-confirm");
+    const adminSection = document.getElementById("delete-lz-admin-section");
+    const adminPw = document.getElementById("delete-lz-admin-pw");
+
+    // If the password field is visible, verify admin first then retry
+    if (!adminSection.classList.contains("hidden")) {
+        const pw = adminPw.value.trim();
+        if (!pw) { adminPw.focus(); return; }
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Verifiziere…";
+        try {
+            const vRes = await fetch("/api/auth/verify-admin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: pw }),
+            });
+            if (!vRes.ok) {
+                const err = await vRes.json().catch(() => ({}));
+                alert("Falsches Passwort: " + (err.detail || vRes.status));
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = "Löschen bestätigen";
+                adminPw.focus();
+                return;
+            }
+        } catch (e) {
+            alert(`Fehler: ${e.message}`);
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Löschen bestätigen";
+            return;
+        }
+    }
+
     confirmBtn.disabled = true;
     confirmBtn.textContent = "Wird gelöscht…";
     try {
@@ -1479,6 +1513,12 @@ async function confirmDeleteLaufzettel() {
         if (response.ok) {
             const dest = _fromParam === "kasse" ? "/kasse" : _fromParam === "member" ? "/member/laufzettel" : "/laufzettel";
             window.location.href = dest;
+        } else if (response.status === 403) {
+            // Admin verification required — show password field
+            adminSection.classList.remove("hidden");
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Löschen bestätigen";
+            adminPw.focus();
         } else {
             const err = await response.json().catch(() => ({}));
             alert(`Fehler beim Löschen: ${err.detail || response.status}`);
