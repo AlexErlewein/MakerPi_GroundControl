@@ -407,7 +407,7 @@
             const rowMenge = document.getElementById('kat-row-menge');
             const rowMinute = document.getElementById('kat-row-minute');
             rowDim.classList.add('hidden'); rowMenge.classList.add('hidden'); rowMinute.classList.add('hidden');
-            if (pm === 'per_volume_cm3' || pm === 'per_volume_l' || pm === 'per_cubic_meter') {
+            if (pm === 'per_volume_cm3' || pm === 'per_volume_l' || pm === 'per_cubic_meter' || pm === 'per_cubic_deci_meter') {
                 rowDim.classList.remove('hidden');
             } else if (pm === 'per_minute') {
                 rowMinute.classList.remove('hidden');
@@ -456,6 +456,12 @@
                 const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
                 const volM3 = (l * b * h) / 1000000;
                 if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+            } else if (pm === 'per_cubic_deci_meter') {
+                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+                const volDm3 = (l * b * h) / 1000;
+                if (volDm3 > 0) { total = volDm3 * selectedVariante.price; preview = `${volDm3.toFixed(3)} dm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
             } else if (pm === 'per_minute') {
                 const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
                 if (m > 0) { total = m * selectedVariante.price; preview = `${m} min × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
@@ -558,6 +564,13 @@
                         if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
                         body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
                         body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_cubic_deci_meter') {
+                        const l = parseFloat(document.getElementById('kat-laenge').value);
+                        const b = parseFloat(document.getElementById('kat-breite').value);
+                        const h = parseFloat(document.getElementById('kat-hoehe').value);
+                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                        body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
                     } else if (pm === 'per_minute') {
                         const menge = parseFloat(document.getElementById('kat-menge-minute').value);
                         if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }

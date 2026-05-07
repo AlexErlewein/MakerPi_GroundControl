@@ -6,6 +6,7 @@ const PRICING_LABELS = {
     per_volume_cm3: "pro cm³",
     per_volume_l: "pro Liter",
     per_cubic_meter: "pro m³",
+    per_cubic_deci_meter: "pro dm³",
     per_minute: "pro Minute",
     per_unit: "pro Stück",
 };
