@@ -135,7 +135,8 @@ function startNfcScan() {
         resetScanButton();
         const uid = data.uid.toUpperCase();
         document.getElementById("nfc-scan-uid").value = uid;
-        setScanStatus(`✓ UID gescannt: ${uid}`, "ok");
+        setScanStatus(`✓ UID gescannt: ${uid} — sende Schreibbefehl…`, "info");
+        enrollCard(uid);
     };
 
     evtSource.onerror = (e) => {
@@ -145,6 +146,25 @@ function startNfcScan() {
         resetScanButton();
         setScanStatus("Verbindungsfehler beim Warten auf Scan.", "error");
     };
+}
+
+async function enrollCard(uid) {
+    if (!nfcScanningMitgliedId) return;
+    try {
+        const res = await fetch(`/api/mitglieder/${nfcScanningMitgliedId}/enroll-card`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid }),
+        });
+        if (res.ok) {
+            setScanStatus(`✓ Schreibbefehl gesendet — halte die Karte weiter an den Reader, dann Speichern klicken.`, "ok");
+        } else {
+            const err = await res.json();
+            setScanStatus(`Schreiben fehlgeschlagen: ${err.detail || "Unbekannter Fehler"}`, "error");
+        }
+    } catch (e) {
+        setScanStatus(`Fehler beim Schreiben: ${e.message}`, "error");
+    }
 }
 
 async function loadEnrollmentReader() {
