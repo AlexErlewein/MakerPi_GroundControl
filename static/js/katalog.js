@@ -1,4 +1,5 @@
 let katalog = [];
+let editMode = false;
 
 const PRICING_LABELS = {
     per_gram: "pro gr",
@@ -31,6 +32,7 @@ function renderTree() {
 
 function renderLocation(loc) {
     const kats = (loc.kategorien || []).map((k) => renderKategorie(k, loc)).join("");
+    const actionsClass = editMode ? '' : 'hidden';
     return `
     <div class="location-block" id="loc-${loc.id}">
         <div class="location-header" onclick="toggleLocation(${loc.id})">
@@ -39,7 +41,7 @@ function renderLocation(loc) {
                 📍 ${esc(loc.name)}
                 <span style="color:var(--text-secondary);font-size:0.85rem;">(${loc.kategorien.length} Kategorien)</span>
             </div>
-            <div class="location-actions" onclick="event.stopPropagation()">
+            <div class="location-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditLocation(${loc.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-success" onclick="openAddKategorie(${loc.id})">+ Kategorie</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteLocation(${loc.id})">Löschen</button>
@@ -53,6 +55,7 @@ function renderLocation(loc) {
 
 function renderKategorie(kat, loc) {
     const ukats = (kat.unterkategorien || []).map((u) => renderUnterkategorie(u, kat, loc)).join("");
+    const actionsClass = editMode ? '' : 'hidden';
     return `
     <div class="kategorie-block" id="kat-${kat.id}">
         <div class="kategorie-header" onclick="toggleKategorie(${kat.id})">
@@ -60,7 +63,7 @@ function renderKategorie(kat, loc) {
                 <span class="kategorie-chevron open" id="chev-kat-${kat.id}">▶</span>
                 🗂 ${esc(kat.name)}
             </div>
-            <div class="kategorie-actions" onclick="event.stopPropagation()">
+            <div class="kategorie-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditKategorie(${kat.id}, ${loc.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-success" onclick="openAddUnterkategorie(${kat.id})">+ Unterkategorie</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteKategorie(${kat.id})">Löschen</button>
@@ -77,6 +80,7 @@ function renderUnterkategorie(ukat, kat, loc) {
     const unit = ukat.unit ? ukat.unit : "";
     const taxRate = ukat.tax_rate != null ? ukat.tax_rate : 19;
     const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
+    const actionsClass = editMode ? '' : 'hidden';
     return `
     <div class="unterkategorie-block" id="ukat-${ukat.id}">
         <div class="unterkategorie-header" onclick="toggleUnterkategorie(${ukat.id})">
@@ -87,7 +91,7 @@ function renderUnterkategorie(ukat, kat, loc) {
                 ${unit ? `<span class="unit-label">[${esc(unit)}]</span>` : ""}
                 <span class="pricing-badge">${taxRate} % MwSt.</span>
             </div>
-            <div class="unterkategorie-actions" onclick="event.stopPropagation()">
+            <div class="unterkategorie-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
                 <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(unit)}')">+ Variante</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteUnterkategorie(${ukat.id})">Löschen</button>
@@ -108,11 +112,12 @@ function renderUnterkategorie(ukat, kat, loc) {
 
 function renderVariante(v, ukat) {
     const pricingLabel = PRICING_LABELS[ukat.pricing_model] || ukat.pricing_model;
+    const actionsClass = editMode ? '' : 'hidden';
     return `
     <tr id="var-${v.id}">
         <td>${esc(v.name)}</td>
         <td class="price-cell">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
-        <td class="actions">
+        <td class="actions ${actionsClass}">
             <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(ukat.unit || "")}')">Bearbeiten</button>
             <button class="btn btn-sm btn-danger" onclick="deleteVariante(${v.id})">Löschen</button>
         </td>
@@ -138,6 +143,29 @@ function toggleUnterkategorie(id) {
     const chev = document.getElementById(`chev-ukat-${id}`);
     body.classList.toggle("hidden");
     chev.classList.toggle("open");
+}
+
+function toggleEditMode() {
+    editMode = !editMode;
+    const btn = document.getElementById("edit-mode-btn");
+    const bulkBtn = document.getElementById("bulk-import-btn");
+    const addLocBtn = document.getElementById("add-location-btn");
+    
+    if (editMode) {
+        btn.textContent = "✓ Fertig";
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-success");
+        bulkBtn.classList.remove("hidden");
+        addLocBtn.classList.remove("hidden");
+    } else {
+        btn.textContent = "✎ Bearbeiten";
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-primary");
+        bulkBtn.classList.add("hidden");
+        addLocBtn.classList.add("hidden");
+    }
+    
+    renderTree();
 }
 
 function esc(str) {
@@ -190,6 +218,7 @@ async function deleteLocation(id) {
 }
 
 document.getElementById("add-location-btn").addEventListener("click", openAddLocation);
+document.getElementById("edit-mode-btn").addEventListener("click", toggleEditMode);
 document.getElementById("location-modal-close").addEventListener("click", closeLocationModal);
 document.getElementById("location-cancel").addEventListener("click", closeLocationModal);
 document.getElementById("location-overlay").addEventListener("click", closeLocationModal);
