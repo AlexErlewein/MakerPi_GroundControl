@@ -221,6 +221,10 @@
 
 /* ── Payment section ─────────────────────────────────────────── */
 
+#payment-section {
+    padding: 0;
+}
+
 .payment-buttons {
     display: flex;
     gap: 12px;
