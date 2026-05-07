@@ -1,49 +1,5 @@
 /* Device Detail Page Styles */
 
-.header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.header-actions {
-    display: flex;
-    gap: 10px;
-}
-
-/* Buttons */
-.btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: opacity 0.2s;
-}
-
-.btn:hover {
-    opacity: 0.9;
-}
-
-.btn-primary {
-    background: var(--accent);
-    color: white;
-}
-
-.btn-secondary {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-}
-
-.btn-icon {
-    font-size: 1.1rem;
-}
-
 /* Device Info Card */
 .device-info-card {
     background: var(--bg-secondary);

@@ -558,6 +558,80 @@ footer {
     }
 }
 
+/* ── Buttons (shared across all pages) ──────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.btn:hover { opacity: 0.85; }
+.btn-primary  { background: var(--accent); color: #fff; }
+.btn-success  { background: var(--success); color: #fff; }
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+.btn-icon { font-size: 1.1rem; font-style: normal; }
+
+/* ── Header Actions ──────────────────────────────────────────────────────── */
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+/* ── Section Header (h2 + action buttons inside a .section) ─────────────── */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.section-header h2 { margin: 0; }
+
+/* ── Inline actions group ────────────────────────────────────────────────── */
+.actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ── Filter row inside sections ──────────────────────────────────────────── */
+.filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.filter-select,
+.filter-input {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+.filter-select { min-width: 140px; }
+.filter-input  { min-width: 200px; }
+.filter-select:focus,
+.filter-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Misc helpers ────────────────────────────────────────────────────────── */
+.optional { color: var(--text-secondary); font-size: 0.8rem; }
+
 /* Zigbee Device Styles */
 .ieee-address {
     font-family: 'SF Mono', Monaco, monospace;

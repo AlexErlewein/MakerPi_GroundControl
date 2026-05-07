@@ -1,37 +1,5 @@
 /* Tags page styles */
 
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.section-header h2 {
-    margin: 0;
-}
-
-/* Buttons */
-.btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: opacity 0.15s;
-}
-.btn:hover { opacity: 0.85; }
-
-.btn-primary  { background: var(--accent); color: #fff; }
-.btn-success  { background: var(--success); color: #fff; }
-.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); }
-.btn-danger   { background: var(--danger); color: #fff; }
-
-.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
-
-.actions { display: flex; gap: 6px; }
-
 /* Badges */
 .badge {
     display: inline-block;
