@@ -156,15 +156,39 @@ async function enrollCard(uid) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ uid }),
         });
-        if (res.ok) {
-            setScanStatus(`✓ Schreibbefehl gesendet — halte die Karte weiter an den Reader, dann Speichern klicken.`, "ok");
-        } else {
+        if (!res.ok) {
             const err = await res.json();
             setScanStatus(`Schreiben fehlgeschlagen: ${err.detail || "Unbekannter Fehler"}`, "error");
+            return;
         }
+        const data = await res.json();
+        setScanStatus(`⏳ Schreibe auf Karte… halte die Karte weiter an den Reader.`, "info");
+        pollWriteResult(data.device_id, data.request_id);
     } catch (e) {
         setScanStatus(`Fehler beim Schreiben: ${e.message}`, "error");
     }
+}
+
+async function pollWriteResult(deviceId, requestId, attempts = 0) {
+    if (attempts > 35) {
+        setScanStatus(`Timeout — kein Schreibergebnis erhalten. Bitte erneut versuchen.`, "error");
+        return;
+    }
+    try {
+        const res = await fetch(`/api/write-result?device_id=${encodeURIComponent(deviceId)}&request_id=${encodeURIComponent(requestId)}`);
+        const data = await res.json();
+        if (data.found) {
+            if (data.success) {
+                setScanStatus(`✓ Karte erfolgreich beschrieben! Jetzt Speichern klicken.`, "ok");
+            } else {
+                setScanStatus(`Fehler beim Beschreiben: ${data.error || "Unbekannter Fehler"}`, "error");
+            }
+            return;
+        }
+    } catch (e) {
+        // ignore poll errors, keep retrying
+    }
+    setTimeout(() => pollWriteResult(deviceId, requestId, attempts + 1), 1000);
 }
 
 async function loadEnrollmentReader() {

@@ -418,6 +418,7 @@ async def enroll_card(
         "success": True,
         "message": f"Present card to {device_id} within 30 seconds",
         "request_id": request_id,
+        "device_id": device_id,
         "member_id": m.member_id,
         "uid": req.uid,
     }
