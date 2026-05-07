@@ -81,6 +81,7 @@ function renderUnterkategorie(ukat, kat, loc) {
     const taxRate = ukat.tax_rate != null ? ukat.tax_rate : 19;
     const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
     const actionsClass = editMode ? '' : 'hidden';
+    const colSpan = editMode ? 3 : 2;
     return `
     <div class="unterkategorie-block" id="ukat-${ukat.id}">
         <div class="unterkategorie-header" onclick="toggleUnterkategorie(${ukat.id})">
@@ -100,10 +101,15 @@ function renderUnterkategorie(ukat, kat, loc) {
         <div class="unterkategorie-body" id="ukat-body-${ukat.id}">
             <table class="varianten-table">
                 <thead>
-                    <tr><th>Variante</th><th>Preis</th><th>Aktionen</th></tr>
+                    <tr>
+                        <th>Variante</th>
+                        <th class="${editMode ? 'hidden' : ''}">Preis</th>
+                        <th class="${editMode ? '' : 'hidden'}">Preis</th>
+                        <th class="${editMode ? '' : 'hidden'}">Aktionen</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    ${rows || `<tr><td colspan="3" class="empty">Keine Varianten.</td></tr>`}
+                    ${rows || `<tr><td colspan="${colSpan}" class="empty">Keine Varianten.</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -116,7 +122,8 @@ function renderVariante(v, ukat) {
     return `
     <tr id="var-${v.id}">
         <td>${esc(v.name)}</td>
-        <td class="price-cell">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
+        <td class="price-cell ${editMode ? 'hidden' : ''}">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
+        <td class="price-cell ${editMode ? '' : 'hidden'}">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
         <td class="actions ${actionsClass}">
             <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(ukat.unit || "")}')">Bearbeiten</button>
             <button class="btn btn-sm btn-danger" onclick="deleteVariante(${v.id})">Löschen</button>
