@@ -165,6 +165,12 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="kat-select-unterkategorie">Unterkategorie</label>
+                            <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
+                                <option value="">-- Unterkategorie wählen --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label for="kat-select-variante">Variante</label>
                             <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
                                 <option value="">-- Variante wählen --</option>
@@ -430,8 +436,11 @@
         function onKatKategorieChange() {
             const locId = parseInt(document.getElementById('kat-select-location').value);
             const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+            const ukatSel = document.getElementById('kat-select-unterkategorie');
             const varSel = document.getElementById('kat-select-variante');
 
+            ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+            ukatSel.disabled = true;
             varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
             varSel.disabled = true;
             selectedVariante = null;
@@ -444,11 +453,35 @@
             const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
             if (!kat) return;
 
-            selectedKategorie = kat;
+            ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>' +
+                (kat.unterkategorien || []).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+            ukatSel.disabled = false;
+        }
+
+        function onKatUnterkategorieChange() {
+            const locId = parseInt(document.getElementById('kat-select-location').value);
+            const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+            const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
+            const varSel = document.getElementById('kat-select-variante');
+
+            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+            varSel.disabled = true;
+            selectedVariante = null;
+            selectedKategorie = null;
+            hideKatInputFields();
+            hidePricePreview();
+
+            if (!ukatId) return;
+            const loc = katalog.find((l) => l.id === locId);
+            const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+            const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
+            if (!ukat) return;
+
+            selectedKategorie = ukat;
             varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
-                (kat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €)</option>`).join('');
+                (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €)</option>`).join('');
             varSel.disabled = false;
-            showKatInputFields(kat.pricing_model, kat.unit);
+            showKatInputFields(ukat.pricing_model, ukat.unit);
         }
 
         function onKatVarianteChange() {
@@ -462,11 +495,12 @@
 
         function showKatInputFields(pricingModel, unit) {
             const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_volume_l';
-            document.getElementById('kat-fields-gram').classList.toggle('hidden', pricingModel !== 'per_gram');
+            const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
+            document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight);
             document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
             document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
             document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
-            const unitLabel = unit ? `(${unit})` : '';
+            const unitLabel = unit ? `(${unit})` : (pricingModel === 'per_kilogram' ? '(kg)' : pricingModel === 'per_gram' ? '(g)' : '');
             document.getElementById('kat-gram-label').textContent = unitLabel;
             document.getElementById('kat-unit-label').textContent = unitLabel;
             ['kat-menge-gram', 'kat-menge-minute', 'kat-menge-unit', 'kat-laenge', 'kat-breite', 'kat-hoehe'].forEach((id) => {
@@ -487,6 +521,9 @@
             let price = null;
 
             if (pm === 'per_gram') {
+                const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+                if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+            } else if (pm === 'per_kilogram') {
                 const menge = parseFloat(document.getElementById('kat-menge-gram').value);
                 if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
             } else if (pm === 'per_volume_cm3') {
@@ -536,6 +573,8 @@
             document.getElementById('kat-select-location').value = '';
             document.getElementById('kat-select-kategorie').innerHTML = '<option value="">-- Kategorie wählen --</option>';
             document.getElementById('kat-select-kategorie').disabled = true;
+            document.getElementById('kat-select-unterkategorie').innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+            document.getElementById('kat-select-unterkategorie').disabled = true;
             document.getElementById('kat-select-variante').innerHTML = '<option value="">-- Variante wählen --</option>';
             document.getElementById('kat-select-variante').disabled = true;
             hideKatInputFields();
@@ -605,6 +644,12 @@
                         const menge = parseFloat(document.getElementById('kat-menge-gram').value);
                         if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
                         body.menge = menge;
+                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                    } else if (pm === 'per_kilogram') {
+                        const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                        body.menge = menge;
+                        body.unit = selectedKategorie.unit || 'kg';
                         body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
                     } else if (pm === 'per_volume_cm3') {
                         const l = parseFloat(document.getElementById('kat-laenge').value);

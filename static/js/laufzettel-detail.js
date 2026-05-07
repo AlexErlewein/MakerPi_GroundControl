@@ -171,28 +171,39 @@ function buildMengeDisplay(m) {
     return m.menge != null ? String(m.menge) : "-";
 }
 
-function getKatAndVariante(varianteId) {
+function getUkatAndVariante(varianteId) {
     if (!varianteId) return null;
     for (const loc of katalog) {
         for (const kat of (loc.kategorien || [])) {
-            for (const v of (kat.varianten || [])) {
-                if (v.id === varianteId) return { kat, variante: v };
+            for (const ukat of (kat.unterkategorien || [])) {
+                for (const v of (ukat.varianten || [])) {
+                    if (v.id === varianteId) return { ukat, variante: v, loc };
+                }
             }
         }
     }
     return null;
 }
 
-function getUnitPriceLabel(varianteId) {
-    const found = getKatAndVariante(varianteId);
+// Legacy alias kept for any call-sites that use the old name
+function getKatAndVariante(varianteId) {
+    const found = getUkatAndVariante(varianteId);
     if (!found) return null;
-    const { kat, variante } = found;
-    const pm = kat.pricing_model;
+    return { kat: found.ukat, variante: found.variante };
+}
+
+function getUnitPriceLabel(varianteId) {
+    const found = getUkatAndVariante(varianteId);
+    if (!found) return null;
+    const { ukat, variante } = found;
+    const pm = ukat.pricing_model;
     const suffix = pm === "per_gram" ? "/gr"
+        : pm === "per_kilogram" ? "/kg"
         : pm === "per_volume_cm3" ? "/cm³"
         : pm === "per_volume_l" ? "/L"
+        : pm === "per_cubic_meter" ? "/m³"
         : pm === "per_minute" ? "/min"
-        : `/${kat.unit || "Stück"}`;
+        : `/${ukat.unit || "Stück"}`;
     return `${variante.price.toFixed(2)} €${suffix}`;
 }
 
@@ -200,8 +211,10 @@ function getLocationForVariante(varianteId) {
     if (!varianteId) return null;
     for (const loc of katalog) {
         for (const kat of (loc.kategorien || [])) {
-            for (const v of (kat.varianten || [])) {
-                if (v.id === varianteId) return loc.name;
+            for (const ukat of (kat.unterkategorien || [])) {
+                for (const v of (ukat.varianten || [])) {
+                    if (v.id === varianteId) return loc.name;
+                }
             }
         }
     }
@@ -374,8 +387,11 @@ function onKatLocationChange() {
 function onKatKategorieChange() {
     const locId = parseInt(document.getElementById("kat-select-location").value);
     const katId = parseInt(document.getElementById("kat-select-kategorie").value);
+    const ukatSel = document.getElementById("kat-select-unterkategorie");
     const varSel = document.getElementById("kat-select-variante");
 
+    ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+    ukatSel.disabled = true;
     varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
     varSel.disabled = true;
     selectedVariante = null;
@@ -388,11 +404,35 @@ function onKatKategorieChange() {
     const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
     if (!kat) return;
 
-    selectedKategorie = kat;
+    ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>' +
+        (kat.unterkategorien || []).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join("");
+    ukatSel.disabled = false;
+}
+
+function onKatUnterkategorieChange() {
+    const locId = parseInt(document.getElementById("kat-select-location").value);
+    const katId = parseInt(document.getElementById("kat-select-kategorie").value);
+    const ukatId = parseInt(document.getElementById("kat-select-unterkategorie").value);
+    const varSel = document.getElementById("kat-select-variante");
+
+    varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+    varSel.disabled = true;
+    selectedVariante = null;
+    selectedKategorie = null;
+    hideKatInputFields();
+    hidePricePreview();
+
+    if (!ukatId) return;
+    const loc = katalog.find((l) => l.id === locId);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+    const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
+    if (!ukat) return;
+
+    selectedKategorie = ukat;  // selectedKategorie now holds the unterkategorie
     varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
-        (kat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €)</option>`).join("");
+        (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €)</option>`).join("");
     varSel.disabled = false;
-    showKatInputFields(kat.pricing_model, kat.unit);
+    showKatInputFields(ukat.pricing_model, ukat.unit);
 }
 
 function onKatVarianteChange() {
@@ -404,12 +444,13 @@ function onKatVarianteChange() {
 }
 
 function showKatInputFields(pricingModel, unit) {
-    const isVolume = pricingModel === "per_volume_cm3" || pricingModel === "per_volume_l";
-    document.getElementById("kat-fields-gram").classList.toggle("hidden", pricingModel !== "per_gram");
+    const isVolume = pricingModel === "per_volume_cm3" || pricingModel === "per_volume_l" || pricingModel === "per_cubic_meter";
+    const isWeight = pricingModel === "per_gram" || pricingModel === "per_kilogram";
+    document.getElementById("kat-fields-gram").classList.toggle("hidden", !isWeight);
     document.getElementById("kat-fields-volume").classList.toggle("hidden", !isVolume);
     document.getElementById("kat-fields-minute").classList.toggle("hidden", pricingModel !== "per_minute");
     document.getElementById("kat-fields-unit").classList.toggle("hidden", pricingModel !== "per_unit");
-    const unitLabel = unit ? `(${unit})` : "";
+    const unitLabel = unit ? `(${unit})` : (pricingModel === "per_kilogram" ? "(kg)" : pricingModel === "per_gram" ? "(g)" : "");
     document.getElementById("kat-gram-label").textContent = unitLabel;
     document.getElementById("kat-unit-label").textContent = unitLabel;
     // attach live recalc listeners
@@ -433,6 +474,9 @@ function recalcPrice() {
     if (pm === "per_gram") {
         const menge = parseFloat(document.getElementById("kat-menge-gram").value);
         if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+    } else if (pm === "per_kilogram") {
+        const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+        if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
     } else if (pm === "per_volume_cm3") {
         const l = parseFloat(document.getElementById("kat-laenge").value);
         const b = parseFloat(document.getElementById("kat-breite").value);
@@ -446,6 +490,13 @@ function recalcPrice() {
         const h = parseFloat(document.getElementById("kat-hoehe").value);
         if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
             price = (l * b * h / 1000) * selectedVariante.price;
+        }
+    } else if (pm === "per_cubic_meter") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000000) * selectedVariante.price;
         }
     } else if (pm === "per_minute") {
         const menge = parseFloat(document.getElementById("kat-menge-minute").value);
@@ -471,6 +522,8 @@ function resetKatalogFields() {
     document.getElementById("kat-select-location").value = "";
     document.getElementById("kat-select-kategorie").innerHTML = '<option value="">-- Kategorie wählen --</option>';
     document.getElementById("kat-select-kategorie").disabled = true;
+    document.getElementById("kat-select-unterkategorie").innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+    document.getElementById("kat-select-unterkategorie").disabled = true;
     document.getElementById("kat-select-variante").innerHTML = '<option value="">-- Variante wählen --</option>';
     document.getElementById("kat-select-variante").disabled = true;
     hideKatInputFields();
@@ -511,6 +564,12 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
             if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }
             body.menge = menge;
             body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+        } else if (pm === "per_kilogram") {
+            const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+            if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }
+            body.menge = menge;
+            body.unit = selectedKategorie.unit || "kg";
+            body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
         } else if (pm === "per_volume_cm3") {
             const l = parseFloat(document.getElementById("kat-laenge").value);
             const b = parseFloat(document.getElementById("kat-breite").value);
@@ -529,6 +588,15 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
             body.breite_cm = b;
             body.hoehe_cm = h;
             body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+        } else if (pm === "per_cubic_meter") {
+            const l = parseFloat(document.getElementById("kat-laenge").value);
+            const b = parseFloat(document.getElementById("kat-breite").value);
+            const h = parseFloat(document.getElementById("kat-hoehe").value);
+            if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+            body.laenge_cm = l;
+            body.breite_cm = b;
+            body.hoehe_cm = h;
+            body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
         } else if (pm === "per_minute") {
             const menge = parseFloat(document.getElementById("kat-menge-minute").value);
             if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Dauer eingeben."); return; }

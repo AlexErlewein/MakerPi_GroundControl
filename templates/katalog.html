@@ -84,30 +84,55 @@
                     <label for="field-kat-name">Name</label>
                     <input type="text" id="field-kat-name" placeholder="z.B. Ton, Holz" required>
                 </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="kategorie-cancel">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Unterkategorie Modal -->
+    <div id="unterkategorie-modal" class="modal hidden">
+        <div class="modal-overlay" id="unterkategorie-overlay"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="unterkategorie-modal-title">Neue Unterkategorie</h3>
+                <button class="modal-close" id="unterkategorie-modal-close">✕</button>
+            </div>
+            <form id="unterkategorie-form">
+                <input type="hidden" id="edit-unterkategorie-id">
+                <input type="hidden" id="edit-unterkategorie-kategorie-id">
                 <div class="form-group">
-                    <label for="field-kat-pricing">Preismodell</label>
-                    <select id="field-kat-pricing">
+                    <label for="field-ukat-name">Name</label>
+                    <input type="text" id="field-ukat-name" placeholder="z.B. Standard, Fein, Grob" required>
+                </div>
+                <div class="form-group">
+                    <label for="field-ukat-pricing">Preismodell</label>
+                    <select id="field-ukat-pricing">
                         <option value="per_unit">pro Einheit (Menge × Preis)</option>
                         <option value="per_gram">pro Gramm (Gewicht × Preis)</option>
+                        <option value="per_kilogram">pro Kilogramm (Gewicht × Preis)</option>
                         <option value="per_volume_cm3">pro Volumen cm³ (L × B × H × Preis)</option>
                         <option value="per_volume_l">pro Liter (L × B × H / 1000 × Preis)</option>
+                        <option value="per_cubic_meter">pro Kubikmeter m³ (L × B × H / 1.000.000 × Preis)</option>
                         <option value="per_minute">pro Minute (Dauer × Preis)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="field-kat-unit">Einheit <span class="optional">(Anzeige, z.B. g, cm³, Stück)</span></label>
-                    <input type="text" id="field-kat-unit" placeholder="z.B. g">
+                    <label for="field-ukat-unit">Einheit <span class="optional">(Anzeige, z.B. g, cm³, Stück)</span></label>
+                    <input type="text" id="field-ukat-unit" placeholder="z.B. g">
                 </div>
                 <div class="form-group">
-                    <label for="field-kat-tax-rate">Steuersatz (MwSt.)</label>
-                    <select id="field-kat-tax-rate">
+                    <label for="field-ukat-tax-rate">Steuersatz (MwSt.)</label>
+                    <select id="field-ukat-tax-rate">
                         <option value="19">19 % (Regelsteuersatz)</option>
                         <option value="7">7 % (ermäßigt)</option>
                         <option value="0">0 % (steuerfrei)</option>
                     </select>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="kategorie-cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-secondary" id="unterkategorie-cancel">Abbrechen</button>
                     <button type="submit" class="btn btn-success">Speichern</button>
                 </div>
             </form>
@@ -124,7 +149,7 @@
             </div>
             <form id="variante-form">
                 <input type="hidden" id="edit-variante-id">
-                <input type="hidden" id="edit-variante-kategorie-id">
+                <input type="hidden" id="edit-variante-unterkategorie-id">
                 <div class="form-group">
                     <label for="field-var-name">Name</label>
                     <input type="text" id="field-var-name" placeholder="z.B. fein, Eiche" required>
@@ -184,10 +209,11 @@
                     <p>Erwartet wird eine CSV-Datei mit folgenden Spalten (erste Zeile = Header):</p>
                     <code>standort,kategorie,preismodell,einheit,steuersatz,variante,preis</code>
                     <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
-                        Preismodell-Werte: <em>per_unit, per_gram, per_volume_cm3, per_volume_l, per_minute</em><br>
+                        Preismodell-Werte: <em>per_unit, per_gram, per_kilogram, per_volume_cm3, per_volume_l, per_minute</em><br>
                         Steuersatz-Werte: <em>0, 7, 19</em><br>
                         Einheit: leer lassen wenn nicht zutreffend.<br>
-                        Preis: Dezimalpunkt (kein Komma), z.B. <em>0.05</em>
+                        Preis: Dezimalpunkt (kein Komma), z.B. <em>0.05</em><br>
+                        Hinweis: Varianten werden automatisch einer "Standard"-Unterkategorie zugeordnet.
                     </p>
                 </div>
                 <div class="form-group" style="margin-top:16px;">
@@ -204,7 +230,7 @@
         </div>
     </div>
 
-    <script src="/static/js/katalog.js?v=4"></script>
+    <script src="/static/js/katalog.js?v=5"></script>
     <script src="/static/js/theme.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
 </body>

@@ -294,9 +294,29 @@ async def delete_mitglied(mitglied_id: int, db: Session = Depends(get_db)):
 
 @router.get("/api/tags")
 async def get_tags(db: Session = Depends(get_db)):
-    """List all registered RFID tags"""
+    """List all registered RFID tags — merges RFIDTag table with Mitglied.nfc_uid enrollments."""
     tags = db.query(RFIDTag).order_by(RFIDTag.created_at.desc()).all()
-    return [t.to_dict() for t in tags]
+    result = [t.to_dict() for t in tags]
+    known_uids = {t.uid for t in tags}
+
+    # Include members enrolled via the Mitglieder UI (Mitglied.nfc_uid) not already in RFIDTag
+    enrolled = db.query(Mitglied).filter(Mitglied.nfc_uid.isnot(None)).all()
+    for m in enrolled:
+        uid = m.nfc_uid.upper() if m.nfc_uid else None
+        if uid and uid not in known_uids:
+            result.append({
+                "id": None,
+                "uid": uid,
+                "member_id": m.member_id,
+                "owner_name": m.name,
+                "owner_email": m.email,
+                "notes": None,
+                "active": 1,
+                "is_admin": False,
+                "created_at": None,
+                "source": "mitglied",
+            })
+    return result
 
 
 @router.get("/api/tags/{uid}")

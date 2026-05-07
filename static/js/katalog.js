@@ -2,8 +2,10 @@ let katalog = [];
 
 const PRICING_LABELS = {
     per_gram: "pro gr",
+    per_kilogram: "pro kg",
     per_volume_cm3: "pro cm³",
     per_volume_l: "pro Liter",
+    per_cubic_meter: "pro m³",
     per_minute: "pro Minute",
     per_unit: "pro Stück",
 };
@@ -46,23 +48,43 @@ function renderLocation(loc) {
 }
 
 function renderKategorie(kat, loc) {
-    const pricingLabel = PRICING_LABELS[kat.pricing_model] || kat.pricing_model;
-    const unit = kat.unit ? kat.unit : "";
-    const taxRate = kat.tax_rate != null ? kat.tax_rate : 19;
-    const rows = (kat.varianten || []).map((v) => renderVariante(v, kat)).join("");
+    const ukats = (kat.unterkategorien || []).map((u) => renderUnterkategorie(u, kat, loc)).join("");
     return `
     <div class="kategorie-block" id="kat-${kat.id}">
         <div class="kategorie-header">
             <div class="kategorie-title">
                 🗂 ${esc(kat.name)}
+            </div>
+            <div class="kategorie-actions">
+                <button class="btn btn-sm btn-secondary" onclick="openEditKategorie(${kat.id}, ${loc.id})">Bearbeiten</button>
+                <button class="btn btn-sm btn-success" onclick="openAddUnterkategorie(${kat.id})">+ Unterkategorie</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteKategorie(${kat.id})">Löschen</button>
+            </div>
+        </div>
+        <div class="unterkategorien-list">
+            ${ukats || '<p class="empty" style="padding:6px 0 6px 16px">Keine Unterkategorien. Klicke "+ Unterkategorie".</p>'}
+        </div>
+    </div>`;
+}
+
+function renderUnterkategorie(ukat, kat, loc) {
+    const pricingLabel = PRICING_LABELS[ukat.pricing_model] || ukat.pricing_model;
+    const unit = ukat.unit ? ukat.unit : "";
+    const taxRate = ukat.tax_rate != null ? ukat.tax_rate : 19;
+    const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
+    return `
+    <div class="unterkategorie-block" id="ukat-${ukat.id}">
+        <div class="unterkategorie-header">
+            <div class="unterkategorie-title">
+                📁 ${esc(ukat.name)}
                 <span class="pricing-badge">${esc(pricingLabel)}</span>
                 ${unit ? `<span class="unit-label">[${esc(unit)}]</span>` : ""}
                 <span class="pricing-badge">${taxRate} % MwSt.</span>
             </div>
-            <div class="kategorie-actions">
-                <button class="btn btn-sm btn-secondary" onclick="openEditKategorie(${kat.id}, ${loc.id})">Bearbeiten</button>
-                <button class="btn btn-sm btn-success" onclick="openAddVariante(${kat.id}, '${esc(kat.pricing_model)}', '${esc(unit)}')">+ Variante</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteKategorie(${kat.id})">Löschen</button>
+            <div class="unterkategorie-actions">
+                <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
+                <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(unit)}')">+ Variante</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteUnterkategorie(${ukat.id})">Löschen</button>
             </div>
         </div>
         <table class="varianten-table">
@@ -76,14 +98,14 @@ function renderKategorie(kat, loc) {
     </div>`;
 }
 
-function renderVariante(v, kat) {
-    const pricingLabel = PRICING_LABELS[kat.pricing_model] || kat.pricing_model;
+function renderVariante(v, ukat) {
+    const pricingLabel = PRICING_LABELS[ukat.pricing_model] || ukat.pricing_model;
     return `
     <tr id="var-${v.id}">
         <td>${esc(v.name)}</td>
         <td class="price-cell">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
         <td class="actions">
-            <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${kat.id}, '${esc(kat.pricing_model)}', '${esc(kat.unit || "")}')">Bearbeiten</button>
+            <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(ukat.unit || "")}')">Bearbeiten</button>
             <button class="btn btn-sm btn-danger" onclick="deleteVariante(${v.id})">Löschen</button>
         </td>
     </tr>`;
@@ -139,7 +161,7 @@ document.getElementById("location-form").addEventListener("submit", async (e) =>
 });
 
 async function deleteLocation(id) {
-    if (!confirm("Standort und alle Kategorien/Varianten löschen?")) return;
+    if (!confirm("Standort und alle Kategorien/Unterkategorien/Varianten löschen?")) return;
     const res = await fetch(`/api/katalog/locations/${id}`, { method: "DELETE" });
     if (res.ok) await loadKatalog();
     else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
@@ -169,9 +191,6 @@ function openEditKategorie(katId, locId) {
     document.getElementById("edit-kategorie-id").value = katId;
     document.getElementById("edit-kategorie-location-id").value = locId;
     document.getElementById("field-kat-name").value = kat.name;
-    document.getElementById("field-kat-pricing").value = kat.pricing_model;
-    document.getElementById("field-kat-unit").value = kat.unit || "";
-    document.getElementById("field-kat-tax-rate").value = String(kat.tax_rate != null ? kat.tax_rate : 19);
     document.getElementById("kategorie-modal").classList.remove("hidden");
 }
 
@@ -186,9 +205,6 @@ document.getElementById("kategorie-form").addEventListener("submit", async (e) =
     const body = {
         location_id: parseInt(locationId),
         name: document.getElementById("field-kat-name").value.trim(),
-        pricing_model: document.getElementById("field-kat-pricing").value,
-        unit: document.getElementById("field-kat-unit").value.trim() || null,
-        tax_rate: parseFloat(document.getElementById("field-kat-tax-rate").value),
     };
     const url = id ? `/api/katalog/kategorien/${id}` : "/api/katalog/kategorien";
     const method = id ? "PUT" : "POST";
@@ -198,7 +214,7 @@ document.getElementById("kategorie-form").addEventListener("submit", async (e) =
 });
 
 async function deleteKategorie(id) {
-    if (!confirm("Kategorie und alle Varianten löschen?")) return;
+    if (!confirm("Kategorie und alle Unterkategorien/Varianten löschen?")) return;
     const res = await fetch(`/api/katalog/kategorien/${id}`, { method: "DELETE" });
     if (res.ok) await loadKatalog();
     else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
@@ -208,33 +224,103 @@ document.getElementById("kategorie-modal-close").addEventListener("click", close
 document.getElementById("kategorie-cancel").addEventListener("click", closeKategorieModal);
 document.getElementById("kategorie-overlay").addEventListener("click", closeKategorieModal);
 
+// ── Unterkategorie Modal ───────────────────────────────────────
+
+function openAddUnterkategorie(kategorieId) {
+    document.getElementById("unterkategorie-modal-title").textContent = "Neue Unterkategorie";
+    document.getElementById("unterkategorie-form").reset();
+    document.getElementById("edit-unterkategorie-id").value = "";
+    document.getElementById("edit-unterkategorie-kategorie-id").value = kategorieId;
+    document.getElementById("field-ukat-tax-rate").value = "19";
+    document.getElementById("unterkategorie-modal").classList.remove("hidden");
+    document.getElementById("field-ukat-name").focus();
+}
+
+function findUnterkategorie(ukatId) {
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const ukat of (kat.unterkategorien || [])) {
+                if (ukat.id === ukatId) return { ukat, kat, loc };
+            }
+        }
+    }
+    return null;
+}
+
+function openEditUnterkategorie(ukatId, katId) {
+    const found = findUnterkategorie(ukatId);
+    if (!found) return;
+    const { ukat } = found;
+    document.getElementById("unterkategorie-modal-title").textContent = "Unterkategorie bearbeiten";
+    document.getElementById("edit-unterkategorie-id").value = ukatId;
+    document.getElementById("edit-unterkategorie-kategorie-id").value = katId;
+    document.getElementById("field-ukat-name").value = ukat.name;
+    document.getElementById("field-ukat-pricing").value = ukat.pricing_model;
+    document.getElementById("field-ukat-unit").value = ukat.unit || "";
+    document.getElementById("field-ukat-tax-rate").value = String(ukat.tax_rate != null ? ukat.tax_rate : 19);
+    document.getElementById("unterkategorie-modal").classList.remove("hidden");
+}
+
+function closeUnterkategorieModal() {
+    document.getElementById("unterkategorie-modal").classList.add("hidden");
+}
+
+document.getElementById("unterkategorie-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("edit-unterkategorie-id").value;
+    const kategorieId = document.getElementById("edit-unterkategorie-kategorie-id").value;
+    const body = {
+        kategorie_id: parseInt(kategorieId),
+        name: document.getElementById("field-ukat-name").value.trim(),
+        pricing_model: document.getElementById("field-ukat-pricing").value,
+        unit: document.getElementById("field-ukat-unit").value.trim() || null,
+        tax_rate: parseFloat(document.getElementById("field-ukat-tax-rate").value),
+    };
+    const url = id ? `/api/katalog/unterkategorien/${id}` : "/api/katalog/unterkategorien";
+    const method = id ? "PUT" : "POST";
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) { closeUnterkategorieModal(); await loadKatalog(); }
+    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen")); }
+});
+
+async function deleteUnterkategorie(id) {
+    if (!confirm("Unterkategorie und alle Varianten löschen?")) return;
+    const res = await fetch(`/api/katalog/unterkategorien/${id}`, { method: "DELETE" });
+    if (res.ok) await loadKatalog();
+    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
+}
+
+document.getElementById("unterkategorie-modal-close").addEventListener("click", closeUnterkategorieModal);
+document.getElementById("unterkategorie-cancel").addEventListener("click", closeUnterkategorieModal);
+document.getElementById("unterkategorie-overlay").addEventListener("click", closeUnterkategorieModal);
+
 // ── Variante Modal ─────────────────────────────────────────────
 
 let currentVariantePricingModel = "per_unit";
 let currentVarianteUnit = "";
 
-function openAddVariante(kategorieId, pricingModel, unit) {
+function openAddVariante(unterkategorieId, pricingModel, unit) {
     currentVariantePricingModel = pricingModel;
     currentVarianteUnit = unit;
     document.getElementById("variante-modal-title").textContent = "Neue Variante";
     document.getElementById("variante-form").reset();
     document.getElementById("edit-variante-id").value = "";
-    document.getElementById("edit-variante-kategorie-id").value = kategorieId;
+    document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
     document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
     document.getElementById("variante-modal").classList.remove("hidden");
     document.getElementById("field-var-name").focus();
 }
 
-function openEditVariante(varId, kategorieId, pricingModel, unit) {
+function openEditVariante(varId, unterkategorieId, pricingModel, unit) {
     currentVariantePricingModel = pricingModel;
     currentVarianteUnit = unit;
-    const loc = katalog.find((l) => l.kategorien ? l.kategorien.some((k) => k.id === kategorieId) : false);
-    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === kategorieId) : undefined;
-    const v = (kat && kat.varianten) ? kat.varianten.find((v) => v.id === varId) : undefined;
+    const found = findUnterkategorie(unterkategorieId);
+    const ukat = found ? found.ukat : null;
+    const v = (ukat && ukat.varianten) ? ukat.varianten.find((v) => v.id === varId) : undefined;
     if (!v) return;
     document.getElementById("variante-modal-title").textContent = "Variante bearbeiten";
     document.getElementById("edit-variante-id").value = varId;
-    document.getElementById("edit-variante-kategorie-id").value = kategorieId;
+    document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
     document.getElementById("field-var-name").value = v.name;
     document.getElementById("field-var-price").value = v.price;
     document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
@@ -243,6 +329,7 @@ function openEditVariante(varId, kategorieId, pricingModel, unit) {
 
 function getPriceHint(pricingModel, unit) {
     if (pricingModel === "per_gram") return "€ pro Gramm";
+    if (pricingModel === "per_kilogram") return "€ pro Kilogramm";
     if (pricingModel === "per_volume_cm3") return "€ pro cm³";
     if (pricingModel === "per_volume_l") return "€ pro Liter";
     if (pricingModel === "per_minute") return "€ pro Minute";
@@ -256,9 +343,9 @@ function closeVarianteModal() {
 document.getElementById("variante-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = document.getElementById("edit-variante-id").value;
-    const kategorieId = document.getElementById("edit-variante-kategorie-id").value;
+    const unterkategorieId = document.getElementById("edit-variante-unterkategorie-id").value;
     const body = {
-        kategorie_id: parseInt(kategorieId),
+        unterkategorie_id: parseInt(unterkategorieId),
         name: document.getElementById("field-var-name").value.trim(),
         price: parseFloat(document.getElementById("field-var-price").value),
     };
@@ -292,6 +379,7 @@ let csvParsedData = null;
 const PRICING_OPTIONS = [
     { value: "per_unit",       label: "pro Einheit" },
     { value: "per_gram",       label: "pro Gramm" },
+    { value: "per_kilogram",   label: "pro Kilogramm" },
     { value: "per_volume_cm3", label: "pro Volumen cm³" },
     { value: "per_volume_l",   label: "pro Liter" },
     { value: "per_minute",     label: "pro Minute" },
@@ -343,9 +431,6 @@ function buildPricingOptions(selectedValue) {
 function addKategorieRow(prefill = {}) {
     const idx      = bulkKatCounter++;
     const name     = prefill.name          || "";
-    const pricing  = prefill.pricing_model || "per_unit";
-    const unit     = prefill.unit          || "";
-    const tax      = prefill.tax_rate      != null ? prefill.tax_rate : 19;
 
     const html = `
     <div class="bulk-kat-block" data-kat-index="${idx}">
@@ -358,46 +443,89 @@ function addKategorieRow(prefill = {}) {
                 <label>Name</label>
                 <input type="text" class="kat-name" placeholder="z.B. Ton" value="${esc(name)}">
             </div>
+        </div>
+        <div class="bulk-ukat-list" data-kat-index="${idx}"></div>
+        <button type="button" class="btn btn-sm btn-secondary bulk-add-ukat" data-kat-index="${idx}">+ Unterkategorie</button>
+    </div>`;
+
+    document.getElementById("bulk-kat-list").insertAdjacentHTML("beforeend", html);
+
+    if (prefill.unterkategorien) {
+        prefill.unterkategorien.forEach((u) => addUnterkategorieRow(idx, u));
+    } else if (prefill.varianten && prefill.varianten.length > 0) {
+        // Old-format backward compat: wrap in a "Standard" unterkategorie row
+        addUnterkategorieRow(idx, {
+            name: "Standard",
+            pricing_model: prefill.pricing_model || "per_unit",
+            unit: prefill.unit || "",
+            tax_rate: prefill.tax_rate != null ? prefill.tax_rate : 19,
+            varianten: prefill.varianten,
+        });
+    }
+}
+
+let bulkUkatCounters = {};
+
+function addUnterkategorieRow(katIndex, prefill = {}) {
+    if (!bulkUkatCounters[katIndex]) bulkUkatCounters[katIndex] = 0;
+    const ukatIdx  = bulkUkatCounters[katIndex]++;
+    const name     = prefill.name          || "";
+    const pricing  = prefill.pricing_model || "per_unit";
+    const unit     = prefill.unit          || "";
+    const tax      = prefill.tax_rate      != null ? prefill.tax_rate : 19;
+
+    const html = `
+    <div class="bulk-ukat-block" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}">
+        <div class="bulk-kat-header">
+            <span class="bulk-kat-label" style="padding-left:16px;">↳ Unterkategorie ${ukatIdx + 1}</span>
+            <button type="button" class="btn btn-sm btn-danger bulk-remove-ukat">−</button>
+        </div>
+        <div class="bulk-kat-fields" style="padding-left:16px;">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" class="ukat-name" placeholder="z.B. Standard" value="${esc(name)}">
+            </div>
             <div class="form-group">
                 <label>Preismodell</label>
-                <select class="kat-pricing">${buildPricingOptions(pricing)}</select>
+                <select class="ukat-pricing">${buildPricingOptions(pricing)}</select>
             </div>
             <div class="form-group">
                 <label>Einheit <span class="optional">(Anzeige)</span></label>
-                <input type="text" class="kat-unit" placeholder="z.B. g" value="${esc(unit)}">
+                <input type="text" class="ukat-unit" placeholder="z.B. g" value="${esc(unit)}">
             </div>
             <div class="form-group">
                 <label>Steuersatz</label>
-                <select class="kat-tax">
+                <select class="ukat-tax">
                     <option value="19"${tax == 19 ? " selected" : ""}>19 % (Regelsteuersatz)</option>
                     <option value="7"${tax == 7  ? " selected" : ""}>7 % (ermäßigt)</option>
                     <option value="0"${tax == 0  ? " selected" : ""}>0 % (steuerfrei)</option>
                 </select>
             </div>
         </div>
-        <div class="bulk-var-list" data-kat-index="${idx}"></div>
-        <button type="button" class="btn btn-sm btn-secondary bulk-add-var" data-kat-index="${idx}">+ Variante</button>
+        <div class="bulk-var-list" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}"></div>
+        <button type="button" class="btn btn-sm btn-secondary bulk-add-var" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}" style="margin-left:16px;">+ Variante</button>
     </div>`;
 
-    document.getElementById("bulk-kat-list").insertAdjacentHTML("beforeend", html);
+    const ukatList = document.querySelector(`.bulk-ukat-list[data-kat-index="${katIndex}"]`);
+    if (ukatList) ukatList.insertAdjacentHTML("beforeend", html);
 
     if (prefill.varianten) {
-        prefill.varianten.forEach((v) => addVarianteRow(idx, v));
+        prefill.varianten.forEach((v) => addVarianteRow(katIndex, ukatIdx, v));
     }
 }
 
-function addVarianteRow(katIndex, prefill = {}) {
+function addVarianteRow(katIndex, ukatIdx, prefill = {}) {
     const name  = prefill.name  || "";
     const price = prefill.price != null ? prefill.price : "";
 
     const html = `
-    <div class="bulk-var-row">
+    <div class="bulk-var-row" style="padding-left:32px;">
         <input type="text"   class="var-name"  placeholder="Varianten-Name" value="${esc(name)}">
         <input type="number" class="var-price" placeholder="Preis" step="any" min="0" value="${price !== "" ? price : ""}">
         <button type="button" class="btn btn-sm btn-danger bulk-remove-var">−</button>
     </div>`;
 
-    const varList = document.querySelector(`.bulk-var-list[data-kat-index="${katIndex}"]`);
+    const varList = document.querySelector(`.bulk-var-list[data-kat-index="${katIndex}"][data-ukat-index="${ukatIdx}"]`);
     if (varList) varList.insertAdjacentHTML("beforeend", html);
 }
 
@@ -406,11 +534,20 @@ document.getElementById("bulk-kat-list").addEventListener("click", (e) => {
     if (e.target.classList.contains("bulk-remove-kat")) {
         e.target.closest(".bulk-kat-block").remove();
     }
+    if (e.target.classList.contains("bulk-remove-ukat")) {
+        e.target.closest(".bulk-ukat-block").remove();
+    }
     if (e.target.classList.contains("bulk-remove-var")) {
         e.target.closest(".bulk-var-row").remove();
     }
+    if (e.target.classList.contains("bulk-add-ukat")) {
+        addUnterkategorieRow(parseInt(e.target.dataset.katIndex, 10));
+    }
     if (e.target.classList.contains("bulk-add-var")) {
-        addVarianteRow(parseInt(e.target.dataset.katIndex, 10));
+        addVarianteRow(
+            parseInt(e.target.dataset.katIndex, 10),
+            parseInt(e.target.dataset.ukatIndex, 10)
+        );
     }
 });
 
@@ -432,21 +569,29 @@ function collectBulkFormData() {
         const name = katBlock.querySelector(".kat-name").value.trim();
         if (!name) return;
 
-        const varianten = [];
-        katBlock.querySelectorAll(".bulk-var-row").forEach((row) => {
-            const vName  = row.querySelector(".var-name").value.trim();
-            const vPrice = parseFloat(row.querySelector(".var-price").value);
-            if (!vName || isNaN(vPrice)) return;
-            varianten.push({ name: vName, price: vPrice });
+        const unterkategorien = [];
+        katBlock.querySelectorAll(".bulk-ukat-block").forEach((ukatBlock) => {
+            const ukatName = ukatBlock.querySelector(".ukat-name").value.trim();
+            if (!ukatName) return;
+
+            const varianten = [];
+            ukatBlock.querySelectorAll(".bulk-var-row").forEach((row) => {
+                const vName  = row.querySelector(".var-name").value.trim();
+                const vPrice = parseFloat(row.querySelector(".var-price").value);
+                if (!vName || isNaN(vPrice)) return;
+                varianten.push({ name: vName, price: vPrice });
+            });
+
+            unterkategorien.push({
+                name: ukatName,
+                pricing_model: ukatBlock.querySelector(".ukat-pricing").value,
+                unit: ukatBlock.querySelector(".ukat-unit").value.trim() || null,
+                tax_rate: parseFloat(ukatBlock.querySelector(".ukat-tax").value),
+                varianten,
+            });
         });
 
-        kategorien.push({
-            name,
-            pricing_model: katBlock.querySelector(".kat-pricing").value,
-            unit: katBlock.querySelector(".kat-unit").value.trim() || null,
-            tax_rate: parseFloat(katBlock.querySelector(".kat-tax").value),
-            varianten,
-        });
+        kategorien.push({ name, unterkategorien });
     });
 
     if (kategorien.length === 0) {
@@ -575,6 +720,7 @@ function parseCsvAndPreview(file) {
                 unit: entry.einheit,
                 tax_rate: entry.steuersatz,
                 varianten: entry.varianten,
+                unterkategorien: [],
             });
         }
 

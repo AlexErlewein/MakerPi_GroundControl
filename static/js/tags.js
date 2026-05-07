@@ -39,8 +39,11 @@ function renderTags() {
             }</td>
             <td>${formatDate(tag.created_at)}</td>
             <td class="actions">
-                <button class="btn btn-sm btn-secondary" onclick="openEdit('${tag.uid}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTag('${tag.uid}')">Delete</button>
+                ${tag.source === "mitglied"
+                    ? `<span class="badge badge-ok" title="Enrolled via Mitglieder">Mitglied</span>`
+                    : `<button class="btn btn-sm btn-secondary" onclick="openEdit('${tag.uid}')">Edit</button>
+                       <button class="btn btn-sm btn-danger" onclick="deleteTag('${tag.uid}')">Delete</button>`
+                }
             </td>
         </tr>
     `,

@@ -24,9 +24,9 @@ class MaterialKategorie(Base):
     name = Column(String)
     pricing_model = Column(
         String, default="per_unit"
-    )  # per_gram | per_volume_cm3 | per_volume_l | per_minute | per_unit
-    unit = Column(String, nullable=True)  # display unit
-    tax_rate = Column(Float, default=19.0)  # 0 | 7 | 19
+    )  # vestigial – pricing is now on MaterialUnterkategorie
+    unit = Column(String, nullable=True)  # vestigial
+    tax_rate = Column(Float, default=19.0)  # vestigial
 
     def to_dict(self):
         return {
@@ -39,11 +39,35 @@ class MaterialKategorie(Base):
         }
 
 
+class MaterialUnterkategorie(Base):
+    __tablename__ = "material_unterkategorie"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kategorie_id = Column(Integer, index=True)
+    name = Column(String)
+    pricing_model = Column(
+        String, default="per_unit"
+    )  # per_unit | per_gram | per_kilogram | per_volume_cm3 | per_volume_l | per_minute
+    unit = Column(String, nullable=True)  # display unit
+    tax_rate = Column(Float, default=19.0)  # 0 | 7 | 19
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "kategorie_id": self.kategorie_id,
+            "name": self.name,
+            "pricing_model": self.pricing_model,
+            "unit": self.unit,
+            "tax_rate": self.tax_rate if self.tax_rate is not None else 19.0,
+        }
+
+
 class MaterialVariante(Base):
     __tablename__ = "material_variante"
 
     id = Column(Integer, primary_key=True, index=True)
-    kategorie_id = Column(Integer, index=True)
+    kategorie_id = Column(Integer, index=True)  # kept for backward compat
+    unterkategorie_id = Column(Integer, index=True, nullable=True)
     name = Column(String)
     price = Column(Float)  # price per unit
 
@@ -51,6 +75,7 @@ class MaterialVariante(Base):
         return {
             "id": self.id,
             "kategorie_id": self.kategorie_id,
+            "unterkategorie_id": self.unterkategorie_id,
             "name": self.name,
             "price": self.price,
         }

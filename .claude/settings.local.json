@@ -14,7 +14,9 @@
       "Bash(find /home/alex/MakerPi_GroundControl/backend -name *.py)",
       "Bash(git rm *)",
       "Bash(xargs cat *)",
-      "mcp__plugin_oh-my-claudecode_t__lsp_document_symbols"
+      "mcp__plugin_oh-my-claudecode_t__lsp_document_symbols",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)"
     ]
   }
 }

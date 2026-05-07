@@ -218,6 +218,12 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="kat-select-unterkategorie">Unterkategorie</label>
+                            <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
+                                <option value="">-- Unterkategorie wählen --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label for="kat-select-variante">Variante</label>
                             <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
                                 <option value="">-- Variante wählen --</option>
@@ -225,7 +231,7 @@
                         </div>
                     </div>
 
-                    <!-- per_gram: single Menge field -->
+                    <!-- per_gram / per_kilogram: single Menge field -->
                     <div id="kat-fields-gram" class="hidden">
                         <div class="form-group">
                             <label for="kat-menge-gram">Menge <span id="kat-gram-label" class="optional"></span></label>
