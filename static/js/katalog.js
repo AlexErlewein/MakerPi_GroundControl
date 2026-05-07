@@ -676,7 +676,7 @@ function parseCSVLine(line) {
 function parseCsvAndPreview(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        const text = e.target.result;
+        const text = e.target.result.replace(/^﻿/, ""); // strip UTF-8 BOM
         const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
         if (lines.length < 2) {
             alert("CSV ist leer oder enthält nur den Header.");
@@ -714,6 +714,11 @@ function parseCsvAndPreview(file) {
             const steuersatzStr  = col(row, "steuersatz");
             const variante       = col(row, "variante");
             const preisStr       = col(row, "preis");
+
+            // Skip stray header-like rows: entire row in one field with comma-separated names,
+            // or a row where the price column literally says "preis"/"price"
+            if (!kategorie && !variante && standort.includes(",")) return;
+            if (preisStr.toLowerCase() === "preis" || preisStr.toLowerCase() === "price") return;
 
             if (!standort || !kategorie || !variante) {
                 errors.push(`Zeile ${i + 2}: standort, kategorie und variante sind Pflicht.`);
