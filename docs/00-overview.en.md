@@ -48,7 +48,7 @@ A registered NFC card, optionally linked to a Mitglied (member).
 
 ### Laufzettel
 
-A **Laufzettel** is a day-specific usage record. One is created automatically the first time a known tag or Mitglied scans in on a given day.
+A **Laufzettel** is a day-specific usage record. One is created automatically the first time a known tag or Mitglied scans in on a given day. Non-members can also create a Laufzettel by scanning a QR code.
 
 | Field | Description |
 |---|---|
@@ -58,6 +58,8 @@ A **Laufzettel** is a day-specific usage record. One is created automatically th
 | `owner_name` | Copied from tag at time of scan |
 | `member_id` | Copied from tag at time of scan (legacy) |
 | `mitglied_id` | FK to `mitglieder.id` — preferred link |
+| `guest_id` | UUID for guest sessions (non-members) |
+| `guest_email` | Optional email for guests |
 | `nodes` | List of devices/stations visited |
 
 ### Material entries
@@ -99,12 +101,13 @@ flowchart LR
 
 | URL | Purpose |
 |---|---|
-| `/` | Dashboard — device status, recent messages |
+| `/` | Dashboard — device status, recent messages, system health |
 | `/database` | Message history and DB statistics |
 | `/tags` | RFID tag administration |
 | `/laufzettel` | Laufzettel list and manual creation |
 | `/laufzettel/{id}` | Laufzettel detail and material editing |
 | `/katalog` | Material catalog management |
+| `/guest/laufzettel` | Guest entry form for non-members (QR code) |
 
 ## Ports at a glance
 
@@ -120,3 +123,4 @@ flowchart LR
 - [Quickstart](./01-quickstart.md) — get running in 2 minutes
 - [Web UI Guide](./02-web-ui.md) — what each page does
 - [Tags and Laufzettel](./03-tags-and-laufzettel.md) — core user workflow in detail
+- [Guest Laufzettel](./17-guest-laufzettel.md) — non-member usage via QR code

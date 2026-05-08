@@ -1,42 +1,126 @@
-# Übersicht
+# GroundControl Übersicht
 
-**MakerPi GroundControl** ist eine webbasierte Steuerungs- und Monitoring-Software für Raspberry Pi, entwickelt für den Einsatz in Makerspaces und Werkstätten.
+MakerPi GroundControl ist das zentrale Web- und Datenbanksystem für die Verwaltung von MQTT-verbundenen Werkstattgeräten, RFID-Tags, Laufzettel (Nutzungsaufzeichnungen) und Materialverfolgung.
 
-## Was es macht
+## Wie das System zusammenhängt
 
-- **Erfasst Workflows** über NFC/RFID-Karten (Laufzettel-System)
-- **Zeichnet Gerätenutzung** auf (3D-Drucker, Laser, Fräsen, etc.)
-- **Verfolgt Materialverbrauch** mit einem einfachen Katalog-System
-- **Empfängt Sensordaten** über MQTT von Pico W und anderen Geräten
-- **Bietet eine Web-Oberfläche** für Admins und Workshop-Besucher
+```mermaid
+graph LR
+    subgraph Workshop
+        D1["🖥 Pico W #1\n(NFC-Leser)"]
+        D2["🖥 Pico W #2\n(Sensor-Knoten)"]
+    end
+    subgraph Server["Raspberry Pi / Server"]
+        MB["Mosquitto\nBroker :1883"]
+        GC["GroundControl\nFastAPI :8000"]
+        DB["SQLite DB\ngroundcontrol.db"]
+        DOCS["Docs Site\nFastAPI :8001"]
+    end
+    subgraph Operator
+        UI["🌐 Web-Browser"]
+    end
+    D1 & D2 -->|"MQTT publish"| MB
+    MB -->|"paho-mqtt subscribe"| GC
+    GC <-->|"SQLAlchemy"| DB
+    GC -->|"HTML/JSON"| UI
+    DOCS -->|"Markdown"| UI
+```
 
-## Wichtigste Konzepte
+## Wichtige benutzerseitige Konzepte
 
-| Konzept | Beschreibung |
-|---------|--------------|
-| **Laufzettel** | Ein Datensatz pro Person/Tag mit Materialverbrauch und Zahlungsstatus |
-| **Tags** | NFC/RFID-Karten, die Workshop-Mitgliedern zugewiesen sind |
-| **Katalog** | Hierarchie: Standort → Kategorie → Variante (z.B. "3D-Druck" → "PLA" → "Weiß, 1kg") |
-| **Geräte** | MQTT-fähige Geräte, die Status-Updates senden (automatisch erkannt) |
+### Geräte
 
-## Schnelle Navigation
+Ein Gerät ist ein Pico W oder jeder MQTT-sprechende Knoten, der Status- oder Sensordaten veröffentlicht. Geräte werden automatisch aus MQTT-Topics entdeckt und im Dashboard angezeigt.
 
-- [Schnellstart](./01-quickstart) – In 5 Minuten zum Laufen bringen
-- [Tags & Laufzettel](./03-tags-and-laufzettel) – Wie das NFC-System funktioniert
-- [Material-Katalog](./04-material-katalog) – Preise und Verbrauch verwalten
-- [System-Architektur](./05-system-architecture) – Komponenten und Datenfluss
+### RFID-Tags
 
-## Für wen ist das gedacht?
+Ein registrierter NFC-Tag, optional mit einem Mitglied (Mitglied) über `member_id` verknüpft.
 
-- **Makerspace-Betreiber**, die eine einfache Methode zur Workshopeintragserfassung benötigen
-- **Workshop-Verantwortliche**, die Materialverbrauch verfolgen möchten
-- **Jeder mit einem Raspberry Pi**, der NFC-Kartenleser und MQTT-Sensoren betreiben möchte
+| Feld | Beschreibung |
+|---|---|
+| `uid` | Hardware-UID vom NFC-Tag |
+| `member_id` | Soft-Referenz zu `mitglieder.member_id` |
+| `owner_name` | Name des Karteninhabers |
+| `owner_email` | E-Mail-Adresse |
+| `active` | Ob Scans akzeptiert werden |
+| `is_admin` | Wenn true, gewährt Admin-Zugriff via RFID-Login |
+| `notes` | Freitext-Notizen |
 
-## Minimal-Setup
+### Laufzettel
 
-1. Raspberry Pi mit Raspberry Pi OS
-2. NFC-Reader (RC522) angeschlossen
-3. Diese Software läuft auf Port 8000
-4. Mosquitto MQTT Broker (optional, für Sensor-Daten)
+Ein **Laufzettel** ist ein tagesspezifischer Nutzungsaufzeichnung. Er wird automatisch erstellt, wenn ein bekannter Tag oder Mitglied an einem bestimmten Tag zum ersten Mal scannt. Nicht-Mitglieder können auch einen Laufzettel erstellen, indem sie einen QR-Code scannen.
 
-Weiter zum [Schnellstart](./01-quickstart) für detaillierte Einrichtungsschritte.
+| Feld | Beschreibung |
+|---|---|
+| `uid` | Tag-UID (Legacy-Verknüpfung) |
+| `date` | Nutzungsdatum |
+| `start` | Erste Scan-Zeit |
+| `owner_name` | Zum Zeitpunkt des Scans aus Tag kopiert |
+| `member_id` | Zum Zeitpunkt des Scans aus Tag kopiert (Legacy) |
+| `mitglied_id` | FK zu `mitglieder.id` — bevorzugte Verknüpfung |
+| `guest_id` | UUID für Gast-Sitzungen (Nicht-Mitglieder) |
+| `guest_email` | Optionale E-Mail für Gäste |
+| `nodes` | Liste der besuchten Geräte/Stationen |
+
+### Materialeinträge
+
+Material wird auf einem Laufzettel in zwei Modi erfasst:
+
+| Modus | Wann verwenden |
+|---|---|
+| **Freitext** | Schnelle einmalige Eingabe, kein Katalog benötigt |
+| **Aus Katalog** | Katalog-basierte Eingabe mit automatischer Preisberechnung |
+
+### Materialkatalog
+
+```mermaid
+graph TD
+    L["📍 Standort\ne.g. Töpferei"] --> K["🗂 Kategorie\ne.g. Ton"]
+    K --> V1["🔷 Variante: fein\n0,05 €/g"]
+    K --> V2["🔷 Variante: grob\n0,03 €/g"]
+    L2["📍 Holz-Werkstatt"] --> K2["🗂 Holz"]
+    K2 --> V3["🔷 Eiche\n0,12 €/cm³"]
+    K2 --> V4["🔷 Esche\n0,09 €/cm³"]
+```
+
+## Typischer Operator-Workflow
+
+```mermaid
+flowchart LR
+    A["Dashboard öffnen\n/ "] --> B["Geräte prüfen\nsind online"]
+    B --> C["Tags registrieren\n/tags"]
+    C --> D["Tag im Workshop\nbenutzt"]
+    D -->|"automatisch"| E["Laufzettel\nerstellt"]
+    D -->|"manueller Fallback"| E
+    E --> F["Überprüfen & bearbeiten\n/laufzettel/id"]
+    F --> G["Material hinzufügen\n(Freitext oder Katalog)"]
+    G --> H["Fertig ✓"]
+```
+
+## Wichtige Seiten
+
+| URL | Zweck |
+|---|---|
+| `/` | Dashboard — Geräte-Status, aktuelle Nachrichten, System-Health |
+| `/database` | Nachrichtenverlauf und DB-Statistiken |
+| `/tags` | RFID-Tag-Administration |
+| `/laufzettel` | Laufzettel-Liste und manuelle Erstellung |
+| `/laufzettel/{id}` | Laufzettel-Details und Material-Bearbeitung |
+| `/katalog` | Materialkatalog-Verwaltung |
+| `/guest/laufzettel` | Gast-Eingabeformular für Nicht-Mitglieder (QR-Code) |
+
+## Ports auf einen Blick
+
+| Service | Port | URL |
+|---|---|---|
+| Haupt-App | 8000 | `http://localhost:8000` |
+| Docs-Site | 8001 | `http://localhost:8001` |
+| MQTT-Broker | 1883 | `localhost:1883` |
+| Zigbee2MQTT (nur Pi) | 8090 | `http://localhost:8090` |
+
+## Wohin als Nächstes
+
+- [Schnellstart](./01-quickstart.md) — In 2 Minuten zum Laufen bringen
+- [Web-UI Guide](./02-web-ui.md) — Was jede Seite tut
+- [Tags und Laufzettel](./03-tags-and-laufzettel.md) — Kern-User-Workflow im Detail
+- [Gast-Laufzettel](./17-guest-laufzettel.md) — Nicht-Mitglied-Nutzung über QR-Code

@@ -1,97 +1,126 @@
 # Tags und Laufzettel
 
-Das Herzstück von MakerPi GroundControl ist das **Laufzettel-System** – eine einfache Methode zur Erfassung von Workshopeinträgen und Materialverbrauch über NFC/RFID-Karten.
+Diese Seite erklärt, wie RFID-Tags und Laufzettel zusammenarbeiten — das Herzstück des täglichen Workshop-Workflows.
 
-## Übersicht
+## Registrierte Tags
+
+Ein registrierter RFID-Tag lebt in der `rfid_tags`-Tabelle und repräsentiert eine bekannte NFC-Karte. Tags können über `member_id` mit einem Mitglied (Mitglied) verknüpft werden.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `uid` | string | Hardware-UID vom NFC-Tag (z.B. `04AABBCCDD`) |
+| `member_id` | string | Soft-Referenz zu `mitglieder.member_id` |
+| `owner_name` | string | Name des Karteninhabers |
+| `owner_email` | string | E-Mail-Adresse |
+| `notes` | text | Freitext-Notizen |
+| `active` | boolean | Wenn false, werden Scans protokolliert aber nicht verarbeitet |
+| `is_admin` | boolean | Wenn true, gewährt Admin-Zugriff bei RFID-Login |
+| `created_at` | datetime | Wann der Tag registriert wurde |
+
+> **Hinweis:** Tags werden nicht automatisch erstellt. Ein Operator muss einen Tag über die `/tags`-Seite registrieren, bevor er Laufzettel-Erstellung auslöst. Mitglieder, die aus easyVerein synchronisiert wurden und `nfc_uid` gesetzt haben, können sich auch direkt ohne separaten Tag-Eintrag einloggen.
+
+## Automatische Laufzettel-Erstellung (NFC-Scan-Flow)
+
+Wenn ein Gerät einen NFC-Payload über MQTT sendet, durchläuft das Backend diese Sequenz:
+
+```mermaid
+sequenceDiagram
+    participant D as Workshop-Gerät
+    participant B as MQTT Broker
+    participant GC as GroundControl Backend
+    participant DB as SQLite DB
+
+    D->>B: publish {uid, device_id} zu<br/>{device_id}/nfc oder ähnlich
+    B->>GC: on_message callback
+    GC->>DB: speichere rohen Scan in tag_scans
+    GC->>DB: suche rfid_tags WHERE uid = ?
+    DB-->>GC: Tag-Eintrag (oder nicht gefunden)
+    alt Tag ist registriert und aktiv
+        GC->>DB: hole oder erstelle Laufzettel<br/>WHERE uid = ? AND date = today
+        GC->>DB: hänge device_id an nodes an
+        GC->>B: publish user info zu display topic
+    else Tag unbekannt oder inaktiv
+        GC->>DB: markiere Scan als unvalidiert
+    end
+```
+
+### Wichtige Verhaltensweisen
+
+- Es wird nur **ein** Laufzettel pro `uid + date` Kombination erstellt
+- Der erste Scan des Tages setzt die `start`-Zeit
+- `owner_name` und `member_id` werden **zum Zeitpunkt der Erstellung aus dem Tag in den Laufzettel kopiert**
+- Wenn der Name des Tag-Besitzers später aktualisiert wird, behält der historische Laufzettel den alten Wert — by Design
+
+## Manuelle Laufzettel-Erstellung
+
+Die `/laufzettel`-Seite hat einen **Neuer Laufzettel**-Button. Nützlich, wenn:
+
+- Ein Scan nicht stattgefunden hat, aber die Nutzung dennoch aufgezeichnet werden muss
+- Ein Operator einen Eintrag nachträglich erfassen muss
+- Zu Test- oder administrativen Korrekturen
+
+Bei manueller Erstellung und wenn die eingegebene UID bereits registriert ist, füllt das Formular `owner_name` und `member_id` automatisch aus dem Tag-Eintrag.
+
+## Laufzettel-Felder-Referenz
+
+| Feld | Typ | Gesetzt durch |
+|---|---|---|
+| `uid` | string | Scan-Ereignis oder manueller Eintrag (Legacy) |
+| `date` | date | Auto: heute / Manuell: Operator wählt |
+| `start` | datetime | Erste Scan-Zeit (UTC) |
+| `owner_name` | string | Zum Zeitpunkt der Erstellung aus Tag kopiert |
+| `member_id` | string | Zum Zeitpunkt der Erstellung aus Tag kopiert (Legacy) |
+| `mitglied_id` | integer | FK zu `mitglieder.id` — bevorzugte Verknüpfung |
+| `nodes` | JSON-Liste | Pro Scan-Gerät angehängt |
+| `payment_method` | string | Bei Zahlung gesetzt (`bar` / `paypal` / `karte`) |
+| `paid_at` | datetime | Bei Zahlung gesetzt (UTC) |
+| `created_at` | datetime | Auto (UTC) |
+
+## Material auf einem Laufzettel
+
+Ein Laufzettel kann viele Materialeinträge tragen. Jeder Eintrag hat zwei mögliche Ursprünge:
 
 ```mermaid
 flowchart LR
-    A[NFC-Scan] --> B[Tag gefunden?]
-    B -->|Ja| C[Laufzettel für heute laden/erstellen]
-    B -->|Nein| D[Scan protokollieren – unbekannt]
-    C --> E[Material hinzufügen]
-    E --> F[Zahlung erfassen]
+    M["Material hinzufügen\nzu Laufzettel"] --> Mode{"Modus?"}
+    Mode -->|Freitext| FT["Name + Menge\n(Freitext)"]
+    Mode -->|Katalog| CAT["Standort →\nKategorie →\nVariante"]
+    CAT --> PRICE["Preis automatisch\nberechnen"]
+    PRICE --> STORE["Speichere calculated_price\n(historischer Snapshot)"]
+    FT --> STORE2["Speichere name + menge\n(kein Preis)"]
 ```
 
-## Tags (NFC-Karten)
+### Materialeintrag-Felder
 
-### Was ist ein Tag?
+| Feld | Freitext | Katalog-basiert |
+|---|---|---|
+| `name` | Erforderlich | Von Varianten-Name |
+| `menge` | Optional | Vom Operator gesetzt |
+| `unit` | Optional | Von Kategorie-Einheit |
+| `variante_id` | — | Erforderlich (FK) |
+| `laenge_cm` | — | Für Volumen-Preis |
+| `breite_cm` | — | Für Volumen-Preis |
+| `hoehe_cm` | — | Für Volumen-Preis |
+| `calculated_price` | — | Auto-berechnet |
+| `tax_rate` | — | Von Kategorie übernommen (Standard 19%) |
 
-Ein **Tag** ist eine NFC/RFID-Karte mit einer eindeutigen UID (z.B. `A4:5F:12:9C`). Tags werden **Workshop-Mitgliedern zugewiesen** und dienen zur schnellen Identifikation.
+## Zahlungs-Flow
 
-### Tag-Verwaltung
+Sobald das gesamte Material hinzugefügt wurde, zeigt die Detailseite drei Zahlungs-Buttons:
 
-| Aktion | Wo | Beschreibung |
-|--------|-----|--------------|
-| Tag hinzufügen | `/tags` | Neue Karte registrieren, Inhaber zuweisen |
-| Tag bearbeiten | `/tags` | Inhaber oder Notizen ändern |
-| Tag deaktivieren | `/tags` | Karte sperren (ohne Löschen) |
+- **Bar bezahlen** — zeigt den Gesamtbetrag in einem großen Pop-up. Bestätigen zum Sperren.
+- **mit PayPal bezahlen** — zeigt einen QR-Code, der auf Ihre PayPal.me-URL + Betrag verlinkt. Bestätigen, nachdem der Kunde gescannt hat.
+- **mit Karte bezahlen** — sendet eine Checkout-Anfrage an den gekoppelten SumUp-Kartenleser. Sperrt bei Erfolg.
 
-### Tag-Scanning
+Nach jeder erfolgreichen Zahlung:
+- `payment_method` und `paid_at` werden in den Laufzettel geschrieben.
+- Die Detailseite zeigt ein grünes gesperrtes Banner mit Methode und Zeitstempel.
+- Alle Bearbeitungsaktionen (Info, Material hinzufügen/bearbeiten/löschen) werden im UI deaktiviert und von der API abgelehnt (`409 Conflict`).
 
-Wenn ein Tag gescannt wird:
+> Die Sperre ist permanent — es gibt keinen Entsperren-Flow by Design.
 
-1. Das System sucht die UID in der Datenbank
-2. Wenn gefunden → aktueller Laufzettel des Inhabers wird geladen
-3. Wenn nicht gefunden → Scan wird als "unbekannt" protokolliert
+## Warum Daten in den Laufzettel kopiert werden
 
-## Laufzettel
+Das System kopiert absichtlich `owner_name` und `member_id` zum Zeitpunkt des Scans aus dem Tag, anstatt nur die UID-Referenz zu speichern. Dies erhält **historische Wahrheit** — selbst wenn eine Karte später neu zugewiesen wird, bleiben vergangene Aufzeichnungen genau und prüfbar.
 
-### Was ist ein Laufzettel?
-
-Ein **Laufzettel** ist ein **einzelner Datensatz pro Person pro Tag**, der enthält:
-
-- **Metadaten:** Datum, Startzeit, Inhabername, Mitgliedsnummer
-- **Geräte:** Welche Maschinen wurden benutzt (automatisch über MQTT)
-- **Materialien:** Was wurde verbraucht (manuell erfasst)
-- **Zahlung:** Status (offen, bar, Karte)
-
-### Laufzettel-Lebenszyklus
-
-```mermaid
-stateDiagram-v2
-    [*] --> Offen: Tag scannen
-    Offen --> Offen: Material hinzufügen
-    Offen --> Bezahlt: Bar/Karte zahlen
-    Bezahlt --> [*]: Tag schließen
-```
-
-### Material hinzufügen
-
-Material kann auf zwei Arten hinzugefügt werden:
-
-1. **Aus dem Katalog:** Preis wird automatisch berechnet
-   - Wähle Standort → Kategorie → Variante
-   - Menge eingeben
-   - Preis wird übernommen
-
-2. **Freitext:** Manuelle Eingabe
-   - Name eingeben
-   - Menge und Einheit
-   - Preis manuell berechnen
-
-### Zahlungserfassung
-
-| Methode | Flow | Hinweis |
-|---------|------|---------|
-| **Bar** | Admin bestätigt Bareingang | Sofort im System verbucht |
-| **Karte** | SumUp-Terminal-Integration | Optional, falls konfiguriert |
-
-Ein bezahlter Laufzettel ist **gesperrt** – keine weiteren Materialien können hinzugefügt werden.
-
-## Seitenreferenz
-
-| Seite | URL | Zweck |
-|-------|-----|-------|
-| **Tags** | `/tags` | Alle NFC-Karten verwalten |
-| **Laufzettel-Liste** | `/laufzettel` | Alle Einträge durchsuchen/filtern |
-| **Laufzettel-Detail** | `/laufzettel/{id}` | Einzelnen Eintrag bearbeiten/bezahlen |
-
-## MQTT-Integration
-
-Geräte können Laufzettel-Einträge automatisch aktualisieren:
-
-- Topic: `makerpi/devices/{device_id}/status`
-- Payload mit `uid` → Laufzettel wird mit diesem Gerät verknüpft
-
-Siehe [MQTT-Datenfluss](./06-mqtt-data-flow) für Details.
+Das gleiche Prinzip gilt für `calculated_price` auf Materialeinträgen: Der Preis wird zum Zeitpunkt des Eintrags gespeichert, nicht bei jeder Ansicht neu berechnet.

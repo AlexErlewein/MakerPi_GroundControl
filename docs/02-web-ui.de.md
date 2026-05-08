@@ -1,80 +1,116 @@
 # Web-Oberfläche
 
-Die MakerPi GroundControl-Web-Oberfläche ist für Desktop und Mobilgeräte optimiert.
+Diese Seite erklärt die Hauptwebseiten aus der Perspektive einer Person, die das System bedient.
 
-## Hauptseiten
+## Dashboard (`/`)
 
-| Seite | URL | Zweck |
-|-------|-----|-------|
-| **Dashboard** | `/dashboard` | System-Status, aktive Geräte, letzte Nachrichten |
-| **Login** | `/login` | Authentifizierung (benutzergesteuert) |
-| **Tags** | `/tags` | NFC/RFID-Karten verwalten |
-| **Laufzettel** | `/laufzettel` | Workshopeinträge und Materialverbrauch |
-| **Katalog** | `/katalog` | Materialpreise und Kategorien |
-| **Mitglieder** | `/mitglieder` | Workshop-Mitglieder verwalten |
+Das Dashboard ist die Einstiegsseite.
 
-## Seitenaufbau
+Verwenden Sie es, um:
 
-Jede Seite folgt einem konsistenten Layout:
+- zu prüfen, ob das Backend verbunden und aktiv ist (MQTT-Status)
+- offene Laufzettel anzuzeigen
+- offline Geräte anzuzeigen
+- Spenden (Spenden) für den aktuellen Monat anzuzeigen
+- anzuzeigen, wie viele Mitglieder heute anwesend sind (basierend auf offenen Laufzettel mit Mitglied-ID)
+- den Systemstatus zu prüfen für:
+  - Docs-Server (Port 8001)
+  - Zigbee-Bridge (Port 8090 + USB-Verbindung)
+  - Datenbanken/BackBlaze (Litestream + B2-Verbindung)
+  - Google Drive-Verbindung
 
-```
-┌─────────────────────────────────────┐
-│  Logo    Navigation        Aktionen │  ← Header
-├─────────────────────────────────────┤
-│                                     │
-│         Seiteninhalt                │  ← Hauptbereich
-│                                     │
-└─────────────────────────────────────┘
-```
+Die Systemstatus-Indikatoren zeigen farbige Punkte:
+- **Grün** = OK/verbunden
+- **Rot** = Fehler/offline
+- **Gelb** = Warnung/teilweise Probleme
+- **Grau** = Unbekannt
 
-## Navigation
+Jedes Systemstatus-Label ist klickbar und verlinkt auf den jeweiligen Dienst.
 
-Die Hauptnavigation ist oben rechts verfügbar:
+## Datenbank-Seite (`/database`)
 
-- **Dashboard** – Zurück zur Hauptübersicht
-- **Tags** – Karten verwalten
-- **Laufzettel** – Workshopeinträge anzeigen/bearbeiten
-- **Katalog** – Materialpreise konfigurieren
-- **Mitglieder** – Personen verwalten
+Die Datenbank-Seite ist hauptsächlich für Inspektion und Debugging.
 
-## Responsive Design
+Verwenden Sie sie, um:
 
-- **Desktop:** Volle Breite mit Seitenleisten
-- **Tablet:** Angepasste Tabellen und Buttons
-- **Mobil:** Kompakte Ansicht mit priorisierten Aktionen
+- Nachrichtenverlauf zu überprüfen
+- Topic-Vielfalt und Systemnutzung zu inspizieren
+- Datenbankstatistiken zu prüfen
 
-## UI-Komponenten
+Diese Seite ist technischer als das Dashboard.
 
-### Buttons
+## Tags-Seite (`/tags`)
 
-| Stil | Verwendung |
-|------|-----------|
-| Primary (Blau) | Hauptaktionen (Speichern, Erstellen) |
-| Secondary (Grau) | Sekundäre Aktionen (Abbrechen, Zurück) |
-| Success (Grün) | Erfolgsaktionen (Zahlung, Abschluss) |
-| Danger (Rot) | Destruktive Aktionen (Löschen) |
+Diese Seite ist für RFID-Tag-Administration.
 
-### Tabellen
+Sie können:
 
-- Sortierbar nach Datum/Name
-- Filter nach Status (offen/bezahlt)
-- Direkte Aktionen pro Zeile
+- einen Tag erstellen
+- den Eigentümernamen bearbeiten
+- die Mitglieds-ID bearbeiten
+- Notizen hinzufügen
+- Tags aktivieren/deaktivieren
+- aktuelle Scan-Ereignisse inspizieren
 
-### Formulare
+Diese Seite ist der primäre Ort zur Pflege von Karteninhaber-Identitätsdaten.
 
-- Validierung vor dem Absenden
-- Hilfetexte bei komplexen Feldern
-- Autovervollständigung wo sinnvoll
+## Laufzettel-Liste (`/laufzettel`)
 
-## Tastenkürzel
+Diese Seite zeigt alle Laufzettel-Einträge.
 
-| Taste | Aktion |
-|-------|--------|
-| `/` | Suche fokussieren (wo verfügbar) |
-| `Esc` | Modal schließen / Suche zurücksetzen |
+Sie können:
 
-## Fehlerbehandlung
+- Einträge filtern
+- inspizieren, welcher Tag an welchem Datum von wem verwendet wurde
+- einen neuen Laufzettel manuell mit dem **Neuer Laufzettel**-Button erstellen
 
-- Klare Fehlermeldungen in Deutsch
-- Keine technischen Details für Endnutzer
-- Bestätigungsdialoge bei wichtigen Aktionen
+Bei manueller Erstellung kann die UI den Eigentümer und die Mitglieds-ID für bekannte UIDs automatisch ausfüllen.
+
+## Laufzettel-Details (`/laufzettel/{id}`)
+
+Diese Seite ist der detaillierte Editor für einen Laufzettel.
+
+Sie können:
+
+- den Eigentümernamen bearbeiten
+- die Mitglieds-ID bearbeiten
+- die Startzeit bearbeiten
+- die beteiligten Knoten/Geräte sehen
+- Materialeinträge hinzufügen, bearbeiten und löschen
+
+Materialeintrag-Modi:
+
+- **Freitext** — manueller Name + Menge + optionale Einheit
+- **Aus Katalog** — Standort/Kategorie/Variante auswählen und das System den Preis berechnen lassen
+
+## Katalog-Seite (`/katalog`)
+
+Diese Seite verwaltet die vordefinierte Materialstruktur.
+
+Hierarchie:
+
+- Standort
+- Kategorie
+- Variante
+
+Beispiele:
+
+- `Töpferei` → `Ton` → `fein`
+- `Holz-Werkstatt` → `Holz` → `Esche`
+
+Für jede Kategorie definieren Sie:
+
+- Preismodell
+- Anzeigeeinheit
+
+Für jede Variante definieren Sie:
+
+- Variantenname
+- Einheitspreis
+
+## Docs-Site
+
+Die Docs-Site ist getrennt von der Haupt-UI und sollte auf Port `8001` laufen.
+
+Die Haupt-UI kann als ausführliches Handbuch für Operatoren und Entwickler darauf verlinken.
+

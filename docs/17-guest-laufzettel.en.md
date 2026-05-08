@@ -1,8 +1,8 @@
-# Guest Laufzettel QR Code
+# Guest Laufzettel (Non-Member Usage)
 
 ## Overview
 
-The guest Laufzettel QR code allows non-members to create a Laufzettel by scanning a QR code with their smartphone. This feature enables visitors to the makerspace to track their material usage without requiring an RFID tag or member account.
+The guest Laufzettel feature allows non-members to create a Laufzettel by scanning a QR code with their smartphone. This enables visitors to the makerspace to track their material usage without requiring an RFID tag or member account.
 
 ## QR Code Files
 

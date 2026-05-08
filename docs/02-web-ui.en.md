@@ -8,10 +8,24 @@ The dashboard is the entry page.
 
 Use it to:
 
-- see if the backend is connected and alive
-- inspect recently seen devices
-- inspect recent MQTT messages
-- get a quick overall system status
+- see if the backend is connected and alive (MQTT status)
+- view open Laufzettel count
+- view offline devices count
+- view Spenden (donations) for the current month
+- view how many members are present today (based on open Laufzettel with member ID)
+- check system status for:
+  - Docs server (port 8001)
+  - Zigbee bridge (port 8090 + USB connection)
+  - Databases/BackBlaze (Litestream + B2 connection)
+  - Google Drive connection
+
+The system status indicators show colored dots:
+- **Green** = OK/connected
+- **Red** = Error/offline
+- **Yellow** = Warning/partial issues
+- **Gray** = Unknown
+
+Each system status label is clickable and links to the respective service.
 
 ## Database page (`/database`)
 
