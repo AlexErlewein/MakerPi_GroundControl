@@ -177,8 +177,8 @@ async function submitMaterialForm(e) {
         };
 
         // Add quantity measurements based on pricing model
-        if (selectedVariante) {
-            const pm = selectedVariante.pricing_model;
+        if (selectedKategorie) {
+            const pm = selectedKategorie.pricing_model;  // Use unterkategorie's pricing model
             if (pm === 'per_gram' || pm === 'per_kilogram') {
                 body.menge = parseFloat(document.getElementById('kat-menge-gram').value) || null;
             } else if (pm === 'per_minute') {
@@ -355,39 +355,25 @@ function onKatUnterkategorieChange() {
     const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
     if (!ukat) return;
 
-    selectedKategorie = ukat;
+    selectedKategorie = ukat;  // selectedKategorie now holds the unterkategorie
     varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
         (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
     varSel.disabled = false;
+    showKatInputFields(ukat.pricing_model, ukat.unit);
 }
 
 function onKatVarianteChange() {
     const varId = parseInt(document.getElementById('kat-select-variante').value);
     hidePricePreview();
-    if (!varId || !selectedKategorie) {
-        selectedVariante = null;
-        hideKatInputFields();
-        return;
-    }
+    if (!varId || !selectedKategorie) { selectedVariante = null; return; }
     selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
-    console.log('Variant selected:', selectedVariante);
-    if (selectedVariante) {
-        console.log('Showing input fields for pricing model:', selectedVariante.pricing_model, 'unit:', selectedVariante.unit);
-        showKatInputFields(selectedVariante.pricing_model, selectedVariante.unit);
-        recalcPrice();
-    } else {
-        console.log('No variant found, hiding input fields');
-        hideKatInputFields();
-    }
+    recalcPrice();
 }
 
 function showKatInputFields(pricingModel, unit) {
-    console.log('showKatInputFields called with pricingModel:', pricingModel, 'unit:', unit);
     const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_volume_l' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
     const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
     const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
-
-    console.log('isVolume:', isVolume, 'isWeight:', isWeight, 'isArea:', isArea);
 
     // Use both inline styles and class manipulation to ensure visibility
     const gramEl = document.getElementById('kat-fields-gram');
@@ -395,14 +381,6 @@ function showKatInputFields(pricingModel, unit) {
     const areaEl = document.getElementById('kat-fields-area');
     const minuteEl = document.getElementById('kat-fields-minute');
     const unitEl = document.getElementById('kat-fields-unit');
-
-    console.log('Elements found:', {
-        gramEl: !!gramEl,
-        volumeEl: !!volumeEl,
-        areaEl: !!areaEl,
-        minuteEl: !!minuteEl,
-        unitEl: !!unitEl
-    });
 
     // First remove hidden class, then set display style
     if (isWeight) {
@@ -413,7 +391,6 @@ function showKatInputFields(pricingModel, unit) {
         gramEl.classList.add('hidden');
         gramEl.style.display = 'none';
     }
-    console.log('gramEl after - display:', gramEl.style.display, 'classList:', gramEl.classList.toString());
 
     if (isVolume) {
         volumeEl.classList.remove('hidden');
@@ -461,7 +438,6 @@ function showKatInputFields(pricingModel, unit) {
 }
 
 function hideKatInputFields() {
-    console.log('hideKatInputFields called');
     ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) {
@@ -482,9 +458,11 @@ function showPricePreview(price) {
 }
 
 function recalcPrice() {
-    if (!selectedVariante) return;
+    if (!selectedVariante || !selectedKategorie) return;
     let menge = 0;
-    const pm = selectedVariante.pricing_model;
+    const pm = selectedKategorie.pricing_model;  // Use unterkategorie's pricing model, not variant's
+
+    if (!pm) return;
 
     if (pm === 'per_gram' || pm === 'per_kilogram' || pm === 'per_minute' || pm === 'per_unit') {
         menge = parseFloat(document.getElementById('kat-menge-' + (pm === 'per_gram' || pm === 'per_kilogram' ? 'gram' : pm === 'per_minute' ? 'minute' : 'unit')).value) || 0;
