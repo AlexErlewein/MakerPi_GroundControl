@@ -93,7 +93,6 @@
 
     /* Table actions on mobile */
     .actions {
-        flex-direction: column;
         gap: 4px;
         min-width: auto;
     }
