@@ -254,12 +254,16 @@ function setMatMode(mode) {
         freitextBtn.classList.add('active');
         katalogBtn.classList.remove('active');
         freitextFields.classList.remove('hidden');
+        freitextFields.style.display = 'block';
         katalogFields.classList.add('hidden');
+        katalogFields.style.display = 'none';
     } else {
         katalogBtn.classList.add('active');
         freitextBtn.classList.remove('active');
         katalogFields.classList.remove('hidden');
+        katalogFields.style.display = 'block';
         freitextFields.classList.add('hidden');
+        freitextFields.style.display = 'none';
         loadCatalogData();
     }
 }
