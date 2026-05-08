@@ -364,18 +364,30 @@ function onKatUnterkategorieChange() {
 function onKatVarianteChange() {
     const varId = parseInt(document.getElementById('kat-select-variante').value);
     hidePricePreview();
-    if (!varId || !selectedKategorie) { selectedVariante = null; return; }
+    if (!varId || !selectedKategorie) {
+        selectedVariante = null;
+        hideKatInputFields();
+        return;
+    }
     selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
+    console.log('Variant selected:', selectedVariante);
     if (selectedVariante) {
+        console.log('Showing input fields for pricing model:', selectedVariante.pricing_model, 'unit:', selectedVariante.unit);
         showKatInputFields(selectedVariante.pricing_model, selectedVariante.unit);
         recalcPrice();
+    } else {
+        console.log('No variant found, hiding input fields');
+        hideKatInputFields();
     }
 }
 
 function showKatInputFields(pricingModel, unit) {
+    console.log('showKatInputFields called with pricingModel:', pricingModel, 'unit:', unit);
     const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_volume_l' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
     const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
     const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
+
+    console.log('isVolume:', isVolume, 'isWeight:', isWeight, 'isArea:', isArea);
 
     // Use both inline styles and class manipulation to ensure visibility
     const gramEl = document.getElementById('kat-fields-gram');
@@ -384,20 +396,60 @@ function showKatInputFields(pricingModel, unit) {
     const minuteEl = document.getElementById('kat-fields-minute');
     const unitEl = document.getElementById('kat-fields-unit');
 
-    gramEl.style.display = isWeight ? 'block' : 'none';
-    gramEl.classList.toggle('hidden', !isWeight);
+    console.log('Elements found:', {
+        gramEl: !!gramEl,
+        volumeEl: !!volumeEl,
+        areaEl: !!areaEl,
+        minuteEl: !!minuteEl,
+        unitEl: !!unitEl
+    });
 
-    volumeEl.style.display = isVolume ? 'block' : 'none';
-    volumeEl.classList.toggle('hidden', !isVolume);
+    // First remove hidden class, then set display style
+    if (isWeight) {
+        gramEl.classList.remove('hidden');
+        gramEl.style.display = 'block';
+        gramEl.style.setProperty('display', 'block', 'important');
+    } else {
+        gramEl.classList.add('hidden');
+        gramEl.style.display = 'none';
+    }
+    console.log('gramEl after - display:', gramEl.style.display, 'classList:', gramEl.classList.toString());
 
-    areaEl.style.display = isArea ? 'block' : 'none';
-    areaEl.classList.toggle('hidden', !isArea);
+    if (isVolume) {
+        volumeEl.classList.remove('hidden');
+        volumeEl.style.display = 'block';
+        volumeEl.style.setProperty('display', 'block', 'important');
+    } else {
+        volumeEl.classList.add('hidden');
+        volumeEl.style.display = 'none';
+    }
 
-    minuteEl.style.display = pricingModel === 'per_minute' ? 'block' : 'none';
-    minuteEl.classList.toggle('hidden', pricingModel !== 'per_minute');
+    if (isArea) {
+        areaEl.classList.remove('hidden');
+        areaEl.style.display = 'block';
+        areaEl.style.setProperty('display', 'block', 'important');
+    } else {
+        areaEl.classList.add('hidden');
+        areaEl.style.display = 'none';
+    }
 
-    unitEl.style.display = pricingModel === 'per_unit' ? 'block' : 'none';
-    unitEl.classList.toggle('hidden', pricingModel !== 'per_unit');
+    if (pricingModel === 'per_minute') {
+        minuteEl.classList.remove('hidden');
+        minuteEl.style.display = 'block';
+        minuteEl.style.setProperty('display', 'block', 'important');
+    } else {
+        minuteEl.classList.add('hidden');
+        minuteEl.style.display = 'none';
+    }
+
+    if (pricingModel === 'per_unit') {
+        unitEl.classList.remove('hidden');
+        unitEl.style.display = 'block';
+        unitEl.style.setProperty('display', 'block', 'important');
+    } else {
+        unitEl.classList.add('hidden');
+        unitEl.style.display = 'none';
+    }
 
     const unitLabel = unit ? `(${unit})` : (pricingModel === 'per_kilogram' ? '(kg)' : pricingModel === 'per_gram' ? '(g)' : '');
     document.getElementById('kat-gram-label').textContent = unitLabel;
@@ -409,11 +461,13 @@ function showKatInputFields(pricingModel, unit) {
 }
 
 function hideKatInputFields() {
+    console.log('hideKatInputFields called');
     ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) {
-            el.style.display = 'none';
             el.classList.add('hidden');
+            el.style.display = 'none';
+            el.style.removeProperty('display');
         }
     });
 }
