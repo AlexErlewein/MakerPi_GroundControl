@@ -2,9 +2,10 @@
 
 import asyncio
 import json
+import subprocess
 from pathlib import Path
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -17,6 +18,125 @@ from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
 import backend.config as _app_config
 
 router = APIRouter()
+
+
+# ── System Status Check Functions ────────────────────────────────────────────
+
+
+async def check_docs_status() -> dict:
+    """Check if docs server on port 8001 is responding."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://localhost:8001")
+            if response.status_code < 500:
+                return {"status": "ok", "message": "Online"}
+    except Exception:
+        pass
+    return {"status": "error", "message": "Offline"}
+
+
+def check_zigbee_status() -> dict:
+    """Check if zigbee2mqtt frontend (port 8090) and USB device are accessible."""
+    import httpx
+    import socket
+
+    status_parts = []
+    errors = []
+
+    # Check port 8090 accessibility
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(("localhost", 8090))
+        sock.close()
+        if result == 0:
+            status_parts.append("Web UI accessible")
+        else:
+            errors.append("Web UI offline")
+    except Exception:
+        errors.append("Web UI check failed")
+
+    # Check USB device
+    try:
+        usb_path = Path("/dev/ttyUSB0")
+        if usb_path.exists():
+            status_parts.append("USB connected")
+        else:
+            # Try alternative path
+            usb_path_alt = Path("/dev/ttyACM0")
+            if usb_path_alt.exists():
+                status_parts.append("USB connected (ACM0)")
+            else:
+                errors.append("USB not found")
+    except Exception:
+        errors.append("USB check failed")
+
+    if errors and not status_parts:
+        return {"status": "error", "message": ", ".join(errors)}
+    elif status_parts and not errors:
+        return {"status": "ok", "message": ", ".join(status_parts)}
+    else:
+        return {"status": "warning", "message": f"{', '.join(status_parts)}; {', '.join(errors)}"}
+
+
+def check_database_status() -> dict:
+    """Check if Litestream is running and B2 connection is working."""
+    status_parts = []
+    errors = []
+
+    # Check if Litestream process is running
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "litestream"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0:
+            status_parts.append("Litestream running")
+        else:
+            errors.append("Litestream not running")
+    except Exception:
+        errors.append("Litestream check failed")
+
+    # Check B2 connection via litestream config
+    if _app_config.LITESTREAM_ENABLED:
+        try:
+            cfg_path = Path("config/litestream.yml")
+            if cfg_path.exists():
+                status_parts.append("Config present")
+            else:
+                errors.append("Config missing")
+        except Exception:
+            errors.append("Config check failed")
+    else:
+        status_parts.append("Litestream disabled")
+
+    if errors and not status_parts:
+        return {"status": "error", "message": ", ".join(errors)}
+    elif status_parts and not errors:
+        return {"status": "ok", "message": ", ".join(status_parts)}
+    else:
+        return {"status": "warning", "message": f"{', '.join(status_parts)}; {', '.join(errors)}"}
+
+
+def check_gdrive_status() -> dict:
+    """Check if Google Drive authentication is working."""
+    try:
+        from backend.gdrive import get_drive_service
+
+        service = get_drive_service()
+        if service:
+            return {"status": "ok", "message": "Connected"}
+        else:
+            return {"status": "error", "message": "Not configured"}
+    except Exception as e:
+        return {"status": "error", "message": f"Connection failed: {str(e)}"}
+
+
+# ── Routes ───────────────────────────────────────────────────────────────────
 
 
 @router.on_event("startup")
