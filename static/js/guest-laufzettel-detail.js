@@ -373,12 +373,27 @@ function showKatInputFields(pricingModel, unit) {
     const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
     const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
 
-    // Use inline styles to override CSS
-    document.getElementById('kat-fields-gram').style.display = isWeight ? 'block' : 'none';
-    document.getElementById('kat-fields-volume').style.display = isVolume ? 'block' : 'none';
-    document.getElementById('kat-fields-area').style.display = isArea ? 'block' : 'none';
-    document.getElementById('kat-fields-minute').style.display = pricingModel === 'per_minute' ? 'block' : 'none';
-    document.getElementById('kat-fields-unit').style.display = pricingModel === 'per_unit' ? 'block' : 'none';
+    // Use both inline styles and class manipulation to ensure visibility
+    const gramEl = document.getElementById('kat-fields-gram');
+    const volumeEl = document.getElementById('kat-fields-volume');
+    const areaEl = document.getElementById('kat-fields-area');
+    const minuteEl = document.getElementById('kat-fields-minute');
+    const unitEl = document.getElementById('kat-fields-unit');
+
+    gramEl.style.display = isWeight ? 'block' : 'none';
+    gramEl.classList.toggle('hidden', !isWeight);
+
+    volumeEl.style.display = isVolume ? 'block' : 'none';
+    volumeEl.classList.toggle('hidden', !isVolume);
+
+    areaEl.style.display = isArea ? 'block' : 'none';
+    areaEl.classList.toggle('hidden', !isArea);
+
+    minuteEl.style.display = pricingModel === 'per_minute' ? 'block' : 'none';
+    minuteEl.classList.toggle('hidden', pricingModel !== 'per_minute');
+
+    unitEl.style.display = pricingModel === 'per_unit' ? 'block' : 'none';
+    unitEl.classList.toggle('hidden', pricingModel !== 'per_unit');
 
     const unitLabel = unit ? `(${unit})` : (pricingModel === 'per_kilogram' ? '(kg)' : pricingModel === 'per_gram' ? '(g)' : '');
     document.getElementById('kat-gram-label').textContent = unitLabel;
@@ -392,7 +407,10 @@ function showKatInputFields(pricingModel, unit) {
 function hideKatInputFields() {
     ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) {
+            el.style.display = 'none';
+            el.classList.add('hidden');
+        }
     });
 }
 
