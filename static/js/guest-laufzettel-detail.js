@@ -3,6 +3,9 @@
 
 let laufzettelData = null;
 let allMaterials = [];
+let katalog = [];
+let selectedVariante = null;
+let selectedKategorie = null;
 
 // Load Laufzettel data
 async function loadLaufzettel() {
@@ -242,15 +245,15 @@ function setMatMode(mode) {
     }
 }
 
-// Load catalog data (simplified - just locations)
+// Load catalog data
 async function loadCatalogData() {
     try {
-        const response = await fetch('/api/katalog/locations');
+        const response = await fetch('/api/katalog');
         if (response.ok) {
-            const locations = await response.json();
+            katalog = await response.json();
             const select = document.getElementById('kat-select-location');
             select.innerHTML = '<option value="">-- Standort wählen --</option>';
-            locations.forEach(loc => {
+            katalog.forEach(loc => {
                 const opt = document.createElement('option');
                 opt.value = loc.id;
                 opt.textContent = loc.name;
@@ -258,37 +261,152 @@ async function loadCatalogData() {
             });
         }
     } catch (e) {
-        console.error('Failed to load catalog locations');
+        console.error('Failed to load catalog');
     }
 }
 
-// Catalog change handlers (stubs - would need full implementation)
+// Catalog change handlers
 function onKatLocationChange() {
-    const locationId = document.getElementById('kat-select-location').value;
-    const kategorieSelect = document.getElementById('kat-select-kategorie');
-    kategorieSelect.disabled = !locationId;
-    // TODO: Load categories for this location
+    const locId = parseInt(document.getElementById('kat-select-location').value);
+    const katSel = document.getElementById('kat-select-kategorie');
+    const varSel = document.getElementById('kat-select-variante');
+
+    katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
+    varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+    varSel.disabled = true;
+    selectedVariante = null;
+    selectedKategorie = null;
+    hideKatInputFields();
+    hidePricePreview();
+
+    if (!locId) { katSel.disabled = true; return; }
+    const loc = katalog.find((l) => l.id === locId);
+    if (!loc) { katSel.disabled = true; return; }
+
+    katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+        (loc.kategorien || []).map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join('');
+    katSel.disabled = false;
 }
 
 function onKatKategorieChange() {
-    const kategorieId = document.getElementById('kat-select-kategorie').value;
-    const unterkategorieSelect = document.getElementById('kat-select-unterkategorie');
-    unterkategorieSelect.disabled = !kategorieId;
-    // TODO: Load subcategories for this category
+    const locId = parseInt(document.getElementById('kat-select-location').value);
+    const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+    const ukatSel = document.getElementById('kat-select-unterkategorie');
+    const varSel = document.getElementById('kat-select-variante');
+
+    ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+    ukatSel.disabled = true;
+    varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+    varSel.disabled = true;
+    selectedVariante = null;
+    selectedKategorie = null;
+    hideKatInputFields();
+    hidePricePreview();
+
+    if (!katId) return;
+    const loc = katalog.find((l) => l.id === locId);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+    if (!kat) return;
+
+    ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>' +
+        (kat.unterkategorien || []).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+    ukatSel.disabled = false;
 }
 
 function onKatUnterkategorieChange() {
-    const unterkategorieId = document.getElementById('kat-select-unterkategorie').value;
-    const varianteSelect = document.getElementById('kat-select-variante');
-    varianteSelect.disabled = !unterkategorieId;
-    // TODO: Load variants for this subcategory
+    const locId = parseInt(document.getElementById('kat-select-location').value);
+    const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+    const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
+    const varSel = document.getElementById('kat-select-variante');
+
+    varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+    varSel.disabled = true;
+    selectedVariante = null;
+    selectedKategorie = null;
+    hideKatInputFields();
+    hidePricePreview();
+
+    if (!ukatId) return;
+    const loc = katalog.find((l) => l.id === locId);
+    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+    const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
+    if (!ukat) return;
+
+    selectedKategorie = ukat;
+    varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
+        (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
+    varSel.disabled = false;
 }
 
 function onKatVarianteChange() {
-    const varianteId = document.getElementById('kat-select-variante').value;
-    document.getElementById('edit-mat-variante-id').value = varianteId;
-    // TODO: Show appropriate input fields based on pricing model
-    // TODO: Calculate and show price preview
+    const varId = parseInt(document.getElementById('kat-select-variante').value);
+    hidePricePreview();
+    if (!varId || !selectedKategorie) { selectedVariante = null; return; }
+    selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
+    if (selectedVariante) {
+        showKatInputFields(selectedVariante.pricing_model, selectedVariante.unit);
+        recalcPrice();
+    }
+}
+
+function showKatInputFields(pricingModel, unit) {
+    const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_volume_l' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
+    const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
+    const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
+    document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight);
+    document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
+    document.getElementById('kat-fields-area').classList.toggle('hidden', !isArea);
+    document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
+    document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
+    const unitLabel = unit ? `(${unit})` : (pricingModel === 'per_kilogram' ? '(kg)' : pricingModel === 'per_gram' ? '(g)' : '');
+    document.getElementById('kat-gram-label').textContent = unitLabel;
+    document.getElementById('kat-unit-label').textContent = unitLabel;
+    ['kat-menge-gram', 'kat-menge-minute', 'kat-menge-unit', 'kat-laenge', 'kat-breite', 'kat-hoehe', 'kat-area-laenge', 'kat-area-breite'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.oninput = recalcPrice;
+    });
+}
+
+function hideKatInputFields() {
+    ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) =>
+        document.getElementById(id).classList.add('hidden')
+    );
+}
+
+function hidePricePreview() {
+    document.getElementById('price-preview').classList.add('hidden');
+}
+
+function showPricePreview(price) {
+    document.getElementById('price-value').textContent = `${price.toFixed(2)} €`;
+    document.getElementById('price-preview').classList.remove('hidden');
+}
+
+function recalcPrice() {
+    if (!selectedVariante) return;
+    let menge = 0;
+    const pm = selectedVariante.pricing_model;
+
+    if (pm === 'per_gram' || pm === 'per_kilogram' || pm === 'per_minute' || pm === 'per_unit') {
+        menge = parseFloat(document.getElementById('kat-menge-' + (pm === 'per_gram' || pm === 'per_kilogram' ? 'gram' : pm === 'per_minute' ? 'minute' : 'unit')).value) || 0;
+        if (pm === 'per_kilogram') menge = menge * 1000;
+    } else if (pm.includes('volume')) {
+        const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+        const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+        const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+        menge = l * b * h;
+        if (pm === 'per_volume_l') menge = menge / 1000;
+        else if (pm === 'per_cubic_meter') menge = menge / 1000000;
+        else if (pm === 'per_cubic_deci_meter') menge = menge / 1000;
+    } else if (pm.includes('area')) {
+        const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
+        const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
+        menge = l * b;
+        if (pm === 'per_area_m2') menge = menge / 10000;
+    }
+
+    const price = menge * selectedVariante.price;
+    showPricePreview(price);
 }
 
 // Spende modal
