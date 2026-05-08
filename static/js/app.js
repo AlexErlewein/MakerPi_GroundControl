@@ -20,10 +20,50 @@ async function loadDashboardStats() {
         const spendenEl = document.getElementById('spenden-current-month');
         const membersEl = document.getElementById('members-today');
 
+        const openLzDot = document.getElementById('open-laufzettel-dot');
+        const offlineDevDot = document.getElementById('offline-devices-dot');
+        const spendenDot = document.getElementById('spenden-dot');
+        const membersDot = document.getElementById('members-today-dot');
+
         if (openLzEl) openLzEl.textContent = data.open_laufzettel_count || 0;
         if (offlineDevEl) offlineDevEl.textContent = data.offline_devices_count || 0;
         if (spendenEl) spendenEl.textContent = `€${(data.spenden_current_month || 0).toFixed(2)}`;
         if (membersEl) membersEl.textContent = data.members_today || 0;
+
+        // Set status dots
+        if (openLzDot) {
+            openLzDot.className = 'stat-status-dot';
+            if (data.open_laufzettel_count === 0) {
+                openLzDot.classList.add('green');
+            } else if (data.open_laufzettel_count > 5) {
+                openLzDot.classList.add('red');
+            } else {
+                openLzDot.classList.add('yellow');
+            }
+        }
+
+        if (offlineDevDot) {
+            offlineDevDot.className = 'stat-status-dot';
+            if (data.offline_devices_count === 0) {
+                offlineDevDot.classList.add('green');
+            } else {
+                offlineDevDot.classList.add('red');
+            }
+        }
+
+        if (spendenDot) {
+            spendenDot.className = 'stat-status-dot';
+            if (data.spenden_current_month > 0) {
+                spendenDot.classList.add('green');
+            }
+        }
+
+        if (membersDot) {
+            membersDot.className = 'stat-status-dot';
+            if (data.members_today > 0) {
+                membersDot.classList.add('green');
+            }
+        }
 
         // Update system status indicators
         if (data.system_status) {

@@ -181,6 +181,36 @@ header h1 {
     margin-bottom: 10px;
 }
 
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.stat-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    animation: pulse 2s infinite;
+}
+
+.stat-status-dot.green {
+    background: var(--success);
+    animation: none;
+}
+
+.stat-status-dot.red {
+    background: var(--danger);
+    animation: none;
+}
+
+.stat-status-dot.yellow {
+    background: var(--warning);
+    animation: none;
+}
+
 .stat-link {
     color: var(--accent);
     text-decoration: none;
