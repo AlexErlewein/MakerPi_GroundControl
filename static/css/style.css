@@ -181,36 +181,6 @@ header h1 {
     margin-bottom: 10px;
 }
 
-.stat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.stat-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-secondary);
-    animation: pulse 2s infinite;
-}
-
-.stat-status-dot.green {
-    background: var(--success);
-    animation: none;
-}
-
-.stat-status-dot.red {
-    background: var(--danger);
-    animation: none;
-}
-
-.stat-status-dot.yellow {
-    background: var(--warning);
-    animation: none;
-}
-
 .stat-link {
     color: var(--accent);
     text-decoration: none;
@@ -744,34 +714,27 @@ footer {
 }
 
 .status-indicator {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
+    display: inline-block;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    font-weight: bold;
-    font-size: 0.9rem;
+    background: var(--text-secondary);
 }
 
 .status-indicator.status-ok {
-    background: rgba(53, 119, 48, 0.2);
-    color: var(--success);
+    background: var(--success);
 }
 
 .status-indicator.status-error {
-    background: rgba(192, 57, 43, 0.2);
-    color: var(--danger);
+    background: var(--danger);
 }
 
 .status-indicator.status-warning {
-    background: rgba(210, 153, 34, 0.2);
-    color: var(--warning);
+    background: var(--warning);
 }
 
 .status-indicator.status-unknown {
-    background: rgba(139, 148, 158, 0.2);
-    color: var(--text-secondary);
+    background: var(--text-secondary);
 }
 
 .status-message {
