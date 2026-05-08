@@ -76,11 +76,15 @@ Material wird auf einem Laufzettel in zwei Modi erfasst:
 ```mermaid
 graph TD
     L["📍 Standort\ne.g. Töpferei"] --> K["🗂 Kategorie\ne.g. Ton"]
-    K --> V1["🔷 Variante: fein\n0,05 €/g"]
-    K --> V2["🔷 Variante: grob\n0,03 €/g"]
+    K --> U1["📁 Unterkategorie: Rot\npricing: per_gram\nunit: g\ntax: 19%"]
+    K --> U2["📁 Unterkategorie: Weiß\npricing: per_gram\nunit: g\ntax: 19%"]
+    U1 --> V1["🔷 Variante: fein\n0,05 €/g"]
+    U1 --> V2["🔷 Variante: grob\n0,03 €/g"]
+    U2 --> V3["🔷 Variante: weiß-fein\n0,04 €/g"]
     L2["📍 Holz-Werkstatt"] --> K2["🗂 Holz"]
-    K2 --> V3["🔷 Eiche\n0,12 €/cm³"]
-    K2 --> V4["🔷 Esche\n0,09 €/cm³"]
+    K2 --> U3["📁 Unterkategorie: Hartholz\npricing: per_volume_cm3\nunit: cm³\ntax: 19%"]
+    U3 --> V4["🔷 Eiche\n0,12 €/cm³"]
+    U3 --> V5["🔷 Esche\n0,09 €/cm³"]
 ```
 
 ## Typischer Operator-Workflow

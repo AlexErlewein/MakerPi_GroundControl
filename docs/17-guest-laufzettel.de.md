@@ -12,6 +12,15 @@ Zwei QR-Code-Dateien sind im Projektstammverzeichnis verfügbar:
 
 Beide Dateien verwenden die Corporate Identity Akzentfarbe (#d04417 - orange-rot) für den QR-Code-Vordergrund.
 
+### QR-Code-Vorschau
+
+![Gast-Laufzettel QR-Code (PNG)](/guest-laufzettel-qr.png)
+
+Der oben gezeigte QR-Code zeigt auf:
+```
+http://192.168.3.228:8000/guest/laufzettel
+```
+
 ## QR-Code-URL
 
 Der QR-Code zeigt auf:

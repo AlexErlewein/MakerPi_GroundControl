@@ -1,64 +1,132 @@
 # Material-Katalog
 
-Der **Katalog** speichert Materialpreise und ermöglicht automatische Preisberechnung beim Hinzufügen zu Laufzetteln.
+Der **Katalog** speichert Materialpreise und ermöglicht automatische Preisberechnung beim Hinzufügen zu Laufzetteln. Er ist als vierstufige Hierarchie organisiert.
 
 ## Hierarchie
 
-```
-Standort (z.B. "3D-Druck", "Laserschneiden")
-  └── Kategorie (z.B. "PLA", "Acrylglas")
-        └── Variante (z.B. "Weiß, 1kg", "3mm, transparent")
-```
+```mermaid
+graph TD
+    Root["Material-Katalog"] --> L1["📍 Standort\nTöpferei"]
+    Root --> L2["📍 Standort\nHolz-Werkstatt"]
+    Root --> L3["📍 Standort\nFabLab"]
 
-Jede **Kategorie** hat ein **Preismodell**, das bestimmt, wie der Preis berechnet wird:
+    L1 --> K1["🗂 Kategorie: Ton"]
+    K1 --> U1["📁 Unterkategorie: Rot\npricing: per_gram\nunit: g\ntax: 19%"]
+    K1 --> U2["📁 Unterkategorie: Weiß\npricing: per_gram\nunit: g\ntax: 19%"]
+    U1 --> V1["🔷 Variante: fein\n0,05 €/g"]
+    U1 --> V2["🔷 Variante: grob\n0,03 €/g"]
+    U2 --> V3["🔷 Variante: weiß-fein\n0,04 €/g"]
 
-| Preismodell | Berechnung | Beispiel |
-|-------------|------------|----------|
-| `pro_gramm` | Gewicht × Preis | 150g Filament |
-| `pro_volumen_cm3` | L×B×H × Preis | Laser-Schnitt |
-| `pro_stueck` | Anzahl × Preis | Schrauben, Bits |
+    L2 --> K2["🗂 Kategorie: Holz"]
+    K2 --> U3["📁 Unterkategorie: Hartholz\npricing: per_volume_cm3\nunit: cm³\ntax: 19%"]
+    U3 --> V4["🔷 Variante: Eiche\n0,12 €/cm³"]
+    U3 --> V5["🔷 Variante: Esche\n0,09 €/cm³"]
 
-## Katalog-Verwaltung
-
-### Standorte
-
-Standorte sind **Speicher-/Arbeitsbereiche** in deinem Workshop:
-
-- **3D-Druck** – Drucker und Filamentlager
-- **Laserschneiden** – Laserarbeitsplatz
-- **Holzbearbeitung** – Werkstattbereich
-
-### Kategorien
-
-Jede Kategorie gehört zu einem Standort und hat:
-
-- **Name** (z.B. "PLA", "Acrylglas 3mm")
-- **Preismodell** (siehe Tabelle oben)
-- **Einheit** (optional, für Anzeige)
-
-### Varianten
-
-Varianten sind **konkrete, preisgekrönte Optionen** innerhalb einer Kategorie:
-
-```
-Kategorie: "PLA"
-├── Variante: "Weiß, 1kg" → 0.04 €/g
-├── Variante: "Schwarz, 1kg" → 0.04 €/g
-└── Variante: "Holz-Effekt, 500g" → 0.06 €/g
+    L3 --> K3["🗂 Kategorie: Filament"]
+    K3 --> U4["📁 Unterkategorie: PLA\npricing: per_gram\nunit: g\ntax: 19%"]
+    U4 --> V6["🔷 Variante: Standard\n0,02 €/g"]
+    U4 --> V7["🔷 Variante: Matt\n0,025 €/g"]
 ```
 
-## Preisberechnung
+## Datenmodell
 
-Wenn Material zu einem Laufzettel hinzugefügt wird:
+### Standort
 
+Oberste Gruppierung nach Workshop-Bereich.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | int | Primärschlüssel |
+| `name` | string | Standortname (eindeutig) |
+
+### Kategorie
+
+Logische Gruppierung von Materialien innerhalb eines Standorts.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | int | Primärschlüssel |
+| `location_id` | int | FK → Standort |
+| `name` | string | Kategoriename |
+
+### Unterkategorie
+
+Definiert das Preismodell, die Eingabeeinheit und den Steuersatz für eine Gruppe von Materialien. Hier befindet sich die Preiskonfiguration.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | int | Primärschlüssel |
+| `kategorie_id` | int | FK → Kategorie |
+| `name` | string | Unterkategoriename |
+| `pricing_model` | string | `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
+| `unit` | string | Anzeigeeinheit, z.B. `g`, `cm³`, `Stk` |
+| `tax_rate` | float | Steuersatz: `0`, `7` oder `19` |
+
+### Variante
+
+Eine konkrete auswählbare Option mit einem Einheitspreis.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | int | Primärschlüssel |
+| `kategorie_id` | int | FK → Kategorie (aus Kompatibilitätsgründen beibehalten) |
+| `unterkategorie_id` | int | FK → Unterkategorie |
+| `name` | string | Variantenname, z.B. `fein` |
+| `price` | float | Preis pro Einheit (€) |
+
+## Preismodelle
+
+```mermaid
+flowchart LR
+    VAR["Ausgewählte Variante\n(price)"] --> PM{"Unterkategorie\npricing_model"}
+
+    PM -->|"per_gram"| PG["Eingabe: Menge in g\n────────────────\nprice = menge × price"]
+    PM -->|"per_volume_cm3"| PV["Eingabe: L × B × H in cm\n────────────────────────\nvolumen = l × b × h\nprice = volumne × price"]
+    PM -->|"per_unit"| PU["Eingabe: Menge (Stk)\n────────────────\nprice = menge × price"]
 ```
-Katalog-Preis:      0.04 €/g
-Gewicht:           150g
-───────────────────────────
-Gesamt:            6.00 €
-```
 
-Der berechnete Preis wird **eingefroren** – spätere Preisänderungen im Katalog wirken sich nicht auf bestehende Laufzettel aus.
+### Modell-Vergleichstabelle
+
+| Modell | Erforderliche Eingaben | Formel | Verwendung |
+|---|---|---|---|
+| `per_gram` | Menge (g) | `menge × price` | Ton, Filament, Pulver, Harz |
+| `per_volume_cm3` | Länge, Breite, Höhe (cm) | `l × b × h × price` | Holz, Schaumstoff, Plattenmaterial |
+| `per_volume_l` | Länge, Breite, Höhe (cm) | `l × b × h / 1000 × price` | Flüssigkeiten (Harzbäder, Öle) |
+| `per_unit` | Anzahl | `menge × price` | Kleinteile, Hardware, Kits |
+
+## Praktische Beispiele
+
+### Beispiel 1 — Ton (per_gram)
+
+- Standort: `Töpferei`
+- Kategorie: `Ton`
+- Unterkategorie: `Rot` · model: `per_gram` · unit: `g` · tax: 19%
+- Variante: `fein` · price: `0,05 €/g`
+- Operator eingibt: `800 g`
+- Berechneter Preis: **0,05 × 800 = 40,00 €**
+
+### Beispiel 2 — Holz (per_volume_cm3)
+
+- Standort: `Holz-Werkstatt`
+- Kategorie: `Holz`
+- Unterkategorie: `Hartholz` · model: `per_volume_cm3` · unit: `cm³` · tax: 19%
+- Variante: `Eiche` · price: `0,12 €/cm³`
+- Operator eingibt: `30 cm × 10 cm × 4 cm`
+- Volumen: `30 × 10 × 4 = 1200 cm³`
+- Berechneter Preis: **0,12 × 1200 = 144,00 €**
+
+### Beispiel 3 — Filament (per_gram)
+
+- Standort: `FabLab`
+- Kategorie: `Filament`
+- Unterkategorie: `PLA` · model: `per_gram` · unit: `g` · tax: 19%
+- Variante: `Standard` · price: `0,02 €/g`
+- Operator eingibt: `65 g`
+- Berechneter Preis: **0,02 × 65 = 1,30 €**
+
+## Historische Preis-Erhaltung
+
+Wenn ein katalogbasierter Materialeintrag in einem Laufzettel gespeichert wird, wird der `calculated_price` zum Zeitpunkt des Speicherns **eingefroren**. Wenn Sie später den Preis einer Variante ändern, werden vorhandene Laufzettel-Einträge nicht beeinflusst.
 
 ## Seite: Katalog
 
@@ -70,11 +138,13 @@ Zugriff über `/katalog`.
 ┌─────────────────────────────────────────┐
 │ 📍 3D-Druck              [+ Kategorie]  │  ← Standort
 │ ─────────────────────────────────────── │
-│ 🗂 PLA (pro Gramm)                      │  ← Kategorie
+│ 🗂 PLA                                     │  ← Kategorie
 │ ─────────────────────────────────────── │
-│ Variante              Preis      Akt.  │
+│ 📁 Standard [+ Unterkategorie]          │  ← Unterkategorien
 │ ─────────────────────────────────────── │
-│ Weiß, 1kg            0.04 €/g   [E][L] │  ← Varianten
+│ Variante              Preis      Akt.  │  ← Varianten
+│ ─────────────────────────────────────── │
+│ Weiß, 1kg            0.04 €/g   [E][L] │
 │ Schwarz, 1kg         0.04 €/g   [E][L] │
 └─────────────────────────────────────────┘
 ```
@@ -85,10 +155,13 @@ Zugriff über `/katalog`.
 |--------|--------|--------------|
 | Standort hinzufügen | `+ Standort` | Neuen Bereich erstellen |
 | Kategorie hinzufügen | `+ Kategorie` | Preisgruppe erstellen |
+| Unterkategorie hinzufügen | `+ Unterkategorie` | Preisuntergruppe erstellen |
 | Variante hinzufügen | `+ Variante` | Konkrete Option erstellen |
 | Bearbeiten | `Bearbeiten` | Name/Preis ändern |
 | Löschen | `Löschen` | Element entfernen |
 | **Bulk Import** | **`⬆ Bulk Import`** | **Viele Einträge auf einmal hinzufügen** |
+
+> **Tipp:** Erstellen Sie zuerst den Standort, dann die Kategorie, dann die Unterkategorie (mit Preismodell), dann die Varianten. Sie können keine Variante ohne übergeordnete Unterkategorie erstellen.
 
 ## Bulk Import
 
@@ -98,14 +171,15 @@ Der **„⬆ Bulk Import"**-Button (oben rechts auf der Katalog-Seite) erlaubt e
 
 1. **⬆ Bulk Import** klicken → Modal öffnet sich auf dem Tab **Eingabe**.
 2. Einen vorhandenen **Standort** aus der Dropdown-Liste wählen oder *„Neuen Standort erstellen"* auswählen und einen Namen eingeben.
-3. **+ Kategorie hinzufügen** klicken. Für jede Kategorie ausfüllen:
+3. **+ Kategorie hinzufügen** klicken und den Namen eingeben.
+4. Innerhalb des Kategorie-Blocks **+ Unterkategorie hinzufügen** klicken. Für jede Unterkategorie ausfüllen:
    - Name
    - Preismodell (`per_unit`, `per_gram`, `per_volume_cm3`, `per_volume_l`, `per_minute`)
    - Einheit (optionale Anzeige-Einheit, z.B. `g`, `cm³`)
    - Steuersatz (0 / 7 / 19 %)
-4. Mit **+ Variante** beliebig viele Varianten pro Kategorie anlegen (Name und Preis).
-5. So viele Kategorien und Varianten hinzufügen wie nötig.
-6. **Alles speichern** klicken – alle Einträge werden in einer einzigen atomaren Datenbank-Transaktion gespeichert.
+5. Innerhalb des Unterkategorie-Blocks **+ Variante** für jede Variante klicken (Name und Preis).
+6. So viele Kategorien, Unterkategorien und Varianten hinzufügen wie nötig.
+7. **Alles speichern** klicken – alle Einträge werden in einer einzigen atomaren Datenbank-Transaktion gespeichert.
 
 > Existiert ein Standort mit dem eingegebenen Namen bereits, wird er wiederverwendet – nie doppelt angelegt.
 
@@ -122,38 +196,42 @@ Der **„⬆ Bulk Import"**-Button (oben rechts auf der Katalog-Seite) erlaubt e
 Die Datei muss eine Kopfzeile mit genau diesen Spaltennamen haben (Reihenfolge fest):
 
 ```
-standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
 ```
 
 | Spalte | Pflicht | Werte / Hinweise |
 |--------|---------|------------------|
 | `standort` | ja | Name des Standorts |
 | `kategorie` | ja | Name der Kategorie |
+| `unterkategorie` | ja | Name der Unterkategorie |
 | `preismodell` | ja | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
 | `einheit` | nein | Anzeige-Einheit, z.B. `g`, `cm³` – leer lassen wenn nicht benötigt |
 | `steuersatz` | ja | `0`, `7` oder `19` |
 | `variante` | ja | Name der Variante |
 | `preis` | ja | Preis pro Einheit, Dezimalpunkt (kein Komma), z.B. `0.05` |
 
-Mehrere Zeilen mit demselben `standort + kategorie + preismodell + einheit + steuersatz` werden zu einer Kategorie mit mehreren Varianten zusammengefasst.
+Mehrere Zeilen mit demselben `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` werden zu einer Unterkategorie mit mehreren Varianten zusammengefasst.
 
 #### Beispiel
 
 ```csv
-standort,kategorie,preismodell,einheit,steuersatz,variante,preis
-Töpferei,Ton,per_gram,g,19,fein,0.05
-Töpferei,Ton,per_gram,g,19,grob,0.03
-Töpferei,Glasur,per_unit,Stück,19,transparent,2.50
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Eiche,0.0012
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Altholz,0.0004
-FabLab,Filament,per_gram,g,19,PLA,0.02
-FabLab,Filament,per_gram,g,19,PETG,0.025
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+Töpferei,Ton,Rot,per_gram,g,19,fein,0.05
+Töpferei,Ton,Rot,per_gram,g,19,grob,0.03
+Töpferei,Ton,Weiß,per_gram,g,19,weiß-fein,0.04
+Töpferei,Glasur,Transparent,per_unit,Stück,19,transparent,2.50
+Holz-Werkstatt,Holz,Hartholz,per_volume_cm3,cm³,19,Eiche,0.0012
+Holz-Werkstatt,Holz,Hartholz,per_volume_cm3,cm³,19,Esche,0.0009
+Holz-Werkstatt,Holz,Altholz,per_volume_cm3,cm³,19,Altholz,0.0004
+FabLab,Filament,PLA,per_gram,g,19,Standard,0.02
+FabLab,Filament,PLA,per_gram,g,19,Matt,0.025
+FabLab,Filament,PETG,Standard,per_gram,g,19,Transparent,0.025
 ```
 
 Dieses Beispiel erstellt:
-- **Töpferei** → Ton (per_gram, 2 Varianten) + Glasur (per_unit, 1 Variante)
-- **Holz-Werkstatt** → Holz (per_volume_cm3, 2 Varianten)
-- **FabLab** → Filament (per_gram, 2 Varianten)
+- **Töpferei** → Ton → Rot (per_gram, 2 Varianten) + Ton → Weiß (per_gram, 1 Variante) + Glasur → Transparent (per_unit, 1 Variante)
+- **Holz-Werkstatt** → Holz → Hartholz (per_volume_cm3, 2 Varianten) + Holz → Altholz (per_volume_cm3, 1 Variante)
+- **FabLab** → Filament → PLA (per_gram, 2 Varianten) + Filament → PETG → Standard (per_gram, 1 Variante)
 
 Eine größere, direkt einsatzbare Beispieldatei liegt im Repository unter `examples/katalog-bulk-import.csv`.
 
@@ -166,9 +244,11 @@ Eine größere, direkt einsatzbare Beispieldatei liegt im Repository unter `exam
 | `POST` | `/api/katalog/locations` | Standort erstellen |
 | `GET` | `/api/katalog/kategorien` | Alle Kategorien |
 | `POST` | `/api/katalog/kategorien` | Kategorie erstellen |
+| `GET` | `/api/katalog/unterkategorien` | Alle Unterkategorien |
+| `POST` | `/api/katalog/unterkategorien` | Unterkategorie erstellen |
 | `GET` | `/api/katalog/varianten` | Alle Varianten |
 | `POST` | `/api/katalog/varianten` | Variante erstellen |
-| `POST` | `/api/katalog/bulk-import` | Standort + Kategorien + Varianten auf einmal anlegen |
+| `POST` | `/api/katalog/bulk-import` | Standort + Kategorien + Unterkategorien + Varianten auf einmal anlegen |
 
 ## Best Practices
 
@@ -176,3 +256,4 @@ Eine größere, direkt einsatzbare Beispieldatei liegt im Repository unter `exam
 2. **Konsistente Einheiten:** Immer Gramm für 3D-Druck, nicht gemischt
 3. **Regelmäßige Updates:** Preise jährlich oder bei Lieferantenwechsel anpassen
 4. **Kategorisierung:** Materialien am selben Standort gruppieren
+5. **Unterkategorien nutzen:** Für unterschiedliche Preismodelle oder Steuersätze innerhalb einer Kategorie

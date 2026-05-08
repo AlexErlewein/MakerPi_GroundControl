@@ -12,6 +12,15 @@ Two QR code files are available in the project root directory:
 
 Both files use the Corporate Identity accent color (#d04417 - orange-red) for the QR code foreground.
 
+### QR Code Preview
+
+![Guest Laufzettel QR Code (PNG)](/guest-laufzettel-qr.png)
+
+The QR code shown above links to:
+```
+http://192.168.3.228:8000/guest/laufzettel
+```
+
 ## QR Code URL
 
 The QR code points to:

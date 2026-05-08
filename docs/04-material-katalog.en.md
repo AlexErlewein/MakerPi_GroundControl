@@ -1,6 +1,6 @@
 # Material Catalog
 
-The material catalog defines reusable, priced material entries that can be attached to Laufzettel records. It is organized as a three-level hierarchy.
+The material catalog defines reusable, priced material entries that can be attached to Laufzettel records. It is organized as a four-level hierarchy.
 
 ## Hierarchy
 
@@ -10,18 +10,22 @@ graph TD
     Root --> L2["📍 Location\nHolz-Werkstatt"]
     Root --> L3["📍 Location\nFabLab"]
 
-    L1 --> K1["🗂 Kategorie: Ton\npreismodell: per_gram\nunit: g"]
-    K1 --> V1["🔷 fein — 0.05 €/g"]
-    K1 --> V2["🔷 grob — 0.03 €/g"]
+    L1 --> K1["🗂 Kategorie: Ton"]
+    K1 --> U1["📁 Unterkategorie: Rot\npricing: per_gram\nunit: g\ntax: 19%"]
+    K1 --> U2["📁 Unterkategorie: Weiß\npricing: per_gram\nunit: g\ntax: 19%"]
+    U1 --> V1["🔷 fein — 0.05 €/g"]
+    U1 --> V2["🔷 grob — 0.03 €/g"]
+    U2 --> V3["🔷 weiß-fein — 0.04 €/g"]
 
-    L2 --> K2["🗂 Kategorie: Holz\npreismodell: per_volume_cm3\nunit: cm³"]
-    K2 --> V3["🔷 Eiche — 0.12 €/cm³"]
-    K2 --> V4["🔷 Esche — 0.09 €/cm³"]
-    K2 --> V5["🔷 Altholz — 0.04 €/cm³"]
+    L2 --> K2["🗂 Kategorie: Holz"]
+    K2 --> U3["📁 Unterkategorie: Hartholz\npricing: per_volume_cm3\nunit: cm³\ntax: 19%"]
+    U3 --> V4["🔷 Eiche — 0.12 €/cm³"]
+    U3 --> V5["🔷 Esche — 0.09 €/cm³"]
 
-    L3 --> K3["🗂 Kategorie: Filament\npreismodell: per_gram\nunit: g"]
-    K3 --> V6["🔷 PLA — 0.02 €/g"]
-    K3 --> V7["🔷 PETG — 0.025 €/g"]
+    L3 --> K3["� Kategorie: Filament"]
+    K3 --> U4["� Unterkategorie: PLA\npricing: per_gram\nunit: g\ntax: 19%"]
+    U4 --> V6["🔷 Standard — 0.02 €/g"]
+    U4 --> V7["🔷 Matt — 0.025 €/g"]
 ```
 
 ## Data model
@@ -37,15 +41,26 @@ Top-level grouping by workshop area.
 
 ### Kategorie
 
-Defines the pricing model and input unit for a group of materials.
+Logical grouping of materials within a location.
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | int | Primary key |
 | `location_id` | int | FK → Location |
 | `name` | string | Category name |
-| `preismodell` | string | `per_gram`, `per_volume_cm3`, `per_unit` |
-| `einheit` | string | Display unit, e.g. `g`, `cm³`, `Stk` |
+
+### Unterkategorie
+
+Defines the pricing model, input unit, and tax rate for a group of materials. This is where pricing configuration lives.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | int | Primary key |
+| `kategorie_id` | int | FK → Kategorie |
+| `name` | string | Subcategory name |
+| `pricing_model` | string | `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
+| `unit` | string | Display unit, e.g. `g`, `cm³`, `Stk` |
+| `tax_rate` | float | Tax rate: `0`, `7`, or `19` |
 
 ### Variante
 
@@ -54,19 +69,20 @@ A concrete selectable option with a unit price.
 | Field | Type | Description |
 |---|---|---|
 | `id` | int | Primary key |
-| `kategorie_id` | int | FK → Kategorie |
+| `kategorie_id` | int | FK → Kategorie (kept for backward compat) |
+| `unterkategorie_id` | int | FK → Unterkategorie |
 | `name` | string | Variant name, e.g. `fein` |
-| `preis_pro_einheit` | float | Price per unit (€) |
+| `price` | float | Price per unit (€) |
 
 ## Pricing models
 
 ```mermaid
 flowchart LR
-    VAR["Selected Variante\n(preis_pro_einheit)"] --> PM{"Kategorie\npreismodell"}
+    VAR["Selected Variante\n(price)"] --> PM{"Unterkategorie\npricing_model"}
 
-    PM -->|"per_gram"| PG["Input: Menge in g\n────────────────\nprice = menge × preis"]
-    PM -->|"per_volume_cm3"| PV["Input: L × B × H in cm\n────────────────────────\nvolume = l × b × h\nprice = volume × preis"]
-    PM -->|"per_unit"| PU["Input: Menge (Stk)\n────────────────\nprice = menge × preis"]
+    PM -->|"per_gram"| PG["Input: Menge in g\n────────────────\nprice = menge × price"]
+    PM -->|"per_volume_cm3"| PV["Input: L × B × H in cm\n────────────────────────\nvolume = l × b × h\nprice = volume × price"]
+    PM -->|"per_unit"| PU["Input: Menge (Stk)\n────────────────\nprice = menge × price"]
 ```
 
 ### Model comparison table
@@ -83,7 +99,8 @@ flowchart LR
 ### Example 1 — Ton (per_gram)
 
 - Location: `Töpferei`
-- Kategorie: `Ton` · model: `per_gram` · unit: `g`
+- Kategorie: `Ton`
+- Unterkategorie: `Rot` · model: `per_gram` · unit: `g` · tax: 19%
 - Variante: `fein` · price: `0.05 €/g`
 - Operator enters: `800 g`
 - Calculated price: **0.05 × 800 = 40.00 €**
@@ -91,7 +108,8 @@ flowchart LR
 ### Example 2 — Holz (per_volume_cm3)
 
 - Location: `Holz-Werkstatt`
-- Kategorie: `Holz` · model: `per_volume_cm3` · unit: `cm³`
+- Kategorie: `Holz`
+- Unterkategorie: `Hartholz` · model: `per_volume_cm3` · unit: `cm³` · tax: 19%
 - Variante: `Eiche` · price: `0.12 €/cm³`
 - Operator enters: `30 cm × 10 cm × 4 cm`
 - Volume: `30 × 10 × 4 = 1200 cm³`
@@ -100,8 +118,9 @@ flowchart LR
 ### Example 3 — Filament (per_gram)
 
 - Location: `FabLab`
-- Kategorie: `Filament` · model: `per_gram` · unit: `g`
-- Variante: `PLA` · price: `0.02 €/g`
+- Kategorie: `Filament`
+- Unterkategorie: `PLA` · model: `per_gram` · unit: `g` · tax: 19%
+- Variante: `Standard` · price: `0.02 €/g`
 - Operator enters: `65 g`
 - Calculated price: **0.02 × 65 = 1.30 €**
 
@@ -135,11 +154,12 @@ Actions available:
 |---|---|
 | Add location | "Neuer Standort" button |
 | Add category | Expand location → "Neue Kategorie" |
-| Add variant | Expand category → "Neue Variante" |
+| Add subcategory | Expand category → "Neue Unterkategorie" |
+| Add variant | Expand subcategory → "Neue Variante" |
 | Edit/delete | Inline buttons on each row |
 | **Bulk import** | **"⬆ Bulk Import" button** |
 
-> **Tip:** Create the Location first, then the Kategorie (with pricing model), then the Varianten. You can't create a variant without a parent category.
+> **Tip:** Create the Location first, then the Kategorie, then the Unterkategorie (with pricing model), then the Varianten. You can't create a variant without a parent subcategory.
 
 ## Bulk Import
 
@@ -149,14 +169,15 @@ The **"⬆ Bulk Import"** button (top-right of the Katalog page) lets you add ma
 
 1. Click **⬆ Bulk Import** → the modal opens on the **Eingabe** tab.
 2. Pick an existing **Standort** from the dropdown, or choose *"Neuen Standort erstellen"* and type a name.
-3. Click **+ Kategorie hinzufügen** to add a category block. Fill in:
+3. Click **+ Kategorie hinzufügen** to add a category block. Fill in the name.
+4. Inside the category block, click **+ Unterkategorie hinzufügen** to add a subcategory block. Fill in:
    - Name
    - Preismodell (`per_unit`, `per_gram`, `per_volume_cm3`, `per_volume_l`, `per_minute`)
    - Einheit (optional display unit, e.g. `g`, `cm³`)
    - Steuersatz (0 / 7 / 19 %)
-4. Inside the category block, click **+ Variante** for each variant. Fill in Name and Preis.
-5. Add as many categories and variants as you need.
-6. Click **Alles speichern** — all items are written in one atomic database transaction.
+5. Inside the subcategory block, click **+ Variante** for each variant. Fill in Name and Preis.
+6. Add as many categories, subcategories, and variants as you need.
+7. Click **Alles speichern** — all items are written in one atomic database transaction.
 
 > If a Location with the given name already exists it is reused; it is never duplicated.
 
@@ -173,38 +194,42 @@ The **"⬆ Bulk Import"** button (top-right of the Katalog page) lets you add ma
 The file must have a header row with exactly these column names (order is fixed):
 
 ```
-standort,kategorie,preismodell,einheit,steuersatz,variante,preis
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
 ```
 
 | Column | Required | Values / notes |
 |---|---|---|
 | `standort` | yes | Location name |
 | `kategorie` | yes | Category name |
+| `unterkategorie` | yes | Subcategory name |
 | `preismodell` | yes | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
 | `einheit` | no | Display unit, e.g. `g`, `cm³` — leave empty if not needed |
 | `steuersatz` | yes | `0`, `7`, or `19` |
 | `variante` | yes | Variant name |
 | `preis` | yes | Price per unit, decimal point (not comma), e.g. `0.05` |
 
-Multiple rows with the same `standort + kategorie + preismodell + einheit + steuersatz` are grouped into one category with multiple variants.
+Multiple rows with the same `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` are grouped into one subcategory with multiple variants.
 
 #### Example
 
 ```csv
-standort,kategorie,preismodell,einheit,steuersatz,variante,preis
-Töpferei,Ton,per_gram,g,19,fein,0.05
-Töpferei,Ton,per_gram,g,19,grob,0.03
-Töpferei,Glasur,per_unit,Stück,19,transparent,2.50
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Eiche,0.0012
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Altholz,0.0004
-FabLab,Filament,per_gram,g,19,PLA,0.02
-FabLab,Filament,per_gram,g,19,PETG,0.025
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+Töpferei,Ton,Rot,per_gram,g,19,fein,0.05
+Töpferei,Ton,Rot,per_gram,g,19,grob,0.03
+Töpferei,Ton,Weiß,per_gram,g,19,weiß-fein,0.04
+Töpferei,Glasur,Transparent,per_unit,Stück,19,transparent,2.50
+Holz-Werkstatt,Holz,Hartholz,per_volume_cm3,cm³,19,Eiche,0.0012
+Holz-Werkstatt,Holz,Hartholz,per_volume_cm3,cm³,19,Esche,0.0009
+Holz-Werkstatt,Holz,Altholz,per_volume_cm3,cm³,19,Altholz,0.0004
+FabLab,Filament,PLA,per_gram,g,19,Standard,0.02
+FabLab,Filament,PLA,per_gram,g,19,Matt,0.025
+FabLab,Filament,PETG,Standard,per_gram,g,19,Transparent,0.025
 ```
 
 This creates:
-- **Töpferei** → Ton (per_gram, 2 variants) + Glasur (per_unit, 1 variant)
-- **Holz-Werkstatt** → Holz (per_volume_cm3, 2 variants)
-- **FabLab** → Filament (per_gram, 2 variants)
+- **Töpferei** → Ton → Rot (per_gram, 2 variants) + Ton → Weiß (per_gram, 1 variant) + Glasur → Transparent (per_unit, 1 variant)
+- **Holz-Werkstatt** → Holz → Hartholz (per_volume_cm3, 2 variants) + Holz → Altholz (per_volume_cm3, 1 variant)
+- **FabLab** → Filament → PLA (per_gram, 2 variants) + Filament → PETG → Standard (per_gram, 1 variant)
 
 A larger ready-to-use example file is included in the repository at `examples/katalog-bulk-import.csv`.
 
@@ -221,12 +246,26 @@ Content-Type: application/json
   "kategorien": [
     {
       "name": "Ton",
-      "pricing_model": "per_gram",
-      "unit": "g",
-      "tax_rate": 19,
-      "varianten": [
-        { "name": "fein", "price": 0.05 },
-        { "name": "grob", "price": 0.03 }
+      "unterkategorien": [
+        {
+          "name": "Rot",
+          "pricing_model": "per_gram",
+          "unit": "g",
+          "tax_rate": 19,
+          "varianten": [
+            { "name": "fein", "price": 0.05 },
+            { "name": "grob", "price": 0.03 }
+          ]
+        },
+        {
+          "name": "Weiß",
+          "pricing_model": "per_gram",
+          "unit": "g",
+          "tax_rate": 19,
+          "varianten": [
+            { "name": "weiß-fein", "price": 0.04 }
+          ]
+        }
       ]
     }
   ]
@@ -240,8 +279,9 @@ Response:
   "success": true,
   "location": { "id": 1, "name": "Töpferei" },
   "created_kategorien": 1,
-  "created_varianten": 2
+  "created_unterkategorien": 2,
+  "created_varianten": 3
 }
 ```
 
-The location is **found or created** by name. All categories and variants are written in a single atomic transaction — if anything fails, nothing is saved.
+The location is **found or created** by name. All categories, subcategories, and variants are written in a single atomic transaction — if anything fails, nothing is saved.
