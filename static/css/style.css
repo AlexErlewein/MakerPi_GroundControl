@@ -52,7 +52,7 @@ body {
 header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     padding: 16px 0;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 30px;
@@ -60,8 +60,8 @@ header {
 
 .header-left {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    gap: 20px;
 }
 
 header h1 {
