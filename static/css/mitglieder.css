@@ -247,8 +247,13 @@
     white-space: nowrap;
     display: flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     gap: 6px;
-    min-width: 160px;
+    min-width: 200px;
+}
+
+.actions .btn-sm {
+    flex-shrink: 0;
 }
 
 .btn-sm {
