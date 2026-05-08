@@ -50,15 +50,16 @@ function renderMaterials() {
     }
 
     tbody.innerHTML = allMaterials.map((mat, index) => {
-        const mengeStr = formatMenge(mat);
+        const mengeStr = buildMengeDisplay(mat);
         const priceStr = mat.calculated_price ? `${mat.calculated_price.toFixed(2)} €` : '-';
+        const unitPriceLabel = getUnitPriceLabel(mat.variante_id);
         return `
             <tr>
                 <td>${index + 1}</td>
                 <td>${esc(mat.name)}</td>
                 <td>${mengeStr}</td>
                 <td>${esc(mat.unit || '-')}</td>
-                <td>${mat.calculated_price ? calculateUnitPrice(mat).toFixed(4) : '-'}</td>
+                <td style="color:var(--text-secondary);font-size:0.85rem;white-space:nowrap;">${unitPriceLabel || '-'}</td>
                 <td>${priceStr}</td>
                 <td class="actions">
                     <button class="btn btn-sm btn-secondary" onclick="editMaterial(${mat.id})">Bearbeiten</button>
@@ -79,20 +80,45 @@ function renderMaterials() {
 }
 
 // Format material quantity/measurements
-function formatMenge(mat) {
-    if (mat.laenge_cm && mat.breite_cm && mat.hoehe_cm) {
-        return `${mat.laenge_cm} × ${mat.breite_cm} × ${mat.hoehe_cm} cm`;
+function buildMengeDisplay(mat) {
+    if (mat.laenge_cm != null && mat.breite_cm != null && mat.hoehe_cm != null) {
+        const vol = mat.laenge_cm * mat.breite_cm * mat.hoehe_cm;
+        return `${mat.laenge_cm}×${mat.breite_cm}×${mat.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
     }
-    if (mat.laenge_cm && mat.breite_cm) {
-        return `${mat.laenge_cm} × ${mat.breite_cm} cm`;
-    }
-    return mat.menge !== null ? mat.menge : '-';
+    return mat.menge != null ? String(mat.menge) : "-";
 }
 
-// Calculate unit price
-function calculateUnitPrice(mat) {
-    if (!mat.calculated_price || !mat.menge) return 0;
-    return mat.calculated_price / mat.menge;
+function getUkatAndVariante(varianteId) {
+    if (!varianteId) return null;
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const ukat of (kat.unterkategorien || [])) {
+                for (const v of (ukat.varianten || [])) {
+                    if (v.id === varianteId) return { ukat, variante: v, loc };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function getUnitPriceLabel(varianteId) {
+    const found = getUkatAndVariante(varianteId);
+    if (!found) return null;
+    const { ukat, variante } = found;
+    const pm = ukat.pricing_model;
+    const suffix = pm === "per_gram" ? "/gr"
+        : pm === "per_kilogram" ? "/kg"
+        : pm === "per_volume_cm3" ? "/cm³"
+        : pm === "per_volume_l" ? "/L"
+        : pm === "per_cubic_meter" ? "/m³"
+        : pm === "per_cubic_deci_meter" ? "/dm³"
+        : pm === "per_volume_m3" ? "/m³"
+        : pm === "per_area_m2" ? "/m²"
+        : pm === "per_area_dm2" ? "/dm²"
+        : pm === "per_minute" ? "/min"
+        : `/${ukat.unit || "Stück"}`;
+    return `${variante.price.toFixed(2)} €${suffix}`;
 }
 
 // Format time
@@ -514,32 +540,76 @@ function showPricePreview(price) {
 }
 
 function recalcPrice() {
-    if (!selectedVariante || !selectedKategorie) return;
-    let menge = 0;
-    const pm = selectedKategorie.pricing_model;  // Use unterkategorie's pricing model, not variant's
+    if (!selectedVariante || !selectedKategorie) { hidePricePreview(); return; }
+    const pm = selectedKategorie.pricing_model;
+    let price = null;
 
-    if (!pm) return;
-
-    if (pm === 'per_gram' || pm === 'per_kilogram' || pm === 'per_minute' || pm === 'per_unit') {
-        menge = parseFloat(document.getElementById('kat-menge-' + (pm === 'per_gram' || pm === 'per_kilogram' ? 'gram' : pm === 'per_minute' ? 'minute' : 'unit')).value) || 0;
-        if (pm === 'per_kilogram') menge = menge * 1000;
-    } else if (pm.includes('volume')) {
-        const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-        const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-        const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-        menge = l * b * h;
-        if (pm === 'per_volume_l') menge = menge / 1000;
-        else if (pm === 'per_cubic_meter') menge = menge / 1000000;
-        else if (pm === 'per_cubic_deci_meter') menge = menge / 1000;
-    } else if (pm.includes('area')) {
-        const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
-        const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
-        menge = l * b;
-        if (pm === 'per_area_m2') menge = menge / 10000;
+    if (pm === "per_gram") {
+        const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+        if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+    } else if (pm === "per_kilogram") {
+        const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+        if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+    } else if (pm === "per_volume_cm3") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = l * b * h * selectedVariante.price;
+        }
+    } else if (pm === "per_volume_l") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000) * selectedVariante.price;
+        }
+    } else if (pm === "per_cubic_meter") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000000) * selectedVariante.price;
+        }
+    } else if (pm === "per_cubic_deci_meter") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000) * selectedVariante.price;
+        }
+    } else if (pm === "per_volume_m3") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+            price = (l * b * h / 1000000) * selectedVariante.price;
+        }
+    } else if (pm === "per_area_m2") {
+        const l = parseFloat(document.getElementById("kat-area-laenge").value);
+        const b = parseFloat(document.getElementById("kat-area-breite").value);
+        if (!isNaN(l) && !isNaN(b) && l > 0 && b > 0) {
+            price = (l * b / 10000) * selectedVariante.price;
+        }
+    } else if (pm === "per_area_dm2") {
+        const l = parseFloat(document.getElementById("kat-area-laenge").value);
+        const b = parseFloat(document.getElementById("kat-area-breite").value);
+        if (!isNaN(l) && !isNaN(b) && l > 0 && b > 0) {
+            price = (l * b / 100) * selectedVariante.price;
+        }
+    } else if (pm === "per_minute") {
+        const menge = parseFloat(document.getElementById("kat-menge-minute").value);
+        if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+    } else {
+        const menge = parseFloat(document.getElementById("kat-menge-unit").value);
+        if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
     }
 
-    const price = menge * selectedVariante.price;
-    showPricePreview(price);
+    if (price !== null) {
+        showPricePreview(price);
+    } else {
+        hidePricePreview();
+    }
 }
 
 // Spende modal
