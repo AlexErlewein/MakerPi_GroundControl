@@ -41,7 +41,12 @@ def _humanize_slug(slug: str) -> str:
 def _extract_title(path: Path) -> str:
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith("# "):
-            return line[2:].strip()
+            title = line[2:].strip()
+            # Remove all numbering patterns at the start
+            # This handles: "15 - ", "16 · ", "1. ", "1 - ", "15-", "16·", "15 Member Area", etc.
+            title = re.sub(r'^[\d\s\-–—·.]+', '', title)
+            title = title.strip()
+            return title if title else _humanize_slug(_clean_slug(path.stem))
     return _humanize_slug(_clean_slug(path.stem))
 
 
@@ -141,7 +146,14 @@ def _normalize_slug(slug: str) -> str:
 def _render_markdown(path: Path):
     md = markdown.Markdown(
         extensions=["toc", "tables", "fenced_code", "attr_list", "sane_lists"],
-        extension_configs={"toc": {"permalink": False, "anchorlink": False}},
+        extension_configs={
+            "toc": {
+                "permalink": False,
+                "anchorlink": False,
+                "baselevel": 1,
+                "title": None,
+            }
+        },
     )
     source = path.read_text(encoding="utf-8")
     html_content = md.convert(source)
@@ -158,8 +170,12 @@ def _render_markdown(path: Path):
         flags=re.DOTALL,
     )
 
-    # Post-process TOC to remove numbering from list items
+    # Post-process TOC to convert ordered lists to unordered lists (remove numbering)
     toc_html = md.toc
+    # Replace all <ol> with <ul> and </ol> with </ul> (case-insensitive)
+    toc_html = re.sub(r'<ol', '<ul', toc_html, flags=re.IGNORECASE)
+    toc_html = re.sub(r'</ol>', '</ul>', toc_html, flags=re.IGNORECASE)
+    # Remove any remaining numbered prefixes from list items
     toc_html = re.sub(r'<li>\s*\d+\.\s*', '<li>', toc_html)
     toc_html = re.sub(r'<li>\s*\d+\s+', '<li>', toc_html)
 

@@ -505,15 +505,17 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
-.docs-toc-card .toc {
-    list-style: none;
+.docs-toc-card .toc,
+.docs-toc-card .toc ul,
+.docs-toc-card .toc ol {
+    list-style: none !important;
+    list-style-type: none !important;
     padding: 0;
     margin: 0;
 }
 .docs-toc-card .toc li { margin: 0; }
 .docs-toc-card .toc a {
     display: block;
-    padding: 4px 8px;
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 0.83rem;
@@ -521,6 +523,7 @@ body {
     border-radius: 5px;
     transition: color 0.1s, background 0.1s;
     border-bottom: none;
+    padding: 4px 8px;
 }
 .docs-toc-card .toc a:hover {
     color: var(--accent);
@@ -530,10 +533,23 @@ body {
     color: var(--accent);
     background: rgba(208,68,23,0.08);
 }
-/* Nested TOC levels */
-.docs-toc-card .toc li li a { padding-left: 24px; font-size: 0.8rem; }
-.docs-toc-card .toc li li li a { padding-left: 40px; }
-.docs-toc-card .toc li li li li a { padding-left: 56px; }
+/* Nested TOC levels - use padding-left on nested lists */
+.docs-toc-card .toc ul,
+.docs-toc-card .toc ol {
+    padding-left: 24px !important;
+}
+.docs-toc-card .toc ul a,
+.docs-toc-card .toc ol a {
+    font-size: 0.8rem;
+}
+.docs-toc-card .toc ul ul,
+.docs-toc-card .toc ol ol {
+    padding-left: 24px !important;
+}
+.docs-toc-card .toc ul ul ul,
+.docs-toc-card .toc ol ol ol {
+    padding-left: 24px !important;
+}
 
 /* ── Pager ────────────────────────────────────────────────────────────────── */
 
