@@ -4,6 +4,8 @@
 let laufzettelData = null;
 let allMaterials = [];
 let katalog = [];
+let editingMaterialId = null;
+let currentMatMode = "katalog";  // Guests only use katalog mode
 let selectedVariante = null;
 let selectedKategorie = null;
 
@@ -111,6 +113,7 @@ function esc(str) {
 
 // Open material modal
 function openMaterialModal() {
+    editingMaterialId = null;
     document.getElementById('material-form').reset();
     document.getElementById('edit-material-id').value = '';
     document.getElementById('edit-mat-variante-id').value = '';
@@ -124,6 +127,7 @@ function editMaterial(matId) {
     const mat = allMaterials.find(m => m.id === matId);
     if (!mat) return;
 
+    editingMaterialId = matId;
     document.getElementById('edit-material-id').value = mat.id;
     document.getElementById('edit-mat-variante-id').value = mat.variante_id || '';
     document.getElementById('modal-title').textContent = 'Material bearbeiten';
@@ -133,7 +137,7 @@ function editMaterial(matId) {
         setMatMode('katalog');
         // TODO: Load catalog data and select appropriate options
     } else {
-        // Freitext mode
+        // Freitext mode (not used for guests, but kept for consistency)
         setMatMode('freitext');
         document.getElementById('field-mat-name').value = mat.name;
         document.getElementById('field-mat-menge').value = mat.menge || '';
@@ -151,94 +155,130 @@ function closeMaterialModal() {
     document.getElementById('material-modal').classList.add('hidden');
 }
 
-// Submit material form
-async function submitMaterialForm(e) {
+// Submit material form (reused from laufzettel-detail.js)
+document.getElementById("material-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const editId = document.getElementById('edit-material-id').value;
-    const mode = document.getElementById('katalog-fields').classList.contains('hidden') ? 'freitext' : 'katalog';
+    // Katalog mode only for guests
+    if (!selectedVariante || !selectedKategorie) {
+        alert("Bitte Standort, Kategorie und Variante auswählen.");
+        return;
+    }
 
+    const pm = selectedKategorie.pricing_model;
     let body = {};
 
-    if (mode === 'freitext') {
-        body = {
-            name: document.getElementById('field-mat-name').value,
-            menge: document.getElementById('field-mat-menge').value ? parseFloat(document.getElementById('field-mat-menge').value) : null,
-            unit: document.getElementById('field-mat-unit').value || null,
-            calculated_price: document.getElementById('field-mat-total-price').value ? parseFloat(document.getElementById('field-mat-total-price').value) : null,
-            tax_rate: parseFloat(document.getElementById('field-mat-tax-rate').value),
-        };
+    body.variante_id = selectedVariante.id;
+    body.unit = selectedKategorie.unit || null;
+    body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
+    body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
+
+    if (pm === "per_gram") {
+        const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+        if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }
+        body.menge = menge;
+        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_kilogram") {
+        const menge = parseFloat(document.getElementById("kat-menge-gram").value);
+        if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }
+        body.menge = menge;
+        body.unit = selectedKategorie.unit || "kg";
+        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_volume_cm3") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.hoehe_cm = h;
+        body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_volume_l") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.hoehe_cm = h;
+        body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_cubic_meter") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.hoehe_cm = h;
+        body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_cubic_deci_meter") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.hoehe_cm = h;
+        body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_volume_m3") {
+        const l = parseFloat(document.getElementById("kat-laenge").value);
+        const b = parseFloat(document.getElementById("kat-breite").value);
+        const h = parseFloat(document.getElementById("kat-hoehe").value);
+        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert("Bitte alle Maße eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.hoehe_cm = h;
+        body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_area_m2") {
+        const l = parseFloat(document.getElementById("kat-area-laenge").value);
+        const b = parseFloat(document.getElementById("kat-area-breite").value);
+        if ([l, b].some((v) => isNaN(v) || v <= 0)) { alert("Bitte Länge und Breite eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.calculated_price = parseFloat(((l * b / 10000) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_area_dm2") {
+        const l = parseFloat(document.getElementById("kat-area-laenge").value);
+        const b = parseFloat(document.getElementById("kat-area-breite").value);
+        if ([l, b].some((v) => isNaN(v) || v <= 0)) { alert("Bitte Länge und Breite eingeben."); return; }
+        body.laenge_cm = l;
+        body.breite_cm = b;
+        body.calculated_price = parseFloat(((l * b / 100) * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_minute") {
+        const menge = parseFloat(document.getElementById("kat-menge-minute").value);
+        if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Dauer eingeben."); return; }
+        body.menge = menge;
+        body.unit = "min";
+        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
     } else {
-        // Katalog mode
-        if (!selectedVariante || !selectedKategorie) {
-            alert('Bitte Standort, Kategorie und Variante auswählen.');
-            return;
-        }
-
-        const pm = selectedKategorie.pricing_model;
-        const pricePreview = document.getElementById('price-value').textContent;
-
-        // Validate that price was calculated
-        if (!pricePreview || pricePreview === '-') {
-            alert('Bitte gib eine Menge/Maße ein, um den Preis zu berechnen.');
-            return;
-        }
-
-        body = {
-            name: `${selectedKategorie.name} – ${selectedVariante.name}`,
-            variante_id: document.getElementById('edit-mat-variante-id').value ? parseInt(document.getElementById('edit-mat-variante-id').value) : null,
-            unit: selectedKategorie.unit || null,
-            calculated_price: parseFloat(pricePreview.replace(' €', '')),
-            tax_rate: selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19,
-        };
-
-        // Add quantity measurements based on pricing model
-        if (selectedKategorie) {
-            const pm = selectedKategorie.pricing_model;  // Use unterkategorie's pricing model
-            if (pm === 'per_gram' || pm === 'per_kilogram') {
-                body.menge = parseFloat(document.getElementById('kat-menge-gram').value) || null;
-            } else if (pm === 'per_minute') {
-                body.menge = parseFloat(document.getElementById('kat-menge-minute').value) || null;
-            } else if (pm === 'per_unit') {
-                body.menge = parseFloat(document.getElementById('kat-menge-unit').value) || null;
-            } else if (pm.includes('volume')) {
-                body.laenge_cm = parseFloat(document.getElementById('kat-laenge').value) || null;
-                body.breite_cm = parseFloat(document.getElementById('kat-breite').value) || null;
-                body.hoehe_cm = parseFloat(document.getElementById('kat-hoehe').value) || null;
-            } else if (pm.includes('area')) {
-                body.laenge_cm = parseFloat(document.getElementById('kat-area-laenge').value) || null;
-                body.breite_cm = parseFloat(document.getElementById('kat-area-breite').value) || null;
-            }
-        }
+        const menge = parseFloat(document.getElementById("kat-menge-unit").value);
+        if (isNaN(menge) || menge <= 0) { alert("Bitte gültige Menge eingeben."); return; }
+        body.menge = menge;
+        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
     }
 
-    try {
-        let response;
-        if (editId) {
-            response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material/${editId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-        } else {
-            response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-        }
-
-        if (response.ok) {
-            closeMaterialModal();
-            await loadLaufzettel();
-        } else {
-            const error = await response.json();
-            alert('Fehler: ' + (error.detail || 'Material konnte nicht gespeichert werden'));
-        }
-    } catch (e) {
-        alert('Netzwerkfehler. Bitte versuche es erneut.');
+    let res;
+    if (editingMaterialId !== null) {
+        res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material/${editingMaterialId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+    } else {
+        res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
     }
-}
+
+    if (res.ok) {
+        closeMaterialModal();
+        await loadLaufzettel();
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+    }
+});
 
 // Delete material
 async function deleteMaterial(matId) {
@@ -545,7 +585,6 @@ document.getElementById('add-material-btn').addEventListener('click', openMateri
 document.getElementById('modal-close').addEventListener('click', closeMaterialModal);
 document.getElementById('modal-overlay').addEventListener('click', closeMaterialModal);
 document.getElementById('cancel-mat-btn').addEventListener('click', closeMaterialModal);
-document.getElementById('material-form').addEventListener('submit', submitMaterialForm);
 
 document.getElementById('add-spende-btn').addEventListener('click', openSpendeModal);
 document.getElementById('spende-modal-close').addEventListener('click', closeSpendeModal);
