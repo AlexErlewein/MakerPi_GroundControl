@@ -425,8 +425,6 @@ document.getElementById("variante-modal-close").addEventListener("click", closeV
 document.getElementById("variante-cancel").addEventListener("click", closeVarianteModal);
 document.getElementById("variante-overlay").addEventListener("click", closeVarianteModal);
 
-document.getElementById("refresh-btn").addEventListener("click", loadKatalog);
-
 loadKatalog();
 
 // ── Bulk Import ─────────────────────────────────────────────────────────────

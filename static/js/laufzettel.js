@@ -202,7 +202,6 @@ document.getElementById("new-lz-cancel").addEventListener("click", closeNewLzMod
 document.getElementById("new-lz-overlay").addEventListener("click", closeNewLzModal);
 
 // ---- Filter/refresh ----
-document.getElementById("refresh-btn").addEventListener("click", loadLaufzettel);
 document.getElementById("filter-btn").addEventListener("click", loadLaufzettel);
 document.getElementById("clear-btn").addEventListener("click", () => {
     document.getElementById("filter-name").value = "";

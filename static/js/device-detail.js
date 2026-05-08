@@ -36,11 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 function setupEventListeners() {
-    const refreshBtn = getElement('refresh-btn');
     const topicFilter = getElement('topic-filter');
     const exportBtn = getElement('export-btn');
 
-    if (refreshBtn) refreshBtn.addEventListener('click', loadAllData);
     if (topicFilter) topicFilter.addEventListener('change', filterMessages);
     if (exportBtn) exportBtn.addEventListener('click', exportMessages);
 

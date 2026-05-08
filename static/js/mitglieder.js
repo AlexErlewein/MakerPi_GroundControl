@@ -377,7 +377,6 @@ async function triggerEasyVereinSync() {
     }
 }
 
-document.getElementById("refresh-btn").addEventListener("click", loadMitglieder);
 document.getElementById("clear-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
     loadMitglieder();

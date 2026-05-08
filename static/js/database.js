@@ -8,7 +8,6 @@ let allDevices = [];
 let expandedZigbee = new Set(); // Track expanded zigbee rows
 
 // DOM Elements
-const refreshBtn = document.getElementById('refresh-btn');
 const statusFilter = document.getElementById('status-filter');
 const nfcFilter = document.getElementById('nfc-filter');
 const deviceSearch = document.getElementById('device-search');

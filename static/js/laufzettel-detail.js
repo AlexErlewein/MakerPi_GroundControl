@@ -738,7 +738,6 @@ document.getElementById("add-material-btn").addEventListener("click", openAddMat
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-mat-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
-document.getElementById("refresh-btn").addEventListener("click", loadDetail);
 
 // ── Spende Modal ──────────────────────────────────────────────
 

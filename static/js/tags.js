@@ -191,10 +191,6 @@ document.getElementById("add-tag-btn").addEventListener("click", openAdd);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
-document.getElementById("refresh-btn").addEventListener("click", () => {
-    loadTags();
-    loadScans();
-});
 
 loadTags();
 loadScans();
