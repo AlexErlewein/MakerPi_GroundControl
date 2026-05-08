@@ -175,6 +175,25 @@ async function submitMaterialForm(e) {
             calculated_price: document.getElementById('price-value').textContent ? parseFloat(document.getElementById('price-value').textContent.replace(' €', '')) : null,
             tax_rate: 19, // Default from catalog
         };
+
+        // Add quantity measurements based on pricing model
+        if (selectedVariante) {
+            const pm = selectedVariante.pricing_model;
+            if (pm === 'per_gram' || pm === 'per_kilogram') {
+                body.menge = parseFloat(document.getElementById('kat-menge-gram').value) || null;
+            } else if (pm === 'per_minute') {
+                body.menge = parseFloat(document.getElementById('kat-menge-minute').value) || null;
+            } else if (pm === 'per_unit') {
+                body.menge = parseFloat(document.getElementById('kat-menge-unit').value) || null;
+            } else if (pm.includes('volume')) {
+                body.laenge_cm = parseFloat(document.getElementById('kat-laenge').value) || null;
+                body.breite_cm = parseFloat(document.getElementById('kat-breite').value) || null;
+                body.hoehe_cm = parseFloat(document.getElementById('kat-hoehe').value) || null;
+            } else if (pm.includes('area')) {
+                body.laenge_cm = parseFloat(document.getElementById('kat-area-laenge').value) || null;
+                body.breite_cm = parseFloat(document.getElementById('kat-area-breite').value) || null;
+            }
+        }
     }
 
     try {

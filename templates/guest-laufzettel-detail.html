@@ -49,6 +49,13 @@
         #katalog-fields {
             display: block !important;
         }
+        /* Ensure individual katalog input fields can be shown/hidden via JS */
+        #katalog-fields > div.hidden {
+            display: none !important;
+        }
+        #katalog-fields > div:not(.hidden) {
+            display: block !important;
+        }
     </style>
 </head>
 <body>
