@@ -40,6 +40,40 @@
                     <h3><a href="/database" class="stat-link">Offline Devices</a></h3>
                     <p class="stat-value" id="offline-devices-count">-</p>
                 </div>
+                <div class="stat-card">
+                    <h3>Spenden (dieser Monat)</h3>
+                    <p class="stat-value" id="spenden-current-month">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Mitglieder heute</h3>
+                    <p class="stat-value" id="members-today">-</p>
+                </div>
+                <div class="stat-card" style="grid-column: span 2;">
+                    <h3>System Status</h3>
+                    <div class="system-status-grid">
+                        <div class="status-item">
+                            <span class="status-label">Docs:</span>
+                            <span class="status-indicator" id="status-docs">-</span>
+                            <span class="status-message" id="status-docs-msg"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Zigbee:</span>
+                            <span class="status-indicator" id="status-zigbee">-</span>
+                            <span class="status-message" id="status-zigbee-msg"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Databases:</span>
+                            <span class="status-indicator" id="status-databases">-</span>
+                            <span class="status-message" id="status-databases-msg"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">GDrive:</span>
+                            <span class="status-indicator" id="status-gdrive">-</span>
+                            <span class="status-message" id="status-gdrive-msg"></span>
+                        </div>
+                    </div>
+                    <button id="gdrive-button" class="btn btn-primary" style="margin-top: 12px; display: none;">Open Google Drive</button>
+                </div>
             </section>
             <section class="section" style="text-align:center; padding: 60px 20px;">
                 <h1 style="font-size:2rem; margin-bottom:12px;">MakerPi GroundControl</h1>

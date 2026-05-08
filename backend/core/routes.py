@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Optional
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -39,7 +39,6 @@ async def check_docs_status() -> dict:
 
 def check_zigbee_status() -> dict:
     """Check if zigbee2mqtt frontend (port 8090) and USB device are accessible."""
-    import httpx
     import socket
 
     status_parts = []
@@ -301,10 +300,24 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     # Count open Laufzettel (payment_method is None)
     from backend.laufzettel.db import get_db as get_laufzettel_db
     from backend.laufzettel.models import Laufzettel
+    from backend.buchhaltung.db import SessionLocal as BuchhaltungSession
+    from backend.buchhaltung.models import Spende
 
     laufzettel_db = next(get_laufzettel_db())
     try:
         open_laufzettel = laufzettel_db.query(Laufzettel).filter(Laufzettel.payment_method.is_(None)).count()
+
+        # Count unique member_id from open Laufzettel created today
+        today = datetime.utcnow().date()
+        members_today = (
+            laufzettel_db.query(func.distinct(Laufzettel.member_id))
+            .filter(
+                Laufzettel.payment_method.is_(None),
+                func.date(Laufzettel.created_at) == today,
+                Laufzettel.member_id.isnot(None),
+            )
+            .count()
+        )
     finally:
         laufzettel_db.close()
 
@@ -312,9 +325,34 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     cutoff = datetime.utcnow() - timedelta(minutes=2)
     offline_devices = db.query(Device).filter(Device.last_seen < cutoff).count()
 
+    # Calculate Spenden for current month
+    buchhaltung_db = BuchhaltungSession()
+    try:
+        current_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (current_month.replace(month=current_month.month % 12 + 1) if current_month.month < 12 else current_month.replace(year=current_month.year + 1, month=1))
+        spenden_current_month = (
+            buchhaltung_db.query(func.sum(Spende.amount))
+            .filter(Spende.date >= current_month, Spende.date < next_month)
+            .scalar()
+            or 0.0
+        )
+    finally:
+        buchhaltung_db.close()
+
+    # Get system status
+    system_status = {
+        "docs": await check_docs_status(),
+        "zigbee": check_zigbee_status(),
+        "databases": check_database_status(),
+        "gdrive": check_gdrive_status(),
+    }
+
     return {
         "open_laufzettel_count": open_laufzettel,
         "offline_devices_count": offline_devices,
+        "spenden_current_month": spenden_current_month,
+        "members_today": members_today,
+        "system_status": system_status,
     }
 
 
