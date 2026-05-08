@@ -372,11 +372,14 @@ function showKatInputFields(pricingModel, unit) {
     const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_volume_l' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
     const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
     const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
-    document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight);
-    document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
-    document.getElementById('kat-fields-area').classList.toggle('hidden', !isArea);
-    document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
-    document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
+
+    // Use inline styles to override CSS
+    document.getElementById('kat-fields-gram').style.display = isWeight ? 'block' : 'none';
+    document.getElementById('kat-fields-volume').style.display = isVolume ? 'block' : 'none';
+    document.getElementById('kat-fields-area').style.display = isArea ? 'block' : 'none';
+    document.getElementById('kat-fields-minute').style.display = pricingModel === 'per_minute' ? 'block' : 'none';
+    document.getElementById('kat-fields-unit').style.display = pricingModel === 'per_unit' ? 'block' : 'none';
+
     const unitLabel = unit ? `(${unit})` : (pricingModel === 'per_kilogram' ? '(kg)' : pricingModel === 'per_gram' ? '(g)' : '');
     document.getElementById('kat-gram-label').textContent = unitLabel;
     document.getElementById('kat-unit-label').textContent = unitLabel;
@@ -387,9 +390,10 @@ function showKatInputFields(pricingModel, unit) {
 }
 
 function hideKatInputFields() {
-    ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) =>
-        document.getElementById(id).classList.add('hidden')
-    );
+    ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-area', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 }
 
 function hidePricePreview() {
