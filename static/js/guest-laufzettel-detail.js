@@ -170,10 +170,26 @@ async function submitMaterialForm(e) {
         };
     } else {
         // Katalog mode
+        if (!selectedVariante || !selectedKategorie) {
+            alert('Bitte Standort, Kategorie und Variante auswählen.');
+            return;
+        }
+
+        const pm = selectedKategorie.pricing_model;
+        const pricePreview = document.getElementById('price-value').textContent;
+
+        // Validate that price was calculated
+        if (!pricePreview || pricePreview === '-') {
+            alert('Bitte gib eine Menge/Maße ein, um den Preis zu berechnen.');
+            return;
+        }
+
         body = {
+            name: `${selectedKategorie.name} – ${selectedVariante.name}`,
             variante_id: document.getElementById('edit-mat-variante-id').value ? parseInt(document.getElementById('edit-mat-variante-id').value) : null,
-            calculated_price: document.getElementById('price-value').textContent ? parseFloat(document.getElementById('price-value').textContent.replace(' €', '')) : null,
-            tax_rate: 19, // Default from catalog
+            unit: selectedKategorie.unit || null,
+            calculated_price: parseFloat(pricePreview.replace(' €', '')),
+            tax_rate: selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19,
         };
 
         // Add quantity measurements based on pricing model
