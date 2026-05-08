@@ -246,6 +246,7 @@
 .actions {
     white-space: nowrap;
     display: flex;
+    flex-direction: row;
     gap: 6px;
     min-width: 160px;
 }
