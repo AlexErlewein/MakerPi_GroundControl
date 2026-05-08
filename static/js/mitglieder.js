@@ -44,7 +44,7 @@ function updateStats() {
 function render() {
     const tbody = document.getElementById("mitglieder-body");
     if (allMitglieder.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Keine Mitglieder gefunden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">Keine Mitglieder gefunden.</td></tr>';
         return;
     }
     tbody.innerHTML = allMitglieder.map(m => `
@@ -59,7 +59,6 @@ function render() {
                 <div class="actions">
                     <button class="btn btn-sm btn-secondary" onclick="openDetails(${m.id})">Details</button>
                     <button class="btn btn-sm ${m.nfc_uid ? "btn-secondary" : "btn-success"}" onclick="openNfcScan(${m.id})">${m.nfc_uid ? "Tag bearbeiten" : "Tag registrieren"}</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteMitglied(${m.id})">Löschen</button>
                 </div>
             </td>
         </tr>`).join("");
@@ -303,18 +302,6 @@ async function saveNfcUid() {
         }
     } catch (e) {
         alert("Fehler: " + e.message);
-    }
-}
-
-async function deleteMitglied(id) {
-    const m = allMitglieder.find(x => x.id === id);
-    if (!confirm('Mitglied "' + (m ? m.name : id) + '" wirklich löschen?')) return;
-    const res = await fetch(`/api/mitglieder/${id}`, { method: "DELETE" });
-    if (res.ok) {
-        await loadMitglieder();
-    } else {
-        const err = await res.json();
-        alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen"));
     }
 }
 
