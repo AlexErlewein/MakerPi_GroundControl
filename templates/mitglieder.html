@@ -27,9 +27,6 @@
                 </nav>
             </div>
             <div class="header-actions">
-                <button id="sync-easyverein-btn" class="btn btn-primary" title="Mit easyVerein synchronisieren">
-                    <span class="btn-icon">🔄</span> easyVerein Sync
-                </button>
                 <button id="refresh-btn" class="btn btn-primary">
                     <span class="btn-icon">↻</span> Refresh
                 </button>
@@ -57,7 +54,9 @@
             <section class="section">
                 <div class="mitglieder-toolbar">
                     <h2>Mitglieder</h2>
-                    <button id="new-mitglied-btn" class="btn btn-success">+ Neues Mitglied</button>
+                    <button id="sync-easyverein-btn" class="btn btn-primary" title="Mit easyVerein synchronisieren">
+                        <span class="btn-icon">🔄</span> easyVerein Sync
+                    </button>
                     <div class="filter-inputs">
                         <input type="text" id="filter-search" placeholder="Name, Member-ID oder E-Mail...">
                     </div>
@@ -90,61 +89,6 @@
         <footer>
             <p>MakerPi GroundControl</p>
         </footer>
-    </div>
-
-    <!-- Add/Edit Modal -->
-    <div class="modal hidden" id="mitglied-modal">
-        <div class="modal-overlay" id="modal-overlay"></div>
-        <div class="modal-box modal-box-wide">
-            <div class="modal-header">
-                <h3 id="modal-title">Neues Mitglied</h3>
-                <button class="modal-close" id="modal-close">&times;</button>
-            </div>
-            <form id="mitglied-form">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="f-member-id">Member-ID *</label>
-                        <input type="text" id="f-member-id" placeholder="z.B. H001" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="f-name">Name *</label>
-                        <input type="text" id="f-name" placeholder="Vor- und Nachname" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="f-email">E-Mail</label>
-                        <input type="email" id="f-email" placeholder="email@example.com">
-                    </div>
-                    <div class="form-group">
-                        <label for="f-phone">Telefon</label>
-                        <input type="text" id="f-phone" placeholder="+49 ...">
-                    </div>
-                    <div class="form-group form-group-full">
-                        <label for="f-notes">Notizen</label>
-                        <textarea id="f-notes" rows="3" placeholder="Optionale Notizen..."></textarea>
-                    </div>
-                </div>
-                <div class="form-section" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #30363d;">
-                    <h4 style="color: #8b949e; margin-bottom: 15px;">Login-Daten (optional)</h4>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="f-login-username">Anmeldename</label>
-                            <input type="text" id="f-login-username" placeholder="z.B. max.mustermann">
-                        </div>
-                        <div class="form-group">
-                            <label for="f-login-password">Passwort</label>
-                            <input type="password" id="f-login-password" placeholder="Nur bei Neusetzen ausfüllen">
-                        </div>
-                    </div>
-                    <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 8px;">
-                        Mit Login-Daten können sich Mitglieder auch ohne RFID-Karte anmelden.
-                    </p>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" id="cancel-btn" class="btn btn-secondary">Abbrechen</button>
-                    <button type="submit" class="btn btn-success">Speichern</button>
-                </div>
-            </form>
-        </div>
     </div>
 
     <!-- Member Details Modal -->

@@ -1,5 +1,4 @@
 let allMitglieder = [];
-let editingId = null;
 let enrollmentReaderId = "";
 let activeScanSource = null;
 let scanTimeout = null;
@@ -59,7 +58,6 @@ function render() {
             <td>
                 <div class="actions">
                     <button class="btn btn-sm btn-secondary" onclick="openDetails(${m.id})">Details</button>
-                    <button class="btn btn-sm btn-secondary" onclick="openEdit(${m.id})">Bearbeiten</button>
                     <button class="btn btn-sm ${m.nfc_uid ? "btn-secondary" : "btn-success"}" onclick="openNfcScan(${m.id})">${m.nfc_uid ? "Tag bearbeiten" : "Tag registrieren"}</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteMitglied(${m.id})">Löschen</button>
                 </div>
@@ -206,30 +204,6 @@ async function loadEnrollmentReader() {
     }
 }
 
-function openAdd() {
-    editingId = null;
-    document.getElementById("modal-title").textContent = "Neues Mitglied";
-    document.getElementById("mitglied-form").reset();
-    document.getElementById("mitglied-modal").classList.remove("hidden");
-}
-
-function openEdit(id) {
-    const m = allMitglieder.find(x => x.id === id);
-    if (!m) return;
-    editingId = id;
-    document.getElementById("modal-title").textContent = "Mitglied bearbeiten";
-    document.getElementById("f-member-id").value = m.member_id || "";
-    document.getElementById("f-name").value = m.name || "";
-    document.getElementById("f-email").value = m.email || "";
-    document.getElementById("f-phone").value = m.phone || "";
-    document.getElementById("f-notes").value = m.notes || "";
-    document.getElementById("f-login-username").value = m.login_username || "";
-    document.getElementById("mitglied-modal").classList.remove("hidden");
-}
-
-function closeModal() {
-    document.getElementById("mitglied-modal").classList.add("hidden");
-}
 
 async function openDetails(id) {
     const m = allMitglieder.find(x => x.id === id);
@@ -344,32 +318,7 @@ async function deleteMitglied(id) {
     }
 }
 
-document.getElementById("mitglied-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const body = {
-        member_id: document.getElementById("f-member-id").value.trim(),
-        name: document.getElementById("f-name").value.trim(),
-        email: document.getElementById("f-email").value.trim() || null,
-        phone: document.getElementById("f-phone").value.trim() || null,
-        notes: document.getElementById("f-notes").value.trim() || null,
-        login_username: document.getElementById("f-login-username").value.trim() || null,
-        login_password: document.getElementById("f-login-password").value.trim() || null,
-    };
-    const url = editingId ? `/api/mitglieder/${editingId}` : "/api/mitglieder";
-    const method = editingId ? "PUT" : "POST";
-    const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (res.ok) {
-        closeModal();
-        await loadMitglieder();
-    } else {
-        const err = await res.json();
-        alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
-    }
-});
+
 
 async function loadSyncStatus() {
     try {
@@ -428,10 +377,6 @@ async function triggerEasyVereinSync() {
     }
 }
 
-document.getElementById("new-mitglied-btn").addEventListener("click", openAdd);
-document.getElementById("modal-close").addEventListener("click", closeModal);
-document.getElementById("cancel-btn").addEventListener("click", closeModal);
-document.getElementById("modal-overlay").addEventListener("click", closeModal);
 document.getElementById("refresh-btn").addEventListener("click", loadMitglieder);
 document.getElementById("clear-btn").addEventListener("click", () => {
     document.getElementById("filter-search").value = "";
