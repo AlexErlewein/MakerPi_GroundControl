@@ -112,7 +112,7 @@ function openMaterialModal() {
     document.getElementById('edit-material-id').value = '';
     document.getElementById('edit-mat-variante-id').value = '';
     document.getElementById('modal-title').textContent = 'Material hinzufügen';
-    setMatMode('freitext');
+    setMatMode('katalog'); // Guests can only use katalog mode
     document.getElementById('material-modal').classList.remove('hidden');
 }
 

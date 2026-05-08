@@ -10,7 +10,7 @@
     <style>
         body {
             background: var(--bg-primary);
-            color: var(--text);
+            color: var(--text-primary);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -31,7 +31,7 @@
         }
         .guest-header h1 {
             margin: 0 0 0.5rem 0;
-            color: var(--text);
+            color: var(--text-primary);
         }
         .guest-header p {
             color: var(--text-secondary);
@@ -44,21 +44,21 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
-            color: var(--text);
+            color: var(--text-primary);
         }
         .form-group input {
             width: 100%;
             padding: 0.75rem;
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             background: var(--bg-primary);
-            color: var(--text);
+            color: var(--text-primary);
             font-size: 1rem;
             box-sizing: border-box;
         }
         .form-group input:focus {
             outline: none;
-            border-color: var(--primary);
+            border-color: var(--accent);
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
         }
         .optional {
@@ -152,12 +152,13 @@
             display: none !important;
         }
         .btn-secondary {
-            background: var(--border);
-            color: var(--text);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             flex: 1;
         }
         .btn-primary {
-            background: var(--primary);
+            background: var(--accent);
             color: white;
             flex: 1;
         }
@@ -175,7 +176,7 @@
 
         <form id="guest-form">
             <div class="form-group">
-                <label for="guest-name">Name <span style="color: var(--error)">*</span></label>
+                <label for="guest-name">Name <span style="color: var(--danger)">*</span></label>
                 <input type="text" id="guest-name" placeholder="Dein Name" required autocomplete="name">
             </div>
 
