@@ -141,7 +141,7 @@ def _normalize_slug(slug: str) -> str:
 def _render_markdown(path: Path):
     md = markdown.Markdown(
         extensions=["toc", "tables", "fenced_code", "attr_list", "sane_lists"],
-        extension_configs={"toc": {"permalink": False}},
+        extension_configs={"toc": {"permalink": False, "anchorlink": False}},
     )
     source = path.read_text(encoding="utf-8")
     html_content = md.convert(source)
@@ -157,7 +157,13 @@ def _render_markdown(path: Path):
         html_content,
         flags=re.DOTALL,
     )
-    return html_content, md.toc
+
+    # Post-process TOC to remove numbering from list items
+    toc_html = md.toc
+    toc_html = re.sub(r'<li>\s*\d+\.\s*', '<li>', toc_html)
+    toc_html = re.sub(r'<li>\s*\d+\s+', '<li>', toc_html)
+
+    return html_content, toc_html
 
 
 def _docs_base_url(request: Request) -> str:
