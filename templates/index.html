@@ -58,22 +58,22 @@
                 </div>
                 <div class="system-status-grid" style="max-width: 600px; margin: 24px auto 0;">
                     <div class="status-item">
-                        <span class="status-label">Docs:</span>
+                        <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="status-link" target="_blank">Docs:</a>
                         <span class="status-indicator" id="status-docs">-</span>
                         <span class="status-message" id="status-docs-msg"></span>
                     </div>
                     <div class="status-item">
-                        <span class="status-label">Zigbee:</span>
+                        <a href="http://{{ request.url.hostname }}:8090" class="status-link" target="_blank">Zigbee:</a>
                         <span class="status-indicator" id="status-zigbee">-</span>
                         <span class="status-message" id="status-zigbee-msg"></span>
                     </div>
                     <div class="status-item">
-                        <span class="status-label">Databases:</span>
+                        <a href="/database" class="status-link">Databases:</a>
                         <span class="status-indicator" id="status-databases">-</span>
                         <span class="status-message" id="status-databases-msg"></span>
                     </div>
                     <div class="status-item">
-                        <span class="status-label">GDrive:</span>
+                        <span class="status-link" id="gdrive-link">GDrive:</span>
                         <span class="status-indicator" id="status-gdrive">-</span>
                         <span class="status-message" id="status-gdrive-msg"></span>
                     </div>

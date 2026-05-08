@@ -32,14 +32,23 @@ async function loadDashboardStats() {
             updateStatusIndicator('databases', data.system_status.databases);
             updateStatusIndicator('gdrive', data.system_status.gdrive);
 
-            // Show GDrive button if connected
+            // Make GDrive link clickable when connected
+            const gdriveLink = document.getElementById('gdrive-link');
             const gdriveButton = document.getElementById('gdrive-button');
-            if (gdriveButton && data.system_status.gdrive.status === 'ok') {
-                gdriveButton.style.display = 'inline-block';
-                gdriveButton.onclick = () => {
-                    // TODO: Add Google Drive URL when provided
+            if (gdriveLink && data.system_status.gdrive.status === 'ok') {
+                // TODO: Add Google Drive URL when provided
+                // For now, make it a span that shows as connected
+                gdriveLink.style.cursor = 'pointer';
+                gdriveLink.onclick = () => {
                     alert('Google Drive URL will be added later');
                 };
+                // Show button as well
+                if (gdriveButton) {
+                    gdriveButton.style.display = 'inline-block';
+                    gdriveButton.onclick = () => {
+                        alert('Google Drive URL will be added later');
+                    };
+                }
             }
         }
     } catch (error) {

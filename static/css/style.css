@@ -713,6 +713,19 @@ footer {
     min-width: 70px;
 }
 
+.status-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    min-width: 70px;
+    display: inline-block;
+}
+
+.status-link:hover {
+    text-decoration: underline;
+    opacity: 0.85;
+}
+
 .status-indicator {
     display: inline-block;
     width: 10px;
