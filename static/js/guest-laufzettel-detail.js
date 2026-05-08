@@ -1,0 +1,346 @@
+// Guest Laufzettel Detail JavaScript
+// Simplified version of laufzettel-detail.js without payment functionality
+
+let laufzettelData = null;
+let allMaterials = [];
+
+// Load Laufzettel data
+async function loadLaufzettel() {
+    try {
+        const response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`);
+        if (response.ok) {
+            laufzettelData = await response.json();
+            allMaterials = laufzettelData.material || [];
+            renderInfo();
+            renderMaterials();
+        } else {
+            console.error('Failed to load Laufzettel');
+        }
+    } catch (e) {
+        console.error('Error loading Laufzettel:', e);
+    }
+}
+
+// Render info section
+function renderInfo() {
+    if (!laufzettelData) return;
+
+    document.getElementById('lz-id-display').textContent = `#${laufzettelData.id}`;
+    document.getElementById('view-lz-nr').textContent = laufzettelData.id;
+    document.getElementById('view-date').textContent = laufzettelData.date || '-';
+    document.getElementById('view-start').textContent = formatTime(laufzettelData.start);
+    document.getElementById('view-owner').textContent = laufzettelData.owner_name || '-';
+    document.getElementById('view-email').textContent = laufzettelData.guest_email || '-';
+}
+
+// Render materials table
+function renderMaterials() {
+    const tbody = document.getElementById('material-body');
+    const tfoot = document.getElementById('material-total');
+
+    if (allMaterials.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Noch keine Materialien erfasst.</td></tr>';
+        tfoot.classList.add('hidden');
+        return;
+    }
+
+    tbody.innerHTML = allMaterials.map((mat, index) => {
+        const mengeStr = formatMenge(mat);
+        const priceStr = mat.calculated_price ? `${mat.calculated_price.toFixed(2)} €` : '-';
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${esc(mat.name)}</td>
+                <td>${mengeStr}</td>
+                <td>${esc(mat.unit || '-')}</td>
+                <td>${mat.calculated_price ? calculateUnitPrice(mat).toFixed(4) : '-'}</td>
+                <td>${priceStr}</td>
+                <td class="actions">
+                    <button class="btn btn-sm btn-secondary" onclick="editMaterial(${mat.id})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteMaterial(${mat.id})">Löschen</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Calculate and show total
+    const total = allMaterials.reduce((sum, m) => sum + (m.calculated_price || 0), 0);
+    if (total > 0) {
+        document.getElementById('material-total-value').textContent = `${total.toFixed(2)} €`;
+        tfoot.classList.remove('hidden');
+    } else {
+        tfoot.classList.add('hidden');
+    }
+}
+
+// Format material quantity/measurements
+function formatMenge(mat) {
+    if (mat.laenge_cm && mat.breite_cm && mat.hoehe_cm) {
+        return `${mat.laenge_cm} × ${mat.breite_cm} × ${mat.hoehe_cm} cm`;
+    }
+    if (mat.laenge_cm && mat.breite_cm) {
+        return `${mat.laenge_cm} × ${mat.breite_cm} cm`;
+    }
+    return mat.menge !== null ? mat.menge : '-';
+}
+
+// Calculate unit price
+function calculateUnitPrice(mat) {
+    if (!mat.calculated_price || !mat.menge) return 0;
+    return mat.calculated_price / mat.menge;
+}
+
+// Format time
+function formatTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Escape HTML
+function esc(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+// Open material modal
+function openMaterialModal() {
+    document.getElementById('material-form').reset();
+    document.getElementById('edit-material-id').value = '';
+    document.getElementById('edit-mat-variante-id').value = '';
+    document.getElementById('modal-title').textContent = 'Material hinzufügen';
+    setMatMode('freitext');
+    document.getElementById('material-modal').classList.remove('hidden');
+}
+
+// Edit material
+function editMaterial(matId) {
+    const mat = allMaterials.find(m => m.id === matId);
+    if (!mat) return;
+
+    document.getElementById('edit-material-id').value = mat.id;
+    document.getElementById('edit-mat-variante-id').value = mat.variante_id || '';
+    document.getElementById('modal-title').textContent = 'Material bearbeiten';
+
+    if (mat.variante_id) {
+        // Load from catalog
+        setMatMode('katalog');
+        // TODO: Load catalog data and select appropriate options
+    } else {
+        // Freitext mode
+        setMatMode('freitext');
+        document.getElementById('field-mat-name').value = mat.name;
+        document.getElementById('field-mat-menge').value = mat.menge || '';
+        document.getElementById('field-mat-unit').value = mat.unit || '';
+        document.getElementById('field-mat-unit-price').value = '';
+        document.getElementById('field-mat-total-price').value = mat.calculated_price || '';
+        document.getElementById('field-mat-tax-rate').value = mat.tax_rate !== null ? mat.tax_rate : 19;
+    }
+
+    document.getElementById('material-modal').classList.remove('hidden');
+}
+
+// Close material modal
+function closeMaterialModal() {
+    document.getElementById('material-modal').classList.add('hidden');
+}
+
+// Submit material form
+async function submitMaterialForm(e) {
+    e.preventDefault();
+
+    const editId = document.getElementById('edit-material-id').value;
+    const mode = document.getElementById('katalog-fields').classList.contains('hidden') ? 'freitext' : 'katalog';
+
+    let body = {};
+
+    if (mode === 'freitext') {
+        body = {
+            name: document.getElementById('field-mat-name').value,
+            menge: document.getElementById('field-mat-menge').value ? parseFloat(document.getElementById('field-mat-menge').value) : null,
+            unit: document.getElementById('field-mat-unit').value || null,
+            calculated_price: document.getElementById('field-mat-total-price').value ? parseFloat(document.getElementById('field-mat-total-price').value) : null,
+            tax_rate: parseFloat(document.getElementById('field-mat-tax-rate').value),
+        };
+    } else {
+        // Katalog mode
+        body = {
+            variante_id: document.getElementById('edit-mat-variante-id').value ? parseInt(document.getElementById('edit-mat-variante-id').value) : null,
+            calculated_price: document.getElementById('price-value').textContent ? parseFloat(document.getElementById('price-value').textContent.replace(' €', '')) : null,
+            tax_rate: 19, // Default from catalog
+        };
+    }
+
+    try {
+        let response;
+        if (editId) {
+            response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        } else {
+            response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        }
+
+        if (response.ok) {
+            closeMaterialModal();
+            await loadLaufzettel();
+        } else {
+            const error = await response.json();
+            alert('Fehler: ' + (error.detail || 'Material konnte nicht gespeichert werden'));
+        }
+    } catch (e) {
+        alert('Netzwerkfehler. Bitte versuche es erneut.');
+    }
+}
+
+// Delete material
+async function deleteMaterial(matId) {
+    if (!confirm('Möchtest du dieses Material wirklich löschen?')) return;
+
+    try {
+        const response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material/${matId}`, {
+            method: 'DELETE',
+        });
+
+        if (response.ok) {
+            await loadLaufzettel();
+        } else {
+            alert('Fehler beim Löschen des Materials');
+        }
+    } catch (e) {
+        alert('Netzwerkfehler. Bitte versuche es erneut.');
+    }
+}
+
+// Mode toggle
+function setMatMode(mode) {
+    const freitextBtn = document.getElementById('mode-freitext-btn');
+    const katalogBtn = document.getElementById('mode-katalog-btn');
+    const freitextFields = document.getElementById('freitext-fields');
+    const katalogFields = document.getElementById('katalog-fields');
+
+    if (mode === 'freitext') {
+        freitextBtn.classList.add('active');
+        katalogBtn.classList.remove('active');
+        freitextFields.classList.remove('hidden');
+        katalogFields.classList.add('hidden');
+    } else {
+        katalogBtn.classList.add('active');
+        freitextBtn.classList.remove('active');
+        katalogFields.classList.remove('hidden');
+        freitextFields.classList.add('hidden');
+        loadCatalogData();
+    }
+}
+
+// Load catalog data (simplified - just locations)
+async function loadCatalogData() {
+    try {
+        const response = await fetch('/api/katalog/locations');
+        if (response.ok) {
+            const locations = await response.json();
+            const select = document.getElementById('kat-select-location');
+            select.innerHTML = '<option value="">-- Standort wählen --</option>';
+            locations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc.id;
+                opt.textContent = loc.name;
+                select.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load catalog locations');
+    }
+}
+
+// Catalog change handlers (stubs - would need full implementation)
+function onKatLocationChange() {
+    const locationId = document.getElementById('kat-select-location').value;
+    const kategorieSelect = document.getElementById('kat-select-kategorie');
+    kategorieSelect.disabled = !locationId;
+    // TODO: Load categories for this location
+}
+
+function onKatKategorieChange() {
+    const kategorieId = document.getElementById('kat-select-kategorie').value;
+    const unterkategorieSelect = document.getElementById('kat-select-unterkategorie');
+    unterkategorieSelect.disabled = !kategorieId;
+    // TODO: Load subcategories for this category
+}
+
+function onKatUnterkategorieChange() {
+    const unterkategorieId = document.getElementById('kat-select-unterkategorie').value;
+    const varianteSelect = document.getElementById('kat-select-variante');
+    varianteSelect.disabled = !unterkategorieId;
+    // TODO: Load variants for this subcategory
+}
+
+function onKatVarianteChange() {
+    const varianteId = document.getElementById('kat-select-variante').value;
+    document.getElementById('edit-mat-variante-id').value = varianteId;
+    // TODO: Show appropriate input fields based on pricing model
+    // TODO: Calculate and show price preview
+}
+
+// Spende modal
+function openSpendeModal() {
+    document.getElementById('spende-form').reset();
+    document.getElementById('spende-modal').classList.remove('hidden');
+}
+
+function closeSpendeModal() {
+    document.getElementById('spende-modal').classList.add('hidden');
+}
+
+async function submitSpendeForm(e) {
+    e.preventDefault();
+
+    const body = {
+        name: document.getElementById('field-spende-name').value,
+        calculated_price: parseFloat(document.getElementById('field-spende-amount').value),
+        tax_rate: 0, // Spende is tax-free
+    };
+
+    try {
+        const response = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        if (response.ok) {
+            closeSpendeModal();
+            await loadLaufzettel();
+        } else {
+            const error = await response.json();
+            alert('Fehler: ' + (error.detail || 'Spende konnte nicht erfasst werden'));
+        }
+    } catch (e) {
+        alert('Netzwerkfehler. Bitte versuche es erneut.');
+    }
+}
+
+// Event listeners
+document.getElementById('add-material-btn').addEventListener('click', openMaterialModal);
+document.getElementById('modal-close').addEventListener('click', closeMaterialModal);
+document.getElementById('modal-overlay').addEventListener('click', closeMaterialModal);
+document.getElementById('cancel-mat-btn').addEventListener('click', closeMaterialModal);
+document.getElementById('material-form').addEventListener('submit', submitMaterialForm);
+
+document.getElementById('add-spende-btn').addEventListener('click', openSpendeModal);
+document.getElementById('spende-modal-close').addEventListener('click', closeSpendeModal);
+document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
+document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
+document.getElementById('spende-form').addEventListener('submit', submitSpendeForm);
+
+// Initialize
+loadLaufzettel();

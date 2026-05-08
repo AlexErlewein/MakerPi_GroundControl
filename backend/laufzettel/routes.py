@@ -266,11 +266,16 @@ async def get_laufzettel(
 
 
 @router.get("/api/laufzettel/{laufzettel_id}")
-async def get_laufzettel_detail(laufzettel_id: int, db: Session = Depends(get_db)):
+async def get_laufzettel_detail(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
     """Get a single Laufzettel with its material entries"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
+    # Allow guest access via cookie
+    if not _check_guest_access(request, lz):
+        from backend.auth.dependencies import check_auth
+        if not check_auth(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
     d = lz.to_dict()
     materials = (
         db.query(LaufzettelMaterial)
@@ -340,7 +345,7 @@ async def update_laufzettel(
 
 @router.post("/api/laufzettel/{laufzettel_id}/material")
 async def add_material(
-    laufzettel_id: int, mat: MaterialCreate, db: Session = Depends(get_db)
+    laufzettel_id: int, mat: MaterialCreate, request: Request, db: Session = Depends(get_db)
 ):
     """Add a material entry to a Laufzettel"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -350,6 +355,11 @@ async def add_material(
         raise HTTPException(
             status_code=409, detail="Laufzettel is already paid and locked"
         )
+    # Allow guest access via cookie
+    if not _check_guest_access(request, lz):
+        from backend.auth.dependencies import check_auth
+        if not check_auth(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
     new_mat = LaufzettelMaterial(
         laufzettel_id=laufzettel_id,
         name=mat.name,
@@ -373,6 +383,7 @@ async def update_material(
     laufzettel_id: int,
     material_id: int,
     mat: MaterialUpdate,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Update a material entry"""
@@ -381,6 +392,11 @@ async def update_material(
         raise HTTPException(
             status_code=409, detail="Laufzettel is already paid and locked"
         )
+    # Allow guest access via cookie
+    if lz and not _check_guest_access(request, lz):
+        from backend.auth.dependencies import check_auth
+        if not check_auth(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
     existing = (
         db.query(LaufzettelMaterial)
         .filter(
@@ -436,7 +452,7 @@ async def delete_laufzettel(
 
 @router.delete("/api/laufzettel/{laufzettel_id}/material/{material_id}")
 async def delete_material(
-    laufzettel_id: int, material_id: int, db: Session = Depends(get_db)
+    laufzettel_id: int, material_id: int, request: Request, db: Session = Depends(get_db)
 ):
     """Delete a material entry"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -444,6 +460,11 @@ async def delete_material(
         raise HTTPException(
             status_code=409, detail="Laufzettel is already paid and locked"
         )
+    # Allow guest access via cookie
+    if lz and not _check_guest_access(request, lz):
+        from backend.auth.dependencies import check_auth
+        if not check_auth(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
     mat = (
         db.query(LaufzettelMaterial)
         .filter(
@@ -926,6 +947,203 @@ async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
     )
     d["material"] = [m.to_dict() for m in materials]
     return d
+
+
+# ── Guest Access Helper ─────────────────────────────────────────────────────
+
+def _check_guest_access(request: Request, lz: Laufzettel) -> bool:
+    """Check if guest has access to this Laufzettel via session cookie"""
+    guest_id = request.session.get("guest_id")
+    if guest_id and lz.guest_id == guest_id:
+        return True
+    return False
+
+
+# ── Guest Laufzettel API ─────────────────────────────────────────────────────
+
+
+class GuestLaufzettelCreate(BaseModel):
+    name: str
+    email: Optional[str] = None
+    date: Optional[str] = None  # ISO date string
+    start: Optional[str] = None  # ISO datetime
+
+
+@router.get("/guest/laufzettel", response_class=HTMLResponse)
+async def guest_laufzettel_page(request: Request):
+    """Render guest Laufzettel form page (QR code landing)"""
+    from fastapi.templating import Jinja2Templates
+
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse("guest-laufzettel-form.html", {"request": request})
+
+
+@router.get("/api/guest/session-check")
+async def guest_session_check(request: Request):
+    """Check if guest has an active session"""
+    guest_id = request.session.get("guest_id")
+    if guest_id:
+        return {"guest_id": guest_id}
+    return {"guest_id": None}
+
+
+@router.post("/api/guest/laufzettel")
+async def create_guest_laufzettel(data: GuestLaufzettelCreate, request: Request, db: Session = Depends(get_db)):
+    """Create a new guest Laufzettel"""
+    from datetime import datetime, date as dt_date, timezone
+    import uuid
+    import secrets
+
+    # Generate guest_id (UUID)
+    guest_id = str(uuid.uuid4())
+
+    # Generate random UID for guest (GUEST-XXXXXX)
+    guest_uid = f"GUEST-{secrets.token_hex(3).upper()}"
+
+    # Parse date
+    if data.date:
+        try:
+            entry_date = dt_date.fromisoformat(data.date)
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid date format, use YYYY-MM-DD"},
+            )
+    else:
+        entry_date = dt_date.today()
+
+    # Parse start time
+    start_dt = None
+    if data.start:
+        try:
+            start_dt = datetime.fromisoformat(data.start)
+        except ValueError:
+            return JSONResponse(
+                status_code=400, content={"detail": "Invalid start datetime format"}
+            )
+    else:
+        start_dt = datetime.now(timezone.utc)
+
+    # Check for existing unpaid Laufzettel for this guest today
+    existing_open = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_id == guest_id,
+            Laufzettel.date == entry_date,
+            Laufzettel.payment_method == None,
+        )
+        .first()
+    )
+    if existing_open:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": f"An open (unpaid) Laufzettel for today already exists (id={existing_open.id})"
+            },
+        )
+
+    # Create Laufzettel
+    lz = Laufzettel(
+        uid=guest_uid,
+        date=entry_date,
+        start=start_dt,
+        owner_name=data.name,
+        guest_id=guest_id,
+        guest_email=data.email,
+        nodes=json.dumps([]),
+    )
+    db.add(lz)
+    db.commit()
+    db.refresh(lz)
+
+    # Set guest_id cookie
+    request.session["guest_id"] = guest_id
+
+    d = lz.to_dict()
+    d["material"] = []
+    return d
+
+
+@router.get("/api/guest/laufzettel/{guest_id}")
+async def get_guest_laufzettel(guest_id: str, db: Session = Depends(get_db)):
+    """Get the current unpaid Laufzettel for a guest"""
+    from datetime import date as dt_date
+
+    today = dt_date.today()
+    lz = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_id == guest_id,
+            Laufzettel.date == today,
+            Laufzettel.payment_method == None,
+        )
+        .first()
+    )
+
+    if not lz:
+        raise HTTPException(status_code=404, detail="No unpaid Laufzettel found for today")
+
+    d = lz.to_dict()
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
+    d["material"] = [m.to_dict() for m in materials]
+    return d
+
+
+@router.get("/api/guest/laufzettel/{guest_id}/previous")
+async def get_guest_previous_unpaid(guest_id: str, db: Session = Depends(get_db)):
+    """Check for unpaid Laufzettel from previous days"""
+    from datetime import date as dt_date
+
+    today = dt_date.today()
+    lz = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_id == guest_id,
+            Laufzettel.date < today,
+            Laufzettel.payment_method == None,
+        )
+        .order_by(Laufzettel.date.desc())
+        .first()
+    )
+
+    if not lz:
+        return {"has_previous_unpaid": False}
+
+    d = lz.to_dict()
+    return {
+        "has_previous_unpaid": True,
+        "laufzettel": d,
+    }
+
+
+@router.get("/guest/laufzettel/{laufzettel_id}", response_class=HTMLResponse)
+async def guest_laufzettel_detail_page(
+    request: Request, laufzettel_id: int, db: Session = Depends(get_db)
+):
+    """Render guest Laufzettel detail page (simplified, no navigation)"""
+    from fastapi.templating import Jinja2Templates
+
+    templates = Jinja2Templates(directory="templates")
+
+    # Verify guest has access via cookie
+    guest_id = request.session.get("guest_id")
+    if not guest_id:
+        return RedirectResponse("/guest/laufzettel", status_code=302)
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+
+    if lz.guest_id != guest_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return templates.TemplateResponse(
+        "guest-laufzettel-detail.html", {"request": request, "laufzettel_id": laufzettel_id}
+    )
 
 
 # ── Wero Payment API ────────────────────────────────────────────────────────

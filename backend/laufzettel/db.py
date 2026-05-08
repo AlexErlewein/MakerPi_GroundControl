@@ -32,6 +32,8 @@ def _migrate(conn):
             "ALTER TABLE laufzettel ADD COLUMN payment_transaction_id VARCHAR",
         ),
         ("payment_notes", "ALTER TABLE laufzettel ADD COLUMN payment_notes VARCHAR"),
+        ("guest_id", "ALTER TABLE laufzettel ADD COLUMN guest_id VARCHAR"),
+        ("guest_email", "ALTER TABLE laufzettel ADD COLUMN guest_email VARCHAR"),
     ]:
         if col not in existing:
             cur.execute(sql)
@@ -80,6 +82,7 @@ def _migrate(conn):
             CREATE INDEX IF NOT EXISTS ix_laufzettel_uid        ON laufzettel (uid);
             CREATE INDEX IF NOT EXISTS ix_laufzettel_date       ON laufzettel (date);
             CREATE INDEX IF NOT EXISTS ix_laufzettel_mitglied_id ON laufzettel (mitglied_id);
+            CREATE INDEX IF NOT EXISTS ix_laufzettel_guest_id    ON laufzettel (guest_id);
 
             PRAGMA foreign_keys = ON;
         """)

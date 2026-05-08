@@ -30,6 +30,8 @@ class Laufzettel(Base):
     mitglied_id = Column(
         Integer, nullable=True, index=True
     )  # soft ref to members.mitglieder.id
+    guest_id = Column(String, nullable=True, index=True)  # UUID for guest sessions
+    guest_email = Column(String, nullable=True)  # Optional email for guests
     nodes = Column(Text, default="[]")  # JSON array of device_ids
     payment_method = Column(
         String, nullable=True
@@ -52,6 +54,8 @@ class Laufzettel(Base):
             "owner_name": self.owner_name,
             "member_id": self.member_id,
             "mitglied_id": self.mitglied_id,
+            "guest_id": self.guest_id,
+            "guest_email": self.guest_email,
             "nodes": json.loads(self.nodes) if self.nodes else [],
             "payment_method": self.payment_method,
             "paid_at": paid_ts.isoformat() if paid_ts else None,
