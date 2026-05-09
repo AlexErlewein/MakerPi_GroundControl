@@ -23,6 +23,13 @@ from .db import get_db, init_db
 from .models import Laufzettel, LaufzettelMaterial
 from .pdf import drive_folder_names, generate_pdf, pdf_filename
 
+# Push notification support (import at module level, calls wrapped in try/except)
+try:
+    from backend.push.routes import send_push_notification
+except Exception:
+    send_push_notification = None  # Optional module
+    pass
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -103,7 +110,14 @@ async def laufzettel_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("laufzettel.html", {"request": request})
+    return templates.TemplateResponse(
+        "laufzettel.html",
+        {
+            "request": request,
+            "nav_active": "laufzettel",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 @router.get("/laufzettel/{laufzettel_id}", response_class=HTMLResponse)
@@ -122,7 +136,13 @@ async def laufzettel_detail_page(
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
     return templates.TemplateResponse(
-        "laufzettel-detail.html", {"request": request, "laufzettel_id": laufzettel_id}
+        "laufzettel-detail.html",
+        {
+            "request": request,
+            "laufzettel_id": laufzettel_id,
+            "nav_active": "laufzettel",
+            "current_user": request.session.get("user"),
+        },
     )
 
 
@@ -266,7 +286,9 @@ async def get_laufzettel(
 
 
 @router.get("/api/laufzettel/{laufzettel_id}")
-async def get_laufzettel_detail(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
+async def get_laufzettel_detail(
+    laufzettel_id: int, request: Request, db: Session = Depends(get_db)
+):
     """Get a single Laufzettel with its material entries"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
@@ -274,6 +296,7 @@ async def get_laufzettel_detail(laufzettel_id: int, request: Request, db: Sessio
     # Allow guest access via cookie
     if not _check_guest_access(request, lz):
         from backend.auth.dependencies import check_auth
+
         if not check_auth(request):
             raise HTTPException(status_code=401, detail="Authentication required")
     d = lz.to_dict()
@@ -345,7 +368,10 @@ async def update_laufzettel(
 
 @router.post("/api/laufzettel/{laufzettel_id}/material")
 async def add_material(
-    laufzettel_id: int, mat: MaterialCreate, request: Request, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    mat: MaterialCreate,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Add a material entry to a Laufzettel"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -358,6 +384,7 @@ async def add_material(
     # Allow guest access via cookie
     if not _check_guest_access(request, lz):
         from backend.auth.dependencies import check_auth
+
         if not check_auth(request):
             raise HTTPException(status_code=401, detail="Authentication required")
     new_mat = LaufzettelMaterial(
@@ -395,6 +422,7 @@ async def update_material(
     # Allow guest access via cookie
     if lz and not _check_guest_access(request, lz):
         from backend.auth.dependencies import check_auth
+
         if not check_auth(request):
             raise HTTPException(status_code=401, detail="Authentication required")
     existing = (
@@ -452,7 +480,10 @@ async def delete_laufzettel(
 
 @router.delete("/api/laufzettel/{laufzettel_id}/material/{material_id}")
 async def delete_material(
-    laufzettel_id: int, material_id: int, request: Request, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    material_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Delete a material entry"""
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -463,6 +494,7 @@ async def delete_material(
     # Allow guest access via cookie
     if lz and not _check_guest_access(request, lz):
         from backend.auth.dependencies import check_auth
+
         if not check_auth(request):
             raise HTTPException(status_code=401, detail="Authentication required")
     mat = (
@@ -565,7 +597,19 @@ async def pay_bar(
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
+
     record_laufzettel_payment(lz, materials)
+    # Push notification (non-critical)
+    try:
+        if send_push_notification:
+            send_push_notification(
+                title="Zahlung eingegangen",
+                body=f"Laufzettel #{laufzettel_id} — Barzahlung erfasst",
+                tag=f"payment-{laufzettel_id}",
+                url=f"/laufzettel/{laufzettel_id}",
+            )
+    except Exception:
+        pass
     return d
 
 
@@ -755,9 +799,23 @@ async def get_karte_status(
                         )
                         d["material"] = [m.to_dict() for m in materials]
                         _schedule_pdf_upload(lz, materials)
-                        from backend.buchhaltung.accounting import record_laufzettel_payment
+                        from backend.buchhaltung.accounting import (
+                            record_laufzettel_payment,
+                        )
+
                         record_laufzettel_payment(lz, materials)
                         _pending_payments.pop(client_transaction_id, None)
+                        # Push notification (non-critical)
+                        try:
+                            if send_push_notification:
+                                send_push_notification(
+                                    title="Zahlung eingegangen",
+                                    body=f"Laufzettel #{laufzettel_id} — Kartenzahlung (SumUp)",
+                                    tag=f"payment-{laufzettel_id}",
+                                    url=f"/laufzettel/{laufzettel_id}",
+                                )
+                        except Exception:
+                            pass
                         return {"status": "SUCCESSFUL", "laufzettel": d}
         except Exception:
             pass  # fall through to PENDING on network / API errors
@@ -789,7 +847,19 @@ async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
+
     record_laufzettel_payment(lz, materials)
+    # Push notification (non-critical)
+    try:
+        if send_push_notification:
+            send_push_notification(
+                title="Zahlung eingegangen",
+                body=f"Laufzettel #{laufzettel_id} — Kartenzahlung (Mock)",
+                tag=f"payment-{laufzettel_id}",
+                url=f"/laufzettel/{laufzettel_id}",
+            )
+    except Exception:
+        pass
     return d
 
 
@@ -913,8 +983,20 @@ async def get_checkout_status(
         d["material"] = [m.to_dict() for m in materials]
         _schedule_pdf_upload(lz, materials)
         from backend.buchhaltung.accounting import record_laufzettel_payment
+
         record_laufzettel_payment(lz, materials)
         _pending_checkouts.pop(checkout_id, None)
+        # Push notification (non-critical)
+        try:
+            if send_push_notification:
+                send_push_notification(
+                    title="Zahlung eingegangen",
+                    body=f"Laufzettel #{laufzettel_id} — Kartenzahlung (Checkout)",
+                    tag=f"payment-{laufzettel_id}",
+                    url=f"/laufzettel/{laufzettel_id}",
+                )
+        except Exception:
+            pass
         return {"status": "PAID", "laufzettel": d}
 
     return {"status": sumup_status}
@@ -951,6 +1033,7 @@ async def reset_payment(laufzettel_id: int, db: Session = Depends(get_db)):
 
 # ── Guest Access Helper ─────────────────────────────────────────────────────
 
+
 def _check_guest_access(request: Request, lz: Laufzettel) -> bool:
     """Check if guest has access to this Laufzettel via session cookie"""
     guest_id = request.session.get("guest_id")
@@ -975,7 +1058,9 @@ async def guest_laufzettel_page(request: Request):
     from fastapi.templating import Jinja2Templates
 
     templates = Jinja2Templates(directory="templates")
-    return templates.TemplateResponse("guest-laufzettel-form.html", {"request": request})
+    return templates.TemplateResponse(
+        "guest-laufzettel-form.html", {"request": request}
+    )
 
 
 @router.get("/api/guest/session-check")
@@ -988,7 +1073,9 @@ async def guest_session_check(request: Request):
 
 
 @router.post("/api/guest/laufzettel")
-async def create_guest_laufzettel(data: GuestLaufzettelCreate, request: Request, db: Session = Depends(get_db)):
+async def create_guest_laufzettel(
+    data: GuestLaufzettelCreate, request: Request, db: Session = Depends(get_db)
+):
     """Create a new guest Laufzettel"""
     from datetime import datetime, date as dt_date, timezone
     import uuid
@@ -1081,7 +1168,9 @@ async def get_guest_laufzettel(guest_id: str, db: Session = Depends(get_db)):
     )
 
     if not lz:
-        raise HTTPException(status_code=404, detail="No unpaid Laufzettel found for today")
+        raise HTTPException(
+            status_code=404, detail="No unpaid Laufzettel found for today"
+        )
 
     d = lz.to_dict()
     materials = (
@@ -1142,7 +1231,8 @@ async def guest_laufzettel_detail_page(
         raise HTTPException(status_code=403, detail="Access denied")
 
     return templates.TemplateResponse(
-        "guest-laufzettel-detail.html", {"request": request, "laufzettel_id": laufzettel_id}
+        "guest-laufzettel-detail.html",
+        {"request": request, "laufzettel_id": laufzettel_id},
     )
 
 
@@ -1258,8 +1348,20 @@ async def get_wero_status(
             d["material"] = [m.to_dict() for m in materials]
             _schedule_pdf_upload(lz, materials)
             from backend.buchhaltung.accounting import record_laufzettel_payment
+
             record_laufzettel_payment(lz, materials)
             _pending_wero_payments.pop(checkout_id, None)
+            # Push notification (non-critical)
+            try:
+                if send_push_notification:
+                    send_push_notification(
+                        title="Zahlung eingegangen",
+                        body=f"Laufzettel #{laufzettel_id} — Wero-Zahlung (Auto/Mock)",
+                        tag=f"payment-{laufzettel_id}",
+                        url=f"/laufzettel/{laufzettel_id}",
+                    )
+            except Exception:
+                pass
             return {"status": "PAID", "laufzettel": d}
 
     return {"status": pending["status"]}
@@ -1303,7 +1405,19 @@ async def confirm_wero_payment(
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
+
     record_laufzettel_payment(lz, materials)
+    # Push notification (non-critical)
+    try:
+        if send_push_notification:
+            send_push_notification(
+                title="Zahlung eingegangen",
+                body=f"Laufzettel #{laufzettel_id} — Wero-Zahlung",
+                tag=f"payment-{laufzettel_id}",
+                url=f"/laufzettel/{laufzettel_id}",
+            )
+    except Exception:
+        pass
     return d
 
 

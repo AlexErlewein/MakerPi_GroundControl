@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block header %}
+<div class="container">
+    <header>
+        <div class="header-left">
+            <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
+            <nav class="nav">
+                <a href="/member" class="nav-link{% if nav_active == 'auftrag' %} active{% endif %}">Auftrag</a>
+                <a href="/member/konto" class="nav-link{% if nav_active == 'konto' %} active{% endif %}">Mein Konto</a>
+                <a href="/member/laufzettel/historie" class="nav-link{% if nav_active == 'historie' %} active{% endif %}">Historie</a>
+                <a href="/logout" class="nav-link">Abmelden</a>
+            </nav>
+        </div>
+        <div class="header-right">
+            <span class="user-info">Angemeldet als: {{ user.username }}</span>
+            <div id="admin-bar" style="display: none;">
+                <button id="admin-unlock-btn" class="btn btn-admin">🔓 Admin-Bereich</button>
+            </div>
+            <div id="admin-verified" style="display: none;">
+                <button onclick="exitAdminMode()" class="btn btn-secondary">🔒 Admin-Modus beenden</button>
+            </div>
+        </div>
+    </header>
+
+    {% block content %}{% endblock %}
+{% endblock %}
+
+{% block footer %}
+</div>
+{% endblock %}

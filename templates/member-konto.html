@@ -1,58 +1,38 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mein Konto - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/laufzettel-detail.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/member" class="nav-link">Auftrag</a>
-                    <a href="/member/konto" class="nav-link active">Mein Konto</a>
-                    <a href="/member/laufzettel/historie" class="nav-link">Historie</a>
-                    <a href="/logout" class="nav-link">Abmelden</a>
-                </nav>
-            </div>
-            <div class="header-right">
-                <span class="user-info">Angemeldet als: {{ user.username }}</span>
-            </div>
-        </header>
+{% extends "base-member.html" %}
 
-        <main class="lz-detail-main">
-            <div class="lz-info-card">
-                <h1>Mein Konto</h1>
+{% block title %}Mein Konto - MakerPi GroundControl{% endblock %}
 
-                {% if mitglied %}
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="info-label">Name</span>
-                        <span class="info-value">{{ mitglied.name }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Mitglieds-ID</span>
-                        <span class="info-value">{{ mitglied.member_id or "—" }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">NFC-Karten-UID</span>
-                        <span class="info-value"><code>{{ mitglied.nfc_uid or "—" }}</code></span>
-                    </div>
-                </div>
-                {% else %}
-                <p class="hint">Keine Mitgliedsdaten verknüpft.</p>
-                {% endif %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/laufzettel-detail.css">
+{% endblock %}
+
+{% block content %}
+<main class="lz-detail-main">
+    <div class="lz-info-card">
+        <h1>Mein Konto</h1>
+
+        {% if mitglied %}
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Name</span>
+                <span class="info-value">{{ mitglied.name }}</span>
             </div>
-        </main>
+            <div class="info-item">
+                <span class="info-label">Mitglieds-ID</span>
+                <span class="info-value">{{ mitglied.member_id or "—" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">NFC-Karten-UID</span>
+                <span class="info-value"><code>{{ mitglied.nfc_uid or "—" }}</code></span>
+            </div>
+        </div>
+        {% else %}
+        <p class="hint">Keine Mitgliedsdaten verknüpft.</p>
+        {% endif %}
     </div>
+</main>
+{% endblock %}
 
-    <script src="/static/js/activity-tracker.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+{% block extra_js %}
+<script src="/static/js/activity-tracker.js"></script>
+{% endblock %}

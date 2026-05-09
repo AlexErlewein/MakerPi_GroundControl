@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline — MakerPi GroundControl</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+        .offline-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        .offline-title {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .offline-text {
+            color: var(--text-secondary);
+            max-width: 400px;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+        .offline-logo {
+            height: 48px;
+            margin-bottom: 2rem;
+            opacity: 0.7;
+        }
+        .btn-retry {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-retry:hover {
+            opacity: 0.88;
+        }
+    </style>
+</head>
+<body>
+    <img src="/graphics/H3ckeLogo.svg" class="offline-logo" alt="H3cke MakerSpace">
+    <div class="offline-icon">📡</div>
+    <h1 class="offline-title">Du bist offline</h1>
+    <p class="offline-text">
+        Die Verbindung zum Server wurde unterbrochen.
+        Einige Funktionen sind möglicherweise nicht verfügbar.
+        Deine Daten werden synchronisiert sobald die Verbindung wiederhergestellt ist.
+    </p>
+    <button class="btn-retry" onclick="window.location.reload()">Erneut versuchen</button>
+    <script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -9,6 +9,13 @@ from backend.config import MQTT_BROKER, MQTT_PORT
 from .db import SessionLocal
 from .models import MQTTMessage, Device, TagScan, ZigbeeDevice
 
+# Push notification support (import at module level, calls wrapped in try/except)
+try:
+    from backend.push.routes import send_push_notification
+except Exception:
+    send_push_notification = None  # Optional module
+    pass
+
 logger = logging.getLogger(__name__)
 mqtt_client = None
 
@@ -430,7 +437,10 @@ def handle_device_message(topic: str, payload: str):
                 card_name = data.get("name")
                 if card_sig and card_member_id and card_name:
                     from backend.members.signature import verify_card_signature
-                    if not verify_card_signature(card_member_id, uid, card_name, card_sig):
+
+                    if not verify_card_signature(
+                        card_member_id, uid, card_name, card_sig
+                    ):
                         logger.warning(
                             "[SCAN] Invalid card signature for UID=%s member_id=%s — card data rejected",
                             uid,
@@ -532,6 +542,18 @@ def handle_device_message(topic: str, payload: str):
                             )
                             lauf_db.add(new_lz)
                             lauf_db.commit()
+                            lauf_db.refresh(new_lz)
+                            # Push notification (non-critical)
+                            try:
+                                if send_push_notification:
+                                    send_push_notification(
+                                        title="Neuer Laufzettel erstellt",
+                                        body=f"Laufzettel #{new_lz.id} — {owner_name or uid}",
+                                        tag=f"laufzettel-{new_lz.id}",
+                                        url=f"/laufzettel/{new_lz.id}",
+                                    )
+                            except Exception:
+                                pass
                         else:
                             # Update existing open Laufzettel
                             nodes = json.loads(open_lz.nodes or "[]")

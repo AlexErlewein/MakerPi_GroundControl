@@ -1,747 +1,533 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laufzettel {{ laufzettel.id }} - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/tags.css?v=2">
-    <link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/member" class="nav-link">Auftrag</a>
-                    <a href="/member/konto" class="nav-link">Mein Konto</a>
-                    <a href="{{ back_url or '/member/laufzettel/historie' }}" class="nav-link">← Zurück zur Historie</a>
-                    <a href="/logout" class="nav-link">Abmelden</a>
-                </nav>
+{% extends "base-member.html" %}
+
+{% block title %}Laufzettel {{ laufzettel.id }} - MakerPi GroundControl{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css?v=2">
+<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+    <a href="{{ back_url or '/member/laufzettel/historie' }}" class="btn btn-secondary btn-sm">← Zurück zur Historie</a>
+</div>
+
+<main class="lz-detail-main">
+    <!-- Info Card -->
+    <section class="lz-info-card section">
+        <div class="section-header">
+            <h2>Laufzettel <span class="lz-id-badge">#{{ laufzettel.id }}</span></h2>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Datum</span>
+                <span class="info-value">{{ laufzettel.date }}</span>
             </div>
-            <div class="header-right">
-                <span class="user-info">Angemeldet als: {{ user.username }}</span>
-                <div id="admin-bar" style="display: none;">
-                    <button id="admin-unlock-btn" class="btn btn-admin">🔓 Admin-Bereich</button>
-                </div>
-                <div id="admin-verified" style="display: none;">
-                    <button onclick="exitAdminMode()" class="btn btn-secondary">🔒 Admin-Modus beenden</button>
-                </div>
+            <div class="info-item">
+                <span class="info-label">Von</span>
+                <span class="info-value">{{ laufzettel.start or "..." }}</span>
             </div>
-        </header>
+            <div class="info-item">
+                <span class="info-label">Status</span>
+                <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
+                    {% if laufzettel.payment_method %}
+                        Bezahlt ({{ laufzettel.payment_method }})
+                    {% else %}
+                        Offen
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </section>
 
-        <main class="lz-detail-main">
-            <!-- Info Card -->
-            <section class="lz-info-card section">
-                <div class="section-header">
-                    <h2>Laufzettel <span class="lz-id-badge">#{{ laufzettel.id }}</span></h2>
-                </div>
-
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="info-label">Datum</span>
-                        <span class="info-value">{{ laufzettel.date }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Von</span>
-                        <span class="info-value">{{ laufzettel.start or "..." }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Status</span>
-                        <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
-                            {% if laufzettel.payment_method %}
-                                Bezahlt ({{ laufzettel.payment_method }})
-                            {% else %}
-                                Offen
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Material Section -->
-            <section class="section">
-                <div class="section-header">
-                    <h2>Material</h2>
-                    <div style="display:flex;gap:8px;">
-                        {% if not read_only %}
-                        <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()">♥ Spende</button>
-                        <button id="add-material-btn" class="btn btn-success">+ Material</button>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table id="material-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Menge / Maße</th>
-                                <th>Einheit</th>
-                                <th>Preis (€)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="material-body">
-                            <!-- Dynamically rendered by JavaScript with location grouping -->
-                        </tbody>
-                        <tfoot id="material-total" {% if total == 0 %}class="hidden"{% endif %}>
-                            <tr>
-                                <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
-                                <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">{{ "%.2f"|format(total) }} €</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                {% if read_only %}
-                <div class="info-box" style="margin-top:15px;">
-                    <p>Dieser Laufzettel wurde bereits bezahlt. Neue Materialien können nicht mehr hinzugefügt werden.</p>
-                </div>
+    <!-- Material Section -->
+    <section class="section">
+        <div class="section-header">
+            <h2>Material</h2>
+            <div style="display:flex;gap:8px;">
+                {% if not read_only %}
+                <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()">♥ Spende</button>
+                <button id="add-material-btn" class="btn btn-success">+ Material</button>
                 {% endif %}
-            </section>
-        </main>
-    </div>
-
-    {% if not read_only %}
-    <!-- Add Material Modal -->
-    <div id="material-modal" class="modal hidden">
-        <div class="modal-overlay" id="modal-overlay"></div>
-        <div class="modal-box modal-box-wide">
-            <div class="modal-header">
-                <h3 id="modal-title">Material hinzufügen</h3>
-                <button class="modal-close" id="modal-close">✕</button>
             </div>
-
-            <!-- Mode toggle -->
-            <div class="mode-toggle">
-                <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
-                <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">✏️ Freitext</button>
-            </div>
-
-            <form id="material-form">
-                <!-- Freitext fields -->
-                <div id="freitext-fields">
-                    <div class="form-group">
-                        <label for="field-mat-name">Name</label>
-                        <input type="text" id="field-mat-name" placeholder="z.B. PLA, Holz, Resin">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="field-mat-menge">Menge <span class="optional">(optional)</span></label>
-                            <input type="number" id="field-mat-menge" placeholder="z.B. 100" step="any" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="field-mat-unit">Einheit <span class="optional">(optional)</span></label>
-                            <input type="text" id="field-mat-unit" placeholder="z.B. g, Stück, cm³">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="field-mat-unit-price">Preis pro Einheit (€) <span class="optional">(optional)</span></label>
-                            <input type="number" id="field-mat-unit-price" placeholder="z.B. 0.02" step="any" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="field-mat-total-price">Gesamtpreis (€) <span class="optional">(optional)</span></label>
-                            <input type="number" id="field-mat-total-price" placeholder="Automatisch berechnet" step="any" min="0">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Katalog fields -->
-                <div id="katalog-fields" class="hidden">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="kat-select-location">Standort</label>
-                            <select id="kat-select-location" onchange="onKatLocationChange()">
-                                <option value="">-- Standort wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-kategorie">Kategorie</label>
-                            <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
-                                <option value="">-- Kategorie wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-unterkategorie">Unterkategorie</label>
-                            <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
-                                <option value="">-- Unterkategorie wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-variante">Variante</label>
-                            <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
-                                <option value="">-- Variante wählen --</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- per_gram: single Menge field -->
-                    <div id="kat-fields-gram" class="hidden">
-                        <div class="form-group">
-                            <label for="kat-menge-gram">Menge <span id="kat-gram-label" class="optional"></span></label>
-                            <input type="number" id="kat-menge-gram" placeholder="Menge" step="any" min="0">
-                        </div>
-                    </div>
-
-                    <!-- per_volume_cm3: L × B × H -->
-                    <div id="kat-fields-volume" class="hidden">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="kat-laenge">Länge (cm)</label>
-                                <input type="number" id="kat-laenge" placeholder="cm" step="any" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label for="kat-breite">Breite (cm)</label>
-                                <input type="number" id="kat-breite" placeholder="cm" step="any" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label for="kat-hoehe">Höhe (cm)</label>
-                                <input type="number" id="kat-hoehe" placeholder="cm" step="any" min="0">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- per_minute: duration in minutes -->
-                    <div id="kat-fields-minute" class="hidden">
-                        <div class="form-group">
-                            <label for="kat-menge-minute">Dauer (min)</label>
-                            <input type="number" id="kat-menge-minute" placeholder="Minuten" step="any" min="0">
-                        </div>
-                    </div>
-
-                    <!-- per_unit -->
-                    <div id="kat-fields-unit" class="hidden">
-                        <div class="form-group">
-                            <label for="kat-menge-unit">Menge <span id="kat-unit-label" class="optional"></span></label>
-                            <input type="number" id="kat-menge-unit" placeholder="Anzahl" step="any" min="0">
-                        </div>
-                    </div>
-
-                    <!-- Price preview -->
-                    <div id="price-preview" class="price-preview hidden">
-                        <span class="price-label">Berechneter Preis:</span>
-                        <span class="price-value" id="price-value">-</span>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-mat-btn">Abbrechen</button>
-                    <button type="submit" class="btn btn-success">Speichern</button>
-                </div>
-            </form>
         </div>
-    </div>
 
-    <!-- Spende Modal -->
-    <div id="spende-modal" class="modal hidden">
-        <div class="modal-overlay" id="spende-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3>Spende erfassen</h3>
-                <button class="modal-close" id="spende-modal-close">✕</button>
-            </div>
-            <form id="spende-form">
-                <div class="form-group">
-                    <label for="field-spende-name">Bezeichnung</label>
-                    <input type="text" id="field-spende-name" value="Spende" placeholder="z.B. Spende, Trinkgeld">
-                </div>
-                <div class="form-group">
-                    <label for="field-spende-amount">Betrag (€)</label>
-                    <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
-                </div>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
-                    <button type="submit" class="btn btn-success">Erfassen</button>
-                </div>
-            </form>
+        <div class="table-container">
+            <table id="material-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Menge / Maße</th>
+                        <th>Einheit</th>
+                        <th>Preis (€)</th>
+                    </tr>
+                </thead>
+                <tbody id="material-body">
+                    <!-- Dynamically rendered by JavaScript with location grouping -->
+                </tbody>
+                <tfoot id="material-total" {% if total == 0 %}class="hidden"{% endif %}>
+                    <tr>
+                        <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
+                        <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">{{ "%.2f"|format(total) }} €</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
-    </div>
-    {% endif %}
+        {% if read_only %}
+        <div class="info-box" style="margin-top:15px;">
+            <p>Dieser Laufzettel wurde bereits bezahlt. Neue Materialien können nicht mehr hinzugefügt werden.</p>
+        </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}
 
-    <script>
-        const MATERIALS_DATA = {{ materials | tojson | safe }};
-        let materials = MATERIALS_DATA || [];
-        let katalog = [];
+{% block extra_js %}
+<script>
+    const MATERIALS_DATA = {{ materials | tojson | safe }};
+    let materials = MATERIALS_DATA || [];
+    let katalog = [];
 
-        function esc(str) {
-            return String(str || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
 
-        function getLocationForVariante(varianteId) {
-            if (!varianteId) return null;
-            for (const loc of katalog) {
-                for (const kat of (loc.kategorien || [])) {
-                    for (const v of (kat.varianten || [])) {
-                        if (v.id === varianteId) return loc.name;
-                    }
+    function getLocationForVariante(varianteId) {
+        if (!varianteId) return null;
+        for (const loc of katalog) {
+            for (const kat of (loc.kategorien || [])) {
+                for (const v of (kat.varianten || [])) {
+                    if (v.id === varianteId) return loc.name;
                 }
             }
-            return null;
         }
+        return null;
+    }
 
-        function getMatGroupKey(m) {
-            if (m.tax_rate === 0) return '__spenden__';
-            return getLocationForVariante(m.variante_id);
-        }
+    function getMatGroupKey(m) {
+        if (m.tax_rate === 0) return '__spenden__';
+        return getLocationForVariante(m.variante_id);
+    }
 
-        function getMatGroupLabel(m) {
-            if (m.tax_rate === 0) return 'Spenden';
-            return getLocationForVariante(m.variante_id) || 'Freitext';
-        }
+    function getMatGroupLabel(m) {
+        if (m.tax_rate === 0) return 'Spenden';
+        return getLocationForVariante(m.variante_id) || 'Freitext';
+    }
 
-        function sortMats(mats) {
-            return [...mats].sort((a, b) => {
-                const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
-                if (sA !== sB) return sA ? 1 : -1;
-                const locA = getLocationForVariante(a.variante_id) || '\uffff';
-                const locB = getLocationForVariante(b.variante_id) || '\uffff';
-                return locA.localeCompare(locB) || a.name.localeCompare(b.name);
-            });
-        }
-
-        function buildMengeDisplay(m) {
-            if (m.laenge_cm != null && m.breite_cm != null && m.hoehe_cm != null) {
-                const vol = m.laenge_cm * m.breite_cm * m.hoehe_cm;
-                return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
-            }
-            return m.menge != null ? String(m.menge) : '-';
-        }
-
-        function renderMaterials() {
-            const tbody = document.getElementById('material-body');
-            if (!materials.length) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
-                return;
-            }
-            const sorted = sortMats(materials);
-            let rowIndex = 0;
-            let lastGroupKey = undefined;
-            const rows = [];
-            for (const m of sorted) {
-                const groupKey = getMatGroupKey(m);
-                if (groupKey !== lastGroupKey) {
-                    rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
-                    lastGroupKey = groupKey;
-                }
-                rowIndex++;
-                const mengeCell = buildMengeDisplay(m);
-                const priceCell = m.calculated_price != null
-                    ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>`
-                    : '<span style="color:var(--text-secondary)">-</span>';
-                rows.push(`
-                <tr>
-                    <td>${rowIndex}</td>
-                    <td>${esc(m.name)}</td>
-                    <td>${mengeCell}</td>
-                    <td>${esc(m.unit || '-')}</td>
-                    <td>${priceCell}</td>
-                </tr>`);
-            }
-            tbody.innerHTML = rows.join('');
-        }
-
-        async function loadKatalog() {
-            const res = await fetch('/api/katalog');
-            katalog = await res.json();
-            const sel = document.getElementById('kat-select-location');
-            if (sel) populateLocationSelect();
-            renderMaterials();
-        }
-
-        // Use server-provided katalog for initial render
-        if (KATALOG_DATA && KATALOG_DATA.length) {
-            katalog = KATALOG_DATA;
-            populateLocationSelect();
-        }
-        renderMaterials();
-
-        async function checkSession() {
-            try {
-                const res = await fetch('/api/auth/session');
-                const session = await res.json();
-                const adminBar = document.getElementById('admin-bar');
-                const adminVerified = document.getElementById('admin-verified');
-                if (session.is_admin_capable && !session.admin_verified) {
-                    adminBar.style.display = 'block'; adminVerified.style.display = 'none';
-                } else if (session.admin_verified) {
-                    adminBar.style.display = 'none'; adminVerified.style.display = 'block';
-                }
-            } catch (err) { console.error('Failed to check session:', err); }
-        }
-
-        const _adminUnlockBtn = document.getElementById('admin-unlock-btn');
-        if (_adminUnlockBtn) {
-            _adminUnlockBtn.addEventListener('click', async () => {
-                const password = prompt('Admin-Passwort eingeben:');
-                if (!password) return;
-                const formData = new FormData(); formData.append('password', password);
-                try {
-                    const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
-                    if (res.ok) window.location.href = '/dashboard';
-                    else alert('Falsches Passwort oder keine Admin-Berechtigung');
-                } catch (err) { alert('Fehler beim Verifizieren'); }
-            });
-        }
-
-        async function exitAdminMode() {
-            await fetch('/api/auth/logout-admin', { method: 'POST' });
-            window.location.reload();
-        }
-
-        checkSession();
-    </script>
-
-    {% if not read_only %}
-    <script>
-        const LAUFZETTEL_ID = {{ laufzettel.id }};
-        const KATALOG_DATA = {{ katalog | tojson | safe }};
-        if (KATALOG_DATA && KATALOG_DATA.length) katalog = KATALOG_DATA;
-        let currentMatMode = 'freitext';
-        let selectedVariante = null;
-        let selectedKategorie = null;
-
-        function populateLocationSelect() {
-            const sel = document.getElementById('kat-select-location');
-            sel.innerHTML = '<option value="">-- Standort wählen --</option>' +
-                katalog.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
-        }
-
-        function onKatLocationChange() {
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const katSel = document.getElementById('kat-select-kategorie');
-            const varSel = document.getElementById('kat-select-variante');
-
-            katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            varSel.disabled = true;
-            selectedVariante = null;
-            selectedKategorie = null;
-            hideKatInputFields();
-            hidePricePreview();
-
-            if (!locId) { katSel.disabled = true; return; }
-            const loc = katalog.find((l) => l.id === locId);
-            if (!loc) { katSel.disabled = true; return; }
-
-            katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
-                (loc.kategorien || []).map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join('');
-            katSel.disabled = false;
-        }
-
-        function onKatKategorieChange() {
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const katId = parseInt(document.getElementById('kat-select-kategorie').value);
-            const ukatSel = document.getElementById('kat-select-unterkategorie');
-            const varSel = document.getElementById('kat-select-variante');
-
-            ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
-            ukatSel.disabled = true;
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            varSel.disabled = true;
-            selectedVariante = null;
-            selectedKategorie = null;
-            hideKatInputFields();
-            hidePricePreview();
-
-            if (!katId) return;
-            const loc = katalog.find((l) => l.id === locId);
-            const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
-            if (!kat) return;
-
-            ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>' +
-                (kat.unterkategorien || []).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
-            ukatSel.disabled = false;
-        }
-
-        function onKatUnterkategorieChange() {
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const katId = parseInt(document.getElementById('kat-select-kategorie').value);
-            const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
-            const varSel = document.getElementById('kat-select-variante');
-
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            varSel.disabled = true;
-            selectedVariante = null;
-            selectedKategorie = null;
-            hideKatInputFields();
-            hidePricePreview();
-
-            if (!ukatId) return;
-            const loc = katalog.find((l) => l.id === locId);
-            const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
-            const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
-            if (!ukat) return;
-
-            selectedKategorie = ukat;
-            const pm = ukat.pricing_model;
-            const suffix = pm === "per_gram" ? "/gr"
-                : pm === "per_kilogram" ? "/kg"
-                : pm === "per_volume_cm3" ? "/cm³"
-                : pm === "per_volume_l" ? "/L"
-                : pm === "per_cubic_meter" ? "/m³"
-                : pm === "per_cubic_deci_meter" ? "/dm³"
-                : pm === "per_volume_m3" ? "/m³"
-                : pm === "per_area_m2" ? "/m²"
-                : pm === "per_area_dm2" ? "/dm²"
-                : pm === "per_minute" ? "/min"
-                : `/${ukat.unit || "Stück"}`;
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
-                (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €${suffix})</option>`).join('');
-            varSel.disabled = false;
-            showKatInputFields(ukat.pricing_model, ukat.unit);
-        }
-
-        function onKatVarianteChange() {
-            const varId = parseInt(document.getElementById('kat-select-variante').value);
-            hidePricePreview();
-            if (!varId || !selectedKategorie) { selectedVariante = null; return; }
-            selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
-            if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
-            recalcPrice();
-        }
-
-        function showKatInputFields(pricingModel, unit) {
-            const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
-            const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
-            const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
-            document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight && pricingModel !== 'per_volume_l');
-            document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
-            document.getElementById('kat-fields-area').classList.toggle('hidden', !isArea);
-            document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
-            document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
-            const unitLabel = unit ? `(${unit})`
-                : pricingModel === 'per_kilogram' ? '(kg)'
-                : pricingModel === 'per_gram' ? '(g)'
-                : pricingModel === 'per_cubic_meter' ? '(m³)'
-                : pricingModel === 'per_cubic_deci_meter' ? '(dm³)'
-                : pricingModel === 'per_volume_m3' ? '(m³)'
-                : pricingModel === 'per_area_m2' ? '(m²)'
-                : pricingModel === 'per_area_dm2' ? '(dm²)'
-                : pricingModel === 'per_minute' ? '(min)'
-                : pricingModel === 'per_volume_l' ? '(L)'
-                : '';
-            document.getElementById('kat-gram-label').textContent = unitLabel;
-            document.getElementById('kat-unit-label').textContent = unitLabel;
-            // attach live recalc listeners
-            ['kat-menge-gram', 'kat-menge-minute', 'kat-menge-unit', 'kat-laenge', 'kat-breite', 'kat-hoehe', 'kat-area-laenge', 'kat-area-breite'].forEach((id) => {
-                const el = document.getElementById(id);
-                if (el) el.oninput = recalcPrice;
-            });
-        }
-
-        function hideKatInputFields() {
-            ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) =>
-                document.getElementById(id).classList.add('hidden')
-            );
-        }
-
-        function recalcPrice() {
-            if (!selectedVariante || !selectedKategorie) { hidePricePreview(); return; }
-            const pm = selectedKategorie.pricing_model;
-            let price = null;
-
-            if (pm === 'per_gram') {
-                const menge = parseFloat(document.getElementById('kat-menge-gram').value);
-                if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
-            } else if (pm === 'per_kilogram') {
-                const menge = parseFloat(document.getElementById('kat-menge-gram').value);
-                if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
-            } else if (pm === 'per_volume_cm3') {
-                const l = parseFloat(document.getElementById('kat-laenge').value);
-                const b = parseFloat(document.getElementById('kat-breite').value);
-                const h = parseFloat(document.getElementById('kat-hoehe').value);
-                if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
-                    price = l * b * h * selectedVariante.price;
-                }
-            } else if (pm === 'per_volume_l') {
-                const liters = parseFloat(document.getElementById('kat-menge-gram').value);
-                if (!isNaN(liters) && liters > 0) {
-                    price = liters * selectedVariante.price;
-                }
-            } else if (pm === 'per_minute') {
-                const menge = parseFloat(document.getElementById('kat-menge-minute').value);
-                if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
-            } else {
-                const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
-            }
-
-            if (price !== null) {
-                document.getElementById('price-value').textContent = `${price.toFixed(2)} €`;
-                document.getElementById('price-preview').classList.remove('hidden');
-            } else {
-                hidePricePreview();
-            }
-        }
-
-        function hidePricePreview() {
-            document.getElementById('price-preview').classList.add('hidden');
-        }
-
-        function setMatMode(mode) {
-            currentMatMode = mode;
-            document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
-            document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
-            document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
-            document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
-            if (mode === 'katalog') resetKatalogFields();
-        }
-
-        function resetKatalogFields() {
-            document.getElementById('kat-select-location').value = '';
-            document.getElementById('kat-select-kategorie').innerHTML = '<option value="">-- Kategorie wählen --</option>';
-            document.getElementById('kat-select-kategorie').disabled = true;
-            document.getElementById('kat-select-unterkategorie').innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
-            document.getElementById('kat-select-unterkategorie').disabled = true;
-            document.getElementById('kat-select-variante').innerHTML = '<option value="">-- Variante wählen --</option>';
-            document.getElementById('kat-select-variante').disabled = true;
-            hideKatInputFields();
-            hidePricePreview();
-            selectedVariante = null;
-            selectedKategorie = null;
-        }
-
-        function openAddMaterial() {
-            document.getElementById('material-form').reset();
-            document.getElementById('material-modal').classList.remove('hidden');
-            setMatMode('katalog');
-            document.getElementById('field-mat-name').focus();
-        }
-
-        function closeModal() {
-            document.getElementById('material-modal').classList.add('hidden');
-            selectedVariante = null;
-            selectedKategorie = null;
-        }
-
-        function openSpendeModal() {
-            document.getElementById('spende-form').reset();
-            document.getElementById('field-spende-name').value = 'Spende';
-            document.getElementById('spende-modal').classList.remove('hidden');
-        }
-
-        function closeSpendeModal() {
-            document.getElementById('spende-modal').classList.add('hidden');
-        }
-
-        document.getElementById('add-material-btn').addEventListener('click', openAddMaterial);
-        document.getElementById('modal-close').addEventListener('click', closeModal);
-        document.getElementById('cancel-mat-btn').addEventListener('click', closeModal);
-        document.getElementById('modal-overlay').addEventListener('click', closeModal);
-
-        document.getElementById('spende-modal-close').addEventListener('click', closeSpendeModal);
-        document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
-        document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
-
-        document.getElementById('material-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            try {
-                let body = {};
-
-                if (currentMatMode === 'freitext') {
-                    const totalPrice = parseFloat(document.getElementById('field-mat-total-price').value);
-                    body = {
-                        name: document.getElementById('field-mat-name').value.trim(),
-                        menge: parseFloat(document.getElementById('field-mat-menge').value) || null,
-                        unit: document.getElementById('field-mat-unit').value.trim() || null,
-                        calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
-                        tax_rate: 19,
-                    };
-                } else {
-                    if (!selectedVariante || !selectedKategorie) {
-                        alert('Bitte Standort, Kategorie und Variante auswählen.');
-                        return;
-                    }
-                    const pm = selectedKategorie.pricing_model;
-                    body.variante_id = selectedVariante.id;
-                    body.unit = selectedKategorie.unit || null;
-                    body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
-                    body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
-
-                    if (pm === 'per_gram') {
-                        const menge = parseFloat(document.getElementById('kat-menge-gram').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_kilogram') {
-                        const menge = parseFloat(document.getElementById('kat-menge-gram').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.unit = selectedKategorie.unit || 'kg';
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_volume_cm3') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l;
-                        body.breite_cm = b;
-                        body.hoehe_cm = h;
-                        body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_volume_l') {
-                        const liters = parseFloat(document.getElementById('kat-menge-gram').value);
-                        if (isNaN(liters) || liters <= 0) { alert('Bitte gültige Menge in Litern eingeben.'); return; }
-                        body.menge = liters;
-                        body.unit = selectedKategorie.unit || 'L';
-                        body.calculated_price = parseFloat((liters * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_minute') {
-                        const menge = parseFloat(document.getElementById('kat-menge-minute').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
-                        body.menge = menge;
-                        body.unit = 'min';
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else {
-                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    }
-                }
-
-                const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-
-                if (res.ok) {
-                    closeModal();
-                    location.reload();
-                } else {
-                    const err = await res.json();
-                    alert('Fehler: ' + (err.detail || JSON.stringify(err)));
-                }
-            } catch (err) {
-                alert('Interner Fehler: ' + err.message);
-                console.error(err);
-            }
+    function sortMats(mats) {
+        return [...mats].sort((a, b) => {
+            const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+            if (sA !== sB) return sA ? 1 : -1;
+            const locA = getLocationForVariante(a.variante_id) || '\uffff';
+            const locB = getLocationForVariante(b.variante_id) || '\uffff';
+            return locA.localeCompare(locB) || a.name.localeCompare(b.name);
         });
+    }
 
-        document.getElementById('spende-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
-            const amount = parseFloat(document.getElementById('field-spende-amount').value);
+    function buildMengeDisplay(m) {
+        if (m.laenge_cm != null && m.breite_cm != null && m.hoehe_cm != null) {
+            const vol = m.laenge_cm * m.breite_cm * m.hoehe_cm;
+            return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
+        }
+        return m.menge != null ? String(m.menge) : '-';
+    }
 
-            if (isNaN(amount) || amount <= 0) {
-                alert('Bitte einen gültigen Betrag eingeben.');
-                return;
+    function renderMaterials() {
+        const tbody = document.getElementById('material-body');
+        if (!materials.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
+            return;
+        }
+        const sorted = sortMats(materials);
+        let rowIndex = 0;
+        let lastGroupKey = undefined;
+        const rows = [];
+        for (const m of sorted) {
+            const groupKey = getMatGroupKey(m);
+            if (groupKey !== lastGroupKey) {
+                rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
+                lastGroupKey = groupKey;
             }
+            rowIndex++;
+            const mengeCell = buildMengeDisplay(m);
+            const priceCell = m.calculated_price != null
+                ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>`
+                : '<span style="color:var(--text-secondary)">-</span>';
+            rows.push(`
+            <tr>
+                <td>${rowIndex}</td>
+                <td>${esc(m.name)}</td>
+                <td>${mengeCell}</td>
+                <td>${esc(m.unit || '-')}</td>
+                <td>${priceCell}</td>
+            </tr>`);
+        }
+        tbody.innerHTML = rows.join('');
+    }
 
-            const body = {
-                name: name,
-                menge: 1,
-                unit: 'Stk',
-                calculated_price: amount,
-                tax_rate: 0,
-            };
+    async function loadKatalog() {
+        const res = await fetch('/api/katalog');
+        katalog = await res.json();
+        const sel = document.getElementById('kat-select-location');
+        if (sel) populateLocationSelect();
+        renderMaterials();
+    }
+
+    // Use server-provided katalog for initial render
+    if (KATALOG_DATA && KATALOG_DATA.length) {
+        katalog = KATALOG_DATA;
+        populateLocationSelect();
+    }
+    renderMaterials();
+
+    async function checkSession() {
+        try {
+            const res = await fetch('/api/auth/session');
+            const session = await res.json();
+            const adminBar = document.getElementById('admin-bar');
+            const adminVerified = document.getElementById('admin-verified');
+            if (session.is_admin_capable && !session.admin_verified) {
+                adminBar.style.display = 'block'; adminVerified.style.display = 'none';
+            } else if (session.admin_verified) {
+                adminBar.style.display = 'none'; adminVerified.style.display = 'block';
+            }
+        } catch (err) { console.error('Failed to check session:', err); }
+    }
+
+    const _adminUnlockBtn = document.getElementById('admin-unlock-btn');
+    if (_adminUnlockBtn) {
+        _adminUnlockBtn.addEventListener('click', async () => {
+            const password = prompt('Admin-Passwort eingeben:');
+            if (!password) return;
+            const formData = new FormData(); formData.append('password', password);
+            try {
+                const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
+                if (res.ok) window.location.href = '/dashboard';
+                else alert('Falsches Passwort oder keine Admin-Berechtigung');
+            } catch (err) { alert('Fehler beim Verifizieren'); }
+        });
+    }
+
+    async function exitAdminMode() {
+        await fetch('/api/auth/logout-admin', { method: 'POST' });
+        window.location.reload();
+    }
+
+    checkSession();
+</script>
+
+{% if not read_only %}
+<script>
+    const LAUFZETTEL_ID = {{ laufzettel.id }};
+    const KATALOG_DATA = {{ katalog | tojson | safe }};
+    if (KATALOG_DATA && KATALOG_DATA.length) katalog = KATALOG_DATA;
+    let currentMatMode = 'freitext';
+    let selectedVariante = null;
+    let selectedKategorie = null;
+
+    function populateLocationSelect() {
+        const sel = document.getElementById('kat-select-location');
+        sel.innerHTML = '<option value="">-- Standort wählen --</option>' +
+            katalog.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+    }
+
+    function onKatLocationChange() {
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const katSel = document.getElementById('kat-select-kategorie');
+        const varSel = document.getElementById('kat-select-variante');
+
+        katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        varSel.disabled = true;
+        selectedVariante = null;
+        selectedKategorie = null;
+        hideKatInputFields();
+        hidePricePreview();
+
+        if (!locId) { katSel.disabled = true; return; }
+        const loc = katalog.find((l) => l.id === locId);
+        if (!loc) { katSel.disabled = true; return; }
+
+        katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+            (loc.kategorien || []).map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join('');
+        katSel.disabled = false;
+    }
+
+    function onKatKategorieChange() {
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+        const ukatSel = document.getElementById('kat-select-unterkategorie');
+        const varSel = document.getElementById('kat-select-variante');
+
+        ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+        ukatSel.disabled = true;
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        varSel.disabled = true;
+        selectedVariante = null;
+        selectedKategorie = null;
+        hideKatInputFields();
+        hidePricePreview();
+
+        if (!katId) return;
+        const loc = katalog.find((l) => l.id === locId);
+        const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+        if (!kat) return;
+
+        ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>' +
+            (kat.unterkategorien || []).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+        ukatSel.disabled = false;
+    }
+
+    function onKatUnterkategorieChange() {
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+        const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
+        const varSel = document.getElementById('kat-select-variante');
+
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        varSel.disabled = true;
+        selectedVariante = null;
+        selectedKategorie = null;
+        hideKatInputFields();
+        hidePricePreview();
+
+        if (!ukatId) return;
+        const loc = katalog.find((l) => l.id === locId);
+        const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
+        const ukat = (kat && kat.unterkategorien) ? kat.unterkategorien.find((u) => u.id === ukatId) : undefined;
+        if (!ukat) return;
+
+        selectedKategorie = ukat;
+        const pm = ukat.pricing_model;
+        const suffix = pm === "per_gram" ? "/gr"
+            : pm === "per_kilogram" ? "/kg"
+            : pm === "per_volume_cm3" ? "/cm³"
+            : pm === "per_volume_l" ? "/L"
+            : pm === "per_cubic_meter" ? "/m³"
+            : pm === "per_cubic_deci_meter" ? "/dm³"
+            : pm === "per_volume_m3" ? "/m³"
+            : pm === "per_area_m2" ? "/m²"
+            : pm === "per_area_dm2" ? "/dm²"
+            : pm === "per_minute" ? "/min"
+            : `/${ukat.unit || "Stück"}`;
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
+            (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €${suffix})</option>`).join('');
+        varSel.disabled = false;
+        showKatInputFields(ukat.pricing_model, ukat.unit);
+    }
+
+    function onKatVarianteChange() {
+        const varId = parseInt(document.getElementById('kat-select-variante').value);
+        hidePricePreview();
+        if (!varId || !selectedKategorie) { selectedVariante = null; return; }
+        selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
+        if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
+        recalcPrice();
+    }
+
+    function showKatInputFields(pricingModel, unit) {
+        const isVolume = pricingModel === 'per_volume_cm3' || pricingModel === 'per_cubic_meter' || pricingModel === 'per_cubic_deci_meter' || pricingModel === 'per_volume_m3';
+        const isWeight = pricingModel === 'per_gram' || pricingModel === 'per_kilogram';
+        const isArea = pricingModel === 'per_area_m2' || pricingModel === 'per_area_dm2';
+        document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight && pricingModel !== 'per_volume_l');
+        document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
+        document.getElementById('kat-fields-area').classList.toggle('hidden', !isArea);
+        document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
+        document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
+        const unitLabel = unit ? `(${unit})`
+            : pricingModel === 'per_kilogram' ? '(kg)'
+            : pricingModel === 'per_gram' ? '(g)'
+            : pricingModel === 'per_cubic_meter' ? '(m³)'
+            : pricingModel === 'per_cubic_deci_meter' ? '(dm³)'
+            : pricingModel === 'per_volume_m3' ? '(m³)'
+            : pricingModel === 'per_area_m2' ? '(m²)'
+            : pricingModel === 'per_area_dm2' ? '(dm²)'
+            : pricingModel === 'per_minute' ? '(min)'
+            : pricingModel === 'per_volume_l' ? '(L)'
+            : '';
+        document.getElementById('kat-gram-label').textContent = unitLabel;
+        document.getElementById('kat-unit-label').textContent = unitLabel;
+        // attach live recalc listeners
+        ['kat-menge-gram', 'kat-menge-minute', 'kat-menge-unit', 'kat-laenge', 'kat-breite', 'kat-hoehe', 'kat-area-laenge', 'kat-area-breite'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.oninput = recalcPrice;
+        });
+    }
+
+    function hideKatInputFields() {
+        ['kat-fields-gram', 'kat-fields-volume', 'kat-fields-minute', 'kat-fields-unit'].forEach((id) =>
+            document.getElementById(id).classList.add('hidden')
+        );
+    }
+
+    function recalcPrice() {
+        if (!selectedVariante || !selectedKategorie) { hidePricePreview(); return; }
+        const pm = selectedKategorie.pricing_model;
+        let price = null;
+
+        if (pm === 'per_gram') {
+            const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+            if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+        } else if (pm === 'per_kilogram') {
+            const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+            if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+        } else if (pm === 'per_volume_cm3') {
+            const l = parseFloat(document.getElementById('kat-laenge').value);
+            const b = parseFloat(document.getElementById('kat-breite').value);
+            const h = parseFloat(document.getElementById('kat-hoehe').value);
+            if (!isNaN(l) && !isNaN(b) && !isNaN(h) && l > 0 && b > 0 && h > 0) {
+                price = l * b * h * selectedVariante.price;
+            }
+        } else if (pm === 'per_volume_l') {
+            const liters = parseFloat(document.getElementById('kat-menge-gram').value);
+            if (!isNaN(liters) && liters > 0) {
+                price = liters * selectedVariante.price;
+            }
+        } else if (pm === 'per_minute') {
+            const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+            if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+        } else {
+            const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+            if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+        }
+
+        if (price !== null) {
+            document.getElementById('price-value').textContent = `${price.toFixed(2)} €`;
+            document.getElementById('price-preview').classList.remove('hidden');
+        } else {
+            hidePricePreview();
+        }
+    }
+
+    function hidePricePreview() {
+        document.getElementById('price-preview').classList.add('hidden');
+    }
+
+    function setMatMode(mode) {
+        currentMatMode = mode;
+        document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
+        document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
+        document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
+        document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
+        if (mode === 'katalog') resetKatalogFields();
+    }
+
+    function resetKatalogFields() {
+        document.getElementById('kat-select-location').value = '';
+        document.getElementById('kat-select-kategorie').innerHTML = '<option value="">-- Kategorie wählen --</option>';
+        document.getElementById('kat-select-kategorie').disabled = true;
+        document.getElementById('kat-select-unterkategorie').innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+        document.getElementById('kat-select-unterkategorie').disabled = true;
+        document.getElementById('kat-select-variante').innerHTML = '<option value="">-- Variante wählen --</option>';
+        document.getElementById('kat-select-variante').disabled = true;
+        hideKatInputFields();
+        hidePricePreview();
+        selectedVariante = null;
+        selectedKategorie = null;
+    }
+
+    function openAddMaterial() {
+        document.getElementById('material-form').reset();
+        document.getElementById('material-modal').classList.remove('hidden');
+        setMatMode('katalog');
+        document.getElementById('field-mat-name').focus();
+    }
+
+    function closeModal() {
+        document.getElementById('material-modal').classList.add('hidden');
+        selectedVariante = null;
+        selectedKategorie = null;
+    }
+
+    function openSpendeModal() {
+        document.getElementById('spende-form').reset();
+        document.getElementById('field-spende-name').value = 'Spende';
+        document.getElementById('spende-modal').classList.remove('hidden');
+    }
+
+    function closeSpendeModal() {
+        document.getElementById('spende-modal').classList.add('hidden');
+    }
+
+    document.getElementById('add-material-btn').addEventListener('click', openAddMaterial);
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('cancel-mat-btn').addEventListener('click', closeModal);
+    document.getElementById('modal-overlay').addEventListener('click', closeModal);
+
+    document.getElementById('spende-modal-close').addEventListener('click', closeSpendeModal);
+    document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
+    document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
+
+    document.getElementById('material-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            let body = {};
+
+            if (currentMatMode === 'freitext') {
+                const totalPrice = parseFloat(document.getElementById('field-mat-total-price').value);
+                body = {
+                    name: document.getElementById('field-mat-name').value.trim(),
+                    menge: parseFloat(document.getElementById('field-mat-menge').value) || null,
+                    unit: document.getElementById('field-mat-unit').value.trim() || null,
+                    calculated_price: !isNaN(totalPrice) && totalPrice >= 0 ? parseFloat(totalPrice.toFixed(4)) : null,
+                    tax_rate: 19,
+                };
+            } else {
+                if (!selectedVariante || !selectedKategorie) {
+                    alert('Bitte Standort, Kategorie und Variante auswählen.');
+                    return;
+                }
+                const pm = selectedKategorie.pricing_model;
+                body.variante_id = selectedVariante.id;
+                body.unit = selectedKategorie.unit || null;
+                body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
+                body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
+
+                if (pm === 'per_gram') {
+                    const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_kilogram') {
+                    const menge = parseFloat(document.getElementById('kat-menge-gram').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.unit = selectedKategorie.unit || 'kg';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_volume_cm3') {
+                    const l = parseFloat(document.getElementById('kat-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-breite').value);
+                    const h = parseFloat(document.getElementById('kat-hoehe').value);
+                    if ([l, b, h].some((v) => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                    body.laenge_cm = l;
+                    body.breite_cm = b;
+                    body.hoehe_cm = h;
+                    body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_volume_l') {
+                    const liters = parseFloat(document.getElementById('kat-menge-gram').value);
+                    if (isNaN(liters) || liters <= 0) { alert('Bitte gültige Menge in Litern eingeben.'); return; }
+                    body.menge = liters;
+                    body.unit = selectedKategorie.unit || 'L';
+                    body.calculated_price = parseFloat((liters * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_minute') {
+                    const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
+                    body.menge = menge;
+                    body.unit = 'min';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else {
+                    const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                }
+            }
 
             const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
                 method: 'POST',
@@ -750,43 +536,235 @@
             });
 
             if (res.ok) {
-                closeSpendeModal();
+                closeModal();
                 location.reload();
             } else {
                 const err = await res.json();
-                alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'));
+                alert('Fehler: ' + (err.detail || JSON.stringify(err)));
             }
+        } catch (err) {
+            alert('Interner Fehler: ' + err.message);
+            console.error(err);
+        }
+    });
+
+    document.getElementById('spende-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
+        const amount = parseFloat(document.getElementById('field-spende-amount').value);
+
+        if (isNaN(amount) || amount <= 0) {
+            alert('Bitte einen gültigen Betrag eingeben.');
+            return;
+        }
+
+        const body = {
+            name: name,
+            menge: 1,
+            unit: 'Stk',
+            calculated_price: amount,
+            tax_rate: 0,
+        };
+
+        const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
         });
 
-        function recalcFreitextTotal() {
-            const menge = parseFloat(document.getElementById('field-mat-menge').value);
-            const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
-            if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
-                document.getElementById('field-mat-total-price').value =
-                    parseFloat((menge * unitPrice).toFixed(4));
-            }
+        if (res.ok) {
+            closeSpendeModal();
+            location.reload();
+        } else {
+            const err = await res.json();
+            alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'));
         }
+    });
 
-        function recalcFreitextUnitPrice() {
-            const menge = parseFloat(document.getElementById('field-mat-menge').value);
-            const total = parseFloat(document.getElementById('field-mat-total-price').value);
-            if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
-                document.getElementById('field-mat-unit-price').value =
-                    parseFloat((total / menge).toFixed(6));
-            }
+    function recalcFreitextTotal() {
+        const menge = parseFloat(document.getElementById('field-mat-menge').value);
+        const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
+        if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
+            document.getElementById('field-mat-total-price').value =
+                parseFloat((menge * unitPrice).toFixed(4));
         }
+    }
 
-        document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
-        document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
-        document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
-    </script>
-    {% else %}
-    <script>
-        // Read-only: katalog already loaded by shared block above, render is done
-    </script>
-    {% endif %}
-    <script src="/static/js/activity-tracker.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+    function recalcFreitextUnitPrice() {
+        const menge = parseFloat(document.getElementById('field-mat-menge').value);
+        const total = parseFloat(document.getElementById('field-mat-total-price').value);
+        if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
+            document.getElementById('field-mat-unit-price').value =
+                parseFloat((total / menge).toFixed(6));
+        }
+    }
+
+    document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
+    document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
+    document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
+</script>
+{% else %}
+<script>
+    // Read-only: katalog already loaded by shared block above, render is done
+</script>
+{% endif %}
+
+<script src="/static/js/activity-tracker.js"></script>
+{% endblock %}
+
+{# Modals - outside the content block so they can be fixed positioned #}
+{% if not read_only %}
+<div id="material-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+            <h3 id="modal-title">Material hinzufügen</h3>
+            <button class="modal-close" id="modal-close">✕</button>
+        </div>
+
+        <!-- Mode toggle -->
+        <div class="mode-toggle">
+            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
+            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">✏️ Freitext</button>
+        </div>
+
+        <form id="material-form">
+            <!-- Freitext fields -->
+            <div id="freitext-fields">
+                <div class="form-group">
+                    <label for="field-mat-name">Name</label>
+                    <input type="text" id="field-mat-name" placeholder="z.B. PLA, Holz, Resin">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-menge">Menge <span class="optional">(optional)</span></label>
+                        <input type="number" id="field-mat-menge" placeholder="z.B. 100" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit">Einheit <span class="optional">(optional)</span></label>
+                        <input type="text" id="field-mat-unit" placeholder="z.B. g, Stück, cm³">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-unit-price">Preis pro Einheit (€) <span class="optional">(optional)</span></label>
+                        <input type="number" id="field-mat-unit-price" placeholder="z.B. 0.02" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-total-price">Gesamtpreis (€) <span class="optional">(optional)</span></label>
+                        <input type="number" id="field-mat-total-price" placeholder="Automatisch berechnet" step="any" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Katalog fields -->
+            <div id="katalog-fields" class="hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="kat-select-location">Standort</label>
+                        <select id="kat-select-location" onchange="onKatLocationChange()">
+                            <option value="">-- Standort wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-kategorie">Kategorie</label>
+                        <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
+                            <option value="">-- Kategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-unterkategorie">Unterkategorie</label>
+                        <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
+                            <option value="">-- Unterkategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-variante">Variante</label>
+                        <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
+                            <option value="">-- Variante wählen --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- per_gram: single Menge field -->
+                <div id="kat-fields-gram" class="hidden">
+                    <div class="form-group">
+                        <label for="kat-menge-gram">Menge <span id="kat-gram-label" class="optional"></span></label>
+                        <input type="number" id="kat-menge-gram" placeholder="Menge" step="any" min="0">
+                    </div>
+                </div>
+
+                <!-- per_volume_cm3: L × B × H -->
+                <div id="kat-fields-volume" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="kat-laenge">Länge (cm)</label>
+                            <input type="number" id="kat-laenge" placeholder="cm" step="any" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-breite">Breite (cm)</label>
+                            <input type="number" id="kat-breite" placeholder="cm" step="any" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-hoehe">Höhe (cm)</label>
+                            <input type="number" id="kat-hoehe" placeholder="cm" step="any" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- per_minute: duration in minutes -->
+                <div id="kat-fields-minute" class="hidden">
+                    <div class="form-group">
+                        <label for="kat-menge-minute">Dauer (min)</label>
+                        <input type="number" id="kat-menge-minute" placeholder="Minuten" step="any" min="0">
+                    </div>
+                </div>
+
+                <!-- per_unit -->
+                <div id="kat-fields-unit" class="hidden">
+                    <div class="form-group">
+                        <label for="kat-menge-unit">Menge <span id="kat-unit-label" class="optional"></span></label>
+                        <input type="number" id="kat-menge-unit" placeholder="Anzahl" step="any" min="0">
+                    </div>
+                </div>
+
+                <!-- Price preview -->
+                <div id="price-preview" class="price-preview hidden">
+                    <span class="price-label">Berechneter Preis:</span>
+                    <span class="price-value" id="price-value">-</span>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-mat-btn">Abbrechen</button>
+                <button type="submit" class="btn btn-success">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="spende-modal" class="modal hidden">
+    <div class="modal-overlay" id="spende-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Spende erfassen</h3>
+            <button class="modal-close" id="spende-modal-close">✕</button>
+        </div>
+        <form id="spende-form">
+            <div class="form-group">
+                <label for="field-spende-name">Bezeichnung</label>
+                <input type="text" id="field-spende-name" value="Spende" placeholder="z.B. Spende, Trinkgeld">
+            </div>
+            <div class="form-group">
+                <label for="field-spende-amount">Betrag (€)</label>
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+            </div>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
+                <button type="submit" class="btn btn-success">Erfassen</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}

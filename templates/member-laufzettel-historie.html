@@ -1,79 +1,59 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historie - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/laufzettel.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/member" class="nav-link">Auftrag</a>
-                    <a href="/member/konto" class="nav-link">Mein Konto</a>
-                    <a href="/member/laufzettel/historie" class="nav-link active">Historie</a>
-                    <a href="/logout" class="nav-link">Abmelden</a>
-                </nav>
-            </div>
-            <div class="header-right">
-                <span class="user-info">Angemeldet als: {{ user.username }}</span>
-            </div>
-        </header>
+{% extends "base-member.html" %}
 
-        <main>
-            <div class="laufzettel-toolbar">
-                <div class="toolbar-title">
-                    <h1>Historie</h1>
-                    <p class="subtitle">Abgeschlossene und bezahlte Aufträge</p>
-                </div>
-            </div>
+{% block title %}Historie - MakerPi GroundControl{% endblock %}
 
-            {% if history_list %}
-            <div class="section">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Datum</th>
-                            <th>#</th>
-                            <th>Gesamt</th>
-                            <th>Zahlart</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in history_list %}
-                        <tr>
-                            <td>{{ item.laufzettel.date }}</td>
-                            <td><span class="lz-id-badge">#{{ item.laufzettel.id }}</span></td>
-                            <td class="price-col">{{ "%.2f"|format(item.total) }} €</td>
-                            <td>
-                                <span class="pay-badge pay-{{ item.laufzettel.payment_method }}">
-                                    {{ item.laufzettel.payment_method }}
-                                </span>
-                            </td>
-                            <td>
-                                <a href="/member/laufzettel/{{ item.laufzettel.id }}" class="btn btn-secondary btn-sm">Details</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <p>Keine abgeschlossenen Aufträge vorhanden.</p>
-            </div>
-            {% endif %}
-        </main>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/laufzettel.css">
+{% endblock %}
+
+{% block content %}
+<main>
+    <div class="laufzettel-toolbar">
+        <div class="toolbar-title">
+            <h1>Historie</h1>
+            <p class="subtitle">Abgeschlossene und bezahlte Aufträge</p>
+        </div>
     </div>
 
-    <script src="/static/js/activity-tracker.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+    {% if history_list %}
+    <div class="section">
+        <table>
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>#</th>
+                    <th>Gesamt</th>
+                    <th>Zahlart</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in history_list %}
+                <tr>
+                    <td>{{ item.laufzettel.date }}</td>
+                    <td><span class="lz-id-badge">#{{ item.laufzettel.id }}</span></td>
+                    <td class="price-col">{{ "%.2f"|format(item.total) }} €</td>
+                    <td>
+                        <span class="pay-badge pay-{{ item.laufzettel.payment_method }}">
+                            {{ item.laufzettel.payment_method }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="/member/laufzettel/{{ item.laufzettel.id }}" class="btn btn-secondary btn-sm">Details</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>Keine abgeschlossenen Aufträge vorhanden.</p>
+    </div>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/activity-tracker.js"></script>
+{% endblock %}
