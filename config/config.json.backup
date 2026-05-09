@@ -1,0 +1,22 @@
+{
+    "pi_host": "192.168.3.228",
+    "tailscale_ip": "100.78.55.14",
+    "pi_user": "dev",
+    "project_dir": "/home/dev/Code/MakerPi_GroundControl",
+    "mqtt_broker": "localhost",
+    "sumup_api_key": "sup_sk_nRGrbFhCvTj6oPCAgX9GJvGRAe8GDZZgh",
+    "sumup_merchant_code": "M1KJN6HM",
+    "sumup_reader_id": "",
+    "sumup_affiliate_key": "sup_afk_LHl7bBmAM1Mu3Ny2QDAHIyla1MqmCPm2",
+    "sumup_mock": false,
+    "wero_enabled": true,
+    "wero_mock": true,
+    "wero_merchant_id": "YOUR_WERO_MERCHANT_ID",
+    "wero_api_key": "YOUR_WERO_API_KEY",
+    "secret_key": "h3cke-makerspace-2026-rosenheim",
+    "admin_username": "admin",
+    "admin_password": "H3CKE2025!",
+    "easyverein_api_key": "61ca62dd0d6a36e3171fd5cc919dbef243458ecb",
+    "easyverein_org_id": "26355",
+    "enrollment_reader_id": "Terminal-Reader"
+}
