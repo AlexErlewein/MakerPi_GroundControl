@@ -680,4 +680,7 @@ document.getElementById('spende-cancel').addEventListener('click', closeSpendeMo
 document.getElementById('spende-form').addEventListener('submit', submitSpendeForm);
 
 // Initialize
-loadLaufzettel();
+// Load catalog first, then render materials
+loadCatalogData().then(() => {
+    loadLaufzettel();
+});

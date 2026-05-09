@@ -792,9 +792,12 @@ document.getElementById("spende-modal-close").addEventListener("click", closeSpe
 document.getElementById("spende-cancel").addEventListener("click", closeSpendeModal);
 document.getElementById("spende-overlay").addEventListener("click", closeSpendeModal);
 
-loadKatalog();
-loadLogo();
-loadPaymentConfig().then(() => loadDetail());
+// Wait for katalog to load before rendering materials
+loadKatalog().then(() => {
+    loadLogo().then(() => {
+        return loadPaymentConfig();
+    }).then(() => loadDetail());
+});
 
 // ── Payment UI ────────────────────────────────────────────────
 

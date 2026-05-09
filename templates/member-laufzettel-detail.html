@@ -356,9 +356,12 @@
             renderMaterials();
         }
 
-        // Initial render (katalog empty → groups show as Freitext until loaded)
+        // Use server-provided katalog for initial render
+        if (KATALOG_DATA && KATALOG_DATA.length) {
+            katalog = KATALOG_DATA;
+            populateLocationSelect();
+        }
         renderMaterials();
-        loadKatalog();
 
         async function checkSession() {
             try {
