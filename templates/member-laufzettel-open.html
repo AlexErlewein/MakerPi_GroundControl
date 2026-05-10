@@ -387,14 +387,23 @@
         document.getElementById('spende-form').reset();
     }
 
-    document.getElementById('modal-close').addEventListener('click', closeModal);
-    document.getElementById('modal-overlay').addEventListener('click', closeModal);
-    document.getElementById('mat-cancel').addEventListener('click', closeModal);
-    document.getElementById('spende-close').addEventListener('click', closeSpendeModal);
-    document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
-    document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
+    const modalClose = document.getElementById('modal-close');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const matCancel = document.getElementById('mat-cancel');
+    if (modalClose) modalClose.addEventListener('click', closeModal);
+    if (modalOverlay) modalOverlay.addEventListener('click', closeModal);
+    if (matCancel) matCancel.addEventListener('click', closeModal);
 
-    document.getElementById('material-form').addEventListener('submit', async (e) => {
+    const spendeClose = document.getElementById('spende-close');
+    const spendeOverlay = document.getElementById('spende-overlay');
+    const spendeCancel = document.getElementById('spende-cancel');
+    if (spendeClose) spendeClose.addEventListener('click', closeSpendeModal);
+    if (spendeOverlay) spendeOverlay.addEventListener('click', closeSpendeModal);
+    if (spendeCancel) spendeCancel.addEventListener('click', closeSpendeModal);
+
+    const materialForm = document.getElementById('material-form');
+    if (materialForm) {
+        materialForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
             let body = { tax_rate: 19 };
@@ -489,8 +498,11 @@
             console.error(err);
         }
     });
+    }
 
-    document.getElementById('spende-form').addEventListener('submit', async (e) => {
+    const spendeForm = document.getElementById('spende-form');
+    if (spendeForm) {
+        spendeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
         const amount = parseFloat(document.getElementById('field-spende-amount').value);
@@ -504,6 +516,7 @@
         if (res.ok) { closeSpendeModal(); location.reload(); }
         else { const err = await res.json(); alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen')); }
     });
+    }
 
     function recalcFreitextTotal() {
         const menge = parseFloat(document.getElementById('field-mat-menge').value);
@@ -521,9 +534,12 @@
         }
     }
 
-    document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
-    document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
-    document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
+    const fieldMatMenge = document.getElementById('field-mat-menge');
+    const fieldMatUnitPrice = document.getElementById('field-mat-unit-price');
+    const fieldMatTotalPrice = document.getElementById('field-mat-total-price');
+    if (fieldMatMenge) fieldMatMenge.addEventListener('input', recalcFreitextTotal);
+    if (fieldMatUnitPrice) fieldMatUnitPrice.addEventListener('input', recalcFreitextTotal);
+    if (fieldMatTotalPrice) fieldMatTotalPrice.addEventListener('input', recalcFreitextUnitPrice);
 
     function esc(str) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -535,47 +551,66 @@
             const session = await res.json();
             const adminBar = document.getElementById('admin-bar');
             const adminVerified = document.getElementById('admin-verified');
-            if (session.is_admin_capable && !session.admin_verified) {
-                adminBar.style.display = 'block'; adminVerified.style.display = 'none';
-            } else if (session.admin_verified) {
-                adminBar.style.display = 'none'; adminVerified.style.display = 'block';
+            if (adminBar && adminVerified) {
+                if (session.is_admin_capable && !session.admin_verified) {
+                    adminBar.style.display = 'block'; adminVerified.style.display = 'none';
+                } else if (session.admin_verified) {
+                    adminBar.style.display = 'none'; adminVerified.style.display = 'block';
+                }
             }
         } catch (err) { console.error('Failed to check session:', err); }
     }
 
-    document.getElementById('admin-unlock-btn').addEventListener('click', () => {
-        document.getElementById('admin-pw-modal').style.display = 'flex';
-        document.getElementById('admin-pw-input').value = '';
-        document.getElementById('admin-pw-error').style.display = 'none';
-        document.getElementById('admin-pw-input').focus();
-    });
+    const adminUnlockBtn = document.getElementById('admin-unlock-btn');
+    if (adminUnlockBtn) {
+        adminUnlockBtn.addEventListener('click', () => {
+            const adminPwModal = document.getElementById('admin-pw-modal');
+            const adminPwInput = document.getElementById('admin-pw-input');
+            const adminPwError = document.getElementById('admin-pw-error');
+            if (adminPwModal) adminPwModal.style.display = 'flex';
+            if (adminPwInput) adminPwInput.value = '';
+            if (adminPwError) adminPwError.style.display = 'none';
+            if (adminPwInput) adminPwInput.focus();
+        });
+    }
 
-    document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') submitAdminPw();
-    });
+    const adminPwInput = document.getElementById('admin-pw-input');
+    if (adminPwInput) {
+        adminPwInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAdminPw();
+        });
+    }
 
     function closeAdminPwModal() {
-        document.getElementById('admin-pw-modal').style.display = 'none';
+        const modal = document.getElementById('admin-pw-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     async function submitAdminPw() {
-        const password = document.getElementById('admin-pw-input').value;
+        const pwInput = document.getElementById('admin-pw-input');
+        const password = pwInput ? pwInput.value : '';
         if (!password) return;
         const errEl = document.getElementById('admin-pw-error');
-        errEl.style.display = 'none';
+        if (errEl) errEl.style.display = 'none';
         const formData = new FormData(); formData.append('password', password);
         try {
             const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
             if (res.ok) { window.location.href = '/dashboard'; }
             else {
-                errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
-                errEl.style.display = 'block';
-                document.getElementById('admin-pw-input').value = '';
-                document.getElementById('admin-pw-input').focus();
+                if (errEl) {
+                    errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
+                    errEl.style.display = 'block';
+                }
+                if (pwInput) {
+                    pwInput.value = '';
+                    pwInput.focus();
+                }
             }
         } catch (err) {
-            errEl.textContent = 'Fehler beim Verifizieren';
-            errEl.style.display = 'block';
+            if (errEl) {
+                errEl.textContent = 'Fehler beim Verifizieren';
+                errEl.style.display = 'block';
+            }
         }
     }
 
@@ -589,8 +624,9 @@
 
     function startMemberAdminUnlock() {
         const modal = document.getElementById('member-admin-modal');
-        modal.style.display = 'flex';
-        document.getElementById('member-admin-error').style.display = 'none';
+        if (modal) modal.style.display = 'flex';
+        const adminError = document.getElementById('member-admin-error');
+        if (adminError) adminError.style.display = 'none';
 
         if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
 
@@ -617,7 +653,8 @@
             memberAdminScanSource.close();
             memberAdminScanSource = null;
             setTimeout(() => {
-                if (document.getElementById('member-admin-modal').style.display === 'flex') {
+                const memberAdminModal = document.getElementById('member-admin-modal');
+                if (memberAdminModal && memberAdminModal.style.display === 'flex') {
                     memberAdminScanSource = new EventSource('/api/scans/payment-stream');
                     setupMemberAdminHandlers();
                 }
@@ -627,7 +664,7 @@
 
     async function verifyMemberAdminCard(uid) {
         const errEl = document.getElementById('member-admin-error');
-        errEl.style.display = 'none';
+        if (errEl) errEl.style.display = 'none';
         try {
             const res = await fetch('/api/kasse/verify-admin-card', {
                 method: 'POST',
@@ -638,17 +675,25 @@
             if (result.success) {
                 window.location.href = `/laufzettel/${LAUFZETTEL_ID}?from=member`;
             } else {
-                errEl.textContent = result.error || 'Keine Admin-Berechtigung';
-                errEl.style.display = 'block';
-                setTimeout(() => { errEl.style.display = 'none'; }, 4000);
+                if (errEl) {
+                    errEl.textContent = result.error || 'Keine Admin-Berechtigung';
+                    errEl.style.display = 'block';
+                }
+                setTimeout(() => { 
+                    if (errEl) errEl.style.display = 'none'; 
+                }, 4000);
+                if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
                 memberAdminScanSource = new EventSource('/api/scans/payment-stream');
                 setupMemberAdminHandlers();
             }
         } catch (err) {
-            errEl.textContent = 'Verbindungsfehler';
-            errEl.style.display = 'block';
+            if (errEl) {
+                errEl.textContent = 'Verbindungsfehler';
+                errEl.style.display = 'block';
+            }
             setTimeout(() => {
-                errEl.style.display = 'none';
+                if (errEl) errEl.style.display = 'none';
+                if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
                 memberAdminScanSource = new EventSource('/api/scans/payment-stream');
                 setupMemberAdminHandlers();
             }, 3000);
@@ -656,7 +701,8 @@
     }
 
     function cancelMemberAdminUnlock() {
-        document.getElementById('member-admin-modal').style.display = 'none';
+        const modal = document.getElementById('member-admin-modal');
+        if (modal) modal.style.display = 'none';
         if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
     }
 
