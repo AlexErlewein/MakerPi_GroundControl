@@ -193,7 +193,7 @@
 
     <div class="guest-tile">
         <h3>Neu hier?</h3>
-        <a href="/guest/laufzettel?new=1" class="btn" target="_self" id="guest-btn">Gäste-Laufzettel</a>
+        <button type="button" class="btn" id="guest-btn" onclick="goToGuestLaufzettel()">Gäste-Laufzettel</button>
     </div>
 
     <p class="login-footer">
@@ -214,12 +214,9 @@ function toggleLoginForm() {
     }
 }
 
-// iOS PWA fix: prevent new tab behavior by using JS navigation
-if ('standalone' in navigator && navigator.standalone) {
-    document.getElementById('guest-btn').addEventListener('click', function(e) {
-        e.preventDefault();
-        window.location.href = this.href;
-    });
+function goToGuestLaufzettel() {
+    // Force same-window navigation for iOS compatibility
+    window.location.assign('/guest/laufzettel?new=1');
 }
 </script>
 {% endblock %}
