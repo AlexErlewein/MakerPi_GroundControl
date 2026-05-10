@@ -1505,10 +1505,11 @@ async function confirmDeleteLaufzettel() {
         confirmBtn.disabled = true;
         confirmBtn.textContent = "Verifiziere…";
         try {
+            const formData = new FormData();
+            formData.append("password", pw);
             const vRes = await fetch("/api/auth/verify-admin", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password: pw }),
+                body: formData,
             });
             if (!vRes.ok) {
                 const err = await vRes.json().catch(() => ({}));
