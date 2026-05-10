@@ -78,6 +78,7 @@ function renderInfo() {
     document.getElementById("view-uid").textContent = d.uid || "-";
     const locked = !!d.payment_method;
     document.getElementById("edit-info-btn").style.display = locked ? "none" : "";
+    document.getElementById("delete-lz-btn").style.display = locked ? "none" : "";
     document.getElementById("add-spende-btn").style.display = locked ? "none" : "";
     document.getElementById("add-material-btn").style.display = locked ? "none" : "";
 }
