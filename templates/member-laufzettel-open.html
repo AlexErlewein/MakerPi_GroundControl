@@ -595,7 +595,7 @@
         const formData = new FormData(); formData.append('password', password);
         try {
             const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
-            if (res.ok) { window.location.href = '/dashboard'; }
+            if (res.ok) { closeAdminPwModal(); window.location.reload(); }
             else {
                 if (errEl) {
                     errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
