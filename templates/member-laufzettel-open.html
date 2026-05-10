@@ -81,6 +81,151 @@
 
     {% endif %}
 </main>
+
+{# Modals #}
+{% if open_lz %}
+<div id="material-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+            <h3 id="modal-title">Material hinzufügen</h3>
+            <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="mode-toggle">
+            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">&#128230; Aus Katalog</button>
+            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">&#9999;&#65039; Freitext</button>
+        </div>
+        <form id="material-form" class="modal-form">
+            <input type="hidden" id="mat-id">
+            <!-- Freitext Mode -->
+            <div id="freitext-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-name">Name</label>
+                        <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit">Einheit</label>
+                        <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ...">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-menge">Menge</label>
+                        <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit-price">Einzelpreis (€)</label>
+                        <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-total-price">Gesamtpreis (€)</label>
+                        <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0">
+                    </div>
+                </div>
+            </div>
+            <!-- Katalog Mode -->
+            <div id="katalog-fields" class="hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="kat-select-location">Standort</label>
+                        <select id="kat-select-location" onchange="onKatLocationChange()">
+                            <option value="">-- Standort wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-kategorie">Kategorie</label>
+                        <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
+                            <option value="">-- Kategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-unterkategorie">Unterkategorie</label>
+                        <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
+                            <option value="">-- Unterkategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-variante">Variante</label>
+                        <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
+                            <option value="">-- Variante wählen --</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="kat-inputs" class="hidden">
+                    <div class="form-row" id="kat-row-dim">
+                        <div class="form-group"><label for="kat-laenge">Länge (cm)</label><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
+                    </div>
+                    <div class="form-row hidden" id="kat-row-area">
+                        <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                    </div>
+                    <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
+                    <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
+                    <div id="kat-price-preview" class="price-preview hidden"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="mat-cancel">Abbrechen</button>
+                <button type="submit" class="btn btn-success" id="mat-save">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="spende-modal" class="modal hidden">
+    <div class="modal-overlay" id="spende-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header"><h3>Spende / Trinkgeld</h3><button class="modal-close" id="spende-close">✕</button></div>
+        <form id="spende-form" class="modal-form">
+            <div class="form-group">
+                <label for="field-spende-name">Bezeichnung (optional)</label>
+                <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
+            </div>
+            <div class="form-group">
+                <label for="field-spende-amount">Betrag (€)</label>
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+            </div>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
+                <button type="submit" class="btn btn-success">Erfassen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
+        <div style="font-size:3rem;margin-bottom:16px;">&#128272;</div>
+        <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
+        <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
+        <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
+        <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
+            <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
+            </div>
+            <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
+        </div>
+        <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
+    </div>
+</div>
+<div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
+        <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">&#128275; Admin-Passwort</h3>
+        <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
+        <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
+            <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -718,147 +863,3 @@
 <script src="/static/js/activity-tracker.js"></script>
 {% endblock %}
 
-{# Modals - outside the content block so they can be fixed positioned #}
-{% if open_lz %}
-<div id="material-modal" class="modal hidden">
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="modal-box modal-box-wide">
-        <div class="modal-header">
-            <h3 id="modal-title">Material hinzufügen</h3>
-            <button class="modal-close" id="modal-close">✕</button>
-        </div>
-        <div class="mode-toggle">
-            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
-            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">✏️ Freitext</button>
-        </div>
-        <form id="material-form" class="modal-form">
-            <input type="hidden" id="mat-id">
-            <!-- Freitext Mode -->
-            <div id="freitext-fields">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="field-mat-name">Name</label>
-                        <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3">
-                    </div>
-                    <div class="form-group">
-                        <label for="field-mat-unit">Einheit</label>
-                        <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ...">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="field-mat-menge">Menge</label>
-                        <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="field-mat-unit-price">Einzelpreis (€)</label>
-                        <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="field-mat-total-price">Gesamtpreis (€)</label>
-                        <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0">
-                    </div>
-                </div>
-            </div>
-            <!-- Katalog Mode -->
-            <div id="katalog-fields" class="hidden">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="kat-select-location">Standort</label>
-                        <select id="kat-select-location" onchange="onKatLocationChange()">
-                            <option value="">-- Standort wählen --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="kat-select-kategorie">Kategorie</label>
-                        <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
-                            <option value="">-- Kategorie wählen --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="kat-select-unterkategorie">Unterkategorie</label>
-                        <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
-                            <option value="">-- Unterkategorie wählen --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="kat-select-variante">Variante</label>
-                        <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
-                            <option value="">-- Variante wählen --</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="kat-inputs" class="hidden">
-                    <div class="form-row" id="kat-row-dim">
-                        <div class="form-group"><label for="kat-laenge">Länge (cm)</label><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
-                    </div>
-                    <div class="form-row hidden" id="kat-row-area">
-                        <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
-                    </div>
-                    <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
-                    <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
-                    <div id="kat-price-preview" class="price-preview hidden"></div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" id="mat-cancel">Abbrechen</button>
-                <button type="submit" class="btn btn-success" id="mat-save">Speichern</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="spende-modal" class="modal hidden">
-    <div class="modal-overlay" id="spende-overlay"></div>
-    <div class="modal-box">
-        <div class="modal-header"><h3>Spende / Trinkgeld</h3><button class="modal-close" id="spende-close">✕</button></div>
-        <form id="spende-form" class="modal-form">
-            <div class="form-group">
-                <label for="field-spende-name">Bezeichnung (optional)</label>
-                <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
-            </div>
-            <div class="form-group">
-                <label for="field-spende-amount">Betrag (€)</label>
-                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
-            </div>
-            <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
-                <button type="submit" class="btn btn-success">Erfassen</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
-        <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
-        <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
-        <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
-        <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
-        <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
-            <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
-            </div>
-            <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
-        </div>
-        <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
-    </div>
-</div>
-<div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
-        <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">🔓 Admin-Passwort</h3>
-        <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
-        <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
-        <div style="display:flex;gap:10px;justify-content:center;">
-            <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
-            <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
-        </div>
-    </div>
-</div>
-{% endif %}
