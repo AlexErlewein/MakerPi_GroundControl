@@ -509,7 +509,7 @@ def handle_device_message(topic: str, payload: str):
 
                 # Auto-create Laufzettel for validated scans
                 if validated:
-                    from datetime import date as dt_date
+                    from datetime import date as dt_date, datetime as dt_datetime, timezone as dt_timezone, timedelta
                     from backend.laufzettel.db import SessionLocal as LaufzettelSession
                     from backend.laufzettel.models import Laufzettel
 
@@ -528,7 +528,13 @@ def handle_device_message(topic: str, payload: str):
                         open_lz = next(
                             (lz for lz in today_lz if not lz.payment_method), None
                         )
-                        if open_lz is None:
+                        # Dedup guard: skip if any laufzettel was created for this UID in last 5s
+                        now_utc = dt_datetime.now(dt_timezone.utc).replace(tzinfo=None)
+                        recently_created = any(
+                            lz.created_at and (now_utc - lz.created_at) < timedelta(seconds=5)
+                            for lz in today_lz
+                        )
+                        if open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
                             new_lz = Laufzettel(
