@@ -16,10 +16,11 @@
         <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
     </div>
 
-    <div class="login-options unified">
+    <!-- Top row: RFID + Guest tile -->
+    <div class="login-options-top">
         <!-- RFID Login Section -->
         <div class="login-card rfid-card">
-            <div class="card-icon">�</div>
+            <div class="card-icon">🎴</div>
             <h2>Mit RFID-Karte</h2>
             <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
 
@@ -35,33 +36,26 @@
             <div class="rfid-error" id="rfid-error" style="display: none;"></div>
         </div>
 
-        <!-- Password Login Section -->
-        <div class="login-card password-card">
-            <div class="card-icon">🔐</div>
-            <h2>Mit Benutzername</h2>
-            <p>Anmeldung für Mitglieder und Administratoren</p>
-
-            <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">🔐 Mit Passwort anmelden</button>
-
-            <form id="login-form" action="/api/auth/login" method="POST" class="login-form hidden">
-                <div class="form-group">
-                    <input type="text" name="username" placeholder="Benutzername" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password">
-                </div>
-                {% if error %}
-                <div class="error-message">{{ error }}</div>
-                {% endif %}
-                <button type="submit" class="btn btn-primary btn-full">Anmelden</button>
-            </form>
+        <!-- Guest Tile -->
+        <div class="login-card guest-card">
+            <div class="card-icon">�</div>
+            <h2>Neu hier?</h2>
+            <p>Kein Mitglied? Erstelle einen Gäste-Laufzettel und zahle am Ende deines Besuchs.</p>
+            <a href="/guest/laufzettel" class="btn btn-guest btn-full">Gäste-Laufzettel</a>
         </div>
     </div>
 
-    <!-- Guest Tile -->
-    <div class="guest-tile">
-        <h3>Neu hier?</h3>
-        <a href="/guest/laufzettel" class="btn btn-guest">Gäste-Laufzettel</a>
+    <!-- Password login strip -->
+    <div class="password-strip">
+        <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">🔐 Mit Passwort anmelden</button>
+        <form id="login-form" action="/api/auth/login" method="POST" class="login-form-inline hidden">
+            <input type="text" name="username" placeholder="Benutzername" required autocomplete="username">
+            <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password">
+            {% if error %}
+            <div class="error-message">{{ error }}</div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">Anmelden</button>
+        </form>
     </div>
 
     <div class="landing-footer">
@@ -157,13 +151,9 @@
     function toggleLoginForm() {
         const form = document.getElementById('login-form');
         const btn = document.getElementById('toggle-login-btn');
-        form.classList.toggle('hidden');
-        if (form.classList.contains('hidden')) {
-            btn.textContent = '🔐 Mit Passwort anmelden';
-        } else {
-            btn.textContent = '✕ Abbrechen';
-            form.querySelector('input[name="username"]').focus();
-        }
+        const isHidden = form.classList.toggle('hidden');
+        btn.textContent = isHidden ? '🔐 Mit Passwort anmelden' : '✕ Abbrechen';
+        if (!isHidden) form.querySelector('input[name="username"]').focus();
     }
 </script>
 {% endblock %}
