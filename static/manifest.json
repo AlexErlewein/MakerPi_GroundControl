@@ -1,0 +1,56 @@
+{
+    "name": "MakerPi GroundControl",
+    "short_name": "GroundControl",
+    "description": "H3cke MakerSpace Management — MQTT monitoring, RFID access, material catalog, work orders, and payments.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "theme_color": "#0d1117",
+    "background_color": "#0d1117",
+    "lang": "de",
+    "categories": ["business", "productivity"],
+    "icons": [
+        {
+            "src": "/graphics/H3ckeLogo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/static/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/static/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "url": "/dashboard",
+            "description": "Admin Dashboard"
+        },
+        {
+            "name": "Laufzettel",
+            "url": "/laufzettel",
+            "description": "Work order management"
+        },
+        {
+            "name": "Katalog",
+            "url": "/katalog",
+            "description": "Material catalog"
+        },
+        {
+            "name": "Kasse",
+            "url": "/kasse",
+            "description": "Payment terminal"
+        }
+    ]
+}

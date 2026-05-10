@@ -111,7 +111,14 @@ async def katalog_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("katalog.html", {"request": request})
+    return templates.TemplateResponse(
+        "katalog.html",
+        {
+            "request": request,
+            "nav_active": "katalog",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 # ── Full Catalog API ─────────────────────────────────────────────────────────

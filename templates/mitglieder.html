@@ -1,136 +1,106 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mitglieder - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/tags.css">
-    <link rel="stylesheet" href="/static/css/mitglieder.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/dashboard"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/dashboard" class="nav-link">Dashboard</a>
-                    <a href="/database" class="nav-link">Devices</a>
-                    <a href="/tags" class="nav-link">NFC-Tags</a>
-                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
-                    <a href="/katalog" class="nav-link">Katalog</a>
-                    <a href="/buchhaltung" class="nav-link">Buchhaltung</a>
-                    <a href="/mitglieder" class="nav-link active">Mitglieder</a>
-                    <a href="/admin/users" class="nav-link">Benutzer</a>
-                    <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
-                </nav>
-            </div>
-            <div class="header-actions">
-                <span style="color:var(--text-secondary);font-size:0.85rem;padding-right:4px;">{{ current_user }}</span>
-                <a href="/logout" class="btn btn-secondary">Abmelden</a>
-            </div>
-        </header>
+{% extends "base-admin.html" %}
 
-        <main>
-            <section class="stats">
-                <div class="stat-card">
-                    <h3>Gesamt</h3>
-                    <p class="stat-value" id="total-count">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Mitglieder mit Tag</h3>
-                    <p class="stat-value" id="tag-count">-</p>
-                </div>
-                <div class="stat-card stat-card-wide" id="sync-status-card" style="cursor: pointer;" title="Klicken für Sync-Details">
-                    <h3>easyVerein Sync</h3>
-                    <p class="stat-value" id="sync-status">-</p>
-                    <p class="stat-detail" id="sync-last">Noch nie synchronisiert</p>
-                </div>
-            </section>
+{% set nav_active = 'mitglieder' %}
 
-            <section class="section">
-                <div class="mitglieder-toolbar">
-                    <h2>Mitglieder</h2>
-                    <button id="sync-easyverein-btn" class="btn btn-primary" title="Mit easyVerein synchronisieren">
-                        <span class="btn-icon">🔄</span> easyVerein Sync
-                    </button>
-                    <div class="filter-inputs">
-                        <input type="text" id="filter-search" placeholder="Name, Member-ID oder E-Mail...">
-                    </div>
-                    <div class="filter-bar-row">
-                        <button id="clear-btn" class="btn btn-secondary">Zurücksetzen</button>
-                    </div>
-                </div>
+{% block title %}Mitglieder - MakerPi GroundControl{% endblock %}
 
-                <div class="table-container">
-                    <table id="mitglieder-table">
-                        <thead>
-                            <tr>
-                                <th>Member-ID</th>
-                                <th>Name</th>
-                                <th>E-Mail</th>
-                                <th>Telefon</th>
-                                <th>NFC-UID</th>
-                                <th>Login</th>
-                                <th>Aktionen</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mitglieder-body">
-                            <tr><td colspan="7" class="empty">Lade Mitglieder...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css">
+<link rel="stylesheet" href="/static/css/mitglieder.css">
+{% endblock %}
 
-        <footer>
-            <p>MakerPi GroundControl</p>
-        </footer>
+{% block content %}
+<section class="stats">
+    <div class="stat-card">
+        <h3>Gesamt</h3>
+        <p class="stat-value" id="total-count">-</p>
     </div>
+    <div class="stat-card">
+        <h3>Mitglieder mit Tag</h3>
+        <p class="stat-value" id="tag-count">-</p>
+    </div>
+    <div class="stat-card stat-card-wide" id="sync-status-card" style="cursor: pointer;" title="Klicken für Sync-Details">
+        <h3>easyVerein Sync</h3>
+        <p class="stat-value" id="sync-status">-</p>
+        <p class="stat-detail" id="sync-last">Noch nie synchronisiert</p>
+    </div>
+</section>
 
-    <!-- Member Details Modal -->
-    <div class="modal hidden" id="mitglied-details-modal">
-        <div class="modal-overlay" id="details-modal-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3>Mitglied Details</h3>
-                <button class="modal-close" id="details-modal-close">&times;</button>
-            </div>
-            <div id="mitglied-details-content">
-                <!-- Details will be loaded here -->
-            </div>
+<section class="section">
+    <div class="mitglieder-toolbar">
+        <h2>Mitglieder</h2>
+        <button id="sync-easyverein-btn" class="btn btn-primary" title="Mit easyVerein synchronisieren">
+            <span class="btn-icon">🔄</span> easyVerein Sync
+        </button>
+        <div class="filter-inputs">
+            <input type="text" id="filter-search" placeholder="Name, Member-ID oder E-Mail...">
+        </div>
+        <div class="filter-bar-row">
+            <button id="clear-btn" class="btn btn-secondary">Zurücksetzen</button>
         </div>
     </div>
 
-    <!-- NFC Scan Modal (for tag registration/editing) -->
-    <div class="modal hidden" id="nfc-scan-modal">
-        <div class="modal-overlay" id="nfc-modal-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3 id="nfc-modal-title">Tag registrieren</h3>
-                <button class="modal-close" id="nfc-modal-close">&times;</button>
+    <div class="table-container">
+        <table id="mitglieder-table">
+            <thead>
+                <tr>
+                    <th>Member-ID</th>
+                    <th>Name</th>
+                    <th>E-Mail</th>
+                    <th>Telefon</th>
+                    <th>NFC-UID</th>
+                    <th>Login</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody id="mitglieder-body">
+                <tr><td colspan="7" class="empty">Lade Mitglieder...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Member Details Modal -->
+<div class="modal hidden" id="mitglied-details-modal">
+    <div class="modal-overlay" id="details-modal-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Mitglied Details</h3>
+            <button class="modal-close" id="details-modal-close">&times;</button>
+        </div>
+        <div id="mitglied-details-content">
+            <!-- Details will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- NFC Scan Modal (for tag registration/editing) -->
+<div class="modal hidden" id="nfc-scan-modal">
+    <div class="modal-overlay" id="nfc-modal-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="nfc-modal-title">Tag registrieren</h3>
+            <button class="modal-close" id="nfc-modal-close">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <div class="form-group">
+                <label>NFC-Karten-UID</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="nfc-scan-uid" placeholder="z.B. 9CF22507" style="font-family: monospace; text-transform: uppercase; flex: 1;">
+                    <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;">&#128273; Jetzt Scannen</button>
+                </div>
+                <div id="nfc-scan-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
+                <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">Eindeutige UID der Mitgliedskarte für automatische Zuweisung beim Laufzettel-Scan.</p>
             </div>
-            <div style="padding: 20px;">
-                <div class="form-group">
-                    <label>NFC-Karten-UID</label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="nfc-scan-uid" placeholder="z.B. 9CF22507" style="font-family: monospace; text-transform: uppercase; flex: 1;">
-                        <button type="button" id="btn-scan-nfc" class="btn btn-primary btn-sm" style="white-space: nowrap;">&#128273; Jetzt Scannen</button>
-                    </div>
-                    <div id="nfc-scan-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
-                    <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">Eindeutige UID der Mitgliedskarte für automatische Zuweisung beim Laufzettel-Scan.</p>
-                </div>
-                <div class="modal-actions" style="margin-top: 20px;">
-                    <button type="button" class="btn btn-secondary" id="nfc-cancel-btn">Abbrechen</button>
-                    <button type="button" class="btn btn-success" id="nfc-save-btn">Speichern</button>
-                </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="nfc-cancel-btn">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="nfc-save-btn">Speichern</button>
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="/static/js/mitglieder.js?v=8"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+{% block extra_js %}
+<script src="/static/js/mitglieder.js?v=8"></script>
+{% endblock %}

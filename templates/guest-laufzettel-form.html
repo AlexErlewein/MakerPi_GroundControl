@@ -1,222 +1,219 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gast Laufzettel - H3cke MakerSpace</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/laufzettel.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-    <style>
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .guest-container {
-            max-width: 500px;
-            width: 100%;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .guest-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .guest-header h1 {
-            margin: 0 0 0.5rem 0;
-            color: var(--text-primary);
-        }
-        .guest-header p {
-            color: var(--text-secondary);
-            margin: 0;
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-        .optional {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: normal;
-        }
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-        .btn-success {
-            background: var(--success);
-            color: white;
-            width: 100%;
-        }
-        .btn-success:hover {
-            background: #059669;
-        }
-        .btn-success:disabled {
-            background: #6b7280;
-            cursor: not-allowed;
-        }
-        .error-message {
-            background: var(--error-bg, #fee2e2);
-            color: var(--error-text, #dc2626);
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-        .info-message {
-            background: var(--info-bg, #dbeafe);
-            color: var(--info-text, #1e40af);
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-        /* Modal for previous unpaid reminder */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-box {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 2rem;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .modal-header h3 {
-            margin: 0;
-            color: var(--warning);
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-secondary);
-        }
-        .modal-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .btn-secondary {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            flex: 1;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-            flex: 1;
-        }
-    </style>
-</head>
-<body>
-    <div class="guest-container">
-        <div class="guest-header">
-            <h1>👋 Willkommen im H3cke MakerSpace</h1>
-            <p>Bitte gib deine Daten ein, um einen Laufzettel zu erstellen</p>
-        </div>
+{% extends "base.html" %}
 
-        <div id="error-container" class="error-message hidden"></div>
-        <div id="info-container" class="info-message hidden"></div>
+{% block title %}Gast Laufzettel - H3cke MakerSpace{% endblock %}
 
-        <form id="guest-form">
-            <div class="form-group">
-                <label for="guest-name">Name <span style="color: var(--danger)">*</span></label>
-                <input type="text" id="guest-name" placeholder="Dein Name" required autocomplete="name">
-            </div>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/laufzettel.css">
+<style>
+    body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .guest-container {
+        max-width: 500px;
+        width: 100%;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .guest-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .guest-header h1 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-primary);
+    }
+    .guest-header p {
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+    .optional {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+    }
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .btn-success {
+        background: var(--success);
+        color: white;
+        width: 100%;
+    }
+    .btn-success:hover {
+        background: #059669;
+    }
+    .btn-success:disabled {
+        background: #6b7280;
+        cursor: not-allowed;
+    }
+    .error-message {
+        background: var(--error-bg, #fee2e2);
+        color: var(--error-text, #dc2626);
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    .info-message {
+        background: var(--info-bg, #dbeafe);
+        color: var(--info-text, #1e40af);
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    /* Modal for previous unpaid reminder */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-box {
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .modal-header h3 {
+        margin: 0;
+        color: var(--warning);
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+    }
+    .modal-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+    }
+    .hidden {
+        display: none !important;
+    }
+    .btn-secondary {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        flex: 1;
+    }
+    .btn-primary {
+        background: var(--accent);
+        color: white;
+        flex: 1;
+    }
+</style>
+{% endblock %}
 
-            <div class="form-group">
-                <label for="guest-email">E-Mail <span class="optional">(optional)</span></label>
-                <input type="email" id="guest-email" placeholder="deine@email.de" autocomplete="email">
-            </div>
-
-            <div class="form-group hidden">
-                <label for="guest-date">Datum</label>
-                <input type="date" id="guest-date" required>
-            </div>
-
-            <div class="form-group hidden">
-                <label for="guest-start">Startzeit</label>
-                <input type="datetime-local" id="guest-start" required>
-            </div>
-
-            <button type="submit" class="btn btn-success" id="submit-btn">Fertig ✓</button>
-        </form>
+{% block content %}
+<div class="guest-container">
+    <div class="guest-header">
+        <h1>👋 Willkommen im H3cke MakerSpace</h1>
+        <p>Bitte gib deine Daten ein, um einen Laufzettel zu erstellen</p>
     </div>
 
-    <!-- Previous Unpaid Reminder Modal -->
-    <div id="reminder-modal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3>⚠️ Unbezahlter Laufzettel</h3>
-                <button class="modal-close" id="reminder-close">✕</button>
-            </div>
-            <p id="reminder-text"></p>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="reminder-new">Neuer Laufzettel</button>
-                <button class="btn btn-primary" id="reminder-continue">Zum Laufzettel</button>
-            </div>
+    <div id="error-container" class="error-message hidden"></div>
+    <div id="info-container" class="info-message hidden"></div>
+
+    <form id="guest-form">
+        <div class="form-group">
+            <label for="guest-name">Name <span style="color: var(--danger)">*</span></label>
+            <input type="text" id="guest-name" placeholder="Dein Name" required autocomplete="name">
+        </div>
+
+        <div class="form-group">
+            <label for="guest-email">E-Mail <span class="optional">(optional)</span></label>
+            <input type="email" id="guest-email" placeholder="deine@email.de" autocomplete="email">
+        </div>
+
+        <div class="form-group hidden">
+            <label for="guest-date">Datum</label>
+            <input type="date" id="guest-date" required>
+        </div>
+
+        <div class="form-group hidden">
+            <label for="guest-start">Startzeit</label>
+            <input type="datetime-local" id="guest-start" required>
+        </div>
+
+        <button type="submit" class="btn btn-success" id="submit-btn">Fertig ✓</button>
+    </form>
+</div>
+
+<!-- Previous Unpaid Reminder Modal -->
+<div id="reminder-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>⚠️ Unbezahlter Laufzettel</h3>
+            <button class="modal-close" id="reminder-close">✕</button>
+        </div>
+        <p id="reminder-text"></p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="reminder-new">Neuer Laufzettel</button>
+            <button class="btn btn-primary" id="reminder-continue">Zum Laufzettel</button>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="/static/js/guest-laufzettel-form.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+{% block extra_js %}
+<script src="/static/js/guest-laufzettel-form.js"></script>
+{% endblock %}

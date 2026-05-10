@@ -4,7 +4,7 @@ Mounts all domain modules as separate route collections
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,6 +17,7 @@ from backend.catalog.routes import router as catalog_router
 from backend.buchhaltung.routes import router as buchhaltung_router
 from backend.core.routes import router as core_router
 from backend.member_routes import router as member_router
+from backend.push.routes import router as push_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,6 +73,14 @@ app.include_router(members_router)
 app.include_router(laufzettel_router)
 app.include_router(catalog_router)
 app.include_router(buchhaltung_router)
+app.include_router(push_router)
+
+
+@app.get("/offline.html")
+async def offline_page(request: Request):
+    """Serve offline fallback page for PWA service worker."""
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse("offline.html", {"request": request})
 
 
 @app.get("/health")
@@ -79,7 +88,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "ok",
-        "modules": ["auth", "core", "members", "laufzettel", "catalog"],
+        "modules": ["auth", "core", "members", "laufzettel", "catalog", "push"],
     }
 
 

@@ -1,95 +1,92 @@
-<!DOCTYPE html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ current_doc.title }} - MakerPi GroundControl Docs</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/docs.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-</head>
-<body>
-    <div class="docs-shell">
-        <aside class="docs-sidebar" id="docs-sidebar">
-            <div class="docs-sidebar-header">
-                <a href="/" class="docs-brand">📚 GroundControl Docs</a>
-                <a href="{{ main_app_url }}" class="docs-back-link" target="_blank">↩ Main App</a>
-                <div class="docs-search-wrap">
-                    <input type="search" id="docs-search-input" class="docs-search-input" placeholder="Search docs… (Press /)" autocomplete="off">
-                </div>
+{% extends "base.html" %}
+
+{% block title %}{{ current_doc.title }} - MakerPi GroundControl Docs{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/docs.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="docs-shell">
+    <aside class="docs-sidebar" id="docs-sidebar">
+        <div class="docs-sidebar-header">
+            <a href="/" class="docs-brand">📚 GroundControl Docs</a>
+            <a href="{{ main_app_url }}" class="docs-back-link" target="_blank">↩ Main App</a>
+            <div class="docs-search-wrap">
+                <input type="search" id="docs-search-input" class="docs-search-input" placeholder="Search docs… (Press /)" autocomplete="off">
             </div>
-            <div id="docs-search-results" class="docs-search-results" hidden></div>
-            <nav class="docs-nav" id="docs-nav">
-                {% for doc in docs %}
-                <a href="/page/{{ doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}" class="docs-nav-link {% if doc.slug == current_doc.slug %}active{% endif %}">
-                    {{ doc.title }}
-                </a>
-                {% endfor %}
-            </nav>
-        </aside>
-
-        <div class="docs-main-wrap">
-            <header class="docs-topbar">
-                <div class="docs-topbar-left">
-                    <button class="docs-menu-btn" id="docs-menu-btn" type="button" aria-label="Toggle menu">☰</button>
-                    <h1>{{ current_doc.title }}</h1>
-                </div>
-                <div class="docs-topbar-right">
-                    <div class="docs-lang-toggle">
-                        {% if has_english %}
-                        {% if current_lang == "de" %}
-                        <a href="/page/{{ current_doc.slug }}?lang=en" class="docs-lang-btn" title="Switch to English">
-                            <span class="docs-lang-flag">🇬🇧</span>
-                            <span class="docs-lang-label">EN</span>
-                        </a>
-                        {% else %}
-                        <a href="/page/{{ current_doc.slug }}?lang=de" class="docs-lang-btn" title="Auf Deutsch umschalten">
-                            <span class="docs-lang-flag">🇩🇪</span>
-                            <span class="docs-lang-label">DE</span>
-                        </a>
-                        {% endif %}
-                        {% endif %}
-                    </div>
-                    <span class="docs-tag">Dokumentation</span>
-                </div>
-            </header>
-
-            <main class="docs-main-grid">
-                <article class="docs-content prose">
-                    {{ content_html | safe }}
-                    <div class="docs-pager">
-                        {% if previous_doc %}
-                        <a class="docs-pager-link prev" href="/page/{{ previous_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
-                            <span class="docs-pager-label">← Zurück</span>
-                            <span class="docs-pager-title">{{ previous_doc.title }}</span>
-                        </a>
-                        {% else %}
-                        <span></span>
-                        {% endif %}
-                        {% if next_doc %}
-                        <a class="docs-pager-link next" href="/page/{{ next_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
-                            <span class="docs-pager-label">Weiter →</span>
-                            <span class="docs-pager-title">{{ next_doc.title }}</span>
-                        </a>
-                        {% endif %}
-                    </div>
-                </article>
-
-                <aside class="docs-toc">
-                    <div class="docs-toc-card">
-                        <div class="docs-toc-title">On this page</div>
-                        {{ toc_html | safe }}
-                    </div>
-                </aside>
-            </main>
         </div>
-    </div>
+        <div id="docs-search-results" class="docs-search-results" hidden></div>
+        <nav class="docs-nav" id="docs-nav">
+            {% for doc in docs %}
+            <a href="/page/{{ doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}" class="docs-nav-link {% if doc.slug == current_doc.slug %}active{% endif %}">
+                {{ doc.title }}
+            </a>
+            {% endfor %}
+        </nav>
+    </aside>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script src="/static/js/docs.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+    <div class="docs-main-wrap">
+        <header class="docs-topbar">
+            <div class="docs-topbar-left">
+                <button class="docs-menu-btn" id="docs-menu-btn" type="button" aria-label="Toggle menu">☰</button>
+                <h1>{{ current_doc.title }}</h1>
+            </div>
+            <div class="docs-topbar-right">
+                <div class="docs-lang-toggle">
+                    {% if has_english %}
+                    {% if current_lang == "de" %}
+                    <a href="/page/{{ current_doc.slug }}?lang=en" class="docs-lang-btn" title="Switch to English">
+                        <span class="docs-lang-flag">🇬🇧</span>
+                        <span class="docs-lang-label">EN</span>
+                    </a>
+                    {% else %}
+                    <a href="/page/{{ current_doc.slug }}?lang=de" class="docs-lang-btn" title="Auf Deutsch umschalten">
+                        <span class="docs-lang-flag">🇩🇪</span>
+                        <span class="docs-lang-label">DE</span>
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <span class="docs-tag">Dokumentation</span>
+            </div>
+        </header>
+
+        <main class="docs-main-grid">
+            <article class="docs-content prose">
+                {{ content_html | safe }}
+                <div class="docs-pager">
+                    {% if previous_doc %}
+                    <a class="docs-pager-link prev" href="/page/{{ previous_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
+                        <span class="docs-pager-label">← Zurück</span>
+                        <span class="docs-pager-title">{{ previous_doc.title }}</span>
+                    </a>
+                    {% else %}
+                    <span></span>
+                    {% endif %}
+                    {% if next_doc %}
+                    <a class="docs-pager-link next" href="/page/{{ next_doc.slug }}{% if current_lang != 'de' %}?lang={{ current_lang }}{% endif %}">
+                        <span class="docs-pager-label">Weiter →</span>
+                        <span class="docs-pager-title">{{ next_doc.title }}</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+
+            <aside class="docs-toc">
+                <div class="docs-toc-card">
+                    <div class="docs-toc-title">On this page</div>
+                    {{ toc_html | safe }}
+                </div>
+            </aside>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="/static/js/docs.js"></script>
+{% endblock %}

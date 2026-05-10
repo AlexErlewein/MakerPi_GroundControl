@@ -1,159 +1,129 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC-Tags - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/tags.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/dashboard"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/dashboard" class="nav-link">Dashboard</a>
-                    <a href="/database" class="nav-link">Devices</a>
-                    <a href="/tags" class="nav-link active">NFC-Tags</a>
-                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
-                    <a href="/katalog" class="nav-link">Katalog</a>
-                    <a href="/buchhaltung" class="nav-link">Buchhaltung</a>
-                    <a href="/mitglieder" class="nav-link">Mitglieder</a>
-                    <a href="/admin/users" class="nav-link">Benutzer</a>
-                    <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
-                </nav>
-            </div>
-            <div class="header-actions">
-                <span style="color:var(--text-secondary);font-size:0.85rem;padding-right:4px;">{{ current_user }}</span>
-                <a href="/logout" class="btn btn-secondary">Abmelden</a>
-            </div>
-        </header>
+{% extends "base-admin.html" %}
 
-        <main>
-            <!-- Stats -->
-            <section class="stats">
-                <div class="stat-card">
-                    <h3>Registered Tags</h3>
-                    <p class="stat-value" id="tag-count">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Total Scans</h3>
-                    <p class="stat-value" id="scan-count">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Unknown Scans</h3>
-                    <p class="stat-value" id="unknown-count">-</p>
-                </div>
-            </section>
+{% set nav_active = 'tags' %}
 
-            <!-- Tag Registry -->
-            <section class="section">
-                <div class="section-header">
-                    <h2>Tag Registry</h2>
-                    <button id="add-tag-btn" class="btn btn-success">+ Add Tag</button>
-                </div>
-                <div class="table-container">
-                    <table id="tags-table">
-                        <thead>
-                            <tr>
-                                <th>UID</th>
-                                <th>Owner</th>
-                                <th>Email</th>
-                                <th>Notes</th>
-                                <th>Status</th>
-                                <th>Registered</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tags-body">
-                            <tr><td colspan="7">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+{% block title %}NFC-Tags - MakerPi GroundControl{% endblock %}
 
-            <!-- Recent Scans -->
-            <section class="section">
-                <h2>Recent Scans</h2>
-                <div class="table-container">
-                    <table id="scans-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Result</th>
-                                <th>Device</th>
-                                <th>Owner</th>
-                                <th>UID</th>
-                                <th>Tag Type</th>
-                                <th>ATQA</th>
-                                <th>SAK</th>
-                                <th>Card Data</th>
-                                <th>Member ID</th>
-                                <th>Member</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="scans-body">
-                            <tr><td colspan="12">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css">
+{% endblock %}
 
-        <footer>
-            <p>MakerPi GroundControl v0.1.0 - Tag Management</p>
-        </footer>
+{% block content %}
+<!-- Stats -->
+<section class="stats">
+    <div class="stat-card">
+        <h3>Registered Tags</h3>
+        <p class="stat-value" id="tag-count">-</p>
     </div>
+    <div class="stat-card">
+        <h3>Total Scans</h3>
+        <p class="stat-value" id="scan-count">-</p>
+    </div>
+    <div class="stat-card">
+        <h3>Unknown Scans</h3>
+        <p class="stat-value" id="unknown-count">-</p>
+    </div>
+</section>
 
-    <!-- Add/Edit Modal (hidden) -->
-    <div id="tag-modal" class="modal hidden" style="display: none;">
-        <div class="modal-overlay" id="modal-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3 id="modal-title">Add Tag</h3>
-                <button class="modal-close" id="modal-close">✕</button>
-            </div>
-            <form id="tag-form">
-                <input type="hidden" id="edit-uid-original">
-                <div class="form-group">
-                    <label for="field-uid">UID</label>
-                    <input type="text" id="field-uid" placeholder="e.g. 9CF22507" required>
-                </div>
-                <div class="form-group">
-                    <label for="field-owner">Owner Name</label>
-                    <input type="text" id="field-owner" placeholder="Full name" required>
-                </div>
-                <div class="form-group">
-                    <label for="field-member-id">Member ID <span class="optional">(optional)</span></label>
-                    <input type="text" id="field-member-id" placeholder="e.g. M-001">
-                </div>
-                <div class="form-group">
-                    <label for="field-email">Email <span class="optional">(optional)</span></label>
-                    <input type="email" id="field-email" placeholder="owner@example.com">
-                </div>
-                <div class="form-group">
-                    <label for="field-notes">Notes <span class="optional">(optional)</span></label>
-                    <input type="text" id="field-notes" placeholder="e.g. Workshop access">
-                </div>
-                <div class="form-group form-check">
-                    <label>
-                        <input type="checkbox" id="field-active" checked>
-                        Active
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
-                    <button type="submit" class="btn btn-success" id="save-btn">Save</button>
-                </div>
-            </form>
+<!-- Tag Registry -->
+<section class="section">
+    <div class="section-header">
+        <h2>Tag Registry</h2>
+        <button id="add-tag-btn" class="btn btn-success">+ Add Tag</button>
+    </div>
+    <div class="table-container">
+        <table id="tags-table">
+            <thead>
+                <tr>
+                    <th>UID</th>
+                    <th>Owner</th>
+                    <th>Email</th>
+                    <th>Notes</th>
+                    <th>Status</th>
+                    <th>Registered</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tags-body">
+                <tr><td colspan="7">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Recent Scans -->
+<section class="section">
+    <h2>Recent Scans</h2>
+    <div class="table-container">
+        <table id="scans-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Result</th>
+                    <th>Device</th>
+                    <th>Owner</th>
+                    <th>UID</th>
+                    <th>Tag Type</th>
+                    <th>ATQA</th>
+                    <th>SAK</th>
+                    <th>Card Data</th>
+                    <th>Member ID</th>
+                    <th>Member</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="scans-body">
+                <tr><td colspan="12">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Add/Edit Modal (hidden) -->
+<div id="tag-modal" class="modal hidden" style="display: none;">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modal-title">Add Tag</h3>
+            <button class="modal-close" id="modal-close">✕</button>
         </div>
+        <form id="tag-form">
+            <input type="hidden" id="edit-uid-original">
+            <div class="form-group">
+                <label for="field-uid">UID</label>
+                <input type="text" id="field-uid" placeholder="e.g. 9CF22507" required>
+            </div>
+            <div class="form-group">
+                <label for="field-owner">Owner Name</label>
+                <input type="text" id="field-owner" placeholder="Full name" required>
+            </div>
+            <div class="form-group">
+                <label for="field-member-id">Member ID <span class="optional">(optional)</span></label>
+                <input type="text" id="field-member-id" placeholder="e.g. M-001">
+            </div>
+            <div class="form-group">
+                <label for="field-email">Email <span class="optional">(optional)</span></label>
+                <input type="email" id="field-email" placeholder="owner@example.com">
+            </div>
+            <div class="form-group">
+                <label for="field-notes">Notes <span class="optional">(optional)</span></label>
+                <input type="text" id="field-notes" placeholder="e.g. Workshop access">
+            </div>
+            <div class="form-group form-check">
+                <label>
+                    <input type="checkbox" id="field-active" checked>
+                    Active
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                <button type="submit" class="btn btn-success" id="save-btn">Save</button>
+            </div>
+        </form>
     </div>
+</div>
+{% endblock %}
 
-    <script src="/static/js/tags.js?v=6"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+{% block extra_js %}
+<script src="/static/js/tags.js?v=6"></script>
+{% endblock %}

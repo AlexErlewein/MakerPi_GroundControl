@@ -13,7 +13,9 @@ from .signature import generate_card_signature
 
 
 class CardWriteRequest(BaseModel):
-    device_id: Optional[str] = None  # PicoW device ID; falls back to CARD_WRITER_ID config
+    device_id: Optional[str] = (
+        None  # PicoW device ID; falls back to CARD_WRITER_ID config
+    )
     uid: str  # Expected UID to write to (for verification)
 
 
@@ -80,7 +82,14 @@ async def mitglieder_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("mitglieder.html", {"request": request})
+    return templates.TemplateResponse(
+        "mitglieder.html",
+        {
+            "request": request,
+            "nav_active": "mitglieder",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 @router.get("/tags", response_class=HTMLResponse)
@@ -92,7 +101,14 @@ async def tags_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("tags.html", {"request": request})
+    return templates.TemplateResponse(
+        "tags.html",
+        {
+            "request": request,
+            "nav_active": "tags",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 # ── Mitglied API ──────────────────────────────────────────────────────────────
@@ -304,18 +320,20 @@ async def get_tags(db: Session = Depends(get_db)):
     for m in enrolled:
         uid = m.nfc_uid.upper() if m.nfc_uid else None
         if uid and uid not in known_uids:
-            result.append({
-                "id": None,
-                "uid": uid,
-                "member_id": m.member_id,
-                "owner_name": m.name,
-                "owner_email": m.email,
-                "notes": None,
-                "active": 1,
-                "is_admin": False,
-                "created_at": None,
-                "source": "mitglied",
-            })
+            result.append(
+                {
+                    "id": None,
+                    "uid": uid,
+                    "member_id": m.member_id,
+                    "owner_name": m.name,
+                    "owner_email": m.email,
+                    "notes": None,
+                    "active": 1,
+                    "is_admin": False,
+                    "created_at": None,
+                    "source": "mitglied",
+                }
+            )
     return result
 
 
@@ -419,7 +437,10 @@ async def enroll_card(
 
     device_id = req.device_id or _cfg.CARD_WRITER_ID
     if not device_id:
-        raise HTTPException(status_code=400, detail="No card writer device configured. Set card_writer_id in Devices settings.")
+        raise HTTPException(
+            status_code=400,
+            detail="No card writer device configured. Set card_writer_id in Devices settings.",
+        )
 
     request_id = str(uuid.uuid4())[:8]
     success = send_card_write_command(

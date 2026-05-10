@@ -22,7 +22,14 @@ async def startup():
 async def buchhaltung_page(request: Request):
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("buchhaltung.html", {"request": request})
+    return templates.TemplateResponse(
+        "buchhaltung.html",
+        {
+            "request": request,
+            "nav_active": "buchhaltung",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 @router.get("/api/buchhaltung/summary")
@@ -55,7 +62,9 @@ async def get_summary(
         else:
             end = cutoff.replace(month=cutoff.month + 1)
 
-    verkaufe = db.query(Verkauf).filter(Verkauf.paid_at >= cutoff, Verkauf.paid_at < end).all()
+    verkaufe = (
+        db.query(Verkauf).filter(Verkauf.paid_at >= cutoff, Verkauf.paid_at < end).all()
+    )
     spenden = db.query(Spende).filter(Spende.date >= cutoff, Spende.date < end).all()
 
     material_total = sum(v.calculated_price for v in verkaufe)
@@ -83,8 +92,12 @@ async def get_summary(
         "material_total": round(material_total, 2),
         "spende_total": round(spende_total, 2),
         "total": round(material_total + spende_total, 2),
-        "by_variant": sorted(by_variant.values(), key=lambda x: x["revenue"], reverse=True),
-        "spenden": [s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)],
+        "by_variant": sorted(
+            by_variant.values(), key=lambda x: x["revenue"], reverse=True
+        ),
+        "spenden": [
+            s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)
+        ],
         "verkauf_count": len(verkaufe),
         "spende_count": len(spenden),
     }
@@ -98,12 +111,16 @@ class SpendeCreate(BaseModel):
 
 
 @router.post("/api/buchhaltung/spende")
-async def create_spende(data: SpendeCreate, request: Request, db: Session = Depends(get_db)):
+async def create_spende(
+    data: SpendeCreate, request: Request, db: Session = Depends(get_db)
+):
     if not check_auth(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
-    date = datetime.fromisoformat(data.date) if data.date else datetime.now(timezone.utc)
+    date = (
+        datetime.fromisoformat(data.date) if data.date else datetime.now(timezone.utc)
+    )
     s = Spende(
         amount=data.amount,
         donor_name=data.donor_name or None,
@@ -117,7 +134,9 @@ async def create_spende(data: SpendeCreate, request: Request, db: Session = Depe
 
 
 @router.delete("/api/buchhaltung/spende/{spende_id}")
-async def delete_spende(spende_id: int, request: Request, db: Session = Depends(get_db)):
+async def delete_spende(
+    spende_id: int, request: Request, db: Session = Depends(get_db)
+):
     if not check_auth(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     s = db.query(Spende).filter(Spende.id == spende_id).first()

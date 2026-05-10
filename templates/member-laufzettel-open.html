@@ -1,841 +1,815 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aktueller Auftrag - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/tags.css?v=2">
-    <link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
-    <link rel="stylesheet" href="/static/css/laufzettel.css?v=2">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/member" class="nav-link active">Auftrag</a>
-                    <a href="/member/konto" class="nav-link">Mein Konto</a>
-                    <a href="/member/laufzettel/historie" class="nav-link">Historie</a>
-                    <a href="/logout" class="nav-link">Abmelden</a>
-                </nav>
-            </div>
-            <div class="header-right">
-                <span class="user-info">Angemeldet als: {{ user.username }}</span>
-                <div id="admin-bar" style="display: none;">
-                    <button id="admin-unlock-btn" class="btn btn-admin">🔓 Admin-Bereich</button>
-                </div>
-                <div id="admin-verified" style="display: none;">
-                    <button onclick="exitAdminMode()" class="btn btn-secondary">🔒 Admin-Modus beenden</button>
-                </div>
-            </div>
-        </header>
+{% extends "base-member.html" %}
 
-        <main class="lz-detail-main">
-            {% if open_lz %}
+{% block title %}Aktueller Auftrag - MakerPi GroundControl{% endblock %}
 
-            <!-- Info Card -->
-            <section class="lz-info-card section">
-                <div class="section-header">
-                    <h2>Aktueller Auftrag <span class="lz-id-badge">#{{ open_lz.id }}</span></h2>
-                </div>
-                <div id="info-view" class="info-grid">
-                    <div class="info-item"><span class="info-label">Datum</span><span class="info-value">{{ open_lz.date }}</span></div>
-                    <div class="info-item"><span class="info-label">Von</span><span class="info-value">{{ open_lz.start or "..." }}</span></div>
-                    <div class="info-item"><span class="info-label">Status</span><span class="info-value open">Offen</span></div>
-                </div>
-            </section>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css?v=2">
+<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
+<link rel="stylesheet" href="/static/css/laufzettel.css?v=2">
+<style>
+@keyframes member-pulse {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+</style>
+{% endblock %}
 
-            <!-- Material Section -->
-            <section class="section">
-                <div class="section-header">
-                    <h2>Material</h2>
-                    <div style="display:flex;gap:8px;">
-                        <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()">♥ Spende</button>
-                        <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">+ Material</button>
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table id="material-table">
-                        <thead>
-                            <tr><th>#</th><th>Name</th><th>Menge / Maße</th><th>Einheit</th><th>Preis (€)</th></tr>
-                        </thead>
-                        <tbody id="material-body">
-                            <!-- Dynamically rendered by JavaScript with location grouping -->
-                        </tbody>
-                        <tfoot id="material-total" {% if total == 0 %}class="hidden"{% endif %}>
-                            <tr>
-                                <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
-                                <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">{{ "%.2f"|format(total) }} €</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Payment Button -->
-            <section class="section" style="text-align:center;padding:24px 0;">
-                <button class="btn-pay" id="btn-member-pay" onclick="startMemberAdminUnlock()" style="
-                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-                    color: white; border: none; padding: 16px 32px; border-radius: 12px;
-                    font-size: 1.15rem; font-weight: 700; cursor: pointer;
-                    box-shadow: 0 4px 15px rgba(34,197,94,0.3); transition: all 0.25s;
-                    display: inline-flex; align-items: center; gap: 10px;
-                ">💳 Jetzt bezahlen</button>
-            </section>
-
-            {% else %}
-
-            <div class="lz-info-card">
-                <h1>Aktueller Auftrag</h1>
-                <div class="empty-state">
-                    <p>Kein offener Auftrag.</p>
-                    <p class="hint">Bitte melde dich am Terminal an, um einen neuen Auftrag zu starten.</p>
-                </div>
-            </div>
-
-            {% endif %}
-        </main>
-    </div>
-
+{% block content %}
+<main class="lz-detail-main">
     {% if open_lz %}
-    <!-- Add Material Modal -->
-    <div id="material-modal" class="modal hidden">
-        <div class="modal-overlay" id="modal-overlay"></div>
-        <div class="modal-box modal-box-wide">
-            <div class="modal-header">
-                <h3 id="modal-title">Material hinzufügen</h3>
-                <button class="modal-close" id="modal-close">✕</button>
+
+    <!-- Info Card -->
+    <section class="lz-info-card section">
+        <div class="section-header">
+            <h2>Aktueller Auftrag <span class="lz-id-badge">#{{ open_lz.id }}</span></h2>
+        </div>
+        <div id="info-view" class="info-grid">
+            <div class="info-item"><span class="info-label">Datum</span><span class="info-value">{{ open_lz.date }}</span></div>
+            <div class="info-item"><span class="info-label">Von</span><span class="info-value">{{ open_lz.start or "..." }}</span></div>
+            <div class="info-item"><span class="info-label">Status</span><span class="info-value open">Offen</span></div>
+        </div>
+    </section>
+
+    <!-- Material Section -->
+    <section class="section">
+        <div class="section-header">
+            <h2>Material</h2>
+            <div style="display:flex;gap:8px;">
+                <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()">♥ Spende</button>
+                <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">+ Material</button>
             </div>
-            <div class="mode-toggle">
-                <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
-                <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">✏️ Freitext</button>
-            </div>
-            <form id="material-form" class="modal-form">
-                <input type="hidden" id="mat-id">
-                <!-- Freitext Mode -->
-                <div id="freitext-fields">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="field-mat-name">Name</label>
-                            <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3">
-                        </div>
-                        <div class="form-group">
-                            <label for="field-mat-unit">Einheit</label>
-                            <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ...">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="field-mat-menge">Menge</label>
-                            <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="field-mat-unit-price">Einzelpreis (€)</label>
-                            <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="field-mat-total-price">Gesamtpreis (€)</label>
-                            <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0">
-                        </div>
-                    </div>
-                </div>
-                <!-- Katalog Mode -->
-                <div id="katalog-fields" class="hidden">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="kat-select-location">Standort</label>
-                            <select id="kat-select-location" onchange="onKatLocationChange()">
-                                <option value="">-- Standort wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-kategorie">Kategorie</label>
-                            <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
-                                <option value="">-- Kategorie wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-unterkategorie">Unterkategorie</label>
-                            <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
-                                <option value="">-- Unterkategorie wählen --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="kat-select-variante">Variante</label>
-                            <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
-                                <option value="">-- Variante wählen --</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="kat-inputs" class="hidden">
-                        <div class="form-row" id="kat-row-dim">
-                            <div class="form-group"><label for="kat-laenge">Länge (cm)</label><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                            <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
-                            <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
-                        </div>
-                        <div class="form-row hidden" id="kat-row-area">
-                            <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                            <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
-                        </div>
-                        <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
-                        <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
-                        <div id="kat-price-preview" class="price-preview hidden"></div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="mat-cancel">Abbrechen</button>
-                    <button type="submit" class="btn btn-success" id="mat-save">Speichern</button>
-                </div>
-            </form>
+        </div>
+
+        <div class="table-container">
+            <table id="material-table">
+                <thead>
+                    <tr><th>#</th><th>Name</th><th>Menge / Maße</th><th>Einheit</th><th>Preis (€)</th></tr>
+                </thead>
+                <tbody id="material-body">
+                    <!-- Dynamically rendered by JavaScript with location grouping -->
+                </tbody>
+                <tfoot id="material-total" {% if total == 0 %}class="hidden"{% endif %}>
+                    <tr>
+                        <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
+                        <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">{{ "%.2f"|format(total) }} €</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+
+    <!-- Payment Button -->
+    <section class="section" style="text-align:center;padding:24px 0;">
+        <button class="btn-pay" id="btn-member-pay" onclick="startMemberAdminUnlock()" style="
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white; border: none; padding: 16px 32px; border-radius: 12px;
+            font-size: 1.15rem; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(34,197,94,0.3); transition: all 0.25s;
+            display: inline-flex; align-items: center; gap: 10px;
+        ">💳 Jetzt bezahlen</button>
+    </section>
+
+    {% else %}
+
+    <div class="lz-info-card">
+        <h1>Aktueller Auftrag</h1>
+        <div class="empty-state">
+            <p>Kein offener Auftrag.</p>
+            <p class="hint">Bitte melde dich am Terminal an, um einen neuen Auftrag zu starten.</p>
         </div>
     </div>
 
-    <!-- Spende Modal -->
-    <div id="spende-modal" class="modal hidden">
-        <div class="modal-overlay" id="spende-overlay"></div>
-        <div class="modal-box">
-            <div class="modal-header"><h3>Spende / Trinkgeld</h3><button class="modal-close" id="spende-close">✕</button></div>
-            <form id="spende-form" class="modal-form">
-                <div class="form-group">
-                    <label for="field-spende-name">Bezeichnung (optional)</label>
-                    <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
-                </div>
-                <div class="form-group">
-                    <label for="field-spende-amount">Betrag (€)</label>
-                    <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
-                </div>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
-                    <button type="submit" class="btn btn-success">Erfassen</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% endif %}
+</main>
+{% endblock %}
 
-    <!-- Admin Unlock Modal for Payment -->
-    <div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-        <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
-            <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
-            <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
-            <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
-            <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
-            <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
-                <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
-                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
-                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
-                    <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
-                </div>
-                <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
-            </div>
-            <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
-        </div>
-    </div>
-    <!-- Admin Password Modal -->
-    <div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-        <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
-            <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">🔓 Admin-Passwort</h3>
-            <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
-            <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
-                <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
-            </div>
-        </div>
-    </div>
-    <style>
-        @keyframes member-pulse {
-            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-    </style>
+{% block extra_js %}
+{% if open_lz %}
+<script>
+    const LAUFZETTEL_ID = {{ open_lz.id }};
+    const KATALOG_DATA = {{ katalog | tojson | safe }};
+    const MATERIALS_DATA = {{ materials | tojson | safe }};
+    let katalog = KATALOG_DATA || [];
+    let materials = MATERIALS_DATA || [];
+    let currentMatMode = 'freitext';
+    let selectedVariante = null;
+    let selectedKategorie = null;
 
-    <script>
-        const LAUFZETTEL_ID = {{ open_lz.id }};
-        const KATALOG_DATA = {{ katalog | tojson | safe }};
-        const MATERIALS_DATA = {{ materials | tojson | safe }};
-        let katalog = KATALOG_DATA || [];
-        let materials = MATERIALS_DATA || [];
-        let currentMatMode = 'freitext';
-        let selectedVariante = null;
-        let selectedKategorie = null;
+    async function loadKatalog() {
+        const res = await fetch('/api/katalog');
+        katalog = await res.json();
+        populateLocationSelect();
+        renderMaterials();
+    }
 
-        async function loadKatalog() {
-            const res = await fetch('/api/katalog');
-            katalog = await res.json();
-            populateLocationSelect();
-            renderMaterials();
-        }
-
-        function getLocationForVariante(varianteId) {
-            if (!varianteId) return null;
-            for (const loc of katalog) {
-                for (const kat of (loc.kategorien || [])) {
-                    for (const v of (kat.varianten || [])) {
-                        if (v.id === varianteId) return loc.name;
-                    }
+    function getLocationForVariante(varianteId) {
+        if (!varianteId) return null;
+        for (const loc of katalog) {
+            for (const kat of (loc.kategorien || [])) {
+                for (const v of (kat.varianten || [])) {
+                    if (v.id === varianteId) return loc.name;
                 }
             }
-            return null;
         }
+        return null;
+    }
 
-        function getMatGroupKey(m) {
-            if (m.tax_rate === 0) return '__spenden__';
-            return getLocationForVariante(m.variante_id);
-        }
+    function getMatGroupKey(m) {
+        if (m.tax_rate === 0) return '__spenden__';
+        return getLocationForVariante(m.variante_id);
+    }
 
-        function getMatGroupLabel(m) {
-            if (m.tax_rate === 0) return 'Spenden';
-            return getLocationForVariante(m.variante_id) || 'Freitext';
-        }
+    function getMatGroupLabel(m) {
+        if (m.tax_rate === 0) return 'Spenden';
+        return getLocationForVariante(m.variante_id) || 'Freitext';
+    }
 
-        function sortMats(mats) {
-            return [...mats].sort((a, b) => {
-                const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
-                if (sA !== sB) return sA ? 1 : -1;
-                const locA = getLocationForVariante(a.variante_id) || '\uffff';
-                const locB = getLocationForVariante(b.variante_id) || '\uffff';
-                return locA.localeCompare(locB) || a.name.localeCompare(b.name);
-            });
-        }
-
-        function buildMengeDisplay(m) {
-            if (m.laenge_cm != null && m.breite_cm != null && m.hoehe_cm != null) {
-                const vol = m.laenge_cm * m.breite_cm * m.hoehe_cm;
-                return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
-            }
-            return m.menge != null ? String(m.menge) : '-';
-        }
-
-        function renderMaterials() {
-            const tbody = document.getElementById('material-body');
-            if (!materials.length) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
-                return;
-            }
-            const sorted = sortMats(materials);
-            let rowIndex = 0, lastGroupKey = undefined;
-            const rows = [];
-            for (const m of sorted) {
-                const groupKey = getMatGroupKey(m);
-                if (groupKey !== lastGroupKey) {
-                    rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
-                    lastGroupKey = groupKey;
-                }
-                rowIndex++;
-                const mengeCell = buildMengeDisplay(m);
-                const priceCell = m.calculated_price != null ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>` : '<span style="color:var(--text-secondary)">-</span>';
-                rows.push(`<tr><td>${rowIndex}</td><td>${esc(m.name)}</td><td>${mengeCell}</td><td>${esc(m.unit || '-')}</td><td>${priceCell}</td></tr>`);
-            }
-            tbody.innerHTML = rows.join('');
-        }
-
-        function populateLocationSelect() {
-            const sel = document.getElementById('kat-select-location');
-            sel.innerHTML = '<option value="">-- Standort wählen --</option>' + katalog.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
-        }
-
-        function onKatLocationChange() {
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const katSel = document.getElementById('kat-select-kategorie');
-            const varSel = document.getElementById('kat-select-variante');
-            katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            katSel.disabled = true; varSel.disabled = true;
-            hideKatInputFields();
-            selectedKategorie = null; selectedVariante = null;
-            const location = katalog.find(l => l.id === locId);
-            if (!location || !location.kategorien) return;
-            katSel.innerHTML += location.kategorien.map(k => `<option value="${k.id}">${esc(k.name)} (${esc(k.unit || 'Stk')})</option>`).join('');
-            katSel.disabled = false;
-        }
-
-        function onKatKategorieChange() {
-            const katId = parseInt(document.getElementById('kat-select-kategorie').value);
-            const ukatSel = document.getElementById('kat-select-unterkategorie');
-            const varSel = document.getElementById('kat-select-variante');
-            ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
-            ukatSel.disabled = true;
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            varSel.disabled = true;
-            hideKatInputFields();
-            selectedVariante = null;
-            selectedKategorie = null;
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const location = katalog.find(l => l.id === locId);
-            if (!location) return;
-            const kat = (location.kategorien || []).find(k => k.id === katId);
-            if (!kat) return;
-            ukatSel.innerHTML += (kat.unterkategorien || []).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
-            ukatSel.disabled = false;
-        }
-
-        function onKatUnterkategorieChange() {
-            const locId = parseInt(document.getElementById('kat-select-location').value);
-            const katId = parseInt(document.getElementById('kat-select-kategorie').value);
-            const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
-            const varSel = document.getElementById('kat-select-variante');
-            varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
-            varSel.disabled = true;
-            hideKatInputFields();
-            selectedVariante = null;
-            selectedKategorie = null;
-            const location = katalog.find(l => l.id === locId);
-            if (!location) return;
-            const kat = (location.kategorien || []).find(k => k.id === katId);
-            if (!kat) return;
-            const ukat = (kat.unterkategorien || []).find(u => u.id === ukatId);
-            if (!ukat) return;
-            selectedKategorie = ukat;
-            if (!ukat.varianten) return;
-            const pm = ukat.pricing_model;
-            const suffix = pm === "per_gram" ? "/gr"
-                : pm === "per_kilogram" ? "/kg"
-                : pm === "per_volume_cm3" ? "/cm³"
-                : pm === "per_volume_l" ? "/L"
-                : pm === "per_cubic_meter" ? "/m³"
-                : pm === "per_cubic_deci_meter" ? "/dm³"
-                : pm === "per_volume_m3" ? "/m³"
-                : pm === "per_area_m2" ? "/m²"
-                : pm === "per_area_dm2" ? "/dm²"
-                : pm === "per_minute" ? "/min"
-                : `/${ukat.unit || "Stück"}`;
-            varSel.innerHTML += ukat.varianten.map(v => `<option value="${v.id}">${esc(v.name)} - ${v.price.toFixed(2)} €${suffix}</option>`).join('');
-            varSel.disabled = false;
-        }
-
-        function onKatVarianteChange() {
-            const varId = parseInt(document.getElementById('kat-select-variante').value);
-            hideKatInputFields();
-            selectedVariante = null;
-            if (!selectedKategorie || !selectedKategorie.varianten) return;
-            selectedVariante = selectedKategorie.varianten.find(v => v.id === varId);
-            if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
-        }
-
-        function showKatInputFields(pm, unit) {
-            document.getElementById('kat-inputs').classList.remove('hidden');
-            const rowDim = document.getElementById('kat-row-dim');
-            const rowMenge = document.getElementById('kat-row-menge');
-            const rowMinute = document.getElementById('kat-row-minute');
-            rowDim.classList.add('hidden'); rowMenge.classList.add('hidden'); rowMinute.classList.add('hidden');
-            const rowArea = document.getElementById('kat-row-area');
-            rowArea.classList.add('hidden');
-            if (pm === 'per_volume_l') {
-                // per_volume_l: direct liter input
-                rowMenge.classList.remove('hidden');
-                document.getElementById('kat-menge-label').textContent = unit || 'Liter';
-            } else if (pm === 'per_volume_cm3' || pm === 'per_cubic_meter' || pm === 'per_cubic_deci_meter' || pm === 'per_volume_m3') {
-                // Other volume models: dimensions (L×B×H)
-                rowDim.classList.remove('hidden');
-                // Show unit label for volume pricing models
-                const volUnit = pm === 'per_cubic_meter' || pm === 'per_volume_m3' ? 'm³'
-                    : pm === 'per_cubic_deci_meter' ? 'dm³'
-                    : 'cm³';
-                document.getElementById('kat-menge-label').textContent = unit || volUnit;
-            } else if (pm === 'per_area_m2' || pm === 'per_area_dm2') {
-                rowArea.classList.remove('hidden');
-                const areaUnit = pm === 'per_area_m2' ? 'm²' : 'dm²';
-                document.getElementById('kat-menge-label').textContent = unit || areaUnit;
-            } else if (pm === 'per_minute') {
-                rowMinute.classList.remove('hidden');
-                document.getElementById('kat-menge-label').textContent = unit || 'min';
-            } else if (pm === 'per_gram') {
-                rowMenge.classList.remove('hidden');
-                document.getElementById('kat-menge-label').textContent = unit || 'Gramm';
-            } else if (pm === 'per_kilogram') {
-                rowMenge.classList.remove('hidden');
-                document.getElementById('kat-menge-label').textContent = unit || 'Kilogramm';
-            } else {
-                rowMenge.classList.remove('hidden');
-                document.getElementById('kat-menge-label').textContent = unit || 'Menge';
-            }
-        }
-
-        function hideKatInputFields() {
-            document.getElementById('kat-inputs').classList.add('hidden');
-            document.getElementById('kat-price-preview').classList.add('hidden');
-        }
-
-        function recalcPrice() {
-            if (!selectedVariante) return;
-            const pm = selectedKategorie.pricing_model;
-            let total = 0, preview = '';
-            if (pm === 'per_gram') {
-                const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
-                if (m > 0) { total = m * selectedVariante.price; preview = `${m} g × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_kilogram') {
-                const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
-                if (m > 0) { total = m * selectedVariante.price; preview = `${m} kg × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_volume_cm3') {
-                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-                const vol = l * b * h;
-                if (vol > 0) { total = vol * selectedVariante.price; preview = `${vol.toFixed(1)} cm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_volume_l') {
-                const liters = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
-                if (liters > 0) { total = liters * selectedVariante.price; preview = `${liters.toFixed(2)} L × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_cubic_meter') {
-                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-                const volM3 = (l * b * h) / 1000000;
-                if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_cubic_deci_meter') {
-                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-                const volDm3 = (l * b * h) / 1000;
-                if (volDm3 > 0) { total = volDm3 * selectedVariante.price; preview = `${volDm3.toFixed(3)} dm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_volume_m3') {
-                const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-breite').value) || 0;
-                const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
-                const volM3 = (l * b * h) / 1000000;
-                if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_area_m2') {
-                const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
-                const areaM2 = (l * b) / 10000;
-                if (areaM2 > 0) { total = areaM2 * selectedVariante.price; preview = `${areaM2.toFixed(4)} m² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_area_dm2') {
-                const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
-                const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
-                const areaDm2 = (l * b) / 100;
-                if (areaDm2 > 0) { total = areaDm2 * selectedVariante.price; preview = `${areaDm2.toFixed(3)} dm² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else if (pm === 'per_minute') {
-                const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
-                if (m > 0) { total = m * selectedVariante.price; preview = `${m} min × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            } else {
-                const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
-                if (m > 0) { total = m * selectedVariante.price; preview = `${m} × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
-            }
-            const pp = document.getElementById('kat-price-preview');
-            if (preview) { pp.textContent = preview; pp.classList.remove('hidden'); }
-            else { pp.classList.add('hidden'); }
-        }
-
-        function setMatMode(mode) {
-            currentMatMode = mode;
-            document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
-            document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
-            document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
-            document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
-        }
-
-        function resetKatalogFields() {
-            document.getElementById('kat-select-location').value = '';
-            document.getElementById('kat-select-unterkategorie').innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
-            document.getElementById('kat-select-unterkategorie').disabled = true;
-            onKatLocationChange();
-        }
-
-        function openAddMaterial() {
-            setMatMode('katalog');
-            resetKatalogFields();
-            document.getElementById('material-modal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('material-modal').classList.add('hidden');
-            document.getElementById('material-form').reset();
-            resetKatalogFields();
-        }
-
-        function openSpendeModal() {
-            document.getElementById('spende-modal').classList.remove('hidden');
-        }
-
-        function closeSpendeModal() {
-            document.getElementById('spende-modal').classList.add('hidden');
-            document.getElementById('spende-form').reset();
-        }
-
-        document.getElementById('modal-close').addEventListener('click', closeModal);
-        document.getElementById('modal-overlay').addEventListener('click', closeModal);
-        document.getElementById('mat-cancel').addEventListener('click', closeModal);
-        document.getElementById('spende-close').addEventListener('click', closeSpendeModal);
-        document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
-        document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
-
-        document.getElementById('material-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            try {
-                let body = { tax_rate: 19 };
-                if (currentMatMode === 'freitext') {
-                    body.name = document.getElementById('field-mat-name').value;
-                    body.unit = document.getElementById('field-mat-unit').value;
-                    body.menge = parseFloat(document.getElementById('field-mat-menge').value);
-                    body.calculated_price = parseFloat(document.getElementById('field-mat-total-price').value);
-                } else {
-                    if (!selectedKategorie || !selectedVariante) { alert('Bitte Standort, Kategorie und Variante auswählen.'); return; }
-                    body.variante_id = selectedVariante.id;
-                    body.name = selectedVariante.name;
-                    body.unit = selectedKategorie.unit || 'Stk';
-                    const pm = selectedKategorie.pricing_model;
-                    if (pm === 'per_gram') {
-                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_kilogram') {
-                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.unit = selectedKategorie.unit || 'kg';
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_volume_cm3') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
-                        body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_volume_l') {
-                        const liters = parseFloat(document.getElementById('kat-menge-unit').value);
-                        if (isNaN(liters) || liters <= 0) { alert('Bitte gültige Menge in Litern eingeben.'); return; }
-                        body.menge = liters; body.unit = selectedKategorie.unit || 'L';
-                        body.calculated_price = parseFloat((liters * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_cubic_meter') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
-                        body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_cubic_deci_meter') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
-                        body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_volume_m3') {
-                        const l = parseFloat(document.getElementById('kat-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-breite').value);
-                        const h = parseFloat(document.getElementById('kat-hoehe').value);
-                        if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
-                        body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_area_m2') {
-                        const l = parseFloat(document.getElementById('kat-area-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-area-breite').value);
-                        if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b;
-                        body.calculated_price = parseFloat(((l * b / 10000) * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_area_dm2') {
-                        const l = parseFloat(document.getElementById('kat-area-laenge').value);
-                        const b = parseFloat(document.getElementById('kat-area-breite').value);
-                        if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
-                        body.laenge_cm = l; body.breite_cm = b;
-                        body.calculated_price = parseFloat(((l * b / 100) * selectedVariante.price).toFixed(4));
-                    } else if (pm === 'per_minute') {
-                        const menge = parseFloat(document.getElementById('kat-menge-minute').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
-                        body.menge = menge; body.unit = 'min';
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    } else {
-                        const menge = parseFloat(document.getElementById('kat-menge-unit').value);
-                        if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
-                        body.menge = menge;
-                        body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
-                    }
-                }
-                const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-                if (res.ok) { closeModal(); location.reload(); }
-                else { const err = await res.json(); alert('Fehler: ' + (err.detail || JSON.stringify(err))); }
-            } catch (err) {
-                alert('Interner Fehler: ' + err.message);
-                console.error(err);
-            }
+    function sortMats(mats) {
+        return [...mats].sort((a, b) => {
+            const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+            if (sA !== sB) return sA ? 1 : -1;
+            const locA = getLocationForVariante(a.variante_id) || '\uffff';
+            const locB = getLocationForVariante(b.variante_id) || '\uffff';
+            return locA.localeCompare(locB) || a.name.localeCompare(b.name);
         });
+    }
 
-        document.getElementById('spende-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
-            const amount = parseFloat(document.getElementById('field-spende-amount').value);
-            if (isNaN(amount) || amount <= 0) { alert('Bitte einen gültigen Betrag eingeben.'); return; }
-            const body = { name: name, menge: 1, unit: 'Stk', calculated_price: amount, tax_rate: 0 };
+    function buildMengeDisplay(m) {
+        if (m.laenge_cm != null && m.breite_cm != null && m.hoehe_cm != null) {
+            const vol = m.laenge_cm * m.breite_cm * m.hoehe_cm;
+            return `${m.laenge_cm}×${m.breite_cm}×${m.hoehe_cm} cm <span style="color:var(--text-secondary);font-size:0.8rem;">(${vol.toFixed(1)} cm³)</span>`;
+        }
+        return m.menge != null ? String(m.menge) : '-';
+    }
+
+    function renderMaterials() {
+        const tbody = document.getElementById('material-body');
+        if (!materials.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
+            return;
+        }
+        const sorted = sortMats(materials);
+        let rowIndex = 0, lastGroupKey = undefined;
+        const rows = [];
+        for (const m of sorted) {
+            const groupKey = getMatGroupKey(m);
+            if (groupKey !== lastGroupKey) {
+                rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
+                lastGroupKey = groupKey;
+            }
+            rowIndex++;
+            const mengeCell = buildMengeDisplay(m);
+            const priceCell = m.calculated_price != null ? `<span class="price-col">${m.calculated_price.toFixed(2)} €</span>` : '<span style="color:var(--text-secondary)">-</span>';
+            rows.push(`<tr><td>${rowIndex}</td><td>${esc(m.name)}</td><td>${mengeCell}</td><td>${esc(m.unit || '-')}</td><td>${priceCell}</td></tr>`);
+        }
+        tbody.innerHTML = rows.join('');
+    }
+
+    function populateLocationSelect() {
+        const sel = document.getElementById('kat-select-location');
+        sel.innerHTML = '<option value="">-- Standort wählen --</option>' + katalog.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+    }
+
+    function onKatLocationChange() {
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const katSel = document.getElementById('kat-select-kategorie');
+        const varSel = document.getElementById('kat-select-variante');
+        katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        katSel.disabled = true; varSel.disabled = true;
+        hideKatInputFields();
+        selectedKategorie = null; selectedVariante = null;
+        const location = katalog.find(l => l.id === locId);
+        if (!location || !location.kategorien) return;
+        katSel.innerHTML += location.kategorien.map(k => `<option value="${k.id}">${esc(k.name)} (${esc(k.unit || 'Stk')})</option>`).join('');
+        katSel.disabled = false;
+    }
+
+    function onKatKategorieChange() {
+        const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+        const ukatSel = document.getElementById('kat-select-unterkategorie');
+        const varSel = document.getElementById('kat-select-variante');
+        ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+        ukatSel.disabled = true;
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        varSel.disabled = true;
+        hideKatInputFields();
+        selectedVariante = null;
+        selectedKategorie = null;
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const location = katalog.find(l => l.id === locId);
+        if (!location) return;
+        const kat = (location.kategorien || []).find(k => k.id === katId);
+        if (!kat) return;
+        ukatSel.innerHTML += (kat.unterkategorien || []).map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+        ukatSel.disabled = false;
+    }
+
+    function onKatUnterkategorieChange() {
+        const locId = parseInt(document.getElementById('kat-select-location').value);
+        const katId = parseInt(document.getElementById('kat-select-kategorie').value);
+        const ukatId = parseInt(document.getElementById('kat-select-unterkategorie').value);
+        const varSel = document.getElementById('kat-select-variante');
+        varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
+        varSel.disabled = true;
+        hideKatInputFields();
+        selectedVariante = null;
+        selectedKategorie = null;
+        const location = katalog.find(l => l.id === locId);
+        if (!location) return;
+        const kat = (location.kategorien || []).find(k => k.id === katId);
+        if (!kat) return;
+        const ukat = (kat.unterkategorien || []).find(u => u.id === ukatId);
+        if (!ukat) return;
+        selectedKategorie = ukat;
+        if (!ukat.varianten) return;
+        const pm = ukat.pricing_model;
+        const suffix = pm === "per_gram" ? "/gr"
+            : pm === "per_kilogram" ? "/kg"
+            : pm === "per_volume_cm3" ? "/cm³"
+            : pm === "per_volume_l" ? "/L"
+            : pm === "per_cubic_meter" ? "/m³"
+            : pm === "per_cubic_deci_meter" ? "/dm³"
+            : pm === "per_volume_m3" ? "/m³"
+            : pm === "per_area_m2" ? "/m²"
+            : pm === "per_area_dm2" ? "/dm²"
+            : pm === "per_minute" ? "/min"
+            : `/${ukat.unit || "Stück"}`;
+        varSel.innerHTML += ukat.varianten.map(v => `<option value="${v.id}">${esc(v.name)} - ${v.price.toFixed(2)} €${suffix}</option>`).join('');
+        varSel.disabled = false;
+    }
+
+    function onKatVarianteChange() {
+        const varId = parseInt(document.getElementById('kat-select-variante').value);
+        hideKatInputFields();
+        selectedVariante = null;
+        if (!selectedKategorie || !selectedKategorie.varianten) return;
+        selectedVariante = selectedKategorie.varianten.find(v => v.id === varId);
+        if (selectedVariante) showKatInputFields(selectedKategorie.pricing_model, selectedKategorie.unit);
+    }
+
+    function showKatInputFields(pm, unit) {
+        document.getElementById('kat-inputs').classList.remove('hidden');
+        const rowDim = document.getElementById('kat-row-dim');
+        const rowMenge = document.getElementById('kat-row-menge');
+        const rowMinute = document.getElementById('kat-row-minute');
+        rowDim.classList.add('hidden'); rowMenge.classList.add('hidden'); rowMinute.classList.add('hidden');
+        const rowArea = document.getElementById('kat-row-area');
+        rowArea.classList.add('hidden');
+        if (pm === 'per_volume_l') {
+            // per_volume_l: direct liter input
+            rowMenge.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'Liter';
+        } else if (pm === 'per_volume_cm3' || pm === 'per_cubic_meter' || pm === 'per_cubic_deci_meter' || pm === 'per_volume_m3') {
+            // Other volume models: dimensions (L×B×H)
+            rowDim.classList.remove('hidden');
+            // Show unit label for volume pricing models
+            const volUnit = pm === 'per_cubic_meter' || pm === 'per_volume_m3' ? 'm³'
+                : pm === 'per_cubic_deci_meter' ? 'dm³'
+                : 'cm³';
+            document.getElementById('kat-menge-label').textContent = unit || volUnit;
+        } else if (pm === 'per_area_m2' || pm === 'per_area_dm2') {
+            rowArea.classList.remove('hidden');
+            const areaUnit = pm === 'per_area_m2' ? 'm²' : 'dm²';
+            document.getElementById('kat-menge-label').textContent = unit || areaUnit;
+        } else if (pm === 'per_minute') {
+            rowMinute.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'min';
+        } else if (pm === 'per_gram') {
+            rowMenge.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'Gramm';
+        } else if (pm === 'per_kilogram') {
+            rowMenge.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'Kilogramm';
+        } else {
+            rowMenge.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'Menge';
+        }
+    }
+
+    function hideKatInputFields() {
+        document.getElementById('kat-inputs').classList.add('hidden');
+        document.getElementById('kat-price-preview').classList.add('hidden');
+    }
+
+    function recalcPrice() {
+        if (!selectedVariante) return;
+        const pm = selectedKategorie.pricing_model;
+        let total = 0, preview = '';
+        if (pm === 'per_gram') {
+            const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
+            if (m > 0) { total = m * selectedVariante.price; preview = `${m} g × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_kilogram') {
+            const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
+            if (m > 0) { total = m * selectedVariante.price; preview = `${m} kg × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_volume_cm3') {
+            const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+            const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+            const vol = l * b * h;
+            if (vol > 0) { total = vol * selectedVariante.price; preview = `${vol.toFixed(1)} cm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_volume_l') {
+            const liters = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
+            if (liters > 0) { total = liters * selectedVariante.price; preview = `${liters.toFixed(2)} L × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_cubic_meter') {
+            const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+            const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+            const volM3 = (l * b * h) / 1000000;
+            if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_cubic_deci_meter') {
+            const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+            const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+            const volDm3 = (l * b * h) / 1000;
+            if (volDm3 > 0) { total = volDm3 * selectedVariante.price; preview = `${volDm3.toFixed(3)} dm³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_volume_m3') {
+            const l = parseFloat(document.getElementById('kat-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-breite').value) || 0;
+            const h = parseFloat(document.getElementById('kat-hoehe').value) || 0;
+            const volM3 = (l * b * h) / 1000000;
+            if (volM3 > 0) { total = volM3 * selectedVariante.price; preview = `${volM3.toFixed(4)} m³ × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_area_m2') {
+            const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
+            const areaM2 = (l * b) / 10000;
+            if (areaM2 > 0) { total = areaM2 * selectedVariante.price; preview = `${areaM2.toFixed(4)} m² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_area_dm2') {
+            const l = parseFloat(document.getElementById('kat-area-laenge').value) || 0;
+            const b = parseFloat(document.getElementById('kat-area-breite').value) || 0;
+            const areaDm2 = (l * b) / 100;
+            if (areaDm2 > 0) { total = areaDm2 * selectedVariante.price; preview = `${areaDm2.toFixed(3)} dm² × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_minute') {
+            const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
+            if (m > 0) { total = m * selectedVariante.price; preview = `${m} min × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else {
+            const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
+            if (m > 0) { total = m * selectedVariante.price; preview = `${m} × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        }
+        const pp = document.getElementById('kat-price-preview');
+        if (preview) { pp.textContent = preview; pp.classList.remove('hidden'); }
+        else { pp.classList.add('hidden'); }
+    }
+
+    function setMatMode(mode) {
+        currentMatMode = mode;
+        document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
+        document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
+        document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
+        document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
+    }
+
+    function resetKatalogFields() {
+        document.getElementById('kat-select-location').value = '';
+        document.getElementById('kat-select-unterkategorie').innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
+        document.getElementById('kat-select-unterkategorie').disabled = true;
+        onKatLocationChange();
+    }
+
+    function openAddMaterial() {
+        setMatMode('katalog');
+        resetKatalogFields();
+        document.getElementById('material-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('material-modal').classList.add('hidden');
+        document.getElementById('material-form').reset();
+        resetKatalogFields();
+    }
+
+    function openSpendeModal() {
+        document.getElementById('spende-modal').classList.remove('hidden');
+    }
+
+    function closeSpendeModal() {
+        document.getElementById('spende-modal').classList.add('hidden');
+        document.getElementById('spende-form').reset();
+    }
+
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('modal-overlay').addEventListener('click', closeModal);
+    document.getElementById('mat-cancel').addEventListener('click', closeModal);
+    document.getElementById('spende-close').addEventListener('click', closeSpendeModal);
+    document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
+    document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
+
+    document.getElementById('material-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            let body = { tax_rate: 19 };
+            if (currentMatMode === 'freitext') {
+                body.name = document.getElementById('field-mat-name').value;
+                body.unit = document.getElementById('field-mat-unit').value;
+                body.menge = parseFloat(document.getElementById('field-mat-menge').value);
+                body.calculated_price = parseFloat(document.getElementById('field-mat-total-price').value);
+            } else {
+                if (!selectedKategorie || !selectedVariante) { alert('Bitte Standort, Kategorie und Variante auswählen.'); return; }
+                body.variante_id = selectedVariante.id;
+                body.name = selectedVariante.name;
+                body.unit = selectedKategorie.unit || 'Stk';
+                const pm = selectedKategorie.pricing_model;
+                if (pm === 'per_gram') {
+                    const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_kilogram') {
+                    const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.unit = selectedKategorie.unit || 'kg';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_volume_cm3') {
+                    const l = parseFloat(document.getElementById('kat-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-breite').value);
+                    const h = parseFloat(document.getElementById('kat-hoehe').value);
+                    if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                    body.calculated_price = parseFloat((l * b * h * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_volume_l') {
+                    const liters = parseFloat(document.getElementById('kat-menge-unit').value);
+                    if (isNaN(liters) || liters <= 0) { alert('Bitte gültige Menge in Litern eingeben.'); return; }
+                    body.menge = liters; body.unit = selectedKategorie.unit || 'L';
+                    body.calculated_price = parseFloat((liters * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_cubic_meter') {
+                    const l = parseFloat(document.getElementById('kat-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-breite').value);
+                    const h = parseFloat(document.getElementById('kat-hoehe').value);
+                    if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                    body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_cubic_deci_meter') {
+                    const l = parseFloat(document.getElementById('kat-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-breite').value);
+                    const h = parseFloat(document.getElementById('kat-hoehe').value);
+                    if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                    body.calculated_price = parseFloat(((l * b * h / 1000) * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_volume_m3') {
+                    const l = parseFloat(document.getElementById('kat-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-breite').value);
+                    const h = parseFloat(document.getElementById('kat-hoehe').value);
+                    if ([l, b, h].some(v => isNaN(v) || v <= 0)) { alert('Bitte alle Maße eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b; body.hoehe_cm = h;
+                    body.calculated_price = parseFloat(((l * b * h / 1000000) * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_area_m2') {
+                    const l = parseFloat(document.getElementById('kat-area-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-area-breite').value);
+                    if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b;
+                    body.calculated_price = parseFloat(((l * b / 10000) * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_area_dm2') {
+                    const l = parseFloat(document.getElementById('kat-area-laenge').value);
+                    const b = parseFloat(document.getElementById('kat-area-breite').value);
+                    if ([l, b].some(v => isNaN(v) || v <= 0)) { alert('Bitte Länge und Breite eingeben.'); return; }
+                    body.laenge_cm = l; body.breite_cm = b;
+                    body.calculated_price = parseFloat(((l * b / 100) * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_minute') {
+                    const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
+                    body.menge = menge; body.unit = 'min';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else {
+                    const menge = parseFloat(document.getElementById('kat-menge-unit').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Menge eingeben.'); return; }
+                    body.menge = menge;
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                }
+            }
             const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            if (res.ok) { closeSpendeModal(); location.reload(); }
-            else { const err = await res.json(); alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen')); }
-        });
+            if (res.ok) { closeModal(); location.reload(); }
+            else { const err = await res.json(); alert('Fehler: ' + (err.detail || JSON.stringify(err))); }
+        } catch (err) {
+            alert('Interner Fehler: ' + err.message);
+            console.error(err);
+        }
+    });
 
-        function recalcFreitextTotal() {
-            const menge = parseFloat(document.getElementById('field-mat-menge').value);
-            const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
-            if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
-                document.getElementById('field-mat-total-price').value = parseFloat((menge * unitPrice).toFixed(4));
+    document.getElementById('spende-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
+        const amount = parseFloat(document.getElementById('field-spende-amount').value);
+        if (isNaN(amount) || amount <= 0) { alert('Bitte einen gültigen Betrag eingeben.'); return; }
+        const body = { name: name, menge: 1, unit: 'Stk', calculated_price: amount, tax_rate: 0 };
+        const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (res.ok) { closeSpendeModal(); location.reload(); }
+        else { const err = await res.json(); alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen')); }
+    });
+
+    function recalcFreitextTotal() {
+        const menge = parseFloat(document.getElementById('field-mat-menge').value);
+        const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
+        if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
+            document.getElementById('field-mat-total-price').value = parseFloat((menge * unitPrice).toFixed(4));
+        }
+    }
+
+    function recalcFreitextUnitPrice() {
+        const menge = parseFloat(document.getElementById('field-mat-menge').value);
+        const total = parseFloat(document.getElementById('field-mat-total-price').value);
+        if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
+            document.getElementById('field-mat-unit-price').value = parseFloat((total / menge).toFixed(6));
+        }
+    }
+
+    document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
+    document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
+    document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
+
+    function esc(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function checkSession() {
+        try {
+            const res = await fetch('/api/auth/session');
+            const session = await res.json();
+            const adminBar = document.getElementById('admin-bar');
+            const adminVerified = document.getElementById('admin-verified');
+            if (session.is_admin_capable && !session.admin_verified) {
+                adminBar.style.display = 'block'; adminVerified.style.display = 'none';
+            } else if (session.admin_verified) {
+                adminBar.style.display = 'none'; adminVerified.style.display = 'block';
             }
-        }
+        } catch (err) { console.error('Failed to check session:', err); }
+    }
 
-        function recalcFreitextUnitPrice() {
-            const menge = parseFloat(document.getElementById('field-mat-menge').value);
-            const total = parseFloat(document.getElementById('field-mat-total-price').value);
-            if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
-                document.getElementById('field-mat-unit-price').value = parseFloat((total / menge).toFixed(6));
-            }
-        }
+    document.getElementById('admin-unlock-btn').addEventListener('click', () => {
+        document.getElementById('admin-pw-modal').style.display = 'flex';
+        document.getElementById('admin-pw-input').value = '';
+        document.getElementById('admin-pw-error').style.display = 'none';
+        document.getElementById('admin-pw-input').focus();
+    });
 
-        document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
-        document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
-        document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
+    document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitAdminPw();
+    });
 
-        function esc(str) {
-            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
+    function closeAdminPwModal() {
+        document.getElementById('admin-pw-modal').style.display = 'none';
+    }
 
-        async function checkSession() {
-            try {
-                const res = await fetch('/api/auth/session');
-                const session = await res.json();
-                const adminBar = document.getElementById('admin-bar');
-                const adminVerified = document.getElementById('admin-verified');
-                if (session.is_admin_capable && !session.admin_verified) {
-                    adminBar.style.display = 'block'; adminVerified.style.display = 'none';
-                } else if (session.admin_verified) {
-                    adminBar.style.display = 'none'; adminVerified.style.display = 'block';
-                }
-            } catch (err) { console.error('Failed to check session:', err); }
-        }
-
-        document.getElementById('admin-unlock-btn').addEventListener('click', () => {
-            document.getElementById('admin-pw-modal').style.display = 'flex';
-            document.getElementById('admin-pw-input').value = '';
-            document.getElementById('admin-pw-error').style.display = 'none';
-            document.getElementById('admin-pw-input').focus();
-        });
-
-        document.getElementById('admin-pw-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') submitAdminPw();
-        });
-
-        function closeAdminPwModal() {
-            document.getElementById('admin-pw-modal').style.display = 'none';
-        }
-
-        async function submitAdminPw() {
-            const password = document.getElementById('admin-pw-input').value;
-            if (!password) return;
-            const errEl = document.getElementById('admin-pw-error');
-            errEl.style.display = 'none';
-            const formData = new FormData(); formData.append('password', password);
-            try {
-                const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
-                if (res.ok) { window.location.href = '/dashboard'; }
-                else {
-                    errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
-                    errEl.style.display = 'block';
-                    document.getElementById('admin-pw-input').value = '';
-                    document.getElementById('admin-pw-input').focus();
-                }
-            } catch (err) {
-                errEl.textContent = 'Fehler beim Verifizieren';
+    async function submitAdminPw() {
+        const password = document.getElementById('admin-pw-input').value;
+        if (!password) return;
+        const errEl = document.getElementById('admin-pw-error');
+        errEl.style.display = 'none';
+        const formData = new FormData(); formData.append('password', password);
+        try {
+            const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
+            if (res.ok) { window.location.href = '/dashboard'; }
+            else {
+                errEl.textContent = 'Falsches Passwort oder keine Admin-Berechtigung';
                 errEl.style.display = 'block';
+                document.getElementById('admin-pw-input').value = '';
+                document.getElementById('admin-pw-input').focus();
             }
+        } catch (err) {
+            errEl.textContent = 'Fehler beim Verifizieren';
+            errEl.style.display = 'block';
         }
+    }
 
-        async function exitAdminMode() {
-            await fetch('/api/auth/logout-admin', { method: 'POST' });
-            window.location.reload();
-        }
+    async function exitAdminMode() {
+        await fetch('/api/auth/logout-admin', { method: 'POST' });
+        window.location.reload();
+    }
 
-        // ── Payment admin unlock ─────────────────────────────────
-        let memberAdminScanSource = null;
+    // ── Payment admin unlock ─────────────────────────────────
+    let memberAdminScanSource = null;
 
-        function startMemberAdminUnlock() {
-            const modal = document.getElementById('member-admin-modal');
-            modal.style.display = 'flex';
-            document.getElementById('member-admin-error').style.display = 'none';
+    function startMemberAdminUnlock() {
+        const modal = document.getElementById('member-admin-modal');
+        modal.style.display = 'flex';
+        document.getElementById('member-admin-error').style.display = 'none';
 
-            if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
+        if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
 
+        memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+        memberAdminScanSource.addEventListener('config', () => {});
+        memberAdminScanSource.addEventListener('timeout', () => {
+            memberAdminScanSource.close();
             memberAdminScanSource = new EventSource('/api/scans/payment-stream');
-            memberAdminScanSource.addEventListener('config', () => {});
-            memberAdminScanSource.addEventListener('timeout', () => {
-                memberAdminScanSource.close();
+            setupMemberAdminHandlers();
+        });
+        setupMemberAdminHandlers();
+    }
+
+    function setupMemberAdminHandlers() {
+        if (!memberAdminScanSource) return;
+        memberAdminScanSource.onmessage = async (e) => {
+            const data = JSON.parse(e.data);
+            const uid = data.uid.toUpperCase();
+            memberAdminScanSource.close();
+            memberAdminScanSource = null;
+            await verifyMemberAdminCard(uid);
+        };
+        memberAdminScanSource.onerror = () => {
+            memberAdminScanSource.close();
+            memberAdminScanSource = null;
+            setTimeout(() => {
+                if (document.getElementById('member-admin-modal').style.display === 'flex') {
+                    memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                    setupMemberAdminHandlers();
+                }
+            }, 2000);
+        };
+    }
+
+    async function verifyMemberAdminCard(uid) {
+        const errEl = document.getElementById('member-admin-error');
+        errEl.style.display = 'none';
+        try {
+            const res = await fetch('/api/kasse/verify-admin-card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rfid_uid: uid }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                window.location.href = `/laufzettel/${LAUFZETTEL_ID}?from=member`;
+            } else {
+                errEl.textContent = result.error || 'Keine Admin-Berechtigung';
+                errEl.style.display = 'block';
+                setTimeout(() => { errEl.style.display = 'none'; }, 4000);
                 memberAdminScanSource = new EventSource('/api/scans/payment-stream');
                 setupMemberAdminHandlers();
-            });
-            setupMemberAdminHandlers();
-        }
-
-        function setupMemberAdminHandlers() {
-            if (!memberAdminScanSource) return;
-            memberAdminScanSource.onmessage = async (e) => {
-                const data = JSON.parse(e.data);
-                const uid = data.uid.toUpperCase();
-                memberAdminScanSource.close();
-                memberAdminScanSource = null;
-                await verifyMemberAdminCard(uid);
-            };
-            memberAdminScanSource.onerror = () => {
-                memberAdminScanSource.close();
-                memberAdminScanSource = null;
-                setTimeout(() => {
-                    if (document.getElementById('member-admin-modal').style.display === 'flex') {
-                        memberAdminScanSource = new EventSource('/api/scans/payment-stream');
-                        setupMemberAdminHandlers();
-                    }
-                }, 2000);
-            };
-        }
-
-        async function verifyMemberAdminCard(uid) {
-            const errEl = document.getElementById('member-admin-error');
-            errEl.style.display = 'none';
-            try {
-                const res = await fetch('/api/kasse/verify-admin-card', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rfid_uid: uid }),
-                });
-                const result = await res.json();
-                if (result.success) {
-                    window.location.href = `/laufzettel/${LAUFZETTEL_ID}?from=member`;
-                } else {
-                    errEl.textContent = result.error || 'Keine Admin-Berechtigung';
-                    errEl.style.display = 'block';
-                    setTimeout(() => { errEl.style.display = 'none'; }, 4000);
-                    memberAdminScanSource = new EventSource('/api/scans/payment-stream');
-                    setupMemberAdminHandlers();
-                }
-            } catch (err) {
-                errEl.textContent = 'Verbindungsfehler';
-                errEl.style.display = 'block';
-                setTimeout(() => {
-                    errEl.style.display = 'none';
-                    memberAdminScanSource = new EventSource('/api/scans/payment-stream');
-                    setupMemberAdminHandlers();
-                }, 3000);
             }
+        } catch (err) {
+            errEl.textContent = 'Verbindungsfehler';
+            errEl.style.display = 'block';
+            setTimeout(() => {
+                errEl.style.display = 'none';
+                memberAdminScanSource = new EventSource('/api/scans/payment-stream');
+                setupMemberAdminHandlers();
+            }, 3000);
         }
+    }
 
-        function cancelMemberAdminUnlock() {
-            document.getElementById('member-admin-modal').style.display = 'none';
-            if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
-        }
+    function cancelMemberAdminUnlock() {
+        document.getElementById('member-admin-modal').style.display = 'none';
+        if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
+    }
 
-        renderMaterials();
-        loadKatalog();
-        checkSession();
-    </script>
-    {% endif %}
-    <script src="/static/js/activity-tracker.js"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+    renderMaterials();
+    loadKatalog();
+    checkSession();
+</script>
+{% endif %}
+
+<script src="/static/js/activity-tracker.js"></script>
+{% endblock %}
+
+{# Modals - outside the content block so they can be fixed positioned #}
+{% if open_lz %}
+<div id="material-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+            <h3 id="modal-title">Material hinzufügen</h3>
+            <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="mode-toggle">
+            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">📦 Aus Katalog</button>
+            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">✏️ Freitext</button>
+        </div>
+        <form id="material-form" class="modal-form">
+            <input type="hidden" id="mat-id">
+            <!-- Freitext Mode -->
+            <div id="freitext-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-name">Name</label>
+                        <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit">Einheit</label>
+                        <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ...">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="field-mat-menge">Menge</label>
+                        <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-unit-price">Einzelpreis (€)</label>
+                        <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="field-mat-total-price">Gesamtpreis (€)</label>
+                        <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0">
+                    </div>
+                </div>
+            </div>
+            <!-- Katalog Mode -->
+            <div id="katalog-fields" class="hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="kat-select-location">Standort</label>
+                        <select id="kat-select-location" onchange="onKatLocationChange()">
+                            <option value="">-- Standort wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-kategorie">Kategorie</label>
+                        <select id="kat-select-kategorie" onchange="onKatKategorieChange()" disabled>
+                            <option value="">-- Kategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-unterkategorie">Unterkategorie</label>
+                        <select id="kat-select-unterkategorie" onchange="onKatUnterkategorieChange()" disabled>
+                            <option value="">-- Unterkategorie wählen --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="kat-select-variante">Variante</label>
+                        <select id="kat-select-variante" onchange="onKatVarianteChange()" disabled>
+                            <option value="">-- Variante wählen --</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="kat-inputs" class="hidden">
+                    <div class="form-row" id="kat-row-dim">
+                        <div class="form-group"><label for="kat-laenge">Länge (cm)</label><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
+                    </div>
+                    <div class="form-row hidden" id="kat-row-area">
+                        <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                    </div>
+                    <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
+                    <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
+                    <div id="kat-price-preview" class="price-preview hidden"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="mat-cancel">Abbrechen</button>
+                <button type="submit" class="btn btn-success" id="mat-save">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="spende-modal" class="modal hidden">
+    <div class="modal-overlay" id="spende-overlay"></div>
+    <div class="modal-box">
+        <div class="modal-header"><h3>Spende / Trinkgeld</h3><button class="modal-close" id="spende-close">✕</button></div>
+        <form id="spende-form" class="modal-form">
+            <div class="form-group">
+                <label for="field-spende-name">Bezeichnung (optional)</label>
+                <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
+            </div>
+            <div class="form-group">
+                <label for="field-spende-amount">Betrag (€)</label>
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+            </div>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
+                <button type="submit" class="btn btn-success">Erfassen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
+        <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
+        <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
+        <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
+        <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
+        <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
+            <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
+                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
+            </div>
+            <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
+        </div>
+        <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
+    </div>
+</div>
+<div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
+        <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">🔓 Admin-Passwort</h3>
+        <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
+        <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
+            <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
+        </div>
+    </div>
+</div>
+{% endif %}

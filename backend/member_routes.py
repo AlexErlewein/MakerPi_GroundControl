@@ -127,6 +127,7 @@ async def member_laufzettel_open(
         "member-laufzettel-open.html",
         {
             "request": request,
+            "nav_active": "auftrag",
             "open_lz": open_lz,
             "materials": materials_dicts,
             "total": total,
@@ -186,6 +187,7 @@ async def member_laufzettel_historie(
         "member-laufzettel-historie.html",
         {
             "request": request,
+            "nav_active": "historie",
             "history_list": history_list,
             "user": user,
         },
@@ -257,6 +259,7 @@ async def member_laufzettel_detail(
         "member-laufzettel-detail.html",
         {
             "request": request,
+            "nav_active": "auftrag",
             "laufzettel": laufzettel,
             "materials": materials_dicts,
             "total": total,
@@ -295,6 +298,7 @@ async def member_konto(
         "member-konto.html",
         {
             "request": request,
+            "nav_active": "konto",
             "user": user,
             "mitglied": mitglied,
         },

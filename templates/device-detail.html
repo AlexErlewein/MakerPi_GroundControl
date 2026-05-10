@@ -1,95 +1,68 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device {{ device_id }} - MakerPi GroundControl</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/device-detail.css">
-    <script>(function(){var t=localStorage.getItem('gc-theme')||'dark';document.documentElement.setAttribute('data-theme',t==='light'?'light':'');})();</script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <a href="/dashboard"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
-                <nav class="nav">
-                    <a href="/" class="nav-link">Dashboard</a>
-                    <a href="/database" class="nav-link">Devices</a>
-                    <a href="/tags" class="nav-link">NFC-Tags</a>
-                    <a href="/laufzettel" class="nav-link">Laufzettel</a>
-                    <a href="/katalog" class="nav-link">Katalog</a>
-                    <a href="/mitglieder" class="nav-link">Mitglieder</a>
-                    <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
-                </nav>
-            </div>
-            <div class="header-actions">
-                <span style="color:var(--text-secondary);font-size:0.85rem;padding-right:4px;">{{ current_user }}</span>
-            </div>
-        </header>
+{% extends "base-admin.html" %}
 
-        <main>
-            <!-- Device Info Card -->
-            <section class="device-info-card">
-                <div class="device-header">
-                    <h2 id="device-id">{{ device_id }}</h2>
-                    <span class="status-badge" id="device-status">Loading...</span>
-                </div>
-                <div class="device-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Name:</span>
-                        <span class="detail-value" id="device-name">-</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Last Seen:</span>
-                        <span class="detail-value" id="device-last-seen">-</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">NFC Status:</span>
-                        <span class="detail-value" id="device-nfc-status">-</span>
-                    </div>
-                    <div class="detail-item" id="nfc-error-container" style="display: none;">
-                        <span class="detail-label">NFC Error:</span>
-                        <span class="detail-value error-text" id="device-nfc-error">-</span>
-                    </div>
-                </div>
-            </section>
+{% set nav_active = 'devices' %}
 
-            <!-- Topic Statistics -->
-            <section class="topics-card">
-                <h3>Message Topics</h3>
-                <div class="topics-grid" id="topics-grid">
-                    <p>Loading topics...</p>
-                </div>
-            </section>
+{% block title %}Device {{ device_id }} - MakerPi GroundControl{% endblock %}
 
-            <!-- Recent Messages -->
-            <section class="section">
-                <div class="section-header">
-                    <h2>Recent Messages</h2>
-                    <div class="filters">
-                        <select id="topic-filter" class="filter-select">
-                            <option value="">All Topics</option>
-                        </select>
-                        <button id="export-btn" class="btn btn-secondary">Export CSV</button>
-                    </div>
-                </div>
-                <div class="messages-container" id="messages-container">
-                    <p>Loading messages...</p>
-                </div>
-            </section>
-        </main>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/device-detail.css">
+{% endblock %}
 
-        <footer>
-            <p>MakerPi GroundControl v0.1.0 - Device Details</p>
-        </footer>
+{% block content %}
+<!-- Device Info Card -->
+<section class="device-info-card">
+    <div class="device-header">
+        <h2 id="device-id">{{ device_id }}</h2>
+        <span class="status-badge" id="device-status">Loading...</span>
     </div>
+    <div class="device-details">
+        <div class="detail-item">
+            <span class="detail-label">Name:</span>
+            <span class="detail-value" id="device-name">-</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Last Seen:</span>
+            <span class="detail-value" id="device-last-seen">-</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">NFC Status:</span>
+            <span class="detail-value" id="device-nfc-status">-</span>
+        </div>
+        <div class="detail-item" id="nfc-error-container" style="display: none;">
+            <span class="detail-label">NFC Error:</span>
+            <span class="detail-value error-text" id="device-nfc-error">-</span>
+        </div>
+    </div>
+</section>
 
-    <script>
-        const DEVICE_ID = "{{ device_id }}";
-    </script>
-    <script src="/static/js/device-detail.js?v=1"></script>
-    <script src="/static/js/theme.js"></script>
-    <button id="theme-toggle" class="theme-toggle" title="Light Mode">☀️</button>
-</body>
-</html>
+<!-- Topic Statistics -->
+<section class="topics-card">
+    <h3>Message Topics</h3>
+    <div class="topics-grid" id="topics-grid">
+        <p>Loading topics...</p>
+    </div>
+</section>
+
+<!-- Recent Messages -->
+<section class="section">
+    <div class="section-header">
+        <h2>Recent Messages</h2>
+        <div class="filters">
+            <select id="topic-filter" class="filter-select">
+                <option value="">All Topics</option>
+            </select>
+            <button id="export-btn" class="btn btn-secondary">Export CSV</button>
+        </div>
+    </div>
+    <div class="messages-container" id="messages-container">
+        <p>Loading messages...</p>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const DEVICE_ID = "{{ device_id }}";
+</script>
+<script src="/static/js/device-detail.js?v=1"></script>
+{% endblock %}

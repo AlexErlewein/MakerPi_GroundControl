@@ -77,7 +77,10 @@ def check_zigbee_status() -> dict:
     elif status_parts and not errors:
         return {"status": "ok", "message": ", ".join(status_parts)}
     else:
-        return {"status": "warning", "message": f"{', '.join(status_parts)}; {', '.join(errors)}"}
+        return {
+            "status": "warning",
+            "message": f"{', '.join(status_parts)}; {', '.join(errors)}",
+        }
 
 
 def check_database_status() -> dict:
@@ -118,7 +121,10 @@ def check_database_status() -> dict:
     elif status_parts and not errors:
         return {"status": "ok", "message": ", ".join(status_parts)}
     else:
-        return {"status": "warning", "message": f"{', '.join(status_parts)}; {', '.join(errors)}"}
+        return {
+            "status": "warning",
+            "message": f"{', '.join(status_parts)}; {', '.join(errors)}",
+        }
 
 
 def check_gdrive_status() -> dict:
@@ -183,7 +189,14 @@ async def dashboard(request: Request):
     if not is_admin_verified(request):
         return RedirectResponse("/member?admin_required=1", status_code=302)
 
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "nav_active": "dashboard",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 @router.get("/database", response_class=HTMLResponse)
@@ -195,7 +208,14 @@ async def database_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("database.html", {"request": request})
+    return templates.TemplateResponse(
+        "database.html",
+        {
+            "request": request,
+            "nav_active": "devices",
+            "current_user": request.session.get("user"),
+        },
+    )
 
 
 @router.get("/devices/{device_id}", response_class=HTMLResponse)
@@ -208,7 +228,13 @@ async def device_detail_page(device_id: str, request: Request):
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse(
-        "device-detail.html", {"request": request, "device_id": device_id}
+        "device-detail.html",
+        {
+            "request": request,
+            "device_id": device_id,
+            "nav_active": "devices",
+            "current_user": request.session.get("user"),
+        },
     )
 
 
@@ -305,7 +331,11 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
 
     laufzettel_db = next(get_laufzettel_db())
     try:
-        open_laufzettel = laufzettel_db.query(Laufzettel).filter(Laufzettel.payment_method.is_(None)).count()
+        open_laufzettel = (
+            laufzettel_db.query(Laufzettel)
+            .filter(Laufzettel.payment_method.is_(None))
+            .count()
+        )
 
         # Count unique member_id from open Laufzettel created today
         today = datetime.utcnow().date()
@@ -328,8 +358,14 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     # Calculate Spenden for current month
     buchhaltung_db = BuchhaltungSession()
     try:
-        current_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        next_month = (current_month.replace(month=current_month.month % 12 + 1) if current_month.month < 12 else current_month.replace(year=current_month.year + 1, month=1))
+        current_month = datetime.utcnow().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        next_month = (
+            current_month.replace(month=current_month.month % 12 + 1)
+            if current_month.month < 12
+            else current_month.replace(year=current_month.year + 1, month=1)
+        )
         spenden_current_month = (
             buchhaltung_db.query(func.sum(Spende.amount))
             .filter(Spende.date >= current_month, Spende.date < next_month)
