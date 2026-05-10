@@ -161,6 +161,16 @@
         opacity: 0.88;
     }
 
+    /* Inline form for iOS Safari Guided Access compatibility */
+    .guest-form-inline {
+        margin: 0;
+        padding: 0;
+        display: block;
+    }
+    .guest-form-inline button {
+        font-family: inherit;
+    }
+
     .hidden {
         display: none;
     }
@@ -193,7 +203,11 @@
 
     <div class="guest-tile">
         <h3>Neu hier?</h3>
-        <button type="button" class="btn" id="guest-btn" onclick="goToGuestLaufzettel()">Gäste-Laufzettel</button>
+        <!-- Using GET form for iOS Safari Guided Access compatibility -->
+        <form method="get" action="/guest/laufzettel" class="guest-form-inline">
+            <input type="hidden" name="new" value="1">
+            <button type="submit" class="btn">Gäste-Laufzettel</button>
+        </form>
     </div>
 
     <p class="login-footer">
@@ -214,9 +228,6 @@ function toggleLoginForm() {
     }
 }
 
-function goToGuestLaufzettel() {
-    // Force same-window navigation for iOS compatibility
-    window.location.assign('/guest/laufzettel?new=1');
-}
+// Guest button handler removed - now using GET form for iOS compatibility
 </script>
 {% endblock %}
