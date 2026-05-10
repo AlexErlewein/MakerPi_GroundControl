@@ -16,5 +16,7 @@
     "easyverein_org_id": "YOUR_ORG_ID_HERE",
     "enrollment_reader_id": "",
     "payment_reader_id": "",
-    "card_writer_id": ""
+    "card_writer_id": "",
+    "shopify_store": "your-store.myshopify.com",
+    "shopify_access_token": "shpat_YOUR_ACCESS_TOKEN_HERE"
 }

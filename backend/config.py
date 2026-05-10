@@ -114,6 +114,14 @@ BACKBLAZE_APPLICATION_KEY: str = _cfg.get(
     os.environ.get("BACKBLAZE_APPLICATION_KEY", ""),
 )
 
+# Shopify configuration
+SHOPIFY_STORE: str = _cfg.get(
+    "shopify_store", os.environ.get("SHOPIFY_STORE", "")
+)  # e.g. "your-store.myshopify.com"
+SHOPIFY_ACCESS_TOKEN: str = _cfg.get(
+    "shopify_access_token", os.environ.get("SHOPIFY_ACCESS_TOKEN", "")
+)
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"
