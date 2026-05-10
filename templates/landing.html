@@ -41,12 +41,14 @@
             <h2>Mit Benutzername</h2>
             <p>Anmeldung für Mitglieder und Administratoren</p>
 
-            <form action="/api/auth/login" method="POST" class="login-form">
+            <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">🔐 Mit Passwort anmelden</button>
+
+            <form id="login-form" action="/api/auth/login" method="POST" class="login-form hidden">
                 <div class="form-group">
-                    <input type="text" name="username" placeholder="Benutzername" required>
+                    <input type="text" name="username" placeholder="Benutzername" required autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <input type="password" name="password" placeholder="Passwort" required>
+                    <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password">
                 </div>
                 {% if error %}
                 <div class="error-message">{{ error }}</div>
@@ -54,6 +56,12 @@
                 <button type="submit" class="btn btn-primary btn-full">Anmelden</button>
             </form>
         </div>
+    </div>
+
+    <!-- Guest Tile -->
+    <div class="guest-tile">
+        <h3>Neu hier?</h3>
+        <a href="/guest/laufzettel" class="btn btn-guest">Gäste-Laufzettel</a>
     </div>
 
     <div class="landing-footer">
@@ -145,5 +153,17 @@
 
     // Poll every 2 seconds for new RFID scans
     setInterval(checkForRFIDScans, 2000);
+
+    function toggleLoginForm() {
+        const form = document.getElementById('login-form');
+        const btn = document.getElementById('toggle-login-btn');
+        form.classList.toggle('hidden');
+        if (form.classList.contains('hidden')) {
+            btn.textContent = '🔐 Mit Passwort anmelden';
+        } else {
+            btn.textContent = '✕ Abbrechen';
+            form.querySelector('input[name="username"]').focus();
+        }
+    }
 </script>
 {% endblock %}

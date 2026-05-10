@@ -327,6 +327,58 @@
     border: 1px solid var(--danger);
 }
 
+.toggle-login-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.toggle-login-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.login-form.hidden {
+    display: none;
+}
+
+.guest-tile {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 900px;
+    margin: 20px auto 0;
+    text-align: center;
+}
+
+.guest-tile h3 {
+    margin: 0 0 16px 0;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+.btn-guest {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.btn-guest:hover {
+    opacity: 0.88;
+}
+
 /* Admin Links */
 .admin-links {
     display: flex;
