@@ -2,6 +2,13 @@
 
 let guestId = null;
 let previousUnpaid = null;
+let isNewMode = false;  // true when coming from login page (?new=1)
+
+// Check if URL has ?new=1 parameter (coming from login page)
+function checkNewMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('new') === '1';
+}
 
 // Initialize form with current date/time
 function initForm() {
@@ -89,6 +96,35 @@ function hideReminderModal() {
     document.getElementById('reminder-modal').classList.add('hidden');
 }
 
+// Show Thank You message after successful creation (new mode from login page)
+function showThankYou(laufzettelId) {
+    const container = document.querySelector('.guest-container');
+    const name = document.getElementById('guest-name').value.trim();
+    
+    container.innerHTML = `
+        <div class="guest-header">
+            <h1>✅ Vielen Dank, ${esc(name)}!</h1>
+            <p>Dein Laufzettel wurde erfolgreich erstellt.</p>
+        </div>
+        <div class="info-message" style="text-align: center; margin: 2rem 0;">
+            <p><strong>Laufzettel Nr. ${laufzettelId}</strong></p>
+            <p style="margin-top: 1rem;">Bitte wende dich an einen Admin, um Material zu erfassen und zu bezahlen.</p>
+        </div>
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="/" class="btn btn-success">Zurück zur Startseite</a>
+        </div>
+    `;
+}
+
+// Escape HTML
+function esc(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 // Submit form to create new guest Laufzettel
 async function submitForm(e) {
     e.preventDefault();
@@ -120,8 +156,13 @@ async function submitForm(e) {
         
         if (response.ok) {
             const lz = await response.json();
-            // Redirect to detail page
-            window.location.href = `/guest/laufzettel/${lz.id}`;
+            if (isNewMode) {
+                // New mode: show Thank You message
+                showThankYou(lz.id);
+            } else {
+                // QR/Direct URL mode: redirect to detail page (cached behavior)
+                window.location.href = `/guest/laufzettel/${lz.id}`;
+            }
         } else {
             const error = await response.json();
             errorContainer.textContent = error.detail || 'Fehler beim Erstellen des Laufzettels';
@@ -153,5 +194,9 @@ document.getElementById('reminder-continue').addEventListener('click', () => {
 });
 
 // Initialize
+isNewMode = checkNewMode();
 initForm();
-checkGuestSession();
+if (!isNewMode) {
+    // Only check for existing session in QR/direct URL mode
+    checkGuestSession();
+}
