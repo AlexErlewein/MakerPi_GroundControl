@@ -113,6 +113,58 @@
         text-decoration: underline;
     }
 
+    .toggle-login-btn {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        margin-top: 12px;
+    }
+
+    .toggle-login-btn:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .guest-tile {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        text-align: center;
+        margin-top: 16px;
+    }
+
+    .guest-tile h3 {
+        margin: 0 0 16px 0;
+        font-size: 1.2rem;
+        color: var(--text-primary);
+    }
+
+    .guest-tile .btn {
+        width: 100%;
+        padding: 12px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .guest-tile .btn:hover {
+        opacity: 0.88;
+    }
+
+    .hidden {
+        display: none;
+    }
+
 </style>
 {% endblock %}
 
@@ -125,10 +177,12 @@
     <div class="login-error">{{ error }}</div>
     {% endif %}
 
-    <form class="login-form" method="post" action="/login">
+    <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">🔐 Mit Passwort anmelden</button>
+
+    <form id="login-form" class="login-form hidden" method="post" action="/login">
         <div>
             <label for="username">Benutzername</label>
-            <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+            <input type="text" id="username" name="username" autocomplete="username" required>
         </div>
         <div>
             <label for="password">Passwort</label>
@@ -137,8 +191,27 @@
         <button type="submit" class="login-btn">Anmelden</button>
     </form>
 
+    <div class="guest-tile">
+        <h3>Neu hier?</h3>
+        <a href="/guest/laufzettel" class="btn">Gäste-Laufzettel</a>
+    </div>
+
     <p class="login-footer">
         <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">📄 Dokumentation</a>
     </p>
 </div>
+
+<script>
+function toggleLoginForm() {
+    const form = document.getElementById('login-form');
+    const btn = document.getElementById('toggle-login-btn');
+    form.classList.toggle('hidden');
+    if (form.classList.contains('hidden')) {
+        btn.textContent = '🔐 Mit Passwort anmelden';
+    } else {
+        btn.textContent = '✕ Abbrechen';
+        document.getElementById('username').focus();
+    }
+}
+</script>
 {% endblock %}
