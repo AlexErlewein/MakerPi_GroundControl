@@ -203,11 +203,7 @@
 
     <div class="guest-tile">
         <h3>Neu hier?</h3>
-        <!-- Using GET form for iOS Safari Guided Access compatibility -->
-        <form method="get" action="/guest/laufzettel" class="guest-form-inline">
-            <input type="hidden" name="new" value="1">
-            <button type="submit" class="btn">Gäste-Laufzettel</button>
-        </form>
+        <button type="button" class="btn" id="guest-btn">Gäste-Laufzettel</button>
     </div>
 
     <p class="login-footer">
@@ -228,6 +224,21 @@ function toggleLoginForm() {
     }
 }
 
-// Guest button handler removed - now using GET form for iOS compatibility
+// iOS PWA SPA-style navigation - load content without actual URL change
+document.getElementById('guest-btn').addEventListener('click', async function(e) {
+    e.preventDefault();
+    try {
+        const response = await fetch('/guest/laufzettel?new=1');
+        const html = await response.text();
+        // Replace document content
+        document.open();
+        document.write(html);
+        document.close();
+        // Update URL without triggering navigation
+        history.replaceState({}, '', '/guest/laufzettel?new=1');
+    } catch (err) {
+        console.error('Navigation failed:', err);
+    }
+});
 </script>
 {% endblock %}

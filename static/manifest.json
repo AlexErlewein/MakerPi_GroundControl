@@ -4,7 +4,7 @@
     "description": "H3cke MakerSpace Management — MQTT monitoring, RFID access, material catalog, work orders, and payments.",
     "start_url": "/",
     "scope": "/",
-    "display": "minimal-ui",
+    "display": "standalone",
     "orientation": "any",
     "theme_color": "#0d1117",
     "background_color": "#0d1117",
