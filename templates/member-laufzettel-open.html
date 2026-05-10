@@ -167,6 +167,7 @@
 
     function populateLocationSelect() {
         const sel = document.getElementById('kat-select-location');
+        if (!sel) return;
         sel.innerHTML = '<option value="">-- Standort wählen --</option>' + katalog.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
     }
 
@@ -174,6 +175,7 @@
         const locId = parseInt(document.getElementById('kat-select-location').value);
         const katSel = document.getElementById('kat-select-kategorie');
         const varSel = document.getElementById('kat-select-variante');
+        if (!katSel || !varSel) return;
         katSel.innerHTML = '<option value="">-- Kategorie wählen --</option>';
         varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
         katSel.disabled = true; varSel.disabled = true;
@@ -189,6 +191,7 @@
         const katId = parseInt(document.getElementById('kat-select-kategorie').value);
         const ukatSel = document.getElementById('kat-select-unterkategorie');
         const varSel = document.getElementById('kat-select-variante');
+        if (!ukatSel || !varSel) return;
         ukatSel.innerHTML = '<option value="">-- Unterkategorie wählen --</option>';
         ukatSel.disabled = true;
         varSel.innerHTML = '<option value="">-- Variante wählen --</option>';
