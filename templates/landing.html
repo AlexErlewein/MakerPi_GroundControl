@@ -85,12 +85,22 @@
 {% block extra_js %}
 <script>
     function toggleGuestForm() {
-        var intro = document.getElementById('guest-card-intro');
-        var form  = document.getElementById('guest-inline-form');
+        var intro   = document.getElementById('guest-card-intro');
+        var form    = document.getElementById('guest-inline-form');
         var showForm = intro && !intro.classList.contains('hidden');
         if (intro) intro.classList.toggle('hidden', showForm);
         form.classList.toggle('hidden', !showForm);
-        if (showForm) setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
+        if (showForm) {
+            // Reset state every time the form is opened
+            document.getElementById('guest-inline-fields').classList.remove('hidden');
+            document.getElementById('guest-inline-success').classList.add('hidden');
+            document.getElementById('guest-inline-error').classList.add('hidden');
+            document.getElementById('guest-inline-error').textContent = '';
+            document.getElementById('gi-name').value = '';
+            document.getElementById('gi-email').value = '';
+            document.getElementById('gi-submit-btn').disabled = false;
+            setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
+        }
     }
 
     async function submitGuestInline() {
