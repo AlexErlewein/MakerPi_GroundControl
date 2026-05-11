@@ -16,36 +16,46 @@
         <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
     </div>
 
-    <!-- RFID card (full width) -->
-    <div class="login-card rfid-card" style="margin-bottom: 16px;">
-        <div class="card-icon">🎴</div>
-        <h2>Mit RFID-Karte</h2>
-        <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
+    <!-- Top row: RFID + Guest tile -->
+    <div class="login-options-top">
+        <!-- RFID Login Section -->
+        <div class="login-card rfid-card">
+            <div class="card-icon">🎴</div>
+            <h2>Mit RFID-Karte</h2>
+            <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
 
-        <div class="rfid-status" id="rfid-status">
-            <div class="scanning-animation">
-                <span class="pulse"></span>
-                <span class="pulse"></span>
-                <span class="pulse"></span>
+            <div class="rfid-status" id="rfid-status">
+                <div class="scanning-animation">
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
+                </div>
+                <span class="status-text">Warte auf Karte...</span>
             </div>
-            <span class="status-text">Warte auf Karte...</span>
+
+            <div class="rfid-error" id="rfid-error" style="display: none;"></div>
         </div>
 
-        <div class="rfid-error" id="rfid-error" style="display: none;"></div>
-    </div>
+        <!-- Guest Tile -->
+        <div class="login-card guest-card">
+            <div id="guest-card-intro">
+                <div class="card-icon">👋</div>
+                <h2>Neu hier?</h2>
+                <p>Kein Mitglied? Erstelle einen Gäste-Laufzettel und zahle am Ende deines Besuchs.</p>
+                <button type="button" class="btn btn-guest btn-full" onclick="toggleGuestForm()">Gäste-Laufzettel</button>
+            </div>
 
-    <!-- Guest strip -->
-    <div class="password-strip" style="border-color: var(--success);">
-        <button id="toggle-guest-btn" class="toggle-login-btn" onclick="toggleGuestForm()">👋 Gäste-Laufzettel erstellen</button>
-        <div id="guest-inline-form" class="hidden" style="margin-top: 14px;">
-            <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px;"></div>
-            <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
-            <div id="guest-inline-fields">
-                <div class="login-form-inline" style="flex-direction: column; align-items: stretch;">
-                    <input type="text" id="gi-name" placeholder="Name *" autocomplete="name" autocorrect="off" style="margin-bottom: 8px;">
-                    <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="margin-bottom: 8px;">
-                    <button type="button" class="btn btn-guest" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
+            <div id="guest-inline-form" class="hidden">
+                <div class="card-icon">👋</div>
+                <h2>Gäste-Laufzettel</h2>
+                <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px;"></div>
+                <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
+                <div id="guest-inline-fields" style="width:100%;">
+                    <input type="text" id="gi-name" placeholder="Name *" autocomplete="name" autocorrect="off" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="width:100%; padding:10px 12px; margin-bottom:14px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    <button type="button" class="btn btn-guest btn-full" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
                 </div>
+                <button type="button" class="toggle-login-btn" onclick="toggleGuestForm()" style="margin-top:12px; width:100%;">✕ Abbrechen</button>
             </div>
         </div>
     </div>
@@ -75,11 +85,12 @@
 {% block extra_js %}
 <script>
     function toggleGuestForm() {
-        var form = document.getElementById('guest-inline-form');
-        var btn  = document.getElementById('toggle-guest-btn');
-        var isHidden = form.classList.toggle('hidden');
-        btn.textContent = isHidden ? '\uD83D\uDC4B G\u00E4ste-Laufzettel erstellen' : '\u2715 Abbrechen';
-        if (!isHidden) document.getElementById('gi-name').focus();
+        var intro = document.getElementById('guest-card-intro');
+        var form  = document.getElementById('guest-inline-form');
+        var showForm = intro && !intro.classList.contains('hidden');
+        if (intro) intro.classList.toggle('hidden', showForm);
+        form.classList.toggle('hidden', !showForm);
+        if (showForm) setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
     }
 
     async function submitGuestInline() {
