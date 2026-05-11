@@ -162,28 +162,71 @@ html, body {
 /* Cards within columns */
 .card-item,
 .task-card,
-.ui.card {
+.ui.card,
+[data-testid="card"],
+[data-rbd-draggable-context-id] > div {
   background: var(--gc-bg-card) !important;
   border: 1px solid var(--gc-border-light) !important;
   border-radius: 6px !important;
   margin-bottom: 8px !important;
+  color: var(--gc-text-primary) !important;
 }
 
 .card-item:hover,
-.task-card:hover {
+.task-card:hover,
+[data-testid="card"]:hover {
   background: var(--gc-bg-tertiary) !important;
   border-color: var(--gc-border-color) !important;
 }
 
-.card-title,
-.task-title {
+/* Force light text on ALL card elements */
+.card-item *,
+.task-card *,
+.card *,
+.ui.card *,
+[data-testid="card"] *,
+[data-rbd-draggable-context-id] > div * {
   color: var(--gc-text-primary) !important;
 }
 
-.card-labels .label {
+/* Specific card text elements */
+.card-title,
+.task-title,
+.card-item h3,
+.card-item h4,
+.card-item span,
+.card-item div,
+.task-card h3,
+.task-card h4,
+.task-card span,
+.task-card div,
+.ui.card .content,
+.ui.card .header,
+.ui.card .meta,
+.ui.card .description {
+  color: var(--gc-text-primary) !important;
+}
+
+.card-labels .label,
+.label,
+.ui.label,
+[class*="label"] {
   border-radius: 4px !important;
   font-size: 0.75rem !important;
   font-weight: 500 !important;
+  color: var(--gc-text-primary) !important;
+}
+
+/* Badge text */
+.badge,
+[class*="badge"],
+[class*="Badge"] {
+  color: var(--gc-text-secondary) !important;
+}
+
+.badge *,
+[class*="badge"] * {
+  color: inherit !important;
 }
 
 /* Add card button */
