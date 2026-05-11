@@ -26,6 +26,7 @@ dependencies = [
     "google-auth-httplib2>=0.2",
     "pywebpush>=1.14.0",
     "py_vapid>=1.9.0",
+    "aiosmtplib>=2.0",
 ]
 
 [build-system]
