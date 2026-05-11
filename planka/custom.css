@@ -141,22 +141,40 @@ html, body {
   background: var(--gc-bg-primary) !important;
 }
 
-/* Lists/Columns */
+/* Lists/Columns - Override whitish backgrounds */
 .list,
 .list-wrapper,
 .ui.segment,
-.column {
+.column,
+[class*="List"],
+[class*="list"],
+[class*="Column"],
+[class*="column"],
+[data-rbd-droppable-context-id],
+[data-rbd-droppable-context-id] > div {
   background: var(--gc-bg-secondary) !important;
   border: 1px solid var(--gc-border-color) !important;
   border-radius: 8px !important;
 }
 
 .list-header,
-.column-header {
+.column-header,
+[class*="ListHeader"],
+[class*="listHeader"],
+[class*="ColumnHeader"],
+[class*="columnHeader"] {
   background: var(--gc-bg-tertiary) !important;
   border-bottom: 1px solid var(--gc-border-color) !important;
   color: var(--gc-text-primary) !important;
   padding: 12px 16px !important;
+}
+
+/* Ensure list header text is light */
+.list-header *,
+.column-header *,
+[class*="ListHeader"] *,
+[class*="ColumnHeader"] * {
+  color: var(--gc-text-primary) !important;
 }
 
 /* Cards within columns */
@@ -179,13 +197,43 @@ html, body {
   border-color: var(--gc-border-color) !important;
 }
 
-/* Force light text on ALL card elements */
+/* Force light text on ALL card elements - HIGH SPECIFICITY */
 .card-item *,
 .task-card *,
 .card *,
 .ui.card *,
 [data-testid="card"] *,
-[data-rbd-draggable-context-id] > div * {
+[data-rbd-draggable-context-id] > div *,
+[data-rbd-draggable-id] *,
+[class*="Card"] *,
+[class*="card"] * {
+  color: var(--gc-text-primary) !important;
+}
+
+/* Inline style overrides for card text */
+[style*="color: rgb(0"],
+[style*="color: rgb(1"],
+[style*="color: rgb(2"],
+[style*="color: rgb(3"],
+[style*="color: #0"],
+[style*="color: #1"],
+[style*="color: #2"],
+[style*="color: #3"],
+[style*="color: blue"],
+[style*="color: darkblue"],
+[style*="color: navy"] {
+  color: var(--gc-text-primary) !important;
+}
+
+/* Specific override for card name/title text */
+span[class*="text"],
+div[class*="text"],
+span[class*="name"],
+div[class*="name"],
+span[class*="title"],
+div[class*="title"],
+p[class*="text"],
+p[class*="name"] {
   color: var(--gc-text-primary) !important;
 }
 
