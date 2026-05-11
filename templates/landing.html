@@ -16,32 +16,37 @@
         <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
     </div>
 
-    <!-- Top row: RFID + Guest tile -->
-    <div class="login-options-top">
-        <!-- RFID Login Section -->
-        <div class="login-card rfid-card">
-            <div class="card-icon">🎴</div>
-            <h2>Mit RFID-Karte</h2>
-            <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
+    <!-- RFID card (full width) -->
+    <div class="login-card rfid-card" style="margin-bottom: 16px;">
+        <div class="card-icon">🎴</div>
+        <h2>Mit RFID-Karte</h2>
+        <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
 
-            <div class="rfid-status" id="rfid-status">
-                <div class="scanning-animation">
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                </div>
-                <span class="status-text">Warte auf Karte...</span>
+        <div class="rfid-status" id="rfid-status">
+            <div class="scanning-animation">
+                <span class="pulse"></span>
+                <span class="pulse"></span>
+                <span class="pulse"></span>
             </div>
-
-            <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+            <span class="status-text">Warte auf Karte...</span>
         </div>
 
-        <!-- Guest Tile -->
-        <div class="login-card guest-card">
-            <div class="card-icon">👋</div>
-            <h2>Neu hier?</h2>
-            <p>Kein Mitglied? Erstelle einen Gäste-Laufzettel und zahle am Ende deines Besuchs.</p>
-            <button type="button" class="btn btn-guest btn-full" id="open-guest-modal-btn">Gäste-Laufzettel</button>
+        <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+    </div>
+
+    <!-- Guest strip -->
+    <div class="password-strip" style="border-color: var(--success);">
+        <button id="toggle-guest-btn" class="toggle-login-btn" onclick="toggleGuestForm()">👋 Gäste-Laufzettel erstellen</button>
+        <div id="guest-inline-form" class="hidden" style="margin-top: 14px;">
+            <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px;"></div>
+            <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
+            <div id="guest-inline-fields">
+                <div class="login-form-inline" style="flex-direction: column; align-items: stretch;">
+                    <input type="text" id="gi-name" placeholder="Name *" autocomplete="name" autocorrect="off" style="margin-bottom: 8px;">
+                    <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="margin-bottom: 8px;">
+                    <button type="button" class="btn btn-guest" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -69,141 +74,61 @@
 
 {% block extra_js %}
 <script>
-    // ── Guest Laufzettel Modal (injected onto body for iOS PWA compatibility) ──
-    (function () {
-        // Build modal DOM and append directly to document.body so no ancestor
-        // stacking context (backdrop-filter, transform, overflow) can trap it.
-        var overlay = document.createElement('div');
-        overlay.id = 'guest-modal-overlay';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-labelledby', 'guest-modal-title');
-        overlay.className = 'guest-modal-overlay hidden';
-        overlay.innerHTML = [
-            '<div class="guest-modal-box">',
-            '  <div class="guest-modal-header">',
-            '    <h2 id="guest-modal-title">\uD83D\uDC4B G\u00E4ste-Laufzettel erstellen</h2>',
-            '    <button type="button" class="guest-modal-close" id="close-guest-modal-btn" aria-label="Schlie\u00DFen">\u2715</button>',
-            '  </div>',
-            '  <div id="guest-modal-body">',
-            '    <p class="guest-modal-subtitle">Bitte gib deinen Namen ein, um einen Laufzettel zu erstellen.</p>',
-            '    <div id="guest-modal-error" class="guest-modal-alert guest-modal-alert--error hidden"></div>',
-            '    <form id="guest-modal-form" novalidate>',
-            '      <div class="guest-modal-field">',
-            '        <label for="gm-name">Name <span class="required-star">*</span></label>',
-            '        <input type="text" id="gm-name" placeholder="Dein Name" required autocomplete="name" autocorrect="off">',
-            '      </div>',
-            '      <div class="guest-modal-field">',
-            '        <label for="gm-email">E-Mail <span class="optional-label">(optional)</span></label>',
-            '        <input type="email" id="gm-email" placeholder="deine@email.de" autocomplete="email" inputmode="email">',
-            '      </div>',
-            '      <button type="submit" class="btn btn-guest btn-full" id="gm-submit-btn">Fertig \u2713</button>',
-            '    </form>',
-            '  </div>',
-            '  <div id="guest-modal-success" class="hidden">',
-            '    <div class="guest-modal-success-icon">\u2705</div>',
-            '    <h3 id="gm-thanks-title">Vielen Dank!</h3>',
-            '    <p id="gm-thanks-body"></p>',
-            '    <button type="button" class="btn btn-guest btn-full" id="gm-back-btn">Zur\u00FCck zur Startseite</button>',
-            '  </div>',
-            '</div>'
-        ].join('');
-        document.body.appendChild(overlay);
+    function toggleGuestForm() {
+        var form = document.getElementById('guest-inline-form');
+        var btn  = document.getElementById('toggle-guest-btn');
+        var isHidden = form.classList.toggle('hidden');
+        btn.textContent = isHidden ? '\uD83D\uDC4B G\u00E4ste-Laufzettel erstellen' : '\u2715 Abbrechen';
+        if (!isHidden) document.getElementById('gi-name').focus();
+    }
 
-        var openBtn    = document.getElementById('open-guest-modal-btn');
-        var closeBtn   = document.getElementById('close-guest-modal-btn');
-        var form       = document.getElementById('guest-modal-form');
-        var nameInput  = document.getElementById('gm-name');
-        var emailInput = document.getElementById('gm-email');
-        var submitBtn  = document.getElementById('gm-submit-btn');
-        var errorBox   = document.getElementById('guest-modal-error');
-        var bodyDiv    = document.getElementById('guest-modal-body');
-        var successDiv = document.getElementById('guest-modal-success');
-        var thanksTitle = document.getElementById('gm-thanks-title');
-        var thanksBody  = document.getElementById('gm-thanks-body');
-        var backBtn    = document.getElementById('gm-back-btn');
+    async function submitGuestInline() {
+        var name     = document.getElementById('gi-name').value.trim();
+        var email    = document.getElementById('gi-email').value.trim();
+        var errorBox = document.getElementById('guest-inline-error');
+        var submitBtn = document.getElementById('gi-submit-btn');
+        var fields   = document.getElementById('guest-inline-fields');
+        var success  = document.getElementById('guest-inline-success');
 
-        function openModal() {
-            overlay.classList.remove('hidden');
-            resetModal();
-            setTimeout(function () { nameInput.focus(); }, 50);
+        errorBox.classList.add('hidden');
+
+        if (!name) {
+            errorBox.textContent = 'Bitte gib deinen Namen ein.';
+            errorBox.classList.remove('hidden');
+            document.getElementById('gi-name').focus();
+            return;
         }
 
-        function closeModal() {
-            overlay.classList.add('hidden');
-        }
+        submitBtn.disabled = true;
+        var now   = new Date();
+        var date  = now.toISOString().slice(0, 10);
+        var start = now.toISOString();
 
-        function resetModal() {
-            form.reset();
-            errorBox.classList.add('hidden');
-            errorBox.textContent = '';
-            bodyDiv.classList.remove('hidden');
-            successDiv.classList.add('hidden');
-        }
-
-        function esc(str) {
-            return String(str)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-
-        openBtn.addEventListener('click', openModal);
-        closeBtn.addEventListener('click', closeModal);
-        backBtn.addEventListener('click', closeModal);
-
-        overlay.addEventListener('click', function (e) {
-            if (e.target === overlay) closeModal();
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
-        });
-
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            var name  = nameInput.value.trim();
-            var email = emailInput.value.trim();
-
-            if (!name) {
-                errorBox.textContent = 'Bitte gib deinen Namen ein.';
+        try {
+            var res = await fetch('/api/guest/laufzettel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, email: email || null, date: date, start: start })
+            });
+            if (res.ok) {
+                var lz = await res.json();
+                fields.classList.add('hidden');
+                errorBox.classList.add('hidden');
+                success.innerHTML = '\u2705 Vielen Dank, <strong>' + name.replace(/</g,'&lt;') + '</strong>!<br>Laufzettel Nr. <strong>' + lz.id + '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>';
+                success.classList.remove('hidden');
+                document.getElementById('toggle-guest-btn').textContent = '\u2705 Laufzettel erstellt';
+            } else {
+                var err = await res.json().catch(function(){ return {}; });
+                errorBox.textContent = err.detail || 'Fehler beim Erstellen.';
                 errorBox.classList.remove('hidden');
-                nameInput.focus();
-                return;
             }
-
-            submitBtn.disabled = true;
-            errorBox.classList.add('hidden');
-
-            var now   = new Date();
-            var date  = now.toISOString().slice(0, 10);
-            var start = now.toISOString();
-
-            try {
-                var res = await fetch('/api/guest/laufzettel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name, email: email || null, date: date, start: start })
-                });
-
-                if (res.ok) {
-                    var lz = await res.json();
-                    bodyDiv.classList.add('hidden');
-                    thanksTitle.textContent = 'Vielen Dank, ' + esc(name) + '!';
-                    thanksBody.innerHTML = 'Dein Laufzettel <strong>Nr. ' + lz.id + '</strong> wurde erstellt.<br>Bitte wende dich an einen Admin, um Material zu erfassen und zu bezahlen.';
-                    successDiv.classList.remove('hidden');
-                } else {
-                    var err = await res.json().catch(function () { return {}; });
-                    errorBox.textContent = err.detail || 'Fehler beim Erstellen des Laufzettels.';
-                    errorBox.classList.remove('hidden');
-                }
-            } catch (_) {
-                errorBox.textContent = 'Netzwerkfehler. Bitte versuche es erneut.';
-                errorBox.classList.remove('hidden');
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
-    })();
+        } catch (_) {
+            errorBox.textContent = 'Netzwerkfehler. Bitte versuche es erneut.';
+            errorBox.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    }
 
     // MQTT connection for RFID scan
     const rfidStatus = document.getElementById('rfid-status');
