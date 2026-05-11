@@ -41,7 +41,7 @@
             <div class="card-icon">👋</div>
             <h2>Neu hier?</h2>
             <p>Kein Mitglied? Erstelle einen Gäste-Laufzettel und zahle am Ende deines Besuchs.</p>
-            <a href="/guest/laufzettel" class="btn btn-guest btn-full">Gäste-Laufzettel</a>
+            <button type="button" class="btn btn-guest btn-full" id="open-guest-modal-btn">Gäste-Laufzettel</button>
         </div>
     </div>
 
@@ -62,10 +62,143 @@
         <p>H3cke e.V. MakerSpace | <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">Dokumentation</a></p>
     </div>
 </div>
+
+<!-- Guest Laufzettel Modal -->
+<div id="guest-modal-overlay" class="guest-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="guest-modal-title">
+    <div class="guest-modal-box">
+        <div class="guest-modal-header">
+            <h2 id="guest-modal-title">👋 Gäste-Laufzettel erstellen</h2>
+            <button type="button" class="guest-modal-close" id="close-guest-modal-btn" aria-label="Schließen">✕</button>
+        </div>
+
+        <div id="guest-modal-body">
+            <p class="guest-modal-subtitle">Bitte gib deinen Namen ein, um einen Laufzettel zu erstellen.</p>
+
+            <div id="guest-modal-error" class="guest-modal-alert guest-modal-alert--error hidden"></div>
+
+            <form id="guest-modal-form" novalidate>
+                <div class="guest-modal-field">
+                    <label for="gm-name">Name <span class="required-star">*</span></label>
+                    <input type="text" id="gm-name" placeholder="Dein Name" required autocomplete="name" autocorrect="off">
+                </div>
+                <div class="guest-modal-field">
+                    <label for="gm-email">E-Mail <span class="optional-label">(optional)</span></label>
+                    <input type="email" id="gm-email" placeholder="deine@email.de" autocomplete="email" inputmode="email">
+                </div>
+                <button type="submit" class="btn btn-guest btn-full" id="gm-submit-btn">Fertig ✓</button>
+            </form>
+        </div>
+
+        <div id="guest-modal-success" class="hidden">
+            <div class="guest-modal-success-icon">✅</div>
+            <h3 id="gm-thanks-title">Vielen Dank!</h3>
+            <p id="gm-thanks-body"></p>
+            <button type="button" class="btn btn-guest btn-full" id="gm-back-btn">Zurück zur Startseite</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // ── Guest Laufzettel Modal ────────────────────────────────────────────────
+    (function () {
+        const overlay    = document.getElementById('guest-modal-overlay');
+        const openBtn    = document.getElementById('open-guest-modal-btn');
+        const closeBtn   = document.getElementById('close-guest-modal-btn');
+        const form       = document.getElementById('guest-modal-form');
+        const nameInput  = document.getElementById('gm-name');
+        const emailInput = document.getElementById('gm-email');
+        const submitBtn  = document.getElementById('gm-submit-btn');
+        const errorBox   = document.getElementById('guest-modal-error');
+        const bodyDiv    = document.getElementById('guest-modal-body');
+        const successDiv = document.getElementById('guest-modal-success');
+        const thanksTitle = document.getElementById('gm-thanks-title');
+        const thanksBody  = document.getElementById('gm-thanks-body');
+        const backBtn    = document.getElementById('gm-back-btn');
+
+        function openModal() {
+            overlay.classList.remove('hidden');
+            resetModal();
+            setTimeout(() => nameInput.focus(), 50);
+        }
+
+        function closeModal() {
+            overlay.classList.add('hidden');
+        }
+
+        function resetModal() {
+            form.reset();
+            errorBox.classList.add('hidden');
+            errorBox.textContent = '';
+            bodyDiv.classList.remove('hidden');
+            successDiv.classList.add('hidden');
+        }
+
+        function esc(str) {
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        openBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+        backBtn.addEventListener('click', closeModal);
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) closeModal();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name  = nameInput.value.trim();
+            const email = emailInput.value.trim();
+
+            if (!name) {
+                errorBox.textContent = 'Bitte gib deinen Namen ein.';
+                errorBox.classList.remove('hidden');
+                nameInput.focus();
+                return;
+            }
+
+            submitBtn.disabled = true;
+            errorBox.classList.add('hidden');
+
+            const now   = new Date();
+            const date  = now.toISOString().slice(0, 10);
+            const start = now.toISOString();
+
+            try {
+                const res = await fetch('/api/guest/laufzettel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email: email || null, date, start })
+                });
+
+                if (res.ok) {
+                    const lz = await res.json();
+                    bodyDiv.classList.add('hidden');
+                    thanksTitle.textContent = 'Vielen Dank, ' + esc(name) + '!';
+                    thanksBody.innerHTML = 'Dein Laufzettel <strong>Nr. ' + lz.id + '</strong> wurde erstellt.<br>Bitte wende dich an einen Admin, um Material zu erfassen und zu bezahlen.';
+                    successDiv.classList.remove('hidden');
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    errorBox.textContent = err.detail || 'Fehler beim Erstellen des Laufzettels.';
+                    errorBox.classList.remove('hidden');
+                }
+            } catch (_) {
+                errorBox.textContent = 'Netzwerkfehler. Bitte versuche es erneut.';
+                errorBox.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    })();
+
     // MQTT connection for RFID scan
     const rfidStatus = document.getElementById('rfid-status');
     const rfidError = document.getElementById('rfid-error');
