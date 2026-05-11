@@ -50,12 +50,59 @@
 }
 
 /* ============================================================================
+   NUCLEAR OPTION - Override all backgrounds and text colors
+   ============================================================================ */
+
+/* Override ALL background colors */
+[class] {
+  background-color: var(--gc-bg-primary) !important;
+}
+
+/* Lists and columns - dark background */
+[class*="List"],
+[class*="list"],
+[class*="Column"],
+[class*="column"],
+[class*="Board"] > [class],
+[class*="board"] > [class] {
+  background-color: var(--gc-bg-secondary) !important;
+}
+
+/* Card backgrounds */
+[class*="Card"],
+[class*="card"],
+[class*="Task"],
+[class*="task"],
+[class*="Item"],
+[class*="item"] {
+  background-color: var(--gc-bg-card) !important;
+}
+
+/* ALL text elements - force light color */
+[class] {
+  color: var(--gc-text-primary) !important;
+}
+
+/* Override text colors - light gray for most text */
+span, p, div {
+  color: var(--gc-text-primary) !important;
+}
+
+/* ============================================================================
    Global Styles
    ============================================================================ */
 html, body {
   background: var(--gc-bg-primary) !important;
   color: var(--gc-text-primary) !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif !important;
+}
+
+/* Force all text in the app to be light */
+#app, #root, [id*="app"], [id*="root"] {
+  color: var(--gc-text-primary) !important;
+}
+#app *, #root *, [id*="app"] *, [id*="root"] * {
+  color: var(--gc-text-primary) !important;
 }
 
 /* ============================================================================
