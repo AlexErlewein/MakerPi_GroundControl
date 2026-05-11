@@ -89,6 +89,58 @@ echo "🔄 Restarting GroundControl service..."
 ssh -t "$PI_USER@$PI_HOST" "sudo systemctl restart groundcontrol && sleep 2 && \
     sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'"
 
+# ── 7. Deploy Planka files (if planka directory exists) ─────────────────────
+PLANKA_DIR="$PROJECT_ROOT/planka"
+PLANKA_REMOTE_DIR="/home/$PI_USER/planka"
+
+if [ -d "$PLANKA_DIR" ] && [ -f "$PLANKA_DIR/custom.css" ]; then
+    echo ""
+    echo "🎨 Checking Planka files..."
+    
+    # Check if remote planka directory exists, create if not
+    ssh "$PI_USER@$PI_HOST" "mkdir -p $PLANKA_REMOTE_DIR"
+    
+    # Compare files and only copy if different
+    CSS_CHANGED=0
+    COMPOSE_CHANGED=0
+    
+    # Check custom.css
+    LOCAL_CSS_MD5=$(md5sum "$PLANKA_DIR/custom.css" 2>/dev/null | awk '{print $1}')
+    REMOTE_CSS_MD5=$(ssh "$PI_USER@$PI_HOST" "md5sum $PLANKA_REMOTE_DIR/custom.css 2>/dev/null | awk '{print \$1}'" || echo "")
+    
+    if [ "$LOCAL_CSS_MD5" != "$REMOTE_CSS_MD5" ]; then
+        echo "  📤 custom.css changed – copying..."
+        scp "$PLANKA_DIR/custom.css" "$PI_USER@$PI_HOST:$PLANKA_REMOTE_DIR/custom.css"
+        CSS_CHANGED=1
+    else
+        echo "  ✓ custom.css unchanged"
+    fi
+    
+    # Check docker-compose.yml
+    if [ -f "$PLANKA_DIR/docker-compose.yml" ]; then
+        LOCAL_COMPOSE_MD5=$(md5sum "$PLANKA_DIR/docker-compose.yml" 2>/dev/null | awk '{print $1}')
+        REMOTE_COMPOSE_MD5=$(ssh "$PI_USER@$PI_HOST" "md5sum $PLANKA_REMOTE_DIR/docker-compose.yml 2>/dev/null | awk '{print \$1}'" || echo "")
+        
+        if [ "$LOCAL_COMPOSE_MD5" != "$REMOTE_COMPOSE_MD5" ]; then
+            echo "  📤 docker-compose.yml changed – copying..."
+            scp "$PLANKA_DIR/docker-compose.yml" "$PI_USER@$PI_HOST:$PLANKA_REMOTE_DIR/docker-compose.yml"
+            COMPOSE_CHANGED=1
+        else
+            echo "  ✓ docker-compose.yml unchanged"
+        fi
+    fi
+    
+    # Restart Planka if any files changed
+    if [ "$CSS_CHANGED" = "1" ] || [ "$COMPOSE_CHANGED" = "1" ]; then
+        echo "  🔄 Restarting Planka..."
+        ssh "$PI_USER@$PI_HOST" "cd $PLANKA_REMOTE_DIR && docker compose restart planka 2>/dev/null || docker compose up -d"
+        echo "  ✅ Planka restarted"
+    else
+        echo "  ✓ Planka unchanged – no restart needed"
+    fi
+fi
+
 echo ""
 echo "✅ Deploy complete!"
 echo "Dashboard: http://$PI_HOST:8000"
+echo "Kanban:    http://$PI_HOST:3001"
