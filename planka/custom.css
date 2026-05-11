@@ -189,21 +189,46 @@ html, body {
   color: var(--gc-text-primary) !important;
 }
 
-/* Specific card text elements */
-.card-title,
-.task-title,
+/* Card heading text - ORANGE accent (override universal selector) */
+.card-item .card-title,
+.card-item .task-title,
 .card-item h3,
 .card-item h4,
-.card-item span,
-.card-item div,
+.card-item .header,
+.card-item [class*="title"],
+.task-card .card-title,
+.task-card .task-title,
 .task-card h3,
 .task-card h4,
+.task-card .header,
+.task-card [class*="title"],
+.ui.card .header,
+[data-testid="card"] h3,
+[data-testid="card"] h4,
+[data-testid="card"] .header,
+[data-testid="card"] [class*="title"],
+[data-rbd-draggable-context-id] > div h3,
+[data-rbd-draggable-context-id] > div h4,
+[data-rbd-draggable-context-id] > div [class*="title"] {
+  color: var(--gc-accent) !important;
+}
+
+/* Card body text - light gray */
+.card-item span,
+.card-item div,
+.card-item .content,
+.card-item .description,
 .task-card span,
 .task-card div,
+.task-card .content,
+.task-card .description,
 .ui.card .content,
-.ui.card .header,
 .ui.card .meta,
-.ui.card .description {
+.ui.card .description,
+[data-testid="card"] span,
+[data-testid="card"] div,
+[data-testid="card"] .content,
+[data-testid="card"] .description {
   color: var(--gc-text-primary) !important;
 }
 
