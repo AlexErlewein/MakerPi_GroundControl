@@ -425,10 +425,11 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     z-index: 900;
-    padding: 20px;
+    padding: 40px 20px 40px;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -445,6 +446,8 @@
     max-width: 420px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
     position: relative;
+    margin: auto;
+    flex-shrink: 0;
 }
 
 .guest-modal-header {
