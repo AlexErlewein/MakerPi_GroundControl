@@ -127,7 +127,6 @@
                 errorBox.classList.add('hidden');
                 success.innerHTML = '\u2705 Vielen Dank, <strong>' + name.replace(/</g,'&lt;') + '</strong>!<br>Laufzettel Nr. <strong>' + lz.id + '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>';
                 success.classList.remove('hidden');
-                document.getElementById('toggle-guest-btn').textContent = '\u2705 Laufzettel erstellt';
             } else {
                 var err = await res.json().catch(function(){ return {}; });
                 errorBox.textContent = err.detail || 'Fehler beim Erstellen.';
