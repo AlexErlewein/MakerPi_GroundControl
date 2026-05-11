@@ -83,6 +83,32 @@
   color: var(--gc-text-primary) !important;
 }
 
+/* SUPER NUCLEAR - Override Planka's CSS-in-JS hashed classes */
+[class*="_field"],
+[class*="_name"],
+[class*="_title"],
+[class*="_text"],
+[class*="_content"],
+[class*="_card"],
+[class*="_task"] {
+  color: var(--gc-text-primary) !important;
+  background-color: var(--gc-bg-card) !important;
+}
+
+/* Target the specific card text elements by tag + partial class */
+span[class*="_"],
+div[class*="_"],
+p[class*="_"] {
+  color: var(--gc-text-primary) !important;
+}
+
+/* Override inline styles that set dark colors */
+[style*="color: #17394d"],
+[style*="color: rgb(23, 57, 77)"],
+[style*="color:#17394d"] {
+  color: var(--gc-text-primary) !important;
+}
+
 /* Override text colors - light gray for most text */
 span, p, div {
   color: var(--gc-text-primary) !important;
@@ -184,7 +210,11 @@ html, body {
    Board View / Kanban Columns
    ============================================================================ */
 .board-wrapper,
-.board-canvas {
+.board-canvas,
+[class*="board"],
+[class*="Board"],
+[class*="canvas"],
+[class*="Canvas"] {
   background: var(--gc-bg-primary) !important;
 }
 
@@ -197,6 +227,8 @@ html, body {
 [class*="list"],
 [class*="Column"],
 [class*="column"],
+[class*="_list"],
+[class*="_column"],
 [data-rbd-droppable-context-id],
 [data-rbd-droppable-context-id] > div {
   background: var(--gc-bg-secondary) !important;
