@@ -107,8 +107,15 @@
         if (!varianteId) return null;
         for (const loc of katalog) {
             for (const kat of (loc.kategorien || [])) {
+                // Check direct varianten (if any)
                 for (const v of (kat.varianten || [])) {
                     if (v.id === varianteId) return loc.name;
+                }
+                // Check unterkategorien -> varianten
+                for (const ukat of (kat.unterkategorien || [])) {
+                    for (const v of (ukat.varianten || [])) {
+                        if (v.id === varianteId) return loc.name;
+                    }
                 }
             }
         }
