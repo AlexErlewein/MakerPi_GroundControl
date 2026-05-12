@@ -199,6 +199,11 @@ def generate_pdf(
         pdf.set_text_color(*_CI_TEXT_ON_DARK)
         for w, h in zip(tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]):
             pdf.cell(w, 6, h, border="B", fill=True)
+
+        # Gesamtbetrag aligned on same height as the header bar
+        pdf.set_font("Helvetica", style="B", size=11)
+        pdf.set_text_color(*_CI_ACCENT)
+        pdf.cell(0, 6, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R")
         pdf.ln()
 
         total_netto = 0.0
@@ -220,6 +225,7 @@ def generate_pdf(
             pdf.cell(tw[3], 6, f"{brutto:.2f}", align="R")
             pdf.ln()
 
+        # Grey Gesamt bar at the bottom
         pdf.set_font("Helvetica", style="B", size=8)
         pdf.set_draw_color(*_CI_BORDER)
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
@@ -228,18 +234,9 @@ def generate_pdf(
             pdf.cell(tw[1], 6, f"{total_netto:.2f}", border="T", align="R")
             pdf.cell(tw[2], 6, f"{total_tax:.2f}", border="T", align="R")
             pdf.cell(tw[3], 6, f"{total_brutto:.2f}", border="T", align="R")
+            pdf.ln()
         else:
-            # Single tax rate - print empty cells to align Gesamtbetrag
-            pdf.cell(tw[0], 6, "", border="T")
-            pdf.cell(tw[1], 6, "", border="T")
-            pdf.cell(tw[2], 6, "", border="T")
-            pdf.cell(tw[3], 6, "", border="T")
-
-        # Gesamtbetrag aligned on same height as the grey bar
-        pdf.set_font("Helvetica", style="B", size=11)
-        pdf.set_text_color(*_CI_ACCENT)
-        pdf.cell(0, 6, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R")
-        pdf.ln(6)
+            pdf.ln(2)
 
     # ── Payment section ──────────────────────────────────────────────────────
     if lz.payment_method:
