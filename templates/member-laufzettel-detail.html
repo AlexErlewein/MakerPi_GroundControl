@@ -184,7 +184,7 @@
     }
 
     async function loadKatalog() {
-        const res = await fetch('/api/katalog');
+        const res = await fetch('/api/katalog', { credentials: 'include' });
         katalog = await res.json();
         const sel = document.getElementById('kat-select-location');
         if (sel) populateLocationSelect();
@@ -200,7 +200,7 @@
 
     async function checkSession() {
         try {
-            const res = await fetch('/api/auth/session');
+            const res = await fetch('/api/auth/session', { credentials: 'include' });
             const session = await res.json();
             const adminBar = document.getElementById('admin-bar');
             const adminVerified = document.getElementById('admin-verified');
@@ -219,7 +219,7 @@
             if (!password) return;
             const formData = new FormData(); formData.append('password', password);
             try {
-                const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData });
+                const res = await fetch('/api/auth/verify-admin', { method: 'POST', body: formData, credentials: 'include' });
                 if (res.ok) window.location.href = '/dashboard';
                 else alert('Falsches Passwort oder keine Admin-Berechtigung');
             } catch (err) { alert('Fehler beim Verifizieren'); }
@@ -227,7 +227,7 @@
     }
 
     async function exitAdminMode() {
-        await fetch('/api/auth/logout-admin', { method: 'POST' });
+        await fetch('/api/auth/logout-admin', { method: 'POST', credentials: 'include' });
         window.location.reload();
     }
 
@@ -545,6 +545,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
+                credentials: 'include',
             });
 
             if (res.ok) {
@@ -582,6 +583,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
+            credentials: 'include',
         });
 
         if (res.ok) {

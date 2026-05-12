@@ -11,7 +11,7 @@ function updateActivity() {
 function sendHeartbeat() {
     fetch('/api/auth/heartbeat', {
         method: 'POST',
-        credentials: 'same-origin'
+        credentials: 'include'
     })
     .then(res => {
         if (res.status === 401) {
