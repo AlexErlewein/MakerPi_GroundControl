@@ -40,6 +40,7 @@
                     </td>
                     <td>
                         <a href="/member/laufzettel/{{ item.laufzettel.id }}" class="btn btn-secondary btn-sm">Details</a>
+                        <a href="/api/member/laufzettel/{{ item.laufzettel.id }}/pdf" class="btn btn-secondary btn-sm" title="PDF herunterladen">📄</a>
                     </td>
                 </tr>
                 {% endfor %}

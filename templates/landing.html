@@ -191,6 +191,7 @@
             const res = await fetch('/api/auth/login-rfid', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
                 body: JSON.stringify({rfid_uid: rfidUid})
             });
 

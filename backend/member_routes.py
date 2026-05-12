@@ -1,9 +1,11 @@
 """Member routes - member-only access to own laufzettel"""
 
 from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+
+from backend.laufzettel.pdf import generate_pdf, pdf_filename
 
 import logging
 
@@ -191,6 +193,43 @@ async def member_laufzettel_historie(
             "history_list": history_list,
             "user": user,
         },
+    )
+
+
+@router.get("/api/member/laufzettel/{laufzettel_id}/pdf")
+async def member_download_pdf(
+    request: Request,
+    laufzettel_id: int,
+    db: Session = Depends(get_laufzettel_db),
+    auth_db: Session = Depends(get_auth_db),
+):
+    """Generate and return PDF for member's own laufzettel."""
+    if not is_member_session_valid(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = auth_db.query(User).filter(User.username == request.session.get("user")).first()
+    if not user or user.role not in ["admin", "member"]:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+
+    # Security check: can only download own laufzettel
+    if user.mitglied_id and lz.mitglied_id != user.mitglied_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
+    pdf_bytes = generate_pdf(lz, materials)
+    filename = pdf_filename(lz)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

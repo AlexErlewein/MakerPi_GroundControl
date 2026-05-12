@@ -39,6 +39,11 @@
                 </span>
             </div>
         </div>
+        {% if read_only %}
+        <div style="margin-top: 15px; text-align: right;">
+            <a href="/api/member/laufzettel/{{ laufzettel.id }}/pdf" class="btn btn-secondary btn-sm" title="PDF herunterladen">📄 PDF herunterladen</a>
+        </div>
+        {% endif %}
     </section>
 
     <!-- Material Section -->
