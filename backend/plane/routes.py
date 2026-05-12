@@ -25,12 +25,13 @@ async def _get_intake_id(client: httpx.AsyncClient, headers: dict) -> str:
 
     url = (
         f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
-        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/inboxes/"
+        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/intakes/"
     )
     logger.info("Fetching Plane intake list → %s", url)
     resp = await client.get(url, headers=headers)
-    logger.info("Intake list response: HTTP %s — %s", resp.status_code, resp.text[:300])
-    resp.raise_for_status()
+    logger.info("Intake list response: HTTP %s — %s", resp.status_code, resp.text[:500])
+    if resp.status_code != 200:
+        raise ValueError(f"Intake list fetch failed (HTTP {resp.status_code}): {resp.text[:200]}")
     data = resp.json()
 
     # API returns either a list or {"results": [...]}
@@ -107,17 +108,14 @@ async def submit_bug_report(payload: BugReportRequest):
             url = (
                 f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
                 f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}"
-                f"/inboxes/{intake_id}/inbox-issues/"
+                f"/intakes/{intake_id}/intake-issues/"
             )
             logger.info("Plane intake POST → %s", url)
             resp = await client.post(url, json=body, headers=headers)
     except ValueError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
-    except httpx.HTTPStatusError as exc:
-        logger.error("Plane intake fetch failed: %s", exc)
-        # Bust cache so next attempt retries
+        logger.error("Plane intake error: %s", exc)
         _intake_id_cache.pop(f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}", None)
-        raise HTTPException(status_code=502, detail="Could not fetch Plane intake.")
+        raise HTTPException(status_code=502, detail=str(exc))
     except httpx.RequestError as exc:
         logger.error("Plane API request failed: %s", exc)
         raise HTTPException(status_code=502, detail="Could not reach Plane server.")
