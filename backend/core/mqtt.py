@@ -543,6 +543,25 @@ def handle_device_message(topic: str, payload: str):
                         # Check if this is the Kaffeemaschine device
                         is_kaffeemaschine = device.name and device.name.lower() == "kaffeemaschine"
 
+                        # Use locking to prevent race conditions when creating Laufzettel
+                        from sqlalchemy.orm import with_for_update
+
+                        # Lock any existing open Laufzettel for this UID today to prevent concurrent creation
+                        locked_lz = (
+                            lauf_db.query(Laufzettel)
+                            .filter(
+                                Laufzettel.uid == uid,
+                                Laufzettel.date == today,
+                                Laufzettel.payment_method.is_(None),
+                            )
+                            .with_for_update()
+                            .first()
+                        )
+
+                        # Re-check after acquiring lock - another thread may have created one
+                        if locked_lz:
+                            open_lz = locked_lz
+
                         if is_kaffeemaschine and open_lz:
                             # Kaffeemaschine flow: add/increment Kaffee entry
                             # Debounce: check if enough time passed since last scan
