@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.laufzettel.pdf import generate_pdf, pdf_filename
 
 import logging
+from datetime import datetime, timezone
 
 from backend.auth.db import get_db as get_auth_db
 from backend.auth.models import User
@@ -37,6 +38,9 @@ def require_member(request: Request, db: Session = Depends(get_auth_db)):
 
     if user.role not in ["admin", "member"]:
         raise HTTPException(403, "Access denied")
+
+    # Keep session alive on every API call (same as heartbeat)
+    request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
     return user
 
