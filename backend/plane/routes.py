@@ -14,6 +14,35 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="templates")
 
+_intake_id_cache: dict[str, str] = {}
+
+
+async def _get_intake_id(client: httpx.AsyncClient, headers: dict) -> str:
+    """Fetch (and cache) the default intake ID for the configured project."""
+    cache_key = f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}"
+    if cache_key in _intake_id_cache:
+        return _intake_id_cache[cache_key]
+
+    url = (
+        f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
+        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/inboxes/"
+    )
+    logger.info("Fetching Plane intake list → %s", url)
+    resp = await client.get(url, headers=headers)
+    logger.info("Intake list response: HTTP %s — %s", resp.status_code, resp.text[:300])
+    resp.raise_for_status()
+    data = resp.json()
+
+    # API returns either a list or {"results": [...]}
+    items = data if isinstance(data, list) else data.get("results", [])
+    if not items:
+        raise ValueError("No intake found for this project. Enable Intake in Plane project settings.")
+
+    intake_id = items[0]["id"]
+    _intake_id_cache[cache_key] = intake_id
+    logger.info("Resolved intake ID: %s", intake_id)
+    return intake_id
+
 
 class BugReportRequest(BaseModel):
     title: str
@@ -60,24 +89,35 @@ async def submit_bug_report(payload: BugReportRequest):
 
     full_description = "\n".join(description_parts)
 
-    url = (
-        f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
-        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/issues/"
-    )
     headers = {
         "X-API-Key": _cfg.PLANE_API_TOKEN,
         "Content-Type": "application/json",
     }
     body = {
-        "name": payload.title.strip(),
-        "description_html": f"<p>{full_description.replace(chr(10), '<br>')}</p>",
-        "priority": "medium",
+        "issue": {
+            "name": payload.title.strip(),
+            "description_html": f"<p>{full_description.replace(chr(10), '<br>')}</p>",
+            "priority": "medium",
+        }
     }
 
-    logger.info("Plane API POST → %s", url)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
+            intake_id = await _get_intake_id(client, headers)
+            url = (
+                f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
+                f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}"
+                f"/inboxes/{intake_id}/inbox-issues/"
+            )
+            logger.info("Plane intake POST → %s", url)
             resp = await client.post(url, json=body, headers=headers)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except httpx.HTTPStatusError as exc:
+        logger.error("Plane intake fetch failed: %s", exc)
+        # Bust cache so next attempt retries
+        _intake_id_cache.pop(f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}", None)
+        raise HTTPException(status_code=502, detail="Could not fetch Plane intake.")
     except httpx.RequestError as exc:
         logger.error("Plane API request failed: %s", exc)
         raise HTTPException(status_code=502, detail="Could not reach Plane server.")
@@ -85,13 +125,14 @@ async def submit_bug_report(payload: BugReportRequest):
     logger.info("Plane API response: HTTP %s — %s", resp.status_code, resp.text[:500])
     if resp.status_code not in (200, 201):
         logger.error("Plane API error %s: %s", resp.status_code, resp.text)
+        _intake_id_cache.pop(f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}", None)
         raise HTTPException(
             status_code=502,
             detail=f"Plane rejected the issue (HTTP {resp.status_code}): {resp.text[:200]}",
         )
 
     data = resp.json()
-    logger.info("Plane issue created: %s", data.get("id"))
+    logger.info("Plane intake issue created: %s", data.get("id"))
     return {
         "success": True,
         "issue_id": data.get("sequence_id") or data.get("id"),
