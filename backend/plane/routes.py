@@ -74,6 +74,7 @@ async def submit_bug_report(payload: BugReportRequest):
         "priority": "medium",
     }
 
+    logger.info("Plane API POST → %s", url)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, json=body, headers=headers)
@@ -81,11 +82,12 @@ async def submit_bug_report(payload: BugReportRequest):
         logger.error("Plane API request failed: %s", exc)
         raise HTTPException(status_code=502, detail="Could not reach Plane server.")
 
+    logger.info("Plane API response: HTTP %s — %s", resp.status_code, resp.text[:500])
     if resp.status_code not in (200, 201):
         logger.error("Plane API error %s: %s", resp.status_code, resp.text)
         raise HTTPException(
             status_code=502,
-            detail=f"Plane rejected the issue (HTTP {resp.status_code}).",
+            detail=f"Plane rejected the issue (HTTP {resp.status_code}): {resp.text[:200]}",
         )
 
     data = resp.json()
