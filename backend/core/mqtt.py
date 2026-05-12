@@ -22,6 +22,11 @@ mqtt_client = None
 # SSE subscribers for NFC scan events: list of (asyncio.Queue, asyncio.AbstractEventLoop)
 scan_subscribers: list = []
 
+# Kaffeemaschine debounce: last scan timestamp per UID (to prevent accidental double-counting)
+# Format: {uid: datetime}
+_kaffeemaschine_last_scan: dict = {}
+KAFFEEMASCHINE_DEBOUNCE_S = 15  # seconds between Kaffee increments for same card
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
@@ -540,42 +545,60 @@ def handle_device_message(topic: str, payload: str):
 
                         if is_kaffeemaschine and open_lz:
                             # Kaffeemaschine flow: add/increment Kaffee entry
-                            existing_kaffee = (
-                                lauf_db.query(LaufzettelMaterial)
-                                .filter(
-                                    LaufzettelMaterial.laufzettel_id == open_lz.id,
-                                    LaufzettelMaterial.name == "Kaffee",
-                                )
-                                .first()
-                            )
-                            if existing_kaffee:
-                                # Increment amount by 1
-                                existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
+                            # Debounce: check if enough time passed since last scan
+                            global _kaffeemaschine_last_scan
+                            last_scan = _kaffeemaschine_last_scan.get(uid)
+                            now_dt = _utcnow()
+                            if last_scan and (now_dt - last_scan).total_seconds() < KAFFEEMASCHINE_DEBOUNCE_S:
                                 logger.info(
-                                    "[KAFFEEMASCHINE] Incremented Kaffee count for laufzettel %s: now %s",
-                                    open_lz.id, existing_kaffee.menge
+                                    "[KAFFEEMASCHINE] Debounced scan for uid=%s (%.1fs < %ds)",
+                                    uid, (now_dt - last_scan).total_seconds(), KAFFEEMASCHINE_DEBOUNCE_S
                                 )
+                                # Still update nodes but skip Kaffee increment
+                                nodes = json.loads(open_lz.nodes or "[]")
+                                if device_id not in nodes:
+                                    nodes.append(device_id)
+                                    open_lz.nodes = json.dumps(nodes)
+                                    lauf_db.commit()
                             else:
-                                # Create new Kaffee entry under Spenden (tax_rate=0, price=0)
-                                new_kaffee = LaufzettelMaterial(
-                                    laufzettel_id=open_lz.id,
-                                    name="Kaffee",
-                                    menge=1,
-                                    calculated_price=0.0,
-                                    tax_rate=0.0,
+                                # Update last scan timestamp and process Kaffee
+                                _kaffeemaschine_last_scan[uid] = now_dt
+                                existing_kaffee = (
+                                    lauf_db.query(LaufzettelMaterial)
+                                    .filter(
+                                        LaufzettelMaterial.laufzettel_id == open_lz.id,
+                                        LaufzettelMaterial.name == "Kaffee",
+                                    )
+                                    .first()
                                 )
-                                lauf_db.add(new_kaffee)
-                                logger.info(
-                                    "[KAFFEEMASCHINE] Added Kaffee entry to laufzettel %s",
-                                    open_lz.id
-                                )
-                            # Also update nodes to include kaffeemaschine
-                            nodes = json.loads(open_lz.nodes or "[]")
-                            if device_id not in nodes:
-                                nodes.append(device_id)
-                                open_lz.nodes = json.dumps(nodes)
-                            # Single commit for all Kaffeemaschine changes
-                            lauf_db.commit()
+                                if existing_kaffee:
+                                    # Increment amount by 1
+                                    existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
+                                    logger.info(
+                                        "[KAFFEEMASCHINE] Incremented Kaffee count for laufzettel %s: now %s",
+                                        open_lz.id, existing_kaffee.menge
+                                    )
+                                else:
+                                    # Create new Kaffee entry under Spenden (tax_rate=0, price=0)
+                                    new_kaffee = LaufzettelMaterial(
+                                        laufzettel_id=open_lz.id,
+                                        name="Kaffee",
+                                        menge=1,
+                                        calculated_price=0.0,
+                                        tax_rate=0.0,
+                                    )
+                                    lauf_db.add(new_kaffee)
+                                    logger.info(
+                                        "[KAFFEEMASCHINE] Added Kaffee entry to laufzettel %s",
+                                        open_lz.id
+                                    )
+                                # Also update nodes to include kaffeemaschine
+                                nodes = json.loads(open_lz.nodes or "[]")
+                                if device_id not in nodes:
+                                    nodes.append(device_id)
+                                    open_lz.nodes = json.dumps(nodes)
+                                # Single commit for all Kaffeemaschine changes
+                                lauf_db.commit()
                         elif open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
