@@ -511,7 +511,7 @@ def handle_device_message(topic: str, payload: str):
                 if validated:
                     from datetime import date as dt_date, datetime as dt_datetime, timezone as dt_timezone, timedelta
                     from backend.laufzettel.db import SessionLocal as LaufzettelSession
-                    from backend.laufzettel.models import Laufzettel
+                    from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 
                     lauf_db = LaufzettelSession()
                     try:
@@ -534,7 +534,50 @@ def handle_device_message(topic: str, payload: str):
                             lz.created_at and (now_utc - lz.created_at) < timedelta(seconds=5)
                             for lz in today_lz
                         )
-                        if open_lz is None and not recently_created:
+
+                        # Check if this is the Kaffeemaschine device
+                        is_kaffeemaschine = device.name and device.name.lower() == "kaffeemaschine"
+
+                        if is_kaffeemaschine and open_lz:
+                            # Kaffeemaschine flow: add/increment Kaffee entry
+                            existing_kaffee = (
+                                lauf_db.query(LaufzettelMaterial)
+                                .filter(
+                                    LaufzettelMaterial.laufzettel_id == open_lz.id,
+                                    LaufzettelMaterial.name == "Kaffee",
+                                )
+                                .first()
+                            )
+                            if existing_kaffee:
+                                # Increment amount by 1
+                                existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
+                                lauf_db.commit()
+                                logger.info(
+                                    "[KAFFEEMASCHINE] Incremented Kaffee count for laufzettel %s: now %s",
+                                    open_lz.id, existing_kaffee.menge
+                                )
+                            else:
+                                # Create new Kaffee entry under Spenden (tax_rate=0, price=0)
+                                new_kaffee = LaufzettelMaterial(
+                                    laufzettel_id=open_lz.id,
+                                    name="Kaffee",
+                                    menge=1,
+                                    calculated_price=0.0,
+                                    tax_rate=0.0,
+                                )
+                                lauf_db.add(new_kaffee)
+                                lauf_db.commit()
+                                logger.info(
+                                    "[KAFFEEMASCHINE] Added Kaffee entry to laufzettel %s",
+                                    open_lz.id
+                                )
+                            # Also update nodes to include kaffeemaschine
+                            nodes = json.loads(open_lz.nodes or "[]")
+                            if device_id not in nodes:
+                                nodes.append(device_id)
+                                open_lz.nodes = json.dumps(nodes)
+                                lauf_db.commit()
+                        elif open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
                             new_lz = Laufzettel(
@@ -560,6 +603,22 @@ def handle_device_message(topic: str, payload: str):
                                     )
                             except Exception:
                                 pass
+
+                            # If this is the Kaffeemaschine, also add the first Kaffee entry
+                            if is_kaffeemaschine:
+                                new_kaffee = LaufzettelMaterial(
+                                    laufzettel_id=new_lz.id,
+                                    name="Kaffee",
+                                    menge=1,
+                                    calculated_price=0.0,
+                                    tax_rate=0.0,
+                                )
+                                lauf_db.add(new_kaffee)
+                                lauf_db.commit()
+                                logger.info(
+                                    "[KAFFEEMASCHINE] Added first Kaffee entry to new laufzettel %s",
+                                    new_lz.id
+                                )
                         else:
                             # Update existing open Laufzettel
                             nodes = json.loads(open_lz.nodes or "[]")
