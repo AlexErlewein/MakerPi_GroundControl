@@ -14,36 +14,6 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="templates")
 
-_intake_id_cache: dict[str, str] = {}
-
-
-async def _get_intake_id(client: httpx.AsyncClient, headers: dict) -> str:
-    """Fetch (and cache) the default intake ID for the configured project."""
-    cache_key = f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}"
-    if cache_key in _intake_id_cache:
-        return _intake_id_cache[cache_key]
-
-    url = (
-        f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
-        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/intakes/"
-    )
-    logger.info("Fetching Plane intake list → %s", url)
-    resp = await client.get(url, headers=headers)
-    logger.info("Intake list response: HTTP %s — %s", resp.status_code, resp.text[:500])
-    if resp.status_code != 200:
-        raise ValueError(f"Intake list fetch failed (HTTP {resp.status_code}): {resp.text[:200]}")
-    data = resp.json()
-
-    # API returns either a list or {"results": [...]}
-    items = data if isinstance(data, list) else data.get("results", [])
-    if not items:
-        raise ValueError("No intake found for this project. Enable Intake in Plane project settings.")
-
-    intake_id = items[0]["id"]
-    _intake_id_cache[cache_key] = intake_id
-    logger.info("Resolved intake ID: %s", intake_id)
-    return intake_id
-
 
 class BugReportRequest(BaseModel):
     title: str
@@ -102,20 +72,14 @@ async def submit_bug_report(payload: BugReportRequest):
         }
     }
 
+    url = (
+        f"{_cfg.PLANE_URL.rstrip('/')}/api/workspaces/"
+        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/inbox-issues/"
+    )
+    logger.info("Plane intake POST → %s", url)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            intake_id = await _get_intake_id(client, headers)
-            url = (
-                f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
-                f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}"
-                f"/intakes/{intake_id}/intake-issues/"
-            )
-            logger.info("Plane intake POST → %s", url)
             resp = await client.post(url, json=body, headers=headers)
-    except ValueError as exc:
-        logger.error("Plane intake error: %s", exc)
-        _intake_id_cache.pop(f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}", None)
-        raise HTTPException(status_code=502, detail=str(exc))
     except httpx.RequestError as exc:
         logger.error("Plane API request failed: %s", exc)
         raise HTTPException(status_code=502, detail="Could not reach Plane server.")
@@ -123,7 +87,6 @@ async def submit_bug_report(payload: BugReportRequest):
     logger.info("Plane API response: HTTP %s — %s", resp.status_code, resp.text[:500])
     if resp.status_code not in (200, 201):
         logger.error("Plane API error %s: %s", resp.status_code, resp.text)
-        _intake_id_cache.pop(f"{_cfg.PLANE_WORKSPACE_SLUG}/{_cfg.PLANE_PROJECT_ID}", None)
         raise HTTPException(
             status_code=502,
             detail=f"Plane rejected the issue (HTTP {resp.status_code}): {resp.text[:200]}",
