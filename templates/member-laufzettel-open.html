@@ -254,6 +254,11 @@
                 for (const v of (kat.varianten || [])) {
                     if (v.id === varianteId) return loc.name;
                 }
+                for (const ukat of (kat.unterkategorien || [])) {
+                    for (const v of (ukat.varianten || [])) {
+                        if (v.id === varianteId) return loc.name;
+                    }
+                }
             }
         }
         return null;
