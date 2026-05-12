@@ -36,6 +36,12 @@
     "google_drive_token_file": "config/gdrive_token.json",
     "google_drive_root_folder_id": "",
 
+    "_comment_plane": "Plane issue tracker: create an API token in your Plane profile settings.",
+    "plane_url": "http://your-pi-ip",
+    "plane_api_token": "",
+    "plane_workspace_slug": "your-workspace",
+    "plane_project_id": "your-project-uuid",
+
     "_comment_litestream": "Litestream backups to Backblaze B2. Run scripts/setup-litestream.sh on the Pi.",
     "litestream_enabled": false,
     "backblaze_endpoint": "s3.us-west-004.backblazeb2.com",

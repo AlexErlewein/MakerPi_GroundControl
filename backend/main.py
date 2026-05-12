@@ -19,6 +19,7 @@ from backend.core.routes import router as core_router
 from backend.member_routes import router as member_router
 from backend.push.routes import router as push_router
 from backend.shopify.routes import router as shopify_router
+from backend.plane.routes import router as plane_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ app.include_router(catalog_router)
 app.include_router(buchhaltung_router)
 app.include_router(push_router)
 app.include_router(shopify_router)
+app.include_router(plane_router)
 
 
 @app.get("/offline.html")

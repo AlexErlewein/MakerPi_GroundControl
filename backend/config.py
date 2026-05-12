@@ -122,6 +122,18 @@ SHOPIFY_ACCESS_TOKEN: str = _cfg.get(
     "shopify_access_token", os.environ.get("SHOPIFY_ACCESS_TOKEN", "")
 )
 
+# Plane issue tracker configuration (for public bug report form)
+PLANE_URL: str = _cfg.get("plane_url", os.environ.get("PLANE_URL", ""))
+PLANE_API_TOKEN: str = _cfg.get(
+    "plane_api_token", os.environ.get("PLANE_API_TOKEN", "")
+)
+PLANE_WORKSPACE_SLUG: str = _cfg.get(
+    "plane_workspace_slug", os.environ.get("PLANE_WORKSPACE_SLUG", "")
+)
+PLANE_PROJECT_ID: str = _cfg.get(
+    "plane_project_id", os.environ.get("PLANE_PROJECT_ID", "")
+)
+
 # Database paths (each module owns its own)
 AUTH_DB_URL: str = "sqlite:///./auth.db"
 MEMBERS_DB_URL: str = "sqlite:///./members.db"

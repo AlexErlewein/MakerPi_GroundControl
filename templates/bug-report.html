@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Bug melden - H3cke MakerSpace{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .report-container {
+        max-width: 540px;
+        width: 100%;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .report-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .report-header .icon {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    .report-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        color: var(--text-primary);
+    }
+    .report-header p {
+        color: var(--text-secondary);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+    .optional {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+    }
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.7rem 0.9rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        font-family: inherit;
+        transition: border-color 0.15s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    }
+    .form-group textarea {
+        resize: vertical;
+        min-height: 120px;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    @media (max-width: 480px) {
+        .form-row { grid-template-columns: 1fr; }
+    }
+    .btn-submit {
+        width: 100%;
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--accent, #3b82f6);
+        color: white;
+        transition: background 0.2s, opacity 0.2s;
+        margin-top: 0.5rem;
+    }
+    .btn-submit:hover:not(:disabled) {
+        background: #2563eb;
+    }
+    .btn-submit:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+    .alert {
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.2rem;
+        font-size: 0.9rem;
+        display: none;
+    }
+    .alert-error {
+        background: var(--error-bg, #fee2e2);
+        color: var(--error-text, #dc2626);
+        border: 1px solid rgba(220,38,38,0.2);
+    }
+    .alert-success {
+        background: var(--success-bg, #dcfce7);
+        color: var(--success-text, #166534);
+        border: 1px solid rgba(22,163,74,0.2);
+        text-align: center;
+    }
+    .alert-warning {
+        background: var(--warning-bg, #fef9c3);
+        color: var(--warning-text, #854d0e);
+        border: 1px solid rgba(202,138,4,0.2);
+    }
+    .back-link {
+        display: block;
+        text-align: center;
+        margin-top: 1.2rem;
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+        text-decoration: none;
+    }
+    .back-link:hover { color: var(--text-primary); }
+    .divider {
+        border: none;
+        border-top: 1px solid var(--border-color);
+        margin: 1.5rem 0;
+    }
+    .reporter-section-title {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    <div class="report-header">
+        <span class="icon">🐛</span>
+        <h1>Bug melden / Feedback geben</h1>
+        <p>Etwas stimmt nicht? Sag uns Bescheid – kein Account nötig.</p>
+    </div>
+
+    {% if not plane_configured %}
+    <div class="alert alert-warning" style="display:block;">
+        ⚠️ Bug-Reporting ist aktuell nicht konfiguriert. Bitte wende dich direkt an einen Admin.
+    </div>
+    {% else %}
+
+    <div id="alert-error" class="alert alert-error"></div>
+    <div id="alert-success" class="alert alert-success"></div>
+
+    <form id="bug-form">
+        <div class="form-group">
+            <label for="bug-title">Titel <span style="color:var(--danger,#ef4444)">*</span></label>
+            <input type="text" id="bug-title" placeholder="Kurze Zusammenfassung des Problems" maxlength="200" required>
+        </div>
+
+        <div class="form-group">
+            <label for="bug-description">Beschreibung <span style="color:var(--danger,#ef4444)">*</span></label>
+            <textarea id="bug-description" placeholder="Was ist passiert? Was hast du erwartet? Wie kann man das Problem reproduzieren?" required></textarea>
+        </div>
+
+        <hr class="divider">
+        <p class="reporter-section-title">Kontakt (optional)</p>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="reporter-name">Dein Name <span class="optional">(optional)</span></label>
+                <input type="text" id="reporter-name" placeholder="Max Mustermann" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="reporter-email">E-Mail <span class="optional">(optional)</span></label>
+                <input type="email" id="reporter-email" placeholder="max@example.de" autocomplete="email" inputmode="email">
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">Meldung absenden</button>
+    </form>
+
+    <a href="/" class="back-link">← Zurück zur Startseite</a>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if plane_configured %}
+<script>
+(function () {
+    const form = document.getElementById('bug-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const alertError = document.getElementById('alert-error');
+    const alertSuccess = document.getElementById('alert-success');
+
+    function showError(msg) {
+        alertError.textContent = msg;
+        alertError.style.display = 'block';
+        alertSuccess.style.display = 'none';
+    }
+
+    function showSuccess(issueId) {
+        alertSuccess.innerHTML = '✅ Vielen Dank! Deine Meldung wurde erfolgreich übermittelt.'
+            + (issueId ? ' <strong>(#' + issueId + ')</strong>' : '');
+        alertSuccess.style.display = 'block';
+        alertError.style.display = 'none';
+        form.style.display = 'none';
+    }
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        alertError.style.display = 'none';
+
+        const title = document.getElementById('bug-title').value.trim();
+        const description = document.getElementById('bug-description').value.trim();
+        const reporterName = document.getElementById('reporter-name').value.trim();
+        const reporterEmail = document.getElementById('reporter-email').value.trim();
+
+        if (!title) { showError('Bitte gib einen Titel ein.'); return; }
+        if (!description) { showError('Bitte beschreibe das Problem.'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird gesendet…';
+
+        try {
+            const res = await fetch('/api/bug-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    reporter_name: reporterName || null,
+                    reporter_email: reporterEmail || null,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                showSuccess(data.issue_id);
+            } else {
+                showError(data.detail || 'Fehler beim Senden. Bitte versuche es erneut.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Meldung absenden';
+            }
+        } catch (_) {
+            showError('Netzwerkfehler. Bitte prüfe deine Verbindung.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Meldung absenden';
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

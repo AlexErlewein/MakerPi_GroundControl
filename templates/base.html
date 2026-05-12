@@ -24,8 +24,22 @@
     {% block footer %}{% endblock %}
 
     {% block extra_js %}{% endblock %}
+    <a href="/bug-report" class="bug-report-link" title="Bug melden">🐛</a>
     <script src="/static/js/theme.js"></script>
     <script src="/static/js/pwa.js"></script>
     <button id="theme-toggle" class="theme-toggle" title="Light Mode">{% block theme_icon %}☀️{% endblock %}</button>
+    <style>
+        .bug-report-link {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            font-size: 1.3rem;
+            opacity: 0.45;
+            text-decoration: none;
+            z-index: 900;
+            transition: opacity 0.2s;
+        }
+        .bug-report-link:hover { opacity: 1; }
+    </style>
 </body>
 </html>
