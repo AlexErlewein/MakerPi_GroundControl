@@ -7,9 +7,8 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
-
 from backend.config import SECRET_KEY
+from backend.middleware import PWASessionMiddleware
 from backend.auth.routes import router as auth_router
 from backend.members.routes import router as members_router
 from backend.laufzettel.routes import router as laufzettel_router
@@ -57,7 +56,8 @@ async def shutdown_scheduler():
 
 
 # Session middleware (required for auth)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+# Uses PWASessionMiddleware to omit SameSite so iOS PWA fetch() calls send the cookie
+app.add_middleware(PWASessionMiddleware, secret_key=SECRET_KEY)
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -6,10 +6,10 @@
         <div class="header-left">
             <a href="/member"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
             <nav class="nav">
-                <a href="/member" class="nav-link{% if nav_active == 'auftrag' %} active{% endif %}">Auftrag</a>
-                <a href="/member/konto" class="nav-link{% if nav_active == 'konto' %} active{% endif %}">Mein Konto</a>
-                <a href="/member/laufzettel/historie" class="nav-link{% if nav_active == 'historie' %} active{% endif %}">Historie</a>
-                <a href="/logout" class="nav-link">Abmelden</a>
+                <button type="button" class="nav-link{% if nav_active == 'auftrag' %} active{% endif %}" onclick="window.location.href='/member'">Auftrag</button>
+                <button type="button" class="nav-link{% if nav_active == 'konto' %} active{% endif %}" onclick="window.location.href='/member/konto'">Mein Konto</button>
+                <button type="button" class="nav-link{% if nav_active == 'historie' %} active{% endif %}" onclick="window.location.href='/member/laufzettel/historie'">Historie</button>
+                <button type="button" class="nav-link" onclick="window.location.href='/logout'">Abmelden</button>
             </nav>
         </div>
         <div class="header-right">
