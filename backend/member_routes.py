@@ -29,6 +29,14 @@ templates = Jinja2Templates(directory="templates")
 def require_member(request: Request, db: Session = Depends(get_auth_db)):
     """Check if user is logged in as member or admin"""
     username = request.session.get("user")
+    cookie_header = request.headers.get("cookie", "")
+    logger.warning(
+        "require_member: user=%r session_keys=%r cookie_present=%r ua=%r",
+        username,
+        list(request.session.keys()),
+        bool(cookie_header),
+        request.headers.get("user-agent", "")[:80],
+    )
     if not username:
         raise HTTPException(401, "Not authenticated")
 
