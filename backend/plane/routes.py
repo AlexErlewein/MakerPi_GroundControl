@@ -61,7 +61,7 @@ async def submit_bug_report(payload: BugReportRequest):
     full_description = "\n".join(description_parts)
 
     headers = {
-        "X-API-Key": _cfg.PLANE_API_TOKEN,
+        "X-Api-Key": _cfg.PLANE_API_TOKEN,
         "Content-Type": "application/json",
     }
     body = {
@@ -73,8 +73,8 @@ async def submit_bug_report(payload: BugReportRequest):
     }
 
     url = (
-        f"{_cfg.PLANE_URL.rstrip('/')}/api/workspaces/"
-        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/inbox-issues/"
+        f"{_cfg.PLANE_URL.rstrip('/')}/api/v1/workspaces/"
+        f"{_cfg.PLANE_WORKSPACE_SLUG}/projects/{_cfg.PLANE_PROJECT_ID}/intake-issues/"
     )
     logger.info("Plane intake POST → %s", url)
     try:
