@@ -551,7 +551,6 @@ def handle_device_message(topic: str, payload: str):
                             if existing_kaffee:
                                 # Increment amount by 1
                                 existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
-                                lauf_db.commit()
                                 logger.info(
                                     "[KAFFEEMASCHINE] Incremented Kaffee count for laufzettel %s: now %s",
                                     open_lz.id, existing_kaffee.menge
@@ -566,7 +565,6 @@ def handle_device_message(topic: str, payload: str):
                                     tax_rate=0.0,
                                 )
                                 lauf_db.add(new_kaffee)
-                                lauf_db.commit()
                                 logger.info(
                                     "[KAFFEEMASCHINE] Added Kaffee entry to laufzettel %s",
                                     open_lz.id
@@ -576,7 +574,8 @@ def handle_device_message(topic: str, payload: str):
                             if device_id not in nodes:
                                 nodes.append(device_id)
                                 open_lz.nodes = json.dumps(nodes)
-                                lauf_db.commit()
+                            # Single commit for all Kaffeemaschine changes
+                            lauf_db.commit()
                         elif open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
@@ -619,8 +618,8 @@ def handle_device_message(topic: str, payload: str):
                                     "[KAFFEEMASCHINE] Added first Kaffee entry to new laufzettel %s",
                                     new_lz.id
                                 )
-                        else:
-                            # Update existing open Laufzettel
+                        elif open_lz is not None:
+                            # Update existing open Laufzettel (regular scanner, not Kaffeemaschine)
                             nodes = json.loads(open_lz.nodes or "[]")
                             if device_id not in nodes:
                                 nodes.append(device_id)
@@ -630,6 +629,7 @@ def handle_device_message(topic: str, payload: str):
                             if not open_lz.member_id and member_id_str:
                                 open_lz.member_id = member_id_str
                             lauf_db.commit()
+                        # If recently_created is True, do nothing (dedup guard)
                     finally:
                         lauf_db.close()
             except json.JSONDecodeError:
