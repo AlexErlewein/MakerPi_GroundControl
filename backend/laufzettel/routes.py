@@ -30,6 +30,15 @@ except Exception:
     send_push_notification = None  # Optional module
     pass
 
+# Email support (import at module level, calls wrapped in try/except)
+try:
+    from backend.email_utils import send_email as _send_email
+    from backend.email_templates import easyverein_signup_html, laufzettel_receipt_html
+except Exception:
+    _send_email = None
+    laufzettel_receipt_html = None
+    easyverein_signup_html = None
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -53,6 +62,61 @@ def _schedule_pdf_upload(lz: Laufzettel, materials: list) -> None:
         )
     except Exception:
         logger.exception("PDF generation failed for Laufzettel #%s", lz.id)
+
+
+def _get_laufzettel_email(lz: "Laufzettel") -> str | None:
+    """Return the best email address for a Laufzettel's owner, or None."""
+    if lz.guest_email:
+        return lz.guest_email
+    try:
+        from backend.members.db import SessionLocal as MembersSession
+        from backend.members.models import Mitglied, RFIDTag
+
+        members_db = MembersSession()
+        try:
+            if lz.mitglied_id:
+                m = members_db.query(Mitglied).filter(Mitglied.id == lz.mitglied_id).first()
+                if m and m.email:
+                    return m.email
+            if lz.uid and not lz.uid.startswith("GUEST-"):
+                m = members_db.query(Mitglied).filter(Mitglied.nfc_uid == lz.uid).first()
+                if m and m.email:
+                    return m.email
+                tag = (
+                    members_db.query(RFIDTag)
+                    .filter(RFIDTag.uid == lz.uid, RFIDTag.active == 1)
+                    .first()
+                )
+                if tag and tag.owner_email:
+                    return tag.owner_email
+        finally:
+            members_db.close()
+    except Exception:
+        pass
+    return None
+
+
+def _schedule_receipt_email(lz: "Laufzettel", materials: list) -> None:
+    """Fire-and-forget: email a payment receipt to the Laufzettel owner.
+
+    An email failure must never affect the payment response.
+    """
+    if not _send_email or not laufzettel_receipt_html:
+        return
+    try:
+        recipient = _get_laufzettel_email(lz)
+        if not recipient:
+            return
+        html = laufzettel_receipt_html(lz, materials)
+        asyncio.create_task(
+            _send_email(
+                to=recipient,
+                subject=f"Laufzettel #{lz.id} – Quittung",
+                html_body=html,
+            )
+        )
+    except Exception:
+        logger.exception("Failed to schedule receipt email for Laufzettel #%s", lz.id)
 
 
 class LaufzettelCreate(BaseModel):
@@ -596,6 +660,7 @@ async def pay_bar(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    _schedule_receipt_email(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
@@ -799,6 +864,7 @@ async def get_karte_status(
                         )
                         d["material"] = [m.to_dict() for m in materials]
                         _schedule_pdf_upload(lz, materials)
+                        _schedule_receipt_email(lz, materials)
                         from backend.buchhaltung.accounting import (
                             record_laufzettel_payment,
                         )
@@ -846,6 +912,7 @@ async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    _schedule_receipt_email(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
@@ -982,6 +1049,7 @@ async def get_checkout_status(
         )
         d["material"] = [m.to_dict() for m in materials]
         _schedule_pdf_upload(lz, materials)
+        _schedule_receipt_email(lz, materials)
         from backend.buchhaltung.accounting import record_laufzettel_payment
 
         record_laufzettel_payment(lz, materials)
@@ -1145,6 +1213,22 @@ async def create_guest_laufzettel(
 
     # Set guest_id cookie
     request.session["guest_id"] = guest_id
+
+    # EasyVerein signup email (non-critical, fire-and-forget)
+    if data.email and _send_email and easyverein_signup_html:
+        try:
+            from backend.config import EASYVEREIN_SIGNUP_URL
+
+            html = easyverein_signup_html(data.name, EASYVEREIN_SIGNUP_URL)
+            asyncio.create_task(
+                _send_email(
+                    to=data.email,
+                    subject="Willkommen im H3cke! Jetzt Mitglied werden",
+                    html_body=html,
+                )
+            )
+        except Exception:
+            logger.exception("Failed to schedule easyVerein signup email for guest %s", lz.id)
 
     d = lz.to_dict()
     d["material"] = []
@@ -1347,6 +1431,7 @@ async def get_wero_status(
             )
             d["material"] = [m.to_dict() for m in materials]
             _schedule_pdf_upload(lz, materials)
+            _schedule_receipt_email(lz, materials)
             from backend.buchhaltung.accounting import record_laufzettel_payment
 
             record_laufzettel_payment(lz, materials)
@@ -1404,6 +1489,7 @@ async def confirm_wero_payment(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
+    _schedule_receipt_email(lz, materials)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)

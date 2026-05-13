@@ -114,6 +114,24 @@ BACKBLAZE_APPLICATION_KEY: str = _cfg.get(
     os.environ.get("BACKBLAZE_APPLICATION_KEY", ""),
 )
 
+# Email (SMTP) configuration
+SMTP_HOST: str = _cfg.get("smtp_host", os.environ.get("SMTP_HOST", ""))
+SMTP_PORT: int = _cfg.get("smtp_port", int(os.environ.get("SMTP_PORT", "587")))
+SMTP_USERNAME: str = _cfg.get("smtp_username", os.environ.get("SMTP_USERNAME", ""))
+SMTP_PASSWORD: str = _cfg.get("smtp_password", os.environ.get("SMTP_PASSWORD", ""))
+SMTP_FROM_EMAIL: str = _cfg.get("smtp_from_email", os.environ.get("SMTP_FROM_EMAIL", ""))
+SMTP_STARTTLS: bool = _cfg.get(
+    "smtp_starttls", os.environ.get("SMTP_STARTTLS", "true").lower() == "true"
+)
+SMTP_TLS: bool = _cfg.get(
+    "smtp_tls", os.environ.get("SMTP_TLS", "false").lower() == "true"
+)
+
+# EasyVerein membership signup URL (sent to guests after creating a Laufzettel)
+EASYVEREIN_SIGNUP_URL: str = _cfg.get(
+    "easyverein_signup_url", os.environ.get("EASYVEREIN_SIGNUP_URL", "")
+)
+
 # Shopify configuration
 SHOPIFY_STORE: str = _cfg.get(
     "shopify_store", os.environ.get("SHOPIFY_STORE", "")
