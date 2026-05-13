@@ -40,7 +40,7 @@ http://localhost:8001
 The project expects:
 
 - Python with `uv`
-- SQLite via `groundcontrol.db`
+- SQLite (multiple databases: `auth.db`, `core.db`, `members.db`, `laufzettel.db`, `catalog.db`)
 - an MQTT broker, usually Mosquitto on `localhost:1883`
 
 ## First things to check
@@ -59,7 +59,7 @@ If MQTT is not available, the app may still start but device interactions and sc
 
 ### 4. Database file exists
 
-The app will use `groundcontrol.db` in the project root.
+The app will create the SQLite databases (`auth.db`, `core.db`, `members.db`, etc.) in the project root on first start.
 
 ## Common first tasks
 

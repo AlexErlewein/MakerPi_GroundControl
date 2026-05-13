@@ -128,3 +128,4 @@ flowchart LR
 - [Web-UI Guide](./02-web-ui.md) — Was jede Seite tut
 - [Tags und Laufzettel](./03-tags-and-laufzettel.md) — Kern-User-Workflow im Detail
 - [Gast-Laufzettel](./17-guest-laufzettel.md) — Nicht-Mitglied-Nutzung über QR-Code
+- [Konfigurationsreferenz](./18-configuration-reference.md) — Alle Konfigurationsschlüssel, wo man API-Zugangsdaten bekommt

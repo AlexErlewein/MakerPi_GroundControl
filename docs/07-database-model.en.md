@@ -120,6 +120,11 @@ erDiagram
         string tag_type
         string atqa
         string sak
+        string card_member_id
+        string card_name
+        string card_email
+        string card_signature
+        int card_verified
     }
     Mitglied {
         int id PK
@@ -203,6 +208,13 @@ Event log of every NFC scan received.
 | `tag_type` | TEXT | Card type (e.g., MIFARE Classic) |
 | `atqa` | TEXT | ATQA bytes (hex) |
 | `sak` | TEXT | SAK byte (hex) |
+| `card_member_id` | TEXT | Member ID read from card data (written during enrollment) |
+| `card_name` | TEXT | Name read from card data |
+| `card_email` | TEXT | Email read from card data |
+| `card_signature` | TEXT | HMAC-SHA256 signature read from card |
+| `card_verified` | INTEGER | 3VL: `1`=HMAC verified, `0`=HMAC rejected (clone attempt), `NULL`=legacy card (no sig) |
+
+> `card_signature` and `card_verified` are added by migration. Run `uv run python scripts/migrate_nfc_security.py` once on existing databases. See [NFC Tag Security](./16-nfc-tag-security.en.md).
 
 ### `laufzettel`
 
@@ -294,5 +306,11 @@ flowchart LR
 ## Migration approach
 
 Each module uses SQLAlchemy `create_all()` on startup to create its own tables. There is no automatic migration for schema changes — each module manages its own database independently.
+
+For additive schema changes, migration scripts live in `scripts/`. Run them once on the target database before restarting the service:
+
+| Script | Purpose |
+|---|---|
+| `scripts/migrate_nfc_security.py` | Adds `card_signature` and `card_verified` to `tag_scans` |
 
 If schema changes become frequent, adding **Alembic** per module is the recommended next step. See [Extension Guide](./12-extension-guide.md).

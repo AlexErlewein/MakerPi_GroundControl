@@ -5,7 +5,7 @@ GroundControl has a login-protected admin area. The public welcome page is acces
 ## How it works
 
 - Login state is stored in a **signed session cookie** using Starlette's `SessionMiddleware` and `itsdangerous`.
-- Passwords are stored as **bcrypt hashes** (`passlib`) in the `users` table in `groundcontrol.db`.
+- Passwords are stored as **bcrypt hashes** (`passlib`) in the `users` table in `auth.db`.
 - Only **HTML page routes** check for a session. `/api/` endpoints are left open — this is intentional for a local network deployment.
 - The `secret_key` in `config/config.json` signs the cookie. If you change this key, all existing sessions are invalidated.
 

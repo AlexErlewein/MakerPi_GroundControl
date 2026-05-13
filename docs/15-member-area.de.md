@@ -150,6 +150,7 @@ laufzettel = db.query(Laufzettel).filter(
 - `backend/member_routes.py` - Mitglied-spezifische Routes
 - `backend/auth/routes.py` - Login/Session-Routes
 - `templates/landing.html` - Startseite mit RFID
-- `templates/member-laufzettel-list.html` - Mitglieder-Laufzettel
+- `templates/member-laufzettel-open.html` - Offenes Mitglieder-Laufzettel
+- `templates/member-laufzettel-historie.html` - Mitglieder-Zahlungshistorie
 - `templates/member-laufzettel-detail.html` - Mitglied-Detailansicht
-- `static/css/landing.css` - Styling für Landing Page
+- `static/css/member.css` - Styling für den Mitglieder-Bereich

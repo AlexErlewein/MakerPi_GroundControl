@@ -108,6 +108,50 @@ For each variant you define:
 - variant name
 - unit price
 
+## Mitglieder page (`/mitglieder`)
+
+Member database management.
+
+You can:
+
+- view all members (synced from easyVerein or created manually)
+- see each member's NFC card enrollment status
+- enroll an NFC card for a member (triggers a write command to the card writer device)
+- manually create or edit member records
+
+## Kasse page (`/kasse`)
+
+Quick-access payment screen. Allows triggering card payment from a dedicated cashier view without opening the full Laufzettel detail page.
+
+## Device detail (`/devices/{device_id}`)
+
+Detailed view of a single MQTT device.
+
+Shows:
+
+- last seen timestamp
+- NFC status (OK / error)
+- recent messages from the device
+
+## Member area (`/member`)
+
+Self-service area for members with a `role="member"` user account.
+
+Members can:
+
+- view their own open and historical Laufzettel
+- add material to their open Laufzettel
+
+Members **cannot** trigger payments, delete entries, or see other members' data.
+
+## Bug report form (`/bug-report`)
+
+Public form linked to the Plane issue tracker. Anyone on the local network can submit a bug report. Requires `plane_url` and `plane_api_token` to be configured.
+
+## Shopify page (`/shopify`)
+
+Integration page for Shopify inventory lookups. Requires `shopify_store` and `shopify_access_token` to be configured.
+
 ## Docs site
 
 The docs site is separate from the main UI and should run on port `8001`.

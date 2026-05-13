@@ -13,7 +13,8 @@ Devices publish to topics with the following patterns:
 | `{device_id}/temp` | Temperature reading |
 | `{device_id}/humidity` | Humidity reading |
 | `{device_id}/alert` | Alert or threshold trigger |
-| `{device_id}/nfc` | NFC / RFID scan event |
+| `{device_id}/scan` | NFC / RFID scan event (primary) |
+| `{device_id}/tag` | NFC / RFID scan event (alias) |
 | `{device_id}/material` | Material usage report |
 
 > All incoming topics are stored in `mqtt_messages` regardless of type. Topic-specific logic runs on top of that.
@@ -35,26 +36,36 @@ flowchart TD
 
 ## NFC scan sequence
 
+Devices publish scan events on `{device_id}/scan` or `{device_id}/tag`. The payload may include card-side enrollment data (member_id, name, signature) if the PicoW firmware supports NFC security.
+
 ```mermaid
 sequenceDiagram
     participant D as Device
     participant GC as Backend
     participant DB as SQLite
 
-    D->>GC: {uid, device_id, ...} on {device_id}/nfc
-    GC->>DB: INSERT tag_scans (uid, device_id, timestamp)
-    GC->>DB: SELECT * FROM rfid_tags WHERE uid = ?
-    alt Tag found and active
+    D->>GC: {uid, member_id?, signature?, ...} on {device_id}/scan
+    GC->>DB: INSERT tag_scans (uid, device_id, timestamp, card_member_id, card_signature, ...)
+    GC->>DB: SELECT * FROM mitglieder WHERE nfc_uid = uid
+    alt Mitglied found
+        GC->>GC: 3VL HMAC verification (card_verified = 1/0/NULL)
         GC->>DB: SELECT * FROM laufzettel WHERE uid=? AND date=today
         alt No Laufzettel yet today
-            GC->>DB: INSERT laufzettel (uid, date, owner_name, ...)
+            GC->>DB: INSERT laufzettel (uid, date, owner_name, mitglied_id, ...)
         end
         GC->>DB: UPDATE laufzettel SET nodes = nodes + [device_id]
-        GC->>D: publish user info to {device_id}/user_info
-    else Tag not found
-        GC->>DB: UPDATE tag_scans SET validated = false
+        GC->>D: publish user info to lilygo/user_info
+    else Fall back to rfid_tags
+        GC->>DB: SELECT * FROM rfid_tags WHERE uid = ? AND active = 1
+        alt Tag found
+            GC->>DB: get/create Laufzettel, update nodes
+        else Tag not found
+            GC->>DB: tag_scans.validated = false
+        end
     end
 ```
+
+> **NFC security mode:** When the card carries an HMAC signature, the backend runs 3VL verification. `card_verified = 0` (rejected) always blocks access. In `nfc_signature_mode = "strict"`, cards without a signature (`card_verified = NULL`) are also blocked. See [NFC Tag Security](./16-nfc-tag-security.en.md).
 
 ## Material MQTT flow
 
@@ -85,8 +96,9 @@ The backend can publish to devices too:
 
 | Topic | Trigger | Payload |
 |---|---|---|
-| `{device_id}/user_info` | After NFC scan of known tag | `{owner_name, member_id, uid}` |
-| `{device_id}/command` | Manual command from UI | Custom JSON |
+| `lilygo/user_info` | After NFC scan of known tag | `{owner_name, member_id, uid, validated}` |
+| `{device_id}/command` | Card enrollment write command from UI | `{action: write_card, member_id, name, signature, sector_key, ...}` |
+| `groundcontrol/nfc/config` | On MQTT broker connect (retained) | `{sector_key, sector, version}` — PicoW devices read this at startup |
 
 ## Message storage
 

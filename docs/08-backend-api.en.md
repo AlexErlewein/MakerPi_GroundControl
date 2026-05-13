@@ -34,6 +34,36 @@ API endpoints are split across module route files (`backend/laufzettel/routes.py
 | `GET` | `/api/tags/scans` | Recent scan events |
 | `GET` | `/api/tags/{uid}/laufzettel` | All Laufzettel for a UID |
 
+### NFC scans
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/scans` | Recent scan log with `card_verified` status |
+| `GET` | `/api/scans/stream` | SSE stream of live scan events |
+
+### Members (Mitglieder)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/mitglieder` | List all members |
+| `POST` | `/api/mitglieder` | Create a member manually |
+| `GET` | `/api/mitglieder/{id}` | Get one member |
+| `PUT` | `/api/mitglieder/{id}` | Update member fields |
+| `DELETE` | `/api/mitglieder/{id}` | Delete a member |
+| `POST` | `/api/mitglieder/{id}/enroll-card` | Send card write command to enrollment PicoW |
+| `GET` | `/api/mitglieder/sync-status` | easyVerein sync status |
+| `POST` | `/api/mitglieder/sync` | Trigger manual easyVerein sync |
+
+### Guest Laufzettel
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/guest/laufzettel` | Guest form page (QR code landing) |
+| `POST` | `/api/guest/laufzettel` | Create a guest Laufzettel |
+| `GET` | `/api/guest/session-check` | Check if guest has an active session |
+| `GET` | `/api/guest/laufzettel/{id}` | Guest Laufzettel detail |
+| `POST` | `/api/guest/laufzettel/{id}/material` | Add material to guest Laufzettel |
+
 ### Laufzettel
 
 | Method | Path | Description |
@@ -87,13 +117,23 @@ API endpoints are split across module route files (`backend/laufzettel/routes.py
 
 | Method | Path | Template |
 |---|---|---|
-| `GET` | `/` | `index.html` |
+| `GET` | `/` | `landing.html` (public) |
+| `GET` | `/dashboard` | `index.html` (admin) |
 | `GET` | `/database` | `database.html` |
 | `GET` | `/tags` | `tags.html` |
 | `GET` | `/devices/{device_id}` | `device-detail.html` |
 | `GET` | `/laufzettel` | `laufzettel.html` |
 | `GET` | `/laufzettel/{id}` | `laufzettel-detail.html` |
 | `GET` | `/katalog` | `katalog.html` |
+| `GET` | `/mitglieder` | `mitglieder.html` |
+| `GET` | `/kasse` | `kasse.html` |
+| `GET` | `/member` | `member-laufzettel-open.html` |
+| `GET` | `/member/laufzettel` | `member-laufzettel-open.html` |
+| `GET` | `/member/laufzettel/{id}` | `member-laufzettel-detail.html` |
+| `GET` | `/bug-report` | `bug-report.html` |
+| `GET` | `/shopify` | `shopify.html` |
+| `GET` | `/guest/laufzettel` | `guest-laufzettel-form.html` |
+| `GET` | `/admin/users` | `admin-users.html` |
 
 ## Request / response patterns
 

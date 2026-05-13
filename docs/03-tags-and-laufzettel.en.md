@@ -106,18 +106,18 @@ flowchart LR
 
 ## Payment flow
 
-Once all material has been added, the detail page shows three payment buttons:
+Once all material has been added, the detail page shows payment buttons:
 
 - **Bar bezahlen** — displays the total amount in a large pop-up. Confirm to lock.
-- **mit PayPal bezahlen** — shows a QR code linking to your PayPal.me URL + amount. Confirm after the customer scans.
-- **mit Karte bezahlen** — sends a checkout request to the paired SumUp card reader. Locks on success.
+- **mit Wero bezahlen** — shows a Wero QR code for the amount. Confirm after the customer scans. Requires `wero_enabled: true` in config.
+- **mit Karte bezahlen** — sends a checkout request to the paired SumUp card reader (Solo Cloud API) or generates a `sumupmerchant://` deep-link for the SumUp app (Payment Switch). Locks on success.
 
 After any successful payment:
 - `payment_method` and `paid_at` are written to the Laufzettel.
 - The detail page shows a green locked banner with method and timestamp.
 - All edit actions (info, add/edit/delete material) are disabled in the UI and rejected by the API (`409 Conflict`).
 
-> The lock is permanent — there is no unlock flow by design.
+> The lock is permanent — there is no unlock flow by design. An admin reset endpoint exists for corrections (`DELETE /api/laufzettel/{id}/pay`).
 
 ## Why data is copied into the Laufzettel
 

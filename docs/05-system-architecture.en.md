@@ -68,11 +68,13 @@ MakerPi_GroundControl/
 │   │   ├── models.py
 │   │   ├── db.py
 │   │   ├── routes.py
-│   │   └── easyverein.py ← easyVerein API sync
+│   │   ├── easyverein.py ← easyVerein API sync
+│   │   └── signature.py  ← HMAC card signature + Mifare sector key derivation
 │   ├── laufzettel/       ← Laufzettel module (work orders)
 │   │   ├── models.py
 │   │   ├── db.py
-│   │   └── routes.py
+│   │   ├── routes.py
+│   │   └── pdf.py        ← PDF generation + Google Drive upload
 │   ├── catalog/          ← Catalog module (material catalog)
 │   │   ├── models.py
 │   │   ├── db.py
@@ -82,6 +84,20 @@ MakerPi_GroundControl/
 │   │   ├── db.py
 │   │   ├── mqtt.py
 │   │   └── routes.py
+│   ├── buchhaltung/      ← Accounting module
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   ├── routes.py
+│   │   └── accounting.py
+│   ├── push/             ← Web push notifications
+│   │   └── routes.py
+│   ├── shopify/          ← Shopify integration
+│   │   └── routes.py
+│   ├── plane/            ← Plane bug tracker integration (public bug report form)
+│   │   └── routes.py
+│   ├── email_utils.py    ← Async SMTP email sending (aiosmtplib)
+│   ├── email_templates.py ← HTML email templates (receipt, easyVerein signup)
+│   ├── gdrive.py         ← Google Drive OAuth + upload helper
 │   └── member_routes.py  ← Cross-module member self-service routes (reads auth+laufzettel+members+catalog)
 │
 ├── templates/
@@ -165,6 +181,7 @@ sequenceDiagram
 | Pydantic | pydantic | v2 |
 | Password hashing | passlib + bcrypt | 1.7.4 / 3.x |
 | Session signing | itsdangerous | 2.x |
+| Email (async SMTP) | aiosmtplib | latest |
 
 ## Design principles
 

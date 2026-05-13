@@ -13,7 +13,7 @@ graph LR
     subgraph Server["Raspberry Pi / Server"]
         MB["Mosquitto\nBroker :1883"]
         GC["GroundControl\nFastAPI :8000"]
-        DB["SQLite DB\ngroundcontrol.db"]
+        DB["SQLite DBs\nauth/core/members/etc"]
         DOCS["Docs Site\nFastAPI :8001"]
     end
     subgraph Operator
@@ -128,3 +128,4 @@ flowchart LR
 - [Web UI Guide](./02-web-ui.md) — what each page does
 - [Tags and Laufzettel](./03-tags-and-laufzettel.md) — core user workflow in detail
 - [Guest Laufzettel](./17-guest-laufzettel.md) — non-member usage via QR code
+- [Configuration Reference](./18-configuration-reference.md) — all config keys, where to get API keys
