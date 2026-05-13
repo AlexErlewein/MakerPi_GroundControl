@@ -75,6 +75,7 @@ def send_card_write_command(
     name: str,
     email: str,
     signature: str,
+    sector_key: str = "",
     request_id: str = "",
 ) -> bool:
     """Send a write command to a PicoW NFC Reader to write member data to a card.
@@ -85,6 +86,7 @@ def send_card_write_command(
         name: Member name to write to card
         email: Member email to write to card
         signature: HMAC signature for verification
+        sector_key: 12-char hex Mifare sector key for sector 1 authentication
         request_id: Optional request ID for tracking
 
     Returns:
@@ -103,6 +105,7 @@ def send_card_write_command(
             "name": name,
             "email": email,
             "signature": signature,
+            "sector_key": sector_key,
             "sector": 1,
             "request_id": request_id,
         }
@@ -121,11 +124,34 @@ def send_card_write_command(
         return False
 
 
+def _publish_nfc_config() -> None:
+    """Broadcast sector key to all PicoW devices as a retained MQTT message.
+
+    PicoW devices subscribe to groundcontrol/nfc/config at startup and use the
+    sector_key to authenticate to Mifare Classic sector 1 during reads and writes.
+    The retained flag ensures late-connecting devices receive it immediately.
+    """
+    global mqtt_client
+    if not mqtt_client:
+        return
+    try:
+        from backend.members.signature import get_mifare_sector_key
+
+        payload = json.dumps(
+            {"sector_key": get_mifare_sector_key(), "sector": 1, "version": 1}
+        )
+        mqtt_client.publish("groundcontrol/nfc/config", payload, qos=1, retain=True)
+        logger.info("Published NFC sector key config to groundcontrol/nfc/config")
+    except Exception as e:
+        logger.error(f"Failed to publish NFC config: {e}")
+
+
 def on_connect(client, userdata, flags, rc):
     """Callback when connected to MQTT broker"""
     if rc == 0:
         logger.info("Connected to MQTT broker, subscribing to #")
         client.subscribe("#")
+        _publish_nfc_config()
     else:
         logger.error(f"MQTT connection failed with code {rc}")
 
@@ -372,6 +398,13 @@ def handle_device_message(topic: str, payload: str):
                 validated = 0
                 owner_name = None
 
+                # Extract card-side data (written during enrollment)
+                card_member_id = data.get("member_id")
+                card_name = data.get("name")
+                card_email = data.get("email")
+                card_signature = data.get("signature")
+                card_verified = None  # 3VL: None=legacy, 1=verified, 0=rejected
+
                 logger.info("[SCAN] Received uid=%r device_id=%r", uid, device_id)
                 # Check against members database
                 from backend.members.db import SessionLocal as MembersSession
@@ -379,6 +412,7 @@ def handle_device_message(topic: str, payload: str):
                 members_db = MembersSession()
                 mitglied_db_id = None
                 member_id_str = None
+                mitglied = None
                 try:
                     from backend.members.models import RFIDTag, Mitglied
 
@@ -428,6 +462,7 @@ def handle_device_message(topic: str, payload: str):
                                 if m:
                                     mitglied_db_id = m.id
                                     member_id_str = m.member_id
+                                    mitglied = m
                         else:
                             logger.warning(
                                 "[SCAN] uid=%r not found in Mitglied.nfc_uid or RFIDTag — unvalidated",
@@ -436,32 +471,55 @@ def handle_device_message(topic: str, payload: str):
                 finally:
                     members_db.close()
 
-                # Verify card signature — reject card data fields if tampered
-                card_sig = data.get("signature", "")
-                card_member_id = data.get("member_id")
-                card_name = data.get("name")
-                if card_sig and card_member_id and card_name:
+                # 3VL signature verification (runs after DB lookup so mitglied.name
+                # is available as fallback when firmware omits name from payload)
+                #   None = legacy card (no signature data present)
+                #   1    = HMAC signature verified — card was issued by this server
+                #   0    = HMAC signature present but invalid — possible clone attempt
+                if card_signature and card_member_id:
                     from backend.members.signature import verify_card_signature
 
-                    if not verify_card_signature(
-                        card_member_id, uid, card_name, card_sig
-                    ):
+                    # Use card-provided name if present; else look up from DB.
+                    # The HMAC was generated with the member's name, so we need it
+                    # to recompute the expected signature for comparison.
+                    verify_name = card_name or (mitglied.name if mitglied else None)
+                    if verify_name:
+                        if verify_card_signature(
+                            card_member_id, uid, verify_name, card_signature
+                        ):
+                            card_verified = 1
+                            logger.info(
+                                "[SCAN] Signature VERIFIED uid=%r member_id=%r",
+                                uid,
+                                card_member_id,
+                            )
+                        else:
+                            card_verified = 0
+                            logger.warning(
+                                "[SCAN] Signature REJECTED uid=%r member_id=%r — possible clone attempt",
+                                uid,
+                                card_member_id,
+                            )
+                    else:
+                        card_verified = 0
                         logger.warning(
-                            "[SCAN] Invalid card signature for UID=%s member_id=%s — card data rejected",
+                            "[SCAN] Signature unverifiable uid=%r member_id=%r — member not found in DB",
                             uid,
                             card_member_id,
                         )
-                        card_member_id = None
-                        card_name = None
-                        data = {**data, "member_id": None, "name": None, "email": None}
-                elif card_member_id and not card_sig:
+
+                # Apply NFC_SIGNATURE_MODE rules
+                from backend.config import NFC_SIGNATURE_MODE
+
+                if card_verified == 0:
+                    # Invalid signature always rejects regardless of mode
+                    validated = 0
+                elif NFC_SIGNATURE_MODE == "strict" and card_verified is None:
+                    # Strict mode: cards without a signature are not accepted
+                    validated = 0
                     logger.warning(
-                        "[SCAN] Card data present but no signature for UID=%s — card data rejected",
-                        uid,
+                        "[SCAN] uid=%r denied: no card signature in strict mode", uid
                     )
-                    card_member_id = None
-                    card_name = None
-                    data = {**data, "member_id": None, "name": None, "email": None}
 
                 scan = TagScan(
                     uid=uid,
@@ -471,9 +529,11 @@ def handle_device_message(topic: str, payload: str):
                     tag_type=data.get("tag_type"),
                     atqa=data.get("atqa"),
                     sak=data.get("sak"),
-                    card_member_id=data.get("member_id"),
-                    card_name=data.get("name"),
-                    card_email=data.get("email"),
+                    card_member_id=card_member_id,
+                    card_name=card_name,
+                    card_email=card_email,
+                    card_signature=card_signature,
+                    card_verified=card_verified,
                 )
                 db.add(scan)
 

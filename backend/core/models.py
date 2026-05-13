@@ -78,6 +78,9 @@ class TagScan(Base):
     card_member_id = Column(String, nullable=True)
     card_name = Column(String, nullable=True)
     card_email = Column(String, nullable=True)
+    card_signature = Column(String, nullable=True)
+    # 3VL: None=legacy (no sig data), 1=HMAC verified, 0=HMAC rejected (clone attempt)
+    card_verified = Column(Integer, nullable=True)
 
     def to_dict(self):
         ts = _naive_to_utc(self.timestamp) if self.timestamp else None
@@ -94,6 +97,8 @@ class TagScan(Base):
             "card_member_id": self.card_member_id,
             "card_name": self.card_name,
             "card_email": self.card_email,
+            "card_signature": self.card_signature,
+            "card_verified": self.card_verified,
         }
 
 

@@ -1,7 +1,8 @@
-"""Card signature generation for NFC card binding.
+"""Card signature generation and sector key derivation for NFC card security.
 
 Provides HMAC-based signatures to bind a card's UID to a specific member,
 preventing card cloning attacks where an attacker copies data to a different card.
+Also derives the Mifare Classic sector key used to protect the signed sector.
 """
 
 import hmac
@@ -57,3 +58,28 @@ def verify_card_signature(member_id: str, uid: str, name: str, signature: str) -
     expected = generate_card_signature(member_id, uid, name)
     sig_len = len(signature)
     return hmac.compare_digest(expected[:sig_len].lower(), signature.lower())
+
+
+def derive_mifare_sector_key() -> str:
+    """Derive a 6-byte Mifare Classic sector key as a hex string from SECRET_KEY.
+
+    The key is deterministic: same SECRET_KEY always yields the same sector key,
+    so any Pi running the same installation can authenticate to enrolled cards.
+    Returns a 12-character hex string (e.g. "a1b2c3d4e5f6").
+    """
+    key_bytes = hmac.new(
+        SECRET_KEY.encode("utf-8"), b"mifare-sector-key-v1", hashlib.sha256
+    ).digest()
+    return key_bytes[:6].hex()
+
+
+def get_mifare_sector_key() -> str:
+    """Return the active Mifare sector key.
+
+    Uses MIFARE_SECTOR_KEY from config if explicitly set, otherwise derives it
+    from SECRET_KEY. This allows manual override while defaulting to automatic
+    derivation tied to the installation secret.
+    """
+    from backend.config import MIFARE_SECTOR_KEY
+
+    return MIFARE_SECTOR_KEY if MIFARE_SECTOR_KEY else derive_mifare_sector_key()

@@ -433,6 +433,7 @@ async def enroll_card(
     # Send write command to PicoW
     from backend.core.mqtt import send_card_write_command
     from backend import config as _cfg
+    from backend.members.signature import get_mifare_sector_key
     import uuid
 
     device_id = req.device_id or _cfg.CARD_WRITER_ID
@@ -449,6 +450,7 @@ async def enroll_card(
         name=m.name,
         email=m.email or "",
         signature=signature,
+        sector_key=get_mifare_sector_key(),
         request_id=request_id,
     )
 
