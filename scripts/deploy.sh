@@ -91,4 +91,4 @@ ssh -t "$PI_USER@$PI_HOST" "sudo systemctl restart groundcontrol && sleep 2 && \
 
 echo ""
 echo "✅ Deploy complete!"
-echo "Dashboard: https://$PI_HOST"
+echo "Dashboard: https://$PI_HOST:8443"
