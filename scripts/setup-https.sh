@@ -95,12 +95,11 @@ CAROOT="$CAROOT_DIR" sudo -u "$SERVICE_USER" mkcert -install
 
 # Generate certificate for both IPs + localhost
 CERT_TMPDIR="$(mktemp -d)"
-cd "$CERT_TMPDIR"
-CAROOT="$CAROOT_DIR" sudo -u "$SERVICE_USER" mkcert \
-    "$TAILSCALE_IP" \
-    "$PI_HOST" \
-    "localhost" \
-    "127.0.0.1"
+chown "$SERVICE_USER:$SERVICE_USER" "$CERT_TMPDIR"
+sudo -u "$SERVICE_USER" sh -c "
+    cd '$CERT_TMPDIR'
+    CAROOT='$CAROOT_DIR' mkcert '$TAILSCALE_IP' '$PI_HOST' localhost 127.0.0.1
+"
 
 # Locate generated files (mkcert names them after the first SAN)
 CERT_FILE="$(ls "$CERT_TMPDIR"/*.pem | grep -v key | head -1)"
