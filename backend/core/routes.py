@@ -700,9 +700,13 @@ class CardWriterUpdate(BaseModel):
 async def get_enrollment_reader(db: Session = Depends(get_db)):
     """Get the current enrollment reader device ID and list of known devices."""
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    device_list = [{"id": d.device_id, "name": d.name or d.device_id} for d in devices]
+    current = _app_config.ENROLLMENT_READER_ID
+    if current and current not in {d["id"] for d in device_list}:
+        device_list.insert(0, {"id": current, "name": current})
     return {
-        "enrollment_reader_id": _app_config.ENROLLMENT_READER_ID,
-        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
+        "enrollment_reader_id": current,
+        "devices": device_list,
     }
 
 
@@ -727,9 +731,13 @@ async def set_enrollment_reader(data: EnrollmentReaderUpdate):
 async def get_payment_reader(db: Session = Depends(get_db)):
     """Get the current payment reader device ID and list of known devices."""
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    device_list = [{"id": d.device_id, "name": d.name or d.device_id} for d in devices]
+    current = _app_config.PAYMENT_READER_ID
+    if current and current not in {d["id"] for d in device_list}:
+        device_list.insert(0, {"id": current, "name": current})
     return {
-        "payment_reader_id": _app_config.PAYMENT_READER_ID,
-        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
+        "payment_reader_id": current,
+        "devices": device_list,
     }
 
 
@@ -752,9 +760,13 @@ async def set_payment_reader(data: PaymentReaderUpdate):
 async def get_card_writer(db: Session = Depends(get_db)):
     """Get the current card writer device ID and list of known devices."""
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+    device_list = [{"id": d.device_id, "name": d.name or d.device_id} for d in devices]
+    current = _app_config.CARD_WRITER_ID
+    if current and current not in {d["id"] for d in device_list}:
+        device_list.insert(0, {"id": current, "name": current})
     return {
-        "card_writer_id": _app_config.CARD_WRITER_ID,
-        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
+        "card_writer_id": current,
+        "devices": device_list,
     }
 
 
