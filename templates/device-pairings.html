@@ -1,0 +1,297 @@
+{% extends "base-admin.html" %}
+
+{% block title %}Geräte-Pairing{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>Geräte-Pairing Verwaltung</h1>
+        <p class="text-muted">Verwalten Sie die Pairing-Tokens für NFC-Scanner</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+            <h3>Neues Pairing erstellen</h3>
+        </div>
+        <div class="card-body">
+            <div id="create-pairing-form">
+                <div class="form-group">
+                    <label for="device-select">NFC-Scanner Gerät</label>
+                    <select id="device-select" class="form-input">
+                        <option value="">-- Gerät laden... --</option>
+                    </select>
+                    <small class="form-help">Nur Geräte ohne aktives Pairing werden angezeigt</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="pairing-description">Beschreibung (optional)</label>
+                    <input type="text" id="pairing-description" class="form-input"
+                           placeholder="z.B. Kasse Tablet 1">
+                </div>
+
+                <div class="form-group">
+                    <label for="pairing-expiry">Ablaufdatum (optional)</label>
+                    <input type="datetime-local" id="pairing-expiry" class="form-input">
+                    <small class="form-help">Leer lassen für unbegrenzte Gültigkeit</small>
+                </div>
+
+                <button class="btn btn-primary" id="create-pairing-btn" disabled>
+                    Pairing erstellen
+                </button>
+            </div>
+
+            <div id="pairing-result" style="display: none; margin-top: 20px; padding: 16px; background: #1a2a3a; border: 1px solid #1f6feb; border-radius: 8px;">
+                <h4 style="margin: 0 0 12px 0; color: #79c0ff;">Pairing erstellt!</h4>
+                <p style="margin: 0 0 8px 0; font-size: 0.9rem;">Das Token wird nur einmal angezeigt. Bitte notieren oder scannen Sie es:</p>
+
+                <div style="background: #0d1117; padding: 12px; border-radius: 6px; margin: 12px 0; font-family: monospace; word-break: break-all;">
+                    <strong>Token:</strong> <span id="result-token" style="color: #3fb950;"></span>
+                </div>
+
+                <div id="qrcode-container" style="margin: 16px 0; text-align: center;"></div>
+
+                <div class="actions" style="margin-top: 16px;">
+                    <button class="btn btn-sm btn-secondary" id="copy-token-btn">Token kopieren</button>
+                    <button class="btn btn-sm btn-secondary" id="close-result-btn">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Aktive Pairings</h3>
+        </div>
+        <div class="card-body">
+            <div id="pairings-list">
+                <p class="text-muted">Lade Pairings...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadAvailableDevices();
+    await loadPairings();
+
+    document.getElementById('create-pairing-btn').addEventListener('click', createPairing);
+    document.getElementById('copy-token-btn').addEventListener('click', copyToken);
+    document.getElementById('close-result-btn').addEventListener('click', async () => {
+        document.getElementById('pairing-result').style.display = 'none';
+        document.getElementById('create-pairing-form').style.display = 'block';
+        document.getElementById('device-select').value = '';
+        document.getElementById('pairing-description').value = '';
+        document.getElementById('pairing-expiry').value = '';
+        document.getElementById('create-pairing-btn').disabled = true;
+        await loadAvailableDevices();
+        await loadPairings();
+    });
+
+    document.getElementById('device-select').addEventListener('change', () => {
+        const hasDevice = document.getElementById('device-select').value !== '';
+        document.getElementById('create-pairing-btn').disabled = !hasDevice;
+    });
+});
+
+async function loadAvailableDevices() {
+    try {
+        const res = await fetch('/api/devices/available-for-pairing');
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+
+        const select = document.getElementById('device-select');
+        select.innerHTML = '<option value="">-- Gerät wählen --</option>';
+
+        if (data.devices.length === 0) {
+            select.innerHTML = '<option value="">Keine verfügbaren Geräte</option>';
+            return;
+        }
+
+        data.devices.forEach(d => {
+            const option = document.createElement('option');
+            option.value = d.id;
+            option.textContent = `${d.name} (${d.id})`;
+            select.appendChild(option);
+        });
+    } catch (e) {
+        console.error('Failed to load devices:', e);
+        document.getElementById('device-select').innerHTML =
+            '<option value="">Fehler beim Laden</option>';
+    }
+}
+
+async function loadPairings() {
+    try {
+        const res = await fetch('/api/device-pairings');
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+
+        const container = document.getElementById('pairings-list');
+
+        if (data.pairings.length === 0) {
+            container.innerHTML = '<p class="text-muted">Keine aktiven Pairings</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'data-table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Gerät</th>
+                    <th>Beschreibung</th>
+                    <th>Erstellt von</th>
+                    <th>Erstellt am</th>
+                    <th>Zuletzt verwendet</th>
+                    <th>Ablauf</th>
+                    <th>Client IP</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+
+        const tbody = table.querySelector('tbody');
+        data.pairings.forEach(p => {
+            const tr = document.createElement('tr');
+            const isExpired = p.expires_at && new Date(p.expires_at) < new Date();
+
+            tr.innerHTML = `
+                <td><code>${esc(p.device_id)}</code></td>
+                <td>${esc(p.description || '-')}</td>
+                <td>${esc(p.paired_by)}</td>
+                <td>${formatDate(p.paired_at)}</td>
+                <td>${p.last_used ? formatDate(p.last_used) : 'Nie'}</td>
+                <td style="${isExpired ? 'color: #f85149;' : ''}">
+                    ${p.expires_at ? formatDate(p.expires_at) : 'Nie'}
+                    ${isExpired ? ' (ABGELAUFEN)' : ''}
+                </td>
+                <td>${esc(p.client_ip || '-')}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deletePairing(${p.id})">Löschen</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(table);
+    } catch (e) {
+        console.error('Failed to load pairings:', e);
+        document.getElementById('pairings-list').innerHTML =
+            '<p class="text-muted">Fehler beim Laden der Pairings</p>';
+    }
+}
+
+async function createPairing() {
+    const deviceId = document.getElementById('device-select').value;
+    const description = document.getElementById('pairing-description').value.trim();
+    const expiryInput = document.getElementById('pairing-expiry').value;
+
+    if (!deviceId) {
+        alert('Bitte ein Gerät wählen');
+        return;
+    }
+
+    const body = {
+        device_id: deviceId,
+        description: description || null
+    };
+
+    if (expiryInput) {
+        // Convert to ISO string
+        const expiryDate = new Date(expiryInput);
+        body.expires_at = expiryDate.toISOString();
+    }
+
+    try {
+        const res = await fetch('/api/device-pairings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Fehler: ' + (err.detail || 'Unbekannter Fehler'));
+            return;
+        }
+
+        const data = await res.json();
+
+        // Show result
+        document.getElementById('create-pairing-form').style.display = 'none';
+        document.getElementById('pairing-result').style.display = 'block';
+        document.getElementById('result-token').textContent = data.pairing_token;
+
+        // Generate QR code
+        const qrContainer = document.getElementById('qrcode-container');
+        qrContainer.innerHTML = '';
+        QRCode.toCanvas(qrContainer, data.pairing_token, {
+            width: 200,
+            margin: 2,
+            color: {
+                dark: '#ffffff',
+                light: '#0d1117'
+            }
+        }, (err) => {
+            if (err) console.error('QR Code error:', err);
+        });
+
+    } catch (e) {
+        console.error('Failed to create pairing:', e);
+        alert('Fehler beim Erstellen des Pairings');
+    }
+}
+
+async function deletePairing(id) {
+    if (!confirm('Möchten Sie dieses Pairing wirklich löschen? Das Gerät muss dann neu gepaired werden.')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/device-pairings/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Fehler: ' + (err.detail || 'Löschen fehlgeschlagen'));
+            return;
+        }
+
+        await loadPairings();
+        await loadAvailableDevices();
+    } catch (e) {
+        console.error('Failed to delete pairing:', e);
+        alert('Fehler beim Löschen');
+    }
+}
+
+function copyToken() {
+    const token = document.getElementById('result-token').textContent;
+    navigator.clipboard.writeText(token).then(() => {
+        const btn = document.getElementById('copy-token-btn');
+        const original = btn.textContent;
+        btn.textContent = 'Kopiert!';
+        setTimeout(() => btn.textContent = original, 2000);
+    });
+}
+
+function esc(str) {
+    if (!str) return '-';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatDate(iso) {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleString('de-DE');
+}
+</script>
+{% endblock %}

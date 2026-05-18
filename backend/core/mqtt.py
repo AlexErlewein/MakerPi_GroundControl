@@ -33,14 +33,29 @@ def _utcnow():
 
 
 def _notify_scan_subscribers(uid: str, device_id: str):
-    """Push a scan event to all active SSE subscribers (thread-safe)."""
+    """Push a scan event to all active SSE subscribers (thread-safe).
+
+    Subscribers are now stored as (queue, loop, allowed_device) tuples.
+    If allowed_device is set, only events from that device are sent.
+    """
     event = {"uid": uid, "device_id": device_id}
     dead = []
-    for queue, loop in scan_subscribers:
+    for entry in scan_subscribers:
+        # Handle both old (queue, loop) and new (queue, loop, allowed_device) formats
+        if len(entry) == 2:
+            queue, loop = entry
+            allowed_device = None
+        else:
+            queue, loop, allowed_device = entry
+
+        # Skip if this subscriber is paired to a different device
+        if allowed_device and allowed_device != device_id:
+            continue
+
         try:
             loop.call_soon_threadsafe(queue.put_nowait, event)
         except Exception:
-            dead.append((queue, loop))
+            dead.append(entry)
     for entry in dead:
         scan_subscribers.remove(entry)
 

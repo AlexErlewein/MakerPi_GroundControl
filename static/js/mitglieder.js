@@ -3,6 +3,8 @@ let enrollmentReaderId = "";
 let activeScanSource = null;
 let scanTimeout = null;
 let nfcScanningMitgliedId = null;
+let pairingToken = null;  // Device pairing token for NFC access
+let pairedDeviceId = null;  // The specific device we're paired to
 
 function debounce(func, wait) {
     let timeout;
@@ -83,7 +85,7 @@ function resetScanButton() {
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
 }
 
-function startNfcScan() {
+async function startNfcScan() {
     console.log("[NFC] startNfcScan called, enrollmentReaderId:", enrollmentReaderId);
     const btn = document.getElementById("btn-scan-nfc");
     if (!btn) return;
@@ -92,24 +94,78 @@ function startNfcScan() {
         setScanStatus(null);
         return;
     }
-    if (!enrollmentReaderId) {
-        setScanStatus("Kein Enrollment-Reader konfiguriert. Bitte zuerst im Dashboard einstellen.", "error");
-        console.warn("[NFC] No enrollment reader configured!");
+
+    // Check for pairing token first
+    if (!pairingToken) {
+        // Try to load from localStorage via DevicePairing module
+        if (window.DevicePairing) {
+            const stored = window.DevicePairing.loadStoredToken();
+            if (stored) {
+                pairingToken = stored.token;
+                pairedDeviceId = stored.deviceId;
+                console.log("[NFC] Loaded pairing token for device:", pairedDeviceId);
+            }
+        }
+    }
+
+    // If still no token, show pairing modal
+    if (!pairingToken) {
+        if (window.DevicePairing) {
+            window.DevicePairing.showTokenInputModal(
+                (validation) => {
+                    pairingToken = validation.token || document.getElementById('pairing-token-input').value.trim().replace(/-/g, '');
+                    pairedDeviceId = validation.device_id;
+                    // Retry scan
+                    startNfcScan();
+                },
+                () => {
+                    setScanStatus("Pairing erforderlich für NFC-Zugriff", "error");
+                }
+            );
+        } else {
+            setScanStatus("Device-Pairing Modul nicht geladen", "error");
+        }
         return;
     }
+
+    // Use paired device instead of enrollment reader
+    const targetDevice = pairedDeviceId || enrollmentReaderId;
+    if (!targetDevice) {
+        setScanStatus("Kein NFC-Reader verfügbar", "error");
+        return;
+    }
+
     btn.textContent = "\u23F3 Warte auf Scan... (Abbrechen)";
     btn.disabled = false;
-    setScanStatus(`Bereit – halte die Karte an den Reader "${enrollmentReaderId}"...`, "info");
+    setScanStatus(`Bereit – halte die Karte an den Reader "${targetDevice}"...`, "info");
 
-    console.log("[NFC] Opening SSE stream /api/scans/stream");
-    const evtSource = new EventSource("/api/scans/stream");
+    // Build SSE URL with token
+    const sseUrl = `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`;
+    console.log("[NFC] Opening SSE stream with pairing token");
+    const evtSource = new EventSource(sseUrl);
     activeScanSource = evtSource;
-    let configuredReader = enrollmentReaderId;
+    let configuredReader = targetDevice;
 
     evtSource.addEventListener("config", (e) => {
         const data = JSON.parse(e.data);
-        configuredReader = data.enrollment_reader_id || enrollmentReaderId;
-        console.log("[NFC] config event received, configuredReader:", configuredReader);
+        configuredReader = data.enrollment_reader_id || targetDevice;
+        console.log("[NFC] config event received, configuredReader:", configuredReader, "paired:", data.paired);
+    });
+
+    evtSource.addEventListener("error", (e) => {
+        const data = JSON.parse(e.data);
+        console.error("[NFC] SSE error event:", data);
+        evtSource.close();
+        activeScanSource = null;
+        resetScanButton();
+        setScanStatus(`Fehler: ${data.error || 'Verbindung fehlgeschlagen'}`, "error");
+
+        // Clear invalid token
+        if (window.DevicePairing) {
+            window.DevicePairing.clearToken();
+        }
+        pairingToken = null;
+        pairedDeviceId = null;
     });
 
     evtSource.addEventListener("timeout", () => {
@@ -123,10 +179,7 @@ function startNfcScan() {
     evtSource.onmessage = (e) => {
         console.log("[NFC] scan event received:", e.data);
         const data = JSON.parse(e.data);
-        if (data.device_id !== configuredReader) {
-            console.log("[NFC] device_id mismatch:", data.device_id, "!=", configuredReader);
-            return;
-        }
+        // With token, we only get events from our paired device, so no need to filter
         evtSource.close();
         activeScanSource = null;
         resetScanButton();

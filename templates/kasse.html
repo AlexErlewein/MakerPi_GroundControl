@@ -90,12 +90,46 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/device-pairing.js"></script>
 <script>
     let paymentReaderId = '';
     let scanSource = null;
     let adminScanSource = null;
     let currentLaufzettelId = null;
     let currentMemberUid = null;
+    let kassePairingToken = null;  // Device pairing token for this kiosk
+    let kassePairedDeviceId = null;  // The specific device we're paired to
+
+    // ── Token Management ────────────────────────────────────────
+
+    function getKasseToken() {
+        if (kassePairingToken) return kassePairingToken;
+        if (window.DevicePairing) {
+            const stored = window.DevicePairing.loadStoredToken();
+            if (stored) {
+                kassePairingToken = stored.token;
+                kassePairedDeviceId = stored.deviceId;
+                return kassePairingToken;
+            }
+        }
+        return null;
+    }
+
+    function setKasseToken(token, deviceId, expiresAt) {
+        kassePairingToken = token;
+        kassePairedDeviceId = deviceId;
+        if (window.DevicePairing) {
+            window.DevicePairing.saveToken(token, deviceId, expiresAt);
+        }
+    }
+
+    function clearKasseToken() {
+        kassePairingToken = null;
+        kassePairedDeviceId = null;
+        if (window.DevicePairing) {
+            window.DevicePairing.clearToken();
+        }
+    }
 
     // ── Phase 1: Listen for member NFC scan ─────────────────────
 
@@ -105,12 +139,32 @@
             scanSource = null;
         }
 
-        scanSource = new EventSource('/api/scans/payment-stream');
+        // Check for pairing token
+        const token = getKasseToken();
+        let sseUrl = '/api/scans/payment-stream';
+        if (token) {
+            sseUrl += `?token=${encodeURIComponent(token)}`;
+        }
+
+        scanSource = new EventSource(sseUrl);
 
         scanSource.addEventListener('config', (e) => {
             const data = JSON.parse(e.data);
             paymentReaderId = data.payment_reader_id || '';
-            console.log('[Kasse] payment reader:', paymentReaderId);
+            console.log('[Kasse] payment reader:', paymentReaderId, 'paired:', data.paired);
+        });
+
+        scanSource.addEventListener('error', (e) => {
+            const data = JSON.parse(e.data);
+            console.error('[Kasse] SSE error:', data);
+            scanSource.close();
+            scanSource = null;
+            // Token invalid - clear it and retry without token
+            if (data.error && (data.error.includes('Invalid') || data.error.includes('expired'))) {
+                clearKasseToken();
+                showPairingPrompt();
+            }
+            setTimeout(startScanListener, 2000);
         });
 
         scanSource.addEventListener('timeout', () => {
@@ -122,7 +176,9 @@
 
         scanSource.onmessage = async (e) => {
             const data = JSON.parse(e.data);
-            if (paymentReaderId && data.device_id !== paymentReaderId) return;
+            // With token, we only get events from our paired device
+            // Without token, filter by payment_reader_id as before
+            if (!token && paymentReaderId && data.device_id !== paymentReaderId) return;
 
             const uid = data.uid.toUpperCase();
             console.log('[Kasse] Member scan:', uid);
@@ -139,6 +195,78 @@
             scanSource = null;
             setTimeout(startScanListener, 2000);
         };
+    }
+
+    // ── Pairing Prompt ──────────────────────────────────────────
+
+    function showPairingPrompt() {
+        // Show simple pairing input overlay
+        const existing = document.getElementById('kasse-pairing-prompt');
+        if (existing) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'kasse-pairing-prompt';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+        overlay.innerHTML = `
+            <div style="background: #161b22; padding: 32px; border-radius: 12px; max-width: 400px; width: 90%; border: 1px solid #30363d;">
+                <h2 style="margin: 0 0 16px 0; color: #c9d1d9;">Gerät verbinden</h2>
+                <p style="color: #8b949e; margin-bottom: 16px;">Bitte geben Sie den Pairing-Token ein, um auf den NFC-Scanner zuzugreifen:</p>
+                <input type="text" id="kasse-pairing-input" placeholder="Token eingeben" style="width: 100%; padding: 12px; margin-bottom: 16px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 16px;">
+                <div id="kasse-pairing-error" style="color: #f85149; margin-bottom: 16px; display: none;"></div>
+                <button id="kasse-pairing-submit" style="width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">Verbinden</button>
+                <button id="kasse-pairing-skip" style="width: 100%; padding: 12px; margin-top: 8px; background: transparent; color: #8b949e; border: 1px solid #30363d; border-radius: 6px; font-size: 14px; cursor: pointer;">Ohne Pairing fortfahren</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        document.getElementById('kasse-pairing-submit').addEventListener('click', async () => {
+            const input = document.getElementById('kasse-pairing-input');
+            const errorDiv = document.getElementById('kasse-pairing-error');
+            const token = input.value.trim().replace(/-/g, '');
+
+            if (!token) {
+                errorDiv.textContent = 'Bitte Token eingeben';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Validate token
+            try {
+                const res = await fetch('/api/device-pairings/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pairing_token: token })
+                });
+                const data = await res.json();
+
+                if (!data.valid) {
+                    errorDiv.textContent = data.error || 'Ungültiger Token';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                // Success
+                setKasseToken(token, data.device_id, data.expires_at);
+                overlay.remove();
+                startScanListener();
+            } catch (e) {
+                errorDiv.textContent = 'Fehler bei der Validierung';
+                errorDiv.style.display = 'block';
+            }
+        });
+
+        document.getElementById('kasse-pairing-skip').addEventListener('click', () => {
+            overlay.remove();
+            startScanListener();
+        });
+
+        // Allow Enter key
+        document.getElementById('kasse-pairing-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('kasse-pairing-submit').click();
+            }
+        });
     }
 
     async function lookupMember(uid) {
@@ -201,7 +329,14 @@
             adminScanSource = null;
         }
 
-        adminScanSource = new EventSource('/api/scans/payment-stream');
+        // Use same token for admin scanning
+        const token = getKasseToken();
+        let sseUrl = '/api/scans/payment-stream';
+        if (token) {
+            sseUrl += `?token=${encodeURIComponent(token)}`;
+        }
+
+        adminScanSource = new EventSource(sseUrl);
 
         adminScanSource.addEventListener('config', () => {});
 
@@ -209,7 +344,10 @@
             adminScanSource.close();
             adminScanSource = null;
             // Restart listener for admin
-            adminScanSource = new EventSource('/api/scans/payment-stream');
+            const restartUrl = token
+                ? `/api/scans/payment-stream?token=${encodeURIComponent(token)}`
+                : '/api/scans/payment-stream';
+            adminScanSource = new EventSource(restartUrl);
             setupAdminScanHandlers();
         });
 
@@ -219,9 +357,12 @@
     function setupAdminScanHandlers() {
         if (!adminScanSource) return;
 
+        const token = getKasseToken();
+
         adminScanSource.onmessage = async (e) => {
             const data = JSON.parse(e.data);
-            if (paymentReaderId && data.device_id !== paymentReaderId) return;
+            // With token, we only get events from our paired device
+            if (!token && paymentReaderId && data.device_id !== paymentReaderId) return;
 
             const uid = data.uid.toUpperCase();
             console.log('[Kasse] Admin scan attempt:', uid);
@@ -274,7 +415,11 @@
                 errEl.classList.add('visible');
                 setTimeout(() => errEl.classList.remove('visible'), 4000);
                 // Resume admin scan listening
-                adminScanSource = new EventSource('/api/scans/payment-stream');
+                const token = getKasseToken();
+                const resumeUrl = token
+                    ? `/api/scans/payment-stream?token=${encodeURIComponent(token)}`
+                    : '/api/scans/payment-stream';
+                adminScanSource = new EventSource(resumeUrl);
                 setupAdminScanHandlers();
             }
         } catch (err) {
@@ -283,7 +428,11 @@
             errEl.classList.add('visible');
             setTimeout(() => {
                 errEl.classList.remove('visible');
-                adminScanSource = new EventSource('/api/scans/payment-stream');
+                const token = getKasseToken();
+                const retryUrl = token
+                    ? `/api/scans/payment-stream?token=${encodeURIComponent(token)}`
+                    : '/api/scans/payment-stream';
+                adminScanSource = new EventSource(retryUrl);
                 setupAdminScanHandlers();
             }, 3000);
         }

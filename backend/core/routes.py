@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -13,11 +13,44 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
-from .models import MQTTMessage, Device, TagScan, ZigbeeDevice
+from .models import MQTTMessage, Device, TagScan, ZigbeeDevice, DevicePairing
 from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
 import backend.config as _app_config
+import hashlib
+import uuid
 
 router = APIRouter()
+
+
+# ── Pydantic Models for Device Pairing ───────────────────────────────────────
+
+
+class DevicePairingCreate(BaseModel):
+    device_id: str
+    description: Optional[str] = None
+    expires_at: Optional[str] = None  # ISO format datetime string
+
+
+class DevicePairingResponse(BaseModel):
+    id: int
+    device_id: str
+    pairing_token: str  # Only returned on creation
+    paired_by: str
+    paired_at: str
+    last_used: Optional[str]
+    expires_at: Optional[str]
+    description: Optional[str]
+
+
+class TokenValidateRequest(BaseModel):
+    pairing_token: str
+
+
+class TokenValidateResponse(BaseModel):
+    valid: bool
+    device_id: Optional[str] = None
+    expires_at: Optional[str] = None
+    error: Optional[str] = None
 
 
 # ── System Status Check Functions ────────────────────────────────────────────
@@ -213,6 +246,25 @@ async def database_page(request: Request):
         {
             "request": request,
             "nav_active": "devices",
+            "current_user": request.session.get("user"),
+        },
+    )
+
+
+@router.get("/admin/device-pairings", response_class=HTMLResponse)
+async def device_pairings_page(request: Request):
+    """Render device pairing management page (admin only)"""
+    from fastapi.templating import Jinja2Templates
+    from backend.auth.dependencies import is_admin_verified
+
+    templates = Jinja2Templates(directory="templates")
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+    return templates.TemplateResponse(
+        "device-pairings.html",
+        {
+            "request": request,
+            "nav_active": "device-pairings",
             "current_user": request.session.get("user"),
         },
     )
@@ -608,21 +660,53 @@ async def get_zigbee_device_messages(
 
 
 @router.get("/api/scans/stream")
-async def scan_stream(request: Request):
+async def scan_stream(
+    request: Request,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """SSE endpoint: streams NFC scan events to enrolled-reader listeners.
     Sends an initial config event with the current enrollment_reader_id,
     then pushes scan events until the client disconnects or 30 s elapse.
+
+    If a pairing token is provided, validates it and only sends events
+    from the paired device.
     """
+    # Validate token if provided
+    allowed_device = None
+    if token:
+        token_hash = _hash_token(token)
+        pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+
+        if not pairing:
+            return StreamingResponse(
+                iter([f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+            return StreamingResponse(
+                iter([f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        # Update last used
+        pairing.last_used = datetime.now(timezone.utc)
+        pairing.client_ip = _get_client_ip(request)
+        db.commit()
+
+        allowed_device = pairing.device_id
+
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
-    entry = (queue, loop)
+    entry = (queue, loop, allowed_device)  # Include allowed_device for filtering
     scan_subscribers.append(entry)
 
     async def event_generator():
         try:
             # First event: send configured reader id so the client can filter
-            reader_id = _app_config.ENROLLMENT_READER_ID
-            yield f"event: config\ndata: {json.dumps({'enrollment_reader_id': reader_id})}\n\n"
+            reader_id = allowed_device if allowed_device else _app_config.ENROLLMENT_READER_ID
+            yield f"event: config\ndata: {json.dumps({'enrollment_reader_id': reader_id, 'paired': allowed_device is not None})}\n\n"
 
             deadline = loop.time() + 30
             while True:
@@ -636,6 +720,9 @@ async def scan_stream(request: Request):
                     event = await asyncio.wait_for(
                         queue.get(), timeout=min(remaining, 1.0)
                     )
+                    # If paired, only send events from the allowed device
+                    if allowed_device and event.get("device_id") != allowed_device:
+                        continue
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue
@@ -786,19 +873,51 @@ async def set_card_writer(data: CardWriterUpdate):
 
 
 @router.get("/api/scans/payment-stream")
-async def payment_scan_stream(request: Request):
+async def payment_scan_stream(
+    request: Request,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """SSE endpoint: streams NFC scan events filtered by payment_reader_id.
     Same mechanism as /api/scans/stream but for the payment checkout reader.
+
+    If a pairing token is provided, validates it and only sends events
+    from the paired device.
     """
+    # Validate token if provided
+    allowed_device = None
+    if token:
+        token_hash = _hash_token(token)
+        pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+
+        if not pairing:
+            return StreamingResponse(
+                iter([f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+            return StreamingResponse(
+                iter([f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"]),
+                media_type="text/event-stream",
+            )
+
+        # Update last used
+        pairing.last_used = datetime.now(timezone.utc)
+        pairing.client_ip = _get_client_ip(request)
+        db.commit()
+
+        allowed_device = pairing.device_id
+
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
-    entry = (queue, loop)
+    entry = (queue, loop, allowed_device)  # Include allowed_device for filtering
     scan_subscribers.append(entry)
 
     async def event_generator():
         try:
-            reader_id = _app_config.PAYMENT_READER_ID
-            yield f"event: config\ndata: {json.dumps({'payment_reader_id': reader_id})}\n\n"
+            reader_id = allowed_device if allowed_device else _app_config.PAYMENT_READER_ID
+            yield f"event: config\ndata: {json.dumps({'payment_reader_id': reader_id, 'paired': allowed_device is not None})}\n\n"
 
             deadline = loop.time() + 120
             while True:
@@ -812,6 +931,9 @@ async def payment_scan_stream(request: Request):
                     event = await asyncio.wait_for(
                         queue.get(), timeout=min(remaining, 1.0)
                     )
+                    # If paired, only send events from the allowed device
+                    if allowed_device and event.get("device_id") != allowed_device:
+                        continue
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue
@@ -827,3 +949,169 @@ async def payment_scan_stream(request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ── Device Pairing API ───────────────────────────────────────────────────────
+
+
+def _hash_token(token: str) -> str:
+    """Generate SHA256 hash of token for storage."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _generate_pairing_token() -> str:
+    """Generate a new unique pairing token (UUID without dashes)."""
+    return uuid.uuid4().hex
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request, considering X-Forwarded-For header."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@router.get("/api/device-pairings")
+async def get_device_pairings(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """List all device pairings (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    pairings = db.query(DevicePairing).order_by(DevicePairing.paired_at.desc()).all()
+    return {"pairings": [p.to_dict() for p in pairings]}
+
+
+@router.post("/api/device-pairings")
+async def create_device_pairing(
+    request: Request,
+    data: DevicePairingCreate,
+    db: Session = Depends(get_db),
+):
+    """Create a new device pairing (admin only).
+
+    Returns the pairing token - this is the ONLY time the token is visible!
+    """
+    from backend.auth.dependencies import is_admin_verified, get_current_user
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    # Verify device exists
+    device = db.query(Device).filter(Device.device_id == data.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Generate token and hash
+    token = _generate_pairing_token()
+    token_hash = _hash_token(token)
+
+    # Parse expires_at if provided
+    expires_at = None
+    if data.expires_at:
+        try:
+            expires_at = datetime.fromisoformat(data.expires_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expires_at format")
+
+    # Create pairing
+    pairing = DevicePairing(
+        device_id=data.device_id,
+        token_hash=token_hash,
+        paired_by=get_current_user(request) or "unknown",
+        expires_at=expires_at,
+        description=data.description,
+    )
+    db.add(pairing)
+    db.commit()
+    db.refresh(pairing)
+
+    # Return response with plaintext token (only shown once!)
+    result = pairing.to_dict()
+    result["pairing_token"] = token  # Include plaintext token only in response
+    return result
+
+
+@router.delete("/api/device-pairings/{pairing_id}")
+async def delete_device_pairing(
+    pairing_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Delete a device pairing (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    pairing = db.query(DevicePairing).filter(DevicePairing.id == pairing_id).first()
+    if not pairing:
+        raise HTTPException(status_code=404, detail="Pairing not found")
+
+    db.delete(pairing)
+    db.commit()
+    return {"success": True, "deleted_id": pairing_id}
+
+
+@router.post("/api/device-pairings/validate")
+async def validate_pairing_token(
+    data: TokenValidateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Validate a pairing token and return device info if valid."""
+    token_hash = _hash_token(data.pairing_token)
+
+    pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+
+    if not pairing:
+        return {"valid": False, "error": "Invalid token"}
+
+    # Check expiration
+    if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+        return {"valid": False, "error": "Token expired"}
+
+    # Update last_used and client_ip
+    pairing.last_used = datetime.now(timezone.utc)
+    pairing.client_ip = _get_client_ip(request)
+    db.commit()
+
+    return {
+        "valid": True,
+        "device_id": pairing.device_id,
+        "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
+    }
+
+
+@router.get("/api/devices/available-for-pairing")
+async def get_available_devices(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Get devices that don't have an active pairing (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    # Get all devices with active pairings
+    paired_device_ids = {
+        p.device_id for p in db.query(DevicePairing).all()
+    }
+
+    # Get all devices
+    all_devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+
+    # Filter to unpaired devices
+    available = [
+        {"id": d.device_id, "name": d.name or d.device_id}
+        for d in all_devices
+        if d.device_id not in paired_device_ids
+    ]
+
+    return {"devices": available}

@@ -134,3 +134,34 @@ class ZigbeeDevice(Base):
             "exposes": self.exposes,
             "raw_payload": self.raw_payload,
         }
+
+
+class DevicePairing(Base):
+    """Token-based pairing between NFC scanner and client device."""
+
+    __tablename__ = "device_pairings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, index=True)  # NFC scanner device ID (e.g., "picow_nfc_01")
+    token_hash = Column(String, index=True)  # SHA256 hash of the pairing token
+    paired_by = Column(String)  # Username of admin who created the pairing
+    paired_at = Column(DateTime(timezone=True), default=_utcnow)
+    last_used = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # Optional expiration
+    description = Column(String, nullable=True)  # Human-readable description (e.g., "Kasse Tablet 1")
+    client_ip = Column(String, nullable=True)  # IP of client when last used
+
+    def to_dict(self):
+        paired_at_ts = _naive_to_utc(self.paired_at) if self.paired_at else None
+        last_used_ts = _naive_to_utc(self.last_used) if self.last_used else None
+        expires_at_ts = _naive_to_utc(self.expires_at) if self.expires_at else None
+        return {
+            "id": self.id,
+            "device_id": self.device_id,
+            "paired_by": self.paired_by,
+            "paired_at": paired_at_ts.isoformat() if paired_at_ts else None,
+            "last_used": last_used_ts.isoformat() if last_used_ts else None,
+            "expires_at": expires_at_ts.isoformat() if expires_at_ts else None,
+            "description": self.description,
+            "client_ip": self.client_ip,
+        }
