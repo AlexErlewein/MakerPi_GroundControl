@@ -10,53 +10,6 @@
         transition: all 0.3s ease;
     }
 
-    .rfid-card.locked {
-        opacity: 0.7;
-        filter: grayscale(0.5);
-    }
-
-    .rfid-card.locked .card-icon {
-        opacity: 0.5;
-    }
-
-    .rfid-locked-message {
-        background: var(--bg-tertiary);
-        border: 1px dashed var(--border-color);
-        border-radius: 8px;
-        padding: 20px;
-        text-align: center;
-        margin-top: 10px;
-    }
-
-    .rfid-locked-message .icon {
-        font-size: 2rem;
-        margin-bottom: 8px;
-        display: block;
-    }
-
-    .rfid-locked-message p {
-        margin: 0 0 12px 0;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-    }
-
-    .rfid-locked-message .btn-connect {
-        background: var(--accent);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.95rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .rfid-locked-message .btn-connect:hover {
-        background: #b83b14;
-    }
-
     .rfid-connected-status {
         display: none;
         background: rgba(53, 119, 48, 0.15);
@@ -208,45 +161,29 @@
         <p class="subtitle">H3cke e.V. - Willkommen im MakerSpace</p>
     </div>
 
-    <!-- Top row: RFID + Guest tile -->
-    <div class="login-options-top">
-        <!-- RFID Login Section (Locked until paired) -->
-        <div class="login-card rfid-card locked" id="rfid-card">
+    <!-- Top row: RFID (only when paired) + Guest tile -->
+    <div class="login-options-top" id="login-options-top">
+        <!-- RFID Login Section (only visible when paired) -->
+        <div class="login-card rfid-card" id="rfid-card" style="display: none;">
             <div class="rfid-connected-status" id="rfid-connected-status">
                 <span style="font-size: 0.8rem; color: var(--text-secondary);">Verbunden mit:</span>
                 <div class="device-name" id="connected-device-id">-</div>
             </div>
 
-            <div id="rfid-locked-view">
-                <div class="card-icon">🔒</div>
-                <h2>NFC-Login gesperrt</h2>
-                <p>Dieses Gerät ist nicht mit einem NFC-Scanner verbunden.</p>
+            <div class="card-icon">🎴</div>
+            <h2>Mit RFID-Karte</h2>
+            <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
 
-                <div class="rfid-locked-message">
-                    <span class="icon">📱</span>
-                    <p>Um sich mit NFC-Karte anzumelden, verbinden Sie dieses Gerät zuerst mit einem NFC-Scanner.</p>
-                    <button class="btn-connect" onclick="openPairingModal()">
-                        <span>🔗</span> Gerät verbinden
-                    </button>
+            <div class="rfid-status" id="rfid-status">
+                <div class="scanning-animation">
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
+                    <span class="pulse"></span>
                 </div>
+                <span class="status-text">Warte auf Karte...</span>
             </div>
 
-            <div id="rfid-active-view" style="display: none;">
-                <div class="card-icon">🎴</div>
-                <h2>Mit RFID-Karte</h2>
-                <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
-
-                <div class="rfid-status" id="rfid-status">
-                    <div class="scanning-animation">
-                        <span class="pulse"></span>
-                        <span class="pulse"></span>
-                        <span class="pulse"></span>
-                    </div>
-                    <span class="status-text">Warte auf Karte...</span>
-                </div>
-
-                <div class="rfid-error" id="rfid-error" style="display: none;"></div>
-            </div>
+            <div class="rfid-error" id="rfid-error" style="display: none;"></div>
         </div>
 
         <!-- Guest Tile -->
@@ -545,10 +482,8 @@
     }
 
     function activateNFCLogin() {
-        // Update UI
-        document.getElementById('rfid-card').classList.remove('locked');
-        document.getElementById('rfid-locked-view').style.display = 'none';
-        document.getElementById('rfid-active-view').style.display = 'block';
+        // Show RFID card
+        document.getElementById('rfid-card').style.display = '';
         document.getElementById('rfid-connected-status').style.display = 'block';
         document.getElementById('connected-device-id').textContent = pairedDeviceId;
 
@@ -577,10 +512,8 @@
             scanEventSource = null;
         }
 
-        // Reset UI
-        document.getElementById('rfid-card').classList.add('locked');
-        document.getElementById('rfid-locked-view').style.display = 'block';
-        document.getElementById('rfid-active-view').style.display = 'none';
+        // Hide RFID card, reset button
+        document.getElementById('rfid-card').style.display = 'none';
         document.getElementById('rfid-connected-status').style.display = 'none';
 
         const btn = document.getElementById('btn-pair-device');
@@ -588,7 +521,7 @@
         btn.classList.remove('connected');
         btn.onclick = openPairingModal;
 
-        // Stop polling (we'll rely on the locked state)
+        // Reload to fully reset state
         location.reload();
     }
 
