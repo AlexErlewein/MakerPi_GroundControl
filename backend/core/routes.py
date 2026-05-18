@@ -702,7 +702,7 @@ async def get_enrollment_reader(db: Session = Depends(get_db)):
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
     return {
         "enrollment_reader_id": _app_config.ENROLLMENT_READER_ID,
-        "devices": [d.device_id for d in devices],
+        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
     }
 
 
@@ -729,7 +729,7 @@ async def get_payment_reader(db: Session = Depends(get_db)):
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
     return {
         "payment_reader_id": _app_config.PAYMENT_READER_ID,
-        "devices": [d.device_id for d in devices],
+        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
     }
 
 
@@ -754,7 +754,7 @@ async def get_card_writer(db: Session = Depends(get_db)):
     devices = db.query(Device).order_by(Device.last_seen.desc()).all()
     return {
         "card_writer_id": _app_config.CARD_WRITER_ID,
-        "devices": [d.device_id for d in devices],
+        "devices": [{"id": d.device_id, "name": d.name or d.device_id} for d in devices],
     }
 
 

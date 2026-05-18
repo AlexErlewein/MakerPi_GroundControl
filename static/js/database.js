@@ -313,10 +313,12 @@ async function loadEnrollmentReaderSettings() {
 
         const current = data.enrollment_reader_id || '';
         select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
-        (data.devices || []).forEach(id => {
+        (data.devices || []).forEach(dev => {
+            const id = typeof dev === 'object' ? dev.id : dev;
+            const label = typeof dev === 'object' && dev.name !== dev.id ? `${dev.name} (${dev.id})` : id;
             const opt = document.createElement('option');
             opt.value = id;
-            opt.textContent = id;
+            opt.textContent = label;
             if (id === current) opt.selected = true;
             select.appendChild(opt);
         });
@@ -379,10 +381,12 @@ async function loadCardWriterSettings() {
 
         const current = data.card_writer_id || '';
         select.innerHTML = '<option value="">— Kein Writer auswählen —</option>';
-        (data.devices || []).forEach(id => {
+        (data.devices || []).forEach(dev => {
+            const id = typeof dev === 'object' ? dev.id : dev;
+            const label = typeof dev === 'object' && dev.name !== dev.id ? `${dev.name} (${dev.id})` : id;
             const opt = document.createElement('option');
             opt.value = id;
-            opt.textContent = id;
+            opt.textContent = label;
             if (id === current) opt.selected = true;
             select.appendChild(opt);
         });
@@ -445,10 +449,12 @@ async function loadPaymentReaderSettings() {
 
         const current = data.payment_reader_id || '';
         select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
-        (data.devices || []).forEach(id => {
+        (data.devices || []).forEach(dev => {
+            const id = typeof dev === 'object' ? dev.id : dev;
+            const label = typeof dev === 'object' && dev.name !== dev.id ? `${dev.name} (${dev.id})` : id;
             const opt = document.createElement('option');
             opt.value = id;
-            opt.textContent = id;
+            opt.textContent = label;
             if (id === current) opt.selected = true;
             select.appendChild(opt);
         });
