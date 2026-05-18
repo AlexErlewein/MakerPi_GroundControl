@@ -148,6 +148,96 @@
     .btn-pair-device.connected {
         color: var(--success) !important;
     }
+
+    /* QR Scanner */
+    .btn-scan-qr {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        width: 100%;
+    }
+
+    .btn-scan-qr:hover {
+        background: var(--bg-primary);
+    }
+
+    .qr-scanner-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        flex-direction: column;
+        padding: 20px;
+    }
+
+    .qr-scanner-overlay.active {
+        display: flex;
+    }
+
+    .qr-scanner-container {
+        width: 100%;
+        max-width: 400px;
+        aspect-ratio: 1;
+        background: var(--bg-primary);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 2px solid var(--accent);
+    }
+
+    .qr-scanner-overlay .scanner-text {
+        color: var(--text-primary);
+        margin-top: 16px;
+        text-align: center;
+    }
+
+    .qr-scanner-overlay .btn-close-scanner {
+        margin-top: 20px;
+        padding: 10px 24px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .qr-scanner-overlay .btn-close-scanner:hover {
+        background: var(--bg-primary);
+    }
+
+    .divider {
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin: 12px 0;
+        position: relative;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: var(--border-color);
+    }
+
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
 </style>
 {% endblock %}
 
@@ -238,12 +328,23 @@
     <div class="pairing-modal-overlay" id="pairing-modal">
         <div class="pairing-modal">
             <h3>📱 Gerät verbinden</h3>
-            <p>Gebe den Pairing-Token ein oder scanne den QR-Code mit der Kamera.</p>
-            <input type="text" id="token-input" class="token-input" placeholder="xxxx-xxxx-xxxx-xxxx" maxlength="32">
+            <p>Scane den QR-Code mit der Kamera oder gib den Token manuell ein.</p>
+            <button class="btn-scan-qr" onclick="startQRScanner()">
+                <span>📷</span> QR-Code scannen
+            </button>
+            <div class="divider">oder</div>
+            <input type="text" id="token-input" class="token-input" placeholder="Token eingeben..." maxlength="32">
             <button class="btn-connect" onclick="submitPairing()">Verbinden</button>
             <button class="btn-cancel" onclick="closePairingModal()">Abbrechen</button>
             <div class="pairing-error" id="pairing-error"></div>
         </div>
+    </div>
+
+    <!-- QR Scanner Overlay -->
+    <div class="qr-scanner-overlay" id="qr-scanner-overlay">
+        <div class="qr-scanner-container" id="qr-reader"></div>
+        <p class="scanner-text">QR-Code vor die Kamera halten...</p>
+        <button class="btn-close-scanner" onclick="stopQRScanner()">Abbrechen</button>
     </div>
 </div>
 
@@ -252,6 +353,7 @@
 {% block footer %}{% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/html5-qrcode.min.js"></script>
 <script>
     function toggleGuestForm() {
         var intro   = document.getElementById('guest-card-intro');
@@ -478,6 +580,83 @@
             console.error('Pairing error:', e);
             errorBox.textContent = 'Fehler bei der Verbindung. Bitte erneut versuchen.';
             errorBox.style.display = 'block';
+        }
+    }
+
+    // ==================== QR SCANNER ====================
+
+    let html5QrCode = null;
+
+    async function startQRScanner() {
+        const overlay = document.getElementById('qr-scanner-overlay');
+        overlay.classList.add('active');
+
+        html5QrCode = new Html5Qrcode('qr-reader');
+
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+        };
+
+        try {
+            await html5QrCode.start(
+                { facingMode: 'environment' },
+                config,
+                onQRCodeSuccess,
+                onQRCodeError
+            );
+        } catch (err) {
+            console.error('Failed to start QR scanner:', err);
+            // Try without facingMode constraint
+            try {
+                await html5QrCode.start(
+                    true,
+                    config,
+                    onQRCodeSuccess,
+                    onQRCodeError
+                );
+            } catch (err2) {
+                console.error('Failed to start QR scanner (fallback):', err2);
+                alert('Kamera konnte nicht gestartet werden. Bitte manuell eingeben.');
+                stopQRScanner();
+            }
+        }
+    }
+
+    function onQRCodeSuccess(decodedText, decodedResult) {
+        console.log('QR Code detected:', decodedText);
+        stopQRScanner();
+
+        // Token aus QR Code extrahieren (kann URL oder direkt Token sein)
+        let token = decodedText.trim();
+
+        // Falls URL, extrahiere Token aus Query Param
+        if (token.includes('?token=')) {
+            const url = new URL(token);
+            token = url.searchParams.get('token') || token;
+        }
+
+        // Token in Input Feld setzen und validieren
+        document.getElementById('token-input').value = token;
+        submitPairing();
+    }
+
+    function onQRCodeError(errorMessage) {
+        // Ignorieren - wird ständig aufgerufen wenn kein QR Code da
+    }
+
+    async function stopQRScanner() {
+        const overlay = document.getElementById('qr-scanner-overlay');
+        overlay.classList.remove('active');
+
+        if (html5QrCode) {
+            try {
+                await html5QrCode.stop();
+                await html5QrCode.clear();
+            } catch (e) {
+                console.error('Error stopping QR scanner:', e);
+            }
+            html5QrCode = null;
         }
     }
 
