@@ -2,36 +2,277 @@
 
 {% block title %}Geräte-Pairing{% endblock %}
 
+{% block extra_css %}
+<style>
+    .pairing-page {
+        max-width: 1000px;
+    }
+
+    .pairing-form-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+
+    .pairing-form-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        border-radius: 8px 8px 0 0;
+    }
+
+    .pairing-form-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .pairing-form-body {
+        padding: 20px;
+    }
+
+    .pairing-form-group {
+        margin-bottom: 20px;
+    }
+
+    .pairing-form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .pairing-form-group .form-help {
+        display: block;
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .pairing-select {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .pairing-select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .pairing-select option {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .pairing-input {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .pairing-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .pairing-result-box {
+        display: none;
+        margin-top: 20px;
+        padding: 20px;
+        background: rgba(88, 166, 255, 0.08);
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+    }
+
+    .pairing-result-box.success {
+        background: rgba(53, 119, 48, 0.12);
+        border-color: var(--success);
+    }
+
+    .pairing-result-title {
+        margin: 0 0 12px 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--accent);
+    }
+
+    .pairing-result-box.success .pairing-result-title {
+        color: var(--success);
+    }
+
+    .pairing-result-text {
+        margin: 0 0 16px 0;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .pairing-token-box {
+        background: var(--bg-primary);
+        padding: 16px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        margin: 16px 0;
+    }
+
+    .pairing-token-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+
+    .pairing-token-value {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 1.1rem;
+        color: var(--success);
+        word-break: break-all;
+    }
+
+    .pairing-qr-container {
+        margin: 20px 0;
+        text-align: center;
+        padding: 20px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .pairing-actions {
+        margin-top: 20px;
+        display: flex;
+        gap: 12px;
+    }
+
+    .pairing-list-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    .pairing-list-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        border-radius: 8px 8px 0 0;
+    }
+
+    .pairing-list-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .pairing-list-body {
+        padding: 20px;
+    }
+
+    .pairing-empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-secondary);
+    }
+
+    .pairing-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .pairing-table th {
+        text-align: left;
+        padding: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .pairing-table td {
+        padding: 12px;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .pairing-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .pairing-table tr:hover {
+        background: var(--bg-tertiary);
+    }
+
+    .pairing-device-id {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--accent);
+    }
+
+    .pairing-expired {
+        color: var(--danger);
+        font-weight: 500;
+    }
+
+    .btn-copy {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .btn-copy:hover {
+        background: var(--bg-primary);
+    }
+
+    .btn-copy.copied {
+        background: var(--success);
+        border-color: var(--success);
+        color: white;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="container pairing-page">
     <div class="page-header">
         <h1>Geräte-Pairing Verwaltung</h1>
         <p class="text-muted">Verwalten Sie die Pairing-Tokens für NFC-Scanner</p>
     </div>
 
-    <div class="card" style="margin-bottom: 24px;">
-        <div class="card-header">
+    <div class="pairing-form-card">
+        <div class="pairing-form-header">
             <h3>Neues Pairing erstellen</h3>
         </div>
-        <div class="card-body">
+        <div class="pairing-form-body">
             <div id="create-pairing-form">
-                <div class="form-group">
+                <div class="pairing-form-group">
                     <label for="device-select">NFC-Scanner Gerät</label>
-                    <select id="device-select" class="form-input">
+                    <select id="device-select" class="pairing-select">
                         <option value="">-- Gerät laden... --</option>
                     </select>
                     <small class="form-help">Nur Geräte ohne aktives Pairing werden angezeigt</small>
                 </div>
 
-                <div class="form-group">
+                <div class="pairing-form-group">
                     <label for="pairing-description">Beschreibung (optional)</label>
-                    <input type="text" id="pairing-description" class="form-input"
+                    <input type="text" id="pairing-description" class="pairing-input"
                            placeholder="z.B. Kasse Tablet 1">
                 </div>
 
-                <div class="form-group">
+                <div class="pairing-form-group">
                     <label for="pairing-expiry">Ablaufdatum (optional)</label>
-                    <input type="datetime-local" id="pairing-expiry" class="form-input">
+                    <input type="datetime-local" id="pairing-expiry" class="pairing-input">
                     <small class="form-help">Leer lassen für unbegrenzte Gültigkeit</small>
                 </div>
 
@@ -40,31 +281,38 @@
                 </button>
             </div>
 
-            <div id="pairing-result" style="display: none; margin-top: 20px; padding: 16px; background: #1a2a3a; border: 1px solid #1f6feb; border-radius: 8px;">
-                <h4 style="margin: 0 0 12px 0; color: #79c0ff;">Pairing erstellt!</h4>
-                <p style="margin: 0 0 8px 0; font-size: 0.9rem;">Das Token wird nur einmal angezeigt. Bitte notieren oder scannen Sie es:</p>
+            <div id="pairing-result" class="pairing-result-box success">
+                <h4 class="pairing-result-title">
+                    <span style="margin-right: 8px;">✓</span>Pairing erstellt!
+                </h4>
+                <p class="pairing-result-text">Das Token wird nur einmal angezeigt. Bitte notieren oder scannen Sie es:</p>
 
-                <div style="background: #0d1117; padding: 12px; border-radius: 6px; margin: 12px 0; font-family: monospace; word-break: break-all;">
-                    <strong>Token:</strong> <span id="result-token" style="color: #3fb950;"></span>
+                <div class="pairing-token-box">
+                    <div class="pairing-token-label">Pairing-Token</div>
+                    <div class="pairing-token-value" id="result-token"></div>
                 </div>
 
-                <div id="qrcode-container" style="margin: 16px 0; text-align: center;"></div>
+                <div id="qrcode-container" class="pairing-qr-container"></div>
 
-                <div class="actions" style="margin-top: 16px;">
-                    <button class="btn btn-sm btn-secondary" id="copy-token-btn">Token kopieren</button>
+                <div class="pairing-actions">
+                    <button class="btn btn-sm btn-copy" id="copy-token-btn">
+                        <span style="margin-right: 4px;">📋</span>Token kopieren
+                    </button>
                     <button class="btn btn-sm btn-secondary" id="close-result-btn">Schließen</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
+    <div class="pairing-list-card">
+        <div class="pairing-list-header">
             <h3>Aktive Pairings</h3>
         </div>
-        <div class="card-body">
+        <div class="pairing-list-body">
             <div id="pairings-list">
-                <p class="text-muted">Lade Pairings...</p>
+                <div class="pairing-empty-state">
+                    <p>Lade Pairings...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -96,16 +344,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadAvailableDevices() {
+    const select = document.getElementById('device-select');
+
     try {
         const res = await fetch('/api/devices/available-for-pairing');
-        if (!res.ok) throw new Error('Failed to load');
-        const data = await res.json();
 
-        const select = document.getElementById('device-select');
+        if (!res.ok) {
+            let errorMsg = `HTTP ${res.status}`;
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errData.error || errorMsg;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const data = await res.json();
         select.innerHTML = '<option value="">-- Gerät wählen --</option>';
 
         if (data.devices.length === 0) {
-            select.innerHTML = '<option value="">Keine verfügbaren Geräte</option>';
+            select.innerHTML = '<option value="">Keine ungepaarten Geräte verfügbar</option>';
             return;
         }
 
@@ -117,26 +374,37 @@ async function loadAvailableDevices() {
         });
     } catch (e) {
         console.error('Failed to load devices:', e);
-        document.getElementById('device-select').innerHTML =
-            '<option value="">Fehler beim Laden</option>';
+        select.innerHTML = `<option value="">Fehler: ${esc(e.message)}</option>`;
     }
 }
 
 async function loadPairings() {
     try {
         const res = await fetch('/api/device-pairings');
-        if (!res.ok) throw new Error('Failed to load');
+
+        if (!res.ok) {
+            let errorMsg = `HTTP ${res.status}`;
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errData.error || errorMsg;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
         const data = await res.json();
 
         const container = document.getElementById('pairings-list');
 
         if (data.pairings.length === 0) {
-            container.innerHTML = '<p class="text-muted">Keine aktiven Pairings</p>';
+            container.innerHTML = `
+                <div class="pairing-empty-state">
+                    <p>Keine aktiven Pairings vorhanden</p>
+                </div>`;
             return;
         }
 
         const table = document.createElement('table');
-        table.className = 'data-table';
+        table.className = 'pairing-table';
         table.innerHTML = `
             <thead>
                 <tr>
@@ -147,7 +415,7 @@ async function loadPairings() {
                     <th>Zuletzt verwendet</th>
                     <th>Ablauf</th>
                     <th>Client IP</th>
-                    <th>Aktionen</th>
+                    <th style="width: 100px;">Aktionen</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -159,12 +427,12 @@ async function loadPairings() {
             const isExpired = p.expires_at && new Date(p.expires_at) < new Date();
 
             tr.innerHTML = `
-                <td><code>${esc(p.device_id)}</code></td>
+                <td><span class="pairing-device-id">${esc(p.device_id)}</span></td>
                 <td>${esc(p.description || '-')}</td>
                 <td>${esc(p.paired_by)}</td>
                 <td>${formatDate(p.paired_at)}</td>
                 <td>${p.last_used ? formatDate(p.last_used) : 'Nie'}</td>
-                <td style="${isExpired ? 'color: #f85149;' : ''}">
+                <td class="${isExpired ? 'pairing-expired' : ''}">
                     ${p.expires_at ? formatDate(p.expires_at) : 'Nie'}
                     ${isExpired ? ' (ABGELAUFEN)' : ''}
                 </td>
@@ -181,7 +449,7 @@ async function loadPairings() {
     } catch (e) {
         console.error('Failed to load pairings:', e);
         document.getElementById('pairings-list').innerHTML =
-            '<p class="text-muted">Fehler beim Laden der Pairings</p>';
+            `<div class="pairing-empty-state"><p>Fehler beim Laden: ${esc(e.message)}</p></div>`;
     }
 }
 
@@ -270,13 +538,17 @@ async function deletePairing(id) {
     }
 }
 
-function copyToken() {
+async function copyToken() {
     const token = document.getElementById('result-token').textContent;
     navigator.clipboard.writeText(token).then(() => {
         const btn = document.getElementById('copy-token-btn');
-        const original = btn.textContent;
-        btn.textContent = 'Kopiert!';
-        setTimeout(() => btn.textContent = original, 2000);
+        btn.classList.add('copied');
+        const original = btn.innerHTML;
+        btn.innerHTML = '<span style="margin-right: 4px;">✓</span>Kopiert!';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = original;
+        }, 2000);
     });
 }
 
