@@ -318,7 +318,7 @@
     </div>
 </div>
 
-<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     await loadAvailableDevices();
@@ -494,18 +494,16 @@ async function createPairing() {
         document.getElementById('pairing-result').style.display = 'block';
         document.getElementById('result-token').textContent = data.pairing_token;
 
-        // Generate QR code
+        // Generate QR code using QRCode.js
         const qrContainer = document.getElementById('qrcode-container');
         qrContainer.innerHTML = '';
-        QRCode.toCanvas(qrContainer, data.pairing_token, {
+        new QRCode(qrContainer, {
+            text: data.pairing_token,
             width: 200,
-            margin: 2,
-            color: {
-                dark: '#ffffff',
-                light: '#0d1117'
-            }
-        }, (err) => {
-            if (err) console.error('QR Code error:', err);
+            height: 200,
+            colorDark: '#ffffff',
+            colorLight: '#0d1117',
+            correctLevel: QRCode.CorrectLevel.M
         });
 
     } catch (e) {
