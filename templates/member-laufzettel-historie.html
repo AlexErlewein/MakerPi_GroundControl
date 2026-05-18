@@ -34,9 +34,13 @@
                     <td><span class="lz-id-badge">#{{ item.laufzettel.id }}</span></td>
                     <td class="price-col">{{ "%.2f"|format(item.total) }} €</td>
                     <td>
+                        {% if item.laufzettel.payment_method == 'closed' %}
+                        <span class="pay-badge pay-closed">Übertragen</span>
+                        {% else %}
                         <span class="pay-badge pay-{{ item.laufzettel.payment_method }}">
                             {{ item.laufzettel.payment_method }}
                         </span>
+                        {% endif %}
                     </td>
                     <td>
                         <a href="/member/laufzettel/{{ item.laufzettel.id }}" class="btn btn-secondary btn-sm">Details</a>

@@ -22,6 +22,7 @@ from backend.config import (
 from .db import get_db, init_db
 from .models import Laufzettel, LaufzettelMaterial
 from .pdf import drive_folder_names, generate_pdf, pdf_filename
+from .utils import handle_stale_laufzettel
 
 # Push notification support (import at module level, calls wrapped in try/except)
 try:
@@ -298,6 +299,33 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
             members_db.close()
     except Exception:
         pass
+
+    # Handle stale laufzettel from previous days before creating a new one
+    if resolved_mitglied_db_id:
+        try:
+            handle_stale_laufzettel(resolved_mitglied_db_id, db)
+        except Exception:
+            logger.exception("handle_stale_laufzettel failed for mitglied_id=%s", resolved_mitglied_db_id)
+
+    # Re-check for an existing open laufzettel for today (may have been created by carry-over)
+    existing_open = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.mitglied_id == resolved_mitglied_db_id,
+            Laufzettel.date == entry_date,
+            Laufzettel.payment_method.is_(None),
+        )
+        .first()
+    ) if resolved_mitglied_db_id else existing_open
+    if existing_open:
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == existing_open.id)
+            .all()
+        )
+        d = existing_open.to_dict()
+        d["material"] = [m.to_dict() for m in materials]
+        return d
 
     lz = Laufzettel(
         uid=uid,

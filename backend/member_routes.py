@@ -20,6 +20,7 @@ from backend.members.db import get_db as get_members_db
 from backend.members.models import Mitglied, RFIDTag
 from backend.catalog.db import get_db as get_catalog_db
 from backend.catalog.models import Location, MaterialKategorie, MaterialUnterkategorie, MaterialVariante
+from backend.laufzettel.utils import handle_stale_laufzettel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -86,6 +87,10 @@ async def member_laufzettel_open(
     user = auth_db.query(User).filter(User.username == username).first()
     if not user or user.role not in ["admin", "member"]:
         return RedirectResponse("/", status_code=302)
+
+    # Handle stale open laufzettel from previous days before showing current one
+    if user.mitglied_id:
+        handle_stale_laufzettel(user.mitglied_id, db)
 
     open_lz = None
     materials = []
@@ -534,6 +539,19 @@ async def login_via_rfid(
     request.session["admin_verified_at"] = None
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
+    # Handle stale open laufzettel from previous days
+    stale_result = {"action": "none"}
+    if user.mitglied_id:
+        from backend.laufzettel.db import get_db as get_lz_db_fn
+
+        lz_db = next(get_lz_db_fn())
+        try:
+            stale_result = handle_stale_laufzettel(user.mitglied_id, lz_db)
+        except Exception:
+            logger.exception("[RFID-LOGIN] handle_stale_laufzettel failed for mitglied_id=%s", user.mitglied_id)
+        finally:
+            lz_db.close()
+
     return {
         "success": True,
         "user": {
@@ -545,6 +563,7 @@ async def login_via_rfid(
         "mitglied": mitglied.to_dict(),
         "is_admin_capable": request.session["is_admin_capable"],
         "redirect": "/member",
+        "stale_laufzettel": stale_result.get("action"),
     }
 
 

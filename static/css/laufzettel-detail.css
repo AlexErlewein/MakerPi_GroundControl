@@ -39,6 +39,10 @@
     color: var(--text-primary);
 }
 
+.info-value.open   { color: #16a34a; font-weight: 600; }
+.info-value.paid   { color: #2563eb; font-weight: 600; }
+.info-value.closed { color: #64748b; font-weight: 600; }
+
 .info-edit-form {
     margin-top: 10px;
 }

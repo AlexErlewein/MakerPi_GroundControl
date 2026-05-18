@@ -30,8 +30,10 @@
             </div>
             <div class="info-item">
                 <span class="info-label">Status</span>
-                <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
-                    {% if laufzettel.payment_method %}
+                <span class="info-value {% if laufzettel.payment_method == 'closed' %}closed{% elif laufzettel.payment_method %}paid{% else %}open{% endif %}">
+                    {% if laufzettel.payment_method == 'closed' %}
+                        Übertragen
+                    {% elif laufzettel.payment_method %}
                         Bezahlt ({{ laufzettel.payment_method }})
                     {% else %}
                         Offen

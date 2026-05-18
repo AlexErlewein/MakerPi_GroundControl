@@ -8,10 +8,12 @@
     font-weight: 600;
     letter-spacing: 0.02em;
 }
-.pay-none  { background: var(--bg-tertiary, #eee); color: var(--text-secondary, #888); }
-.pay-bar   { background: #d1fae5; color: #065f46; }
+.pay-none   { background: var(--bg-tertiary, #eee); color: var(--text-secondary, #888); }
+.pay-bar    { background: #d1fae5; color: #065f46; }
 .pay-paypal { background: #dbeafe; color: #1e40af; }
 .pay-karte  { background: #ede9fe; color: #5b21b6; }
+.pay-wero   { background: #fef9c3; color: #854d0e; }
+.pay-closed { background: #f1f5f9; color: #64748b; border: 1px dashed #cbd5e1; }
 
 .laufzettel-toolbar {
     display: grid;
