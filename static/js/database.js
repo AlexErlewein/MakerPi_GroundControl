@@ -11,6 +11,7 @@ let expandedZigbee = new Set(); // Track expanded zigbee rows
 const statusFilter = document.getElementById('status-filter');
 const nfcFilter = document.getElementById('nfc-filter');
 const deviceSearch = document.getElementById('device-search');
+const refreshBtn = document.getElementById('refresh-btn');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 function setupEventListeners() {
-    refreshBtn.addEventListener('click', loadAllData);
+    if (refreshBtn) refreshBtn.addEventListener('click', loadAllData);
     statusFilter.addEventListener('change', filterDevices);
     nfcFilter.addEventListener('change', filterDevices);
     deviceSearch.addEventListener('input', debounce(filterDevices, 300));
