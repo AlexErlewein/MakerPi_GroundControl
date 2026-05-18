@@ -451,6 +451,35 @@ async def get_devices(db: Session = Depends(get_db)):
     return [d.to_dict() for d in devices]
 
 
+@router.get("/api/devices/available-for-pairing")
+async def get_available_devices(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Get devices that don't have an active pairing (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    # Get all devices with active pairings
+    paired_device_ids = {
+        p.device_id for p in db.query(DevicePairing).all()
+    }
+
+    # Get all devices
+    all_devices = db.query(Device).order_by(Device.last_seen.desc()).all()
+
+    # Filter to unpaired devices
+    available = [
+        {"id": d.device_id, "name": d.name or d.device_id}
+        for d in all_devices
+        if d.device_id not in paired_device_ids
+    ]
+
+    return {"devices": available}
+
+
 @router.get("/api/devices/{device_id}")
 async def get_device(device_id: str, db: Session = Depends(get_db)):
     """Get single device details with topic counts and recent messages"""
@@ -1086,32 +1115,3 @@ async def validate_pairing_token(
         "device_id": pairing.device_id,
         "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
     }
-
-
-@router.get("/api/devices/available-for-pairing")
-async def get_available_devices(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """Get devices that don't have an active pairing (admin only)."""
-    from backend.auth.dependencies import is_admin_verified
-
-    if not is_admin_verified(request):
-        raise HTTPException(status_code=403, detail="Admin verification required")
-
-    # Get all devices with active pairings
-    paired_device_ids = {
-        p.device_id for p in db.query(DevicePairing).all()
-    }
-
-    # Get all devices
-    all_devices = db.query(Device).order_by(Device.last_seen.desc()).all()
-
-    # Filter to unpaired devices
-    available = [
-        {"id": d.device_id, "name": d.name or d.device_id}
-        for d in all_devices
-        if d.device_id not in paired_device_ids
-    ]
-
-    return {"devices": available}
