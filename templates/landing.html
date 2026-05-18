@@ -4,6 +4,198 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="/static/css/landing.css">
+<style>
+    /* Pairing States */
+    .rfid-card {
+        transition: all 0.3s ease;
+    }
+
+    .rfid-card.locked {
+        opacity: 0.7;
+        filter: grayscale(0.5);
+    }
+
+    .rfid-card.locked .card-icon {
+        opacity: 0.5;
+    }
+
+    .rfid-locked-message {
+        background: var(--bg-tertiary);
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+    .rfid-locked-message .icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .rfid-locked-message p {
+        margin: 0 0 12px 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .rfid-locked-message .btn-connect {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .rfid-locked-message .btn-connect:hover {
+        background: #b83b14;
+    }
+
+    .rfid-connected-status {
+        display: none;
+        background: rgba(53, 119, 48, 0.15);
+        border: 1px solid var(--success);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+    }
+
+    .rfid-connected-status .device-name {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: var(--success);
+    }
+
+    /* Pairing Modal */
+    .pairing-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .pairing-modal-overlay.active {
+        display: flex;
+    }
+
+    .pairing-modal {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 28px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .pairing-modal h3 {
+        margin: 0 0 16px 0;
+        text-align: center;
+    }
+
+    .pairing-modal p {
+        color: var(--text-secondary);
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+    }
+
+    .token-input {
+        width: 100%;
+        padding: 12px 16px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        margin-bottom: 16px;
+        font-family: monospace;
+        letter-spacing: 0.5px;
+    }
+
+    .token-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .pairing-modal .btn-connect {
+        width: 100%;
+        padding: 12px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        margin-bottom: 10px;
+    }
+
+    .pairing-modal .btn-cancel {
+        width: 100%;
+        padding: 10px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+
+    .pairing-error {
+        color: var(--danger);
+        text-align: center;
+        margin-top: 12px;
+        font-size: 0.9rem;
+        display: none;
+    }
+
+    .footer-actions {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .footer-actions a,
+    .footer-actions button {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px 8px;
+        transition: color 0.2s;
+    }
+
+    .footer-actions a:hover,
+    .footer-actions button:hover {
+        color: var(--accent);
+    }
+
+    .btn-pair-device {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-pair-device.connected {
+        color: var(--success) !important;
+    }
+</style>
 {% endblock %}
 
 {% block body_attrs %} class="landing-page"{% endblock %}
@@ -18,22 +210,43 @@
 
     <!-- Top row: RFID + Guest tile -->
     <div class="login-options-top">
-        <!-- RFID Login Section -->
-        <div class="login-card rfid-card">
-            <div class="card-icon">🎴</div>
-            <h2>Mit RFID-Karte</h2>
-            <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
-
-            <div class="rfid-status" id="rfid-status">
-                <div class="scanning-animation">
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                </div>
-                <span class="status-text">Warte auf Karte...</span>
+        <!-- RFID Login Section (Locked until paired) -->
+        <div class="login-card rfid-card locked" id="rfid-card">
+            <div class="rfid-connected-status" id="rfid-connected-status">
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">Verbunden mit:</span>
+                <div class="device-name" id="connected-device-id">-</div>
             </div>
 
-            <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+            <div id="rfid-locked-view">
+                <div class="card-icon">🔒</div>
+                <h2>NFC-Login gesperrt</h2>
+                <p>Dieses Gerät ist nicht mit einem NFC-Scanner verbunden.</p>
+
+                <div class="rfid-locked-message">
+                    <span class="icon">📱</span>
+                    <p>Um sich mit NFC-Karte anzumelden, verbinden Sie dieses Gerät zuerst mit einem NFC-Scanner.</p>
+                    <button class="btn-connect" onclick="openPairingModal()">
+                        <span>🔗</span> Gerät verbinden
+                    </button>
+                </div>
+            </div>
+
+            <div id="rfid-active-view" style="display: none;">
+                <div class="card-icon">🎴</div>
+                <h2>Mit RFID-Karte</h2>
+                <p>Halte deine Mitgliederkarte an den RFID-Reader</p>
+
+                <div class="rfid-status" id="rfid-status">
+                    <div class="scanning-animation">
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                        <span class="pulse"></span>
+                    </div>
+                    <span class="status-text">Warte auf Karte...</span>
+                </div>
+
+                <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+            </div>
         </div>
 
         <!-- Guest Tile -->
@@ -74,7 +287,26 @@
     </div>
 
     <div class="landing-footer">
-        <p>H3cke e.V. MakerSpace | <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">Dokumentation</a> | <a href="/bug-report">🐛 Bug melden</a></p>
+        <div class="footer-actions">
+            <span>H3cke e.V. MakerSpace</span>
+            <button id="btn-pair-device" class="btn-pair-device" onclick="openPairingModal()">
+                <span>🔗</span> Gerät verbinden
+            </button>
+            <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" target="_blank">Dokumentation</a>
+            <a href="/bug-report">🐛 Bug melden</a>
+        </div>
+    </div>
+
+    <!-- Pairing Modal -->
+    <div class="pairing-modal-overlay" id="pairing-modal">
+        <div class="pairing-modal">
+            <h3>📱 Gerät verbinden</h3>
+            <p>Gebe den Pairing-Token ein oder scanne den QR-Code mit der Kamera.</p>
+            <input type="text" id="token-input" class="token-input" placeholder="xxxx-xxxx-xxxx-xxxx" maxlength="32">
+            <button class="btn-connect" onclick="submitPairing()">Verbinden</button>
+            <button class="btn-cancel" onclick="closePairingModal()">Abbrechen</button>
+            <div class="pairing-error" id="pairing-error"></div>
+        </div>
     </div>
 </div>
 
@@ -240,5 +472,171 @@
         btn.textContent = isHidden ? '🔐 Mit Passwort anmelden' : '✕ Abbrechen';
         if (!isHidden) form.querySelector('input[name="username"]').focus();
     }
+
+    // ==================== PAIRING LOGIC ====================
+
+    let pairingToken = null;
+    let pairedDeviceId = null;
+    let scanEventSource = null;
+
+    // Load stored pairing on page load
+    (function initPairing() {
+        const storedToken = localStorage.getItem('landing_pairing_token');
+        const storedDevice = localStorage.getItem('landing_paired_device');
+
+        if (storedToken && storedDevice) {
+            pairingToken = storedToken;
+            pairedDeviceId = storedDevice;
+            activateNFCLogin();
+        }
+    })();
+
+    function openPairingModal() {
+        document.getElementById('pairing-modal').classList.add('active');
+        document.getElementById('token-input').focus();
+        document.getElementById('pairing-error').style.display = 'none';
+    }
+
+    function closePairingModal() {
+        document.getElementById('pairing-modal').classList.remove('active');
+        document.getElementById('token-input').value = '';
+        document.getElementById('pairing-error').style.display = 'none';
+    }
+
+    async function submitPairing() {
+        const token = document.getElementById('token-input').value.trim();
+        const errorBox = document.getElementById('pairing-error');
+
+        if (!token) {
+            errorBox.textContent = 'Bitte einen Token eingeben';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/device-pairings/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pairing_token: token })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.valid) {
+                errorBox.textContent = data.detail || 'Ungültiger oder abgelaufener Token';
+                errorBox.style.display = 'block';
+                return;
+            }
+
+            // Store pairing
+            pairingToken = token;
+            pairedDeviceId = data.device_id;
+            localStorage.setItem('landing_pairing_token', token);
+            localStorage.setItem('landing_paired_device', data.device_id);
+
+            closePairingModal();
+            activateNFCLogin();
+
+        } catch (e) {
+            console.error('Pairing error:', e);
+            errorBox.textContent = 'Fehler bei der Verbindung. Bitte erneut versuchen.';
+            errorBox.style.display = 'block';
+        }
+    }
+
+    function activateNFCLogin() {
+        // Update UI
+        document.getElementById('rfid-card').classList.remove('locked');
+        document.getElementById('rfid-locked-view').style.display = 'none';
+        document.getElementById('rfid-active-view').style.display = 'block';
+        document.getElementById('rfid-connected-status').style.display = 'block';
+        document.getElementById('connected-device-id').textContent = pairedDeviceId;
+
+        // Update footer button
+        const btn = document.getElementById('btn-pair-device');
+        btn.innerHTML = '<span>✓</span> Verbunden';
+        btn.classList.add('connected');
+        btn.onclick = function() {
+            if (confirm('Verbindung zu diesem Gerät trennen?')) {
+                clearPairing();
+            }
+        };
+
+        // Start SSE with token
+        startScanStream();
+    }
+
+    function clearPairing() {
+        pairingToken = null;
+        pairedDeviceId = null;
+        localStorage.removeItem('landing_pairing_token');
+        localStorage.removeItem('landing_paired_device');
+
+        if (scanEventSource) {
+            scanEventSource.close();
+            scanEventSource = null;
+        }
+
+        // Reset UI
+        document.getElementById('rfid-card').classList.add('locked');
+        document.getElementById('rfid-locked-view').style.display = 'block';
+        document.getElementById('rfid-active-view').style.display = 'none';
+        document.getElementById('rfid-connected-status').style.display = 'none';
+
+        const btn = document.getElementById('btn-pair-device');
+        btn.innerHTML = '<span>🔗</span> Gerät verbinden';
+        btn.classList.remove('connected');
+        btn.onclick = openPairingModal;
+
+        // Stop polling (we'll rely on the locked state)
+        location.reload();
+    }
+
+    function startScanStream() {
+        if (!pairingToken) return;
+
+        // Close existing connection
+        if (scanEventSource) {
+            scanEventSource.close();
+        }
+
+        // Use SSE with token parameter
+        scanEventSource = new EventSource(
+            `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`
+        );
+
+        scanEventSource.addEventListener('scan', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.uid) {
+                    attemptRFIDLogin(data.uid);
+                }
+            } catch (err) {
+                console.error('SSE parse error:', err);
+            }
+        });
+
+        scanEventSource.addEventListener('error', (e) => {
+            console.error('SSE error:', e);
+            // Token might be invalid - clear and reload
+            if (e.data && (e.data.includes('Invalid') || e.data.includes('expired'))) {
+                clearPairing();
+            }
+        });
+
+        scanEventSource.addEventListener('open', () => {
+            console.log('SSE connected for device:', pairedDeviceId);
+        });
+    }
+
+    // Enter key in token input
+    document.getElementById('token-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitPairing();
+    });
+
+    // Close modal on overlay click
+    document.getElementById('pairing-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'pairing-modal') closePairingModal();
+    });
 </script>
 {% endblock %}
