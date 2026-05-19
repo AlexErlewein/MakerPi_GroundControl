@@ -1,8 +1,9 @@
 {% extends "base-admin.html" %}
 
-{% set nav_active = 'users' %}
+{% set nav_active = 'benutzer' %}
+{% set sub_nav_active = 'zugriffsrechte' %}
 
-{% block title %}Benutzerverwaltung - MakerPi GroundControl{% endblock %}
+{% block title %}Zugriffsrechte - MakerPi GroundControl{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="/static/css/tags.css">
@@ -11,7 +12,7 @@
 {% block content %}
 <section class="section">
     <div class="section-header">
-        <h2>Benutzerverwaltung</h2>
+        <h2>Zugriffsrechte</h2>
     </div>
 
     {% if success %}

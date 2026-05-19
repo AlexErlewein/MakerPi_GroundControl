@@ -8,14 +8,9 @@
             <nav class="nav">
                 <a href="/dashboard" class="nav-link{% if nav_active == 'dashboard' %} active{% endif %}">Dashboard</a>
                 <a href="/database" class="nav-link{% if nav_active == 'devices' %} active{% endif %}">Devices</a>
-                <a href="/admin/device-pairings" class="nav-link{% if nav_active == 'device-pairings' %} active{% endif %}">Pairing</a>
-                <a href="/tags" class="nav-link{% if nav_active == 'tags' %} active{% endif %}">NFC-Tags</a>
+                <a href="/katalog" class="nav-link{% if nav_active == 'buchhaltung' %} active{% endif %}">Buchhaltung</a>
+                <a href="/mitglieder" class="nav-link{% if nav_active == 'benutzer' %} active{% endif %}">Benutzer</a>
                 <a href="/laufzettel" class="nav-link{% if nav_active == 'laufzettel' %} active{% endif %}">Laufzettel</a>
-                <a href="/katalog" class="nav-link{% if nav_active == 'katalog' %} active{% endif %}">Katalog</a>
-                <a href="/buchhaltung" class="nav-link{% if nav_active == 'buchhaltung' %} active{% endif %}">Buchhaltung</a>
-                <a href="/mitglieder" class="nav-link{% if nav_active == 'mitglieder' %} active{% endif %}">Mitglieder</a>
-                <a href="/shopify" class="nav-link{% if nav_active == 'shopify' %} active{% endif %}">Shopify</a>
-                <a href="/admin/users" class="nav-link{% if nav_active == 'users' %} active{% endif %}">Benutzer</a>
                 <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="nav-link" target="_blank">Docs</a>
             </nav>
         </div>
@@ -24,6 +19,29 @@
             <a href="/logout" class="btn btn-secondary">Abmelden</a>
         </div>
     </header>
+
+    {% if nav_active == 'devices' %}
+    <nav class="subnav">
+        <a href="/database" class="subnav-link{% if sub_nav_active == 'reader' %} active{% endif %}">Reader</a>
+        <a href="/admin/device-pairings" class="subnav-link{% if sub_nav_active == 'pairing' %} active{% endif %}">Pairing</a>
+        <a href="/tags" class="subnav-link{% if sub_nav_active == 'nfc-tags' %} active{% endif %}">NFC-Tags</a>
+    </nav>
+    {% endif %}
+
+    {% if nav_active == 'buchhaltung' %}
+    <nav class="subnav">
+        <a href="/katalog" class="subnav-link{% if sub_nav_active == 'katalog' %} active{% endif %}">Katalog</a>
+        <a href="/buchhaltung" class="subnav-link{% if sub_nav_active == 'finanzen' %} active{% endif %}">Finanzen</a>
+        <a href="/shopify" class="subnav-link{% if sub_nav_active == 'shopify' %} active{% endif %}">Shopify</a>
+    </nav>
+    {% endif %}
+
+    {% if nav_active == 'benutzer' %}
+    <nav class="subnav">
+        <a href="/mitglieder" class="subnav-link{% if sub_nav_active == 'mitglieder' %} active{% endif %}">Mitglieder</a>
+        <a href="/admin/users" class="subnav-link{% if sub_nav_active == 'zugriffsrechte' %} active{% endif %}">Zugriffsrechte</a>
+    </nav>
+    {% endif %}
 {% endblock %}
 
 {% block footer %}
