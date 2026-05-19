@@ -110,19 +110,19 @@ header h1 {
 /* Subnavigation */
 .subnav {
     display: flex;
-    gap: 5px;
-    padding: 8px 0 12px 0;
-    margin-top: -10px;
-    margin-bottom: 20px;
+    gap: 2px;
+    padding: 4px 0 6px 0;
+    margin-top: -16px;
+    margin-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
 .subnav-link {
-    padding: 6px 14px;
+    padding: 4px 10px;
     color: var(--text-secondary);
     text-decoration: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
     font-weight: 500;
     transition: all 0.2s;
     background: none;
