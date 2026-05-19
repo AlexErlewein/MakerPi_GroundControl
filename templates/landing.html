@@ -202,6 +202,15 @@
         color: var(--text-primary);
         margin-top: 16px;
         text-align: center;
+        font-size: 1.1rem;
+    }
+
+    .qr-scanner-overlay .scanner-hint {
+        color: var(--text-secondary);
+        margin-top: 8px;
+        text-align: center;
+        font-size: 0.9rem;
+        max-width: 300px;
     }
 
     .qr-scanner-overlay .btn-close-scanner {
@@ -343,7 +352,8 @@
     <!-- QR Scanner Overlay -->
     <div class="qr-scanner-overlay" id="qr-scanner-overlay">
         <div class="qr-scanner-container" id="qr-reader"></div>
-        <p class="scanner-text">QR-Code vor die Kamera halten...</p>
+        <p class="scanner-text" id="scanner-status">QR-Code vor die Kamera halten...</p>
+        <p class="scanner-hint">💡 Tipp: Halte den QR-Code ca. 10-15cm vor die Kamera</p>
         <button class="btn-close-scanner" onclick="stopQRScanner()">Abbrechen</button>
     </div>
 </div>
@@ -593,33 +603,76 @@
         const overlay = document.getElementById('qr-scanner-overlay');
         overlay.classList.add('active');
 
+        // Zähler zurücksetzen
+        scanAttemptCount = 0;
+        lastStatusUpdate = 0;
+        const statusEl = document.getElementById('scanner-status');
+        if (statusEl) {
+            statusEl.textContent = '📷 QR-Code vor die Kamera halten...';
+        }
+
         html5QrCode = new Html5Qrcode('qr-reader');
 
+        // iOS-optimierte Konfiguration
         const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
+            fps: 5,
+            qrbox: { width: 200, height: 200 },
+            aspectRatio: 1.0,
+            disableFlip: false,
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
         };
 
+        // Kamera wählen (versuche zuerst Rückkamera)
+        let cameraId = null;
         try {
-            await html5QrCode.start(
-                { facingMode: 'environment' },
-                config,
-                onQRCodeSuccess,
-                onQRCodeError
-            );
+            const devices = await Html5Qrcode.getCameras();
+            console.log('Available cameras:', devices);
+
+            if (devices && devices.length > 0) {
+                // Suche nach Rückkamera (label enthält oft "back", "rear", "environment")
+                const backCamera = devices.find(d =>
+                    /back|rear|environment|rück/i.test(d.label)
+                );
+                cameraId = backCamera ? backCamera.id : devices[0].id;
+                console.log('Using camera:', cameraId);
+            }
+        } catch (e) {
+            console.log('Could not enumerate cameras:', e);
+        }
+
+        try {
+            if (cameraId) {
+                await html5QrCode.start(
+                    cameraId,
+                    config,
+                    onQRCodeSuccess,
+                    onQRCodeError
+                );
+            } else {
+                // Fallback: facingMode versuchen
+                await html5QrCode.start(
+                    { facingMode: 'environment' },
+                    config,
+                    onQRCodeSuccess,
+                    onQRCodeError
+                );
+            }
+            console.log('QR scanner started successfully');
         } catch (err) {
             console.error('Failed to start QR scanner:', err);
-            // Try without facingMode constraint
+            // Letzter Fallback: irgendeine Kamera
             try {
                 await html5QrCode.start(
-                    true,
+                    { video: true },
                     config,
                     onQRCodeSuccess,
                     onQRCodeError
                 );
             } catch (err2) {
-                console.error('Failed to start QR scanner (fallback):', err2);
-                alert('Kamera konnte nicht gestartet werden. Bitte manuell eingeben.');
+                console.error('All QR scanner fallbacks failed:', err2);
+                alert('Kamera konnte nicht gestartet werden. Bitte Token manuell eingeben.');
                 stopQRScanner();
             }
         }
@@ -643,8 +696,22 @@
         submitPairing();
     }
 
+    let scanAttemptCount = 0;
+    let lastStatusUpdate = 0;
+
     function onQRCodeError(errorMessage) {
-        // Ignorieren - wird ständig aufgerufen wenn kein QR Code da
+        // Wird ständig aufgerufen wenn kein QR Code da
+        // Update Status alle 2 Sekunden um Benutzer zu zeigen dass es arbeitet
+        scanAttemptCount++;
+        const now = Date.now();
+        if (now - lastStatusUpdate > 2000) {
+            const statusEl = document.getElementById('scanner-status');
+            if (statusEl) {
+                statusEl.textContent = '🔍 Suche nach QR-Code...';
+            }
+            lastStatusUpdate = now;
+            console.log('Scan attempts:', scanAttemptCount);
+        }
     }
 
     async function stopQRScanner() {
