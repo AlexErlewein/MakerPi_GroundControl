@@ -522,10 +522,12 @@
     (function initPairing() {
         const storedToken = localStorage.getItem('landing_pairing_token');
         const storedDevice = localStorage.getItem('landing_paired_device');
+        const container = document.getElementById('login-options-top');
 
         if (storedToken && storedDevice) {
             pairingToken = storedToken;
             pairedDeviceId = storedDevice;
+            container.classList.add('two-columns');
             activateNFCLogin();
         }
     })();
@@ -661,8 +663,13 @@
     }
 
     function activateNFCLogin() {
-        // Show RFID card
-        document.getElementById('rfid-card').style.display = '';
+        // Show RFID card and enable two-column layout
+        const container = document.getElementById('login-options-top');
+        const rfidCard = document.getElementById('rfid-card');
+        rfidCard.style.display = '';
+        rfidCard.classList.add('paired');
+        container.classList.add('two-columns');
+
         document.getElementById('rfid-connected-status').style.display = 'block';
         document.getElementById('connected-device-id').textContent = pairedDeviceId;
 
@@ -691,9 +698,12 @@
             scanEventSource = null;
         }
 
-        // Hide RFID card, reset button
+        // Hide RFID card, reset layout
+        const container = document.getElementById('login-options-top');
         document.getElementById('rfid-card').style.display = 'none';
+        document.getElementById('rfid-card').classList.remove('paired');
         document.getElementById('rfid-connected-status').style.display = 'none';
+        container.classList.remove('two-columns');
 
         const btn = document.getElementById('btn-pair-device');
         btn.innerHTML = '<span>🔗</span> Gerät verbinden';

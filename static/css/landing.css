@@ -53,6 +53,26 @@
     margin-bottom: 16px;
 }
 
+/* Guest card full width by default (when RFID hidden) */
+.guest-card {
+    grid-column: 1 / -1;
+}
+
+/* When RFID card is visible, both share the row */
+.login-options-top.two-columns .guest-card {
+    grid-column: auto;
+}
+
+/* Mobile: always stack */
+@media (max-width: 600px) {
+    .login-options-top {
+        grid-template-columns: 1fr;
+    }
+    .guest-card {
+        grid-column: 1 !important;
+    }
+}
+
 /* Password strip below */
 .password-strip {
     background: var(--bg-secondary);
