@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laufzettel #{{ laufzettel.id }} - H3cke MakerSpace</title>
+    <style>
+        /* CSS Reset & Base */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-header: #1e2127;
+            --text-primary: #1e2127;
+            --text-secondary: #6c757d;
+            --text-muted: #adb5bd;
+            --accent: #d04417;
+            --accent-light: #e85d33;
+            --accent-border: #d04417;
+            --success: #357730;
+            --success-light: #4caf50;
+            --border-color: #dee2e6;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px 10px;
+        }
+
+        /* Receipt Container */
+        .receipt-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .receipt-header {
+            background: linear-gradient(135deg, #2a2d35 0%, #1e2127 100%);
+            color: white;
+            padding: 30px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .receipt-header::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: var(--bg-card);
+            border-radius: 50% 50% 0 0;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo {
+            height: 48px;
+            width: auto;
+            filter: brightness(0) invert(1);
+        }
+
+        .header-text h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .header-text p {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Receipt Number Badge */
+        .receipt-number {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin-top: 12px;
+        }
+
+        .receipt-number-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 2px;
+        }
+
+        .receipt-number-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            line-height: 1.2;
+        }
+
+        /* Content */
+        .receipt-content {
+            padding: 30px 24px;
+        }
+
+        /* Info Grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 30px;
+            padding-bottom: 24px;
+            border-bottom: 2px dashed var(--border-color);
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .info-value.highlight {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Full width info item */
+        .info-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        /* Materials Table */
+        .materials-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+
+        .materials-table thead {
+            background: var(--bg-secondary);
+        }
+
+        .materials-table th {
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--accent-border);
+        }
+
+        .materials-table th:last-child {
+            text-align: right;
+        }
+
+        .materials-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+
+        .materials-table td:last-child {
+            text-align: right;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-weight: 600;
+        }
+
+        .materials-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .materials-table tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Empty State */
+        .empty-materials {
+            text-align: center;
+            padding: 30px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        /* Total Section */
+        .total-section {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, #f0f0f0 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .total-row.main-total {
+            border-top: 2px solid var(--accent-border);
+            margin-top: 8px;
+            padding-top: 16px;
+        }
+
+        .total-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .total-label.main-total {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .total-value {
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .total-value.main-total {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        /* Payment Info */
+        .payment-info {
+            background: rgba(53, 119, 48, 0.08);
+            border: 1px solid rgba(53, 119, 48, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .payment-info-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .payment-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .payment-info-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        .payment-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+
+        .payment-detail-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .payment-detail-value {
+            font-weight: 500;
+        }
+
+        /* Notes */
+        .notes-section {
+            margin-bottom: 24px;
+        }
+
+        .notes-content {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-style: italic;
+            border-left: 3px solid var(--accent-border);
+        }
+
+        /* Footer */
+        .receipt-footer {
+            text-align: center;
+            padding: 24px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .footer-contact {
+            color: var(--accent);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .footer-contact a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer-contact a:hover {
+            text-decoration: underline;
+        }
+
+        /* Print Button (only visible on screen) */
+        .print-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .print-button:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            body {
+                padding: 10px 8px;
+            }
+
+            .receipt-container {
+                border-radius: 8px;
+            }
+
+            .receipt-header {
+                padding: 24px 20px;
+            }
+
+            .logo {
+                height: 40px;
+            }
+
+            .header-text h1 {
+                font-size: 1.2rem;
+            }
+
+            .receipt-number-value {
+                font-size: 1.5rem;
+            }
+
+            .receipt-content {
+                padding: 24px 20px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .materials-table {
+                font-size: 0.85rem;
+            }
+
+            .materials-table th,
+            .materials-table td {
+                padding: 10px 8px;
+            }
+
+            .payment-details {
+                grid-template-columns: 1fr;
+            }
+
+            .print-button {
+                bottom: 16px;
+                right: 16px;
+                padding: 10px 20px;
+                font-size: 0.85rem;
+            }
+
+            /* Hide less important columns on mobile */
+            .hide-mobile {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .receipt-header {
+                padding: 20px 16px;
+            }
+
+            .receipt-content {
+                padding: 20px 16px;
+            }
+
+            .logo {
+                height: 36px;
+            }
+
+            .receipt-number {
+                padding: 8px 16px;
+            }
+
+            .receipt-number-value {
+                font-size: 1.3rem;
+            }
+
+            .materials-table {
+                font-size: 0.8rem;
+            }
+
+            .materials-table th,
+            .materials-table td {
+                padding: 8px 6px;
+            }
+
+            .total-value.main-total {
+                font-size: 1.3rem;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .receipt-container {
+                box-shadow: none;
+                max-width: 100%;
+                border-radius: 0;
+            }
+
+            .receipt-header {
+                background: #2a2d35 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .print-button {
+                display: none;
+            }
+
+            .receipt-footer {
+                page-break-inside: avoid;
+            }
+
+            .total-section {
+                background: #fafafa !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .payment-info {
+                background: white !important;
+                border: 1px solid var(--accent-border) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .payment-icon {
+                background: var(--success) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* Animation for smooth loading */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .receipt-container {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Divider pattern (receipt tear effect) */
+        .tear-divider {
+            height: 12px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--bg-primary) 0px,
+                var(--bg-primary) 8px,
+                transparent 8px,
+                transparent 16px
+            );
+            margin: 0 -24px;
+        }
+
+        .receipt-content + .tear-divider {
+            margin-bottom: -12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <!-- Header -->
+        <header class="receipt-header">
+            <div class="logo-container">
+                <img src="/graphics/H3ckeLogo.svg" alt="H3cke Logo" class="logo">
+                <div class="header-text">
+                    <h1>H3cke MakerSpace</h1>
+                    <p>Laufzettel • Quittung</p>
+                </div>
+            </div>
+            <div class="receipt-number">
+                <div class="receipt-number-label">Laufzettel Nr.</div>
+                <div class="receipt-number-value">#{{ laufzettel.id }}</div>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <div class="receipt-content">
+            <!-- Info Grid -->
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Datum</span>
+                    <span class="info-value">{{ laufzettel.created_at.strftime('%d.%m.%Y') }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Uhrzeit</span>
+                    <span class="info-value">{{ laufzettel.created_at.strftime('%H:%M') }}</span>
+                </div>
+                <div class="info-item full-width">
+                    <span class="info-label">Inhaber</span>
+                    <span class="info-value highlight">{{ laufzettel.owner_name or 'Gast' }}</span>
+                </div>
+                {% if laufzettel.email %}
+                <div class="info-item full-width">
+                    <span class="info-label">E-Mail</span>
+                    <span class="info-value">{{ laufzettel.email }}</span>
+                </div>
+                {% endif %}
+                {% if laufzettel.member_id %}
+                <div class="info-item">
+                    <span class="info-label">Mitglied Nr.</span>
+                    <span class="info-value">{{ laufzettel.member_id }}</span>
+                </div>
+                {% endif %}
+                {% if laufzettel.guest_name %}
+                <div class="info-item">
+                    <span class="info-label">Gast</span>
+                    <span class="info-value">{{ laufzettel.guest_name }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Materials Section -->
+            <h2 class="section-title">Verwendete Materialien</h2>
+
+            {% if materials %}
+            <table class="materials-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Bezeichnung</th>
+                        <th class="hide-mobile">Menge</th>
+                        <th>Preis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mat in materials %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <strong>{{ mat.name }}</strong>
+                            {% if mat.description %}
+                            <br><small style="color: var(--text-muted);">{{ mat.description }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="hide-mobile">
+                            {% if mat.quantity %}
+                            {{ mat.quantity }} {{ mat.unit or '' }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>€{{ "%.2f"|format(mat.price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-materials">
+                Keine Materialien erfasst
+            </div>
+            {% endif %}
+
+            <!-- Total Section -->
+            <div class="total-section">
+                <div class="total-row main-total">
+                    <span class="total-label main-total">Gesamtbetrag</span>
+                    <span class="total-value main-total">€{{ "%.2f"|format(laufzettel.total_amount) }}</span>
+                </div>
+            </div>
+
+            <!-- Payment Info -->
+            {% if laufzettel.payment_method %}
+            <div class="payment-info">
+                <div class="payment-info-header">
+                    <div class="payment-icon">✓</div>
+                    <span class="payment-info-title">Zahlung erhalten</span>
+                </div>
+                <div class="payment-details">
+                    <div>
+                        <div class="payment-detail-label">Zahlungsart</div>
+                        <div class="payment-detail-value">
+                            {% if laufzettel.payment_method == 'bar' %}
+                            💵 Barzahlung
+                            {% elif laufzettel.payment_method == 'karte' %}
+                            💳 Kartenzahlung
+                            {% elif laufzettel.payment_method == 'checkout' %}
+                            📱 Online-Zahlung
+                            {% elif laufzettel.payment_method == 'wero' %}
+                            ⚡ Wero
+                            {% else %}
+                            {{ laufzettel.payment_method }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="payment-detail-label">Zahlungsdatum</div>
+                        <div class="payment-detail-value">
+                            {% if laufzettel.payment_timestamp %}
+                            {{ laufzettel.payment_timestamp.strftime('%d.%m.%Y %H:%M') }}
+                            {% else %}
+                            {{ laufzettel.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if laufzettel.payment_transaction_id %}
+                    <div>
+                        <div class="payment-detail-label">Transaktions-ID</div>
+                        <div class="payment-detail-value" style="font-family: 'SF Mono', Monaco, monospace; font-size: 0.85rem;">
+                            {{ laufzettel.payment_transaction_id }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if laufzettel.payment_notes %}
+                    <div>
+                        <div class="payment-detail-label">Notiz</div>
+                        <div class="payment-detail-value">{{ laufzettel.payment_notes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Notes -->
+            {% if laufzettel.notes %}
+            <div class="notes-section">
+                <h2 class="section-title">Notizen</h2>
+                <div class="notes-content">
+                    {{ laufzettel.notes }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tear Divider -->
+        <div class="tear-divider"></div>
+
+        <!-- Footer -->
+        <footer class="receipt-footer">
+            <p class="footer-text">Vielen Dank für Ihren Besuch bei H3cke MakerSpace!</p>
+            <p class="footer-contact">
+                <a href="https://h3cke.de">h3cke.de</a> •
+                <a href="mailto:info@h3cke.de">info@h3cke.de</a>
+            </p>
+            <p class="footer-text" style="margin-top: 12px; font-size: 0.8rem; color: var(--text-muted);">
+                Erstellt am {{ laufzettel.created_at.strftime('%d.%m.%Y um %H:%M') }} Uhr
+            </p>
+        </footer>
+    </div>
+
+    <!-- Print Button -->
+    <button class="print-button" onclick="window.print()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Drucken
+    </button>
+
+    <script>
+        // Optional: Add any JavaScript for interactivity if needed
+        // Currently, the template is fully functional without JavaScript
+    </script>
+</body>
+</html>

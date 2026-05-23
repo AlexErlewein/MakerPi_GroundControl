@@ -103,7 +103,9 @@ def _get_laufzettel_email(lz: "Laufzettel") -> str | None:
     return None
 
 
-def _schedule_receipt_email(lz: "Laufzettel", materials: list) -> None:
+def _schedule_receipt_email(
+    lz: "Laufzettel", materials: list, request: Request = None
+) -> None:
     """Fire-and-forget: email a payment receipt to the Laufzettel owner.
 
     An email failure must never affect the payment response.
@@ -114,7 +116,15 @@ def _schedule_receipt_email(lz: "Laufzettel", materials: list) -> None:
         recipient = _get_laufzettel_email(lz)
         if not recipient:
             return
-        html = laufzettel_receipt_html(lz, materials)
+
+        # Construct view URL for the Laufzettel
+        if request:
+            base_url = f"{request.url.scheme}://{request.url.netloc}"
+        else:
+            base_url = "https://h3cke.de"
+        view_url = f"{base_url}/laufzettel/view/{lz.id}"
+
+        html = laufzettel_receipt_html(lz, materials, view_url)
         asyncio.create_task(
             _send_email(
                 to=recipient,
@@ -1370,7 +1380,7 @@ _pending_wero_payments: dict = {}
 
 
 @router.post("/api/laufzettel/{laufzettel_id}/pay/wero")
-async def pay_wero(laufzettel_id: int, db: Session = Depends(get_db)):
+async def pay_wero(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
     """Initiate Wero payment - returns QR code URL for customer scan"""
     from datetime import datetime, timezone, timedelta
     import uuid
@@ -1536,18 +1546,66 @@ async def confirm_wero_payment(
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
-    # Push notification (non-critical)
-    try:
-        if send_push_notification:
-            send_push_notification(
-                title="Zahlung eingegangen",
-                body=f"Laufzettel #{laufzettel_id} — Wero-Zahlung",
-                tag=f"payment-{laufzettel_id}",
-                url=f"/laufzettel/{laufzettel_id}",
-            )
-    except Exception:
-        pass
+        # Push notification (non-critical)
+        try:
+            if send_push_notification:
+                send_push_notification(
+                    title="Zahlung eingegangen",
+                    body=f"Laufzettel #{laufzettel_id} – Wero-Zahlung",
+                    tag=f"payment-{laufzettel_id}",
+                    url=f"/laufzettel/{laufzettel_id}",
+                )
+        except Exception:
+            pass
     return d
+
+
+# ── Public View (No Auth Required) ──────────────────────────────────────────────
+
+
+@router.get("/laufzettel/view/{laufzettel_id}", response_class=HTMLResponse)
+async def public_laufzettel_view(laufzettel_id: int, request: Request):
+    """Public, read-only view of a Laufzettel (no authentication required)."""
+    from fastapi.templating import Jinja2Templates
+
+    templates = Jinja2Templates(directory="templates")
+
+    # Fetch Laufzettel
+    db: Session = next(get_db())
+    try:
+        lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+        if not lz:
+            raise HTTPException(status_code=404, detail="Laufzettel nicht gefunden")
+
+        # Fetch materials
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .order_by(LaufzettelMaterial.id)
+            .all()
+        )
+
+        # Prepare materials data with calculated prices
+        materials_data = []
+        for mat in materials:
+            materials_data.append({
+                "name": mat.name,
+                "description": mat.description,
+                "quantity": mat.menge,
+                "unit": mat.unit,
+                "price": mat.calculated_price or 0.0,
+            })
+
+        return templates.TemplateResponse(
+            "public-laufzettel.html",
+            {
+                "request": request,
+                "laufzettel": lz,
+                "materials": materials_data,
+            },
+        )
+    finally:
+        db.close()
 
 
 @router.delete("/api/laufzettel/{laufzettel_id}/pay/wero")

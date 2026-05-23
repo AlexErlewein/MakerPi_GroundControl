@@ -1,5 +1,7 @@
 """HTML email templates for GroundControl notifications"""
 
+from typing import Optional
+
 _BASE_STYLE = """
   body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #222; }
   h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 8px; }
@@ -19,11 +21,17 @@ _PAYMENT_LABELS = {
 }
 
 
-def laufzettel_receipt_html(lz, materials: list) -> str:
+def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None) -> str:
     """HTML receipt email for a paid Laufzettel."""
     date_str = lz.date.strftime("%d.%m.%Y") if lz.date else "—"
-    method_label = _PAYMENT_LABELS.get(lz.payment_method or "", lz.payment_method or "—")
+    method_label = _PAYMENT_LABELS.get(
+        lz.payment_method or "", lz.payment_method or "—"
+    )
     owner = lz.owner_name or "Gast"
+
+    # Use provided view URL or construct default
+    if not view_url:
+        view_url = f"https://h3cke.de/laufzettel/view/{lz.id}"
 
     rows_html = ""
     total = 0.0
@@ -45,7 +53,9 @@ def laufzettel_receipt_html(lz, materials: list) -> str:
         )
 
     if not rows_html:
-        rows_html = "<tr><td colspan='3' style='color:#888'>Keine Materialien erfasst</td></tr>"
+        rows_html = (
+            "<tr><td colspan='3' style='color:#888'>Keine Materialien erfasst</td></tr>"
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -66,10 +76,17 @@ def laufzettel_receipt_html(lz, materials: list) -> str:
     {rows_html}
     <tr class="total-row">
       <td colspan="2">Gesamt</td>
-      <td style="text-align:right">{total:.2f}&nbsp;€</td>
+      <td style="text-align:right'>{total:.2f}&nbsp;€</td>
     </tr>
   </tbody>
 </table>
+
+<p style="margin: 20px 0;">
+  <a class="btn" href="{view_url}" style="display: block; text-align: center;">
+    Laufzettel #{lz.id} ansehen
+  </a>
+</p>
+
 <p class="footer">H3cke Makerspace &middot; Vielen Dank für deinen Besuch!</p>
 </body>
 </html>"""
