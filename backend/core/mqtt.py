@@ -37,6 +37,45 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
+def should_store_message(topic: str) -> bool:
+    """Determine if an MQTT message should be stored in the database.
+
+    Returns False for:
+    - Heartbeat messages (/heartbeat, /availability)
+    - Status messages (/status, /online, /offline)
+    - zigbee2mqtt availability messages
+
+    Returns True for:
+    - Scan messages (/scan, /nfc, /tag)
+    - Device data messages (zigbee2mqtt measurements, etc.)
+    """
+    # Skip heartbeat/availability topics
+    if "/heartbeat" in topic or "/availability" in topic:
+        return False
+    if topic.startswith("zigbee2mqtt") and "/availability" in topic:
+        return False
+
+    # Skip status messages
+    if "/status" in topic:
+        return False
+    if topic.endswith("/online") or topic.endswith("/offline"):
+        return False
+
+    # Keep scan messages
+    if "/scan" in topic or "/nfc" in topic or "/tag" in topic:
+        return True
+
+    # Keep zigbee2mqtt device data (but not bridge state)
+    if topic.startswith("zigbee2mqtt"):
+        if "/bridge" in topic:
+            return False  # Skip bridge topics
+        return True
+
+    # Keep device messages that aren't heartbeats/status
+    # (e.g., picow_nfc_01/config, picow_nfc_01/command, etc.)
+    return True
+
+
 def _notify_scan_subscribers(uid: str, device_id: str):
     """Push a scan event to all active SSE subscribers (thread-safe).
 
@@ -183,22 +222,23 @@ def on_message(client, userdata, msg):
     except UnicodeDecodeError:
         payload_str = str(msg.payload)
 
-    # Store message
-    db = SessionLocal()
-    try:
-        message = MQTTMessage(
-            topic=msg.topic,
-            payload=payload_str,
-            qos=msg.qos,
-            retained=1 if msg.retain else 0,
-        )
-        db.add(message)
-        db.commit()
-    except Exception as e:
-        logger.error(f"Failed to store MQTT message: {e}")
-        db.rollback()
-    finally:
-        db.close()
+    # Store message (only if meaningful)
+    if should_store_message(msg.topic):
+        db = SessionLocal()
+        try:
+            message = MQTTMessage(
+                topic=msg.topic,
+                payload=payload_str,
+                qos=msg.qos,
+                retained=1 if msg.retain else 0,
+            )
+            db.add(message)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to store MQTT message: {e}")
+            db.rollback()
+        finally:
+            db.close()
 
     # Handle specific message types
     try:
@@ -421,7 +461,9 @@ def handle_device_message(topic: str, payload: str):
                 now_dt = _utcnow()
                 last_seen = _scan_dedup.get(dedup_key)
                 if last_seen and (now_dt - last_seen).total_seconds() < SCAN_DEDUP_S:
-                    logger.debug("[SCAN] Duplicate dropped uid=%r device_id=%r", uid, device_id)
+                    logger.debug(
+                        "[SCAN] Duplicate dropped uid=%r device_id=%r", uid, device_id
+                    )
                     return
                 _scan_dedup[dedup_key] = now_dt
 
@@ -602,13 +644,16 @@ def handle_device_message(topic: str, payload: str):
                             validated,
                         )
                     except Exception as e:
-                        logger.error(
-                            f"[SCAN] Failed to publish user_info: {e}"
-                        )
+                        logger.error(f"[SCAN] Failed to publish user_info: {e}")
 
                 # Auto-create Laufzettel for validated scans
                 if validated:
-                    from datetime import date as dt_date, datetime as dt_datetime, timezone as dt_timezone, timedelta
+                    from datetime import (
+                        date as dt_date,
+                        datetime as dt_datetime,
+                        timezone as dt_timezone,
+                        timedelta,
+                    )
                     from backend.laufzettel.db import SessionLocal as LaufzettelSession
                     from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 
@@ -630,12 +675,15 @@ def handle_device_message(topic: str, payload: str):
                         # Dedup guard: skip if any laufzettel was created for this UID in last 5s
                         now_utc = dt_datetime.now(dt_timezone.utc).replace(tzinfo=None)
                         recently_created = any(
-                            lz.created_at and (now_utc - lz.created_at) < timedelta(seconds=5)
+                            lz.created_at
+                            and (now_utc - lz.created_at) < timedelta(seconds=5)
                             for lz in today_lz
                         )
 
                         # Check if this is the Kaffeemaschine device
-                        is_kaffeemaschine = device.name and device.name.lower() == "kaffeemaschine"
+                        is_kaffeemaschine = (
+                            device.name and device.name.lower() == "kaffeemaschine"
+                        )
 
                         # Use locking to prevent race conditions when creating Laufzettel
                         from sqlalchemy.orm import with_for_update
@@ -662,10 +710,16 @@ def handle_device_message(topic: str, payload: str):
                             global _kaffeemaschine_last_scan
                             last_scan = _kaffeemaschine_last_scan.get(uid)
                             now_dt = _utcnow()
-                            if last_scan and (now_dt - last_scan).total_seconds() < KAFFEEMASCHINE_DEBOUNCE_S:
+                            if (
+                                last_scan
+                                and (now_dt - last_scan).total_seconds()
+                                < KAFFEEMASCHINE_DEBOUNCE_S
+                            ):
                                 logger.info(
                                     "[KAFFEEMASCHINE] Debounced scan for uid=%s (%.1fs < %ds)",
-                                    uid, (now_dt - last_scan).total_seconds(), KAFFEEMASCHINE_DEBOUNCE_S
+                                    uid,
+                                    (now_dt - last_scan).total_seconds(),
+                                    KAFFEEMASCHINE_DEBOUNCE_S,
                                 )
                                 # Still update nodes but skip Kaffee increment
                                 nodes = json.loads(open_lz.nodes or "[]")
@@ -686,10 +740,13 @@ def handle_device_message(topic: str, payload: str):
                                 )
                                 if existing_kaffee:
                                     # Increment amount by 1
-                                    existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
+                                    existing_kaffee.menge = (
+                                        existing_kaffee.menge or 0
+                                    ) + 1
                                     logger.info(
                                         "[KAFFEEMASCHINE] Incremented Kaffee count for laufzettel %s: now %s",
-                                        open_lz.id, existing_kaffee.menge
+                                        open_lz.id,
+                                        existing_kaffee.menge,
                                     )
                                 else:
                                     # Create new Kaffee entry under Spenden (tax_rate=0, price=0)
@@ -703,7 +760,7 @@ def handle_device_message(topic: str, payload: str):
                                     lauf_db.add(new_kaffee)
                                     logger.info(
                                         "[KAFFEEMASCHINE] Added Kaffee entry to laufzettel %s",
-                                        open_lz.id
+                                        open_lz.id,
                                     )
                                 # Also update nodes to include kaffeemaschine
                                 nodes = json.loads(open_lz.nodes or "[]")
@@ -752,7 +809,7 @@ def handle_device_message(topic: str, payload: str):
                                 lauf_db.commit()
                                 logger.info(
                                     "[KAFFEEMASCHINE] Added first Kaffee entry to new laufzettel %s",
-                                    new_lz.id
+                                    new_lz.id,
                                 )
                         elif open_lz is not None:
                             # Update existing open Laufzettel (regular scanner, not Kaffeemaschine)
