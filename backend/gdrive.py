@@ -95,17 +95,19 @@ def upload_pdf(
     if service is None:
         return None
 
-    # If no root folder ID, create a "Laufzettel" folder at Drive root
+    # If no root folder ID, create a "Digitale Laufzettel" folder at Drive root
     root_folder_id = GOOGLE_DRIVE_ROOT_FOLDER_ID
     if not root_folder_id:
         try:
             logger.info(
-                "No google_drive_root_folder_id set, creating 'Laufzettel' folder"
+                "No google_drive_root_folder_id set, creating 'Digitale Laufzettel' folder"
             )
-            root_folder_id = find_or_create_folder(service, "Laufzettel", "root")
+            root_folder_id = find_or_create_folder(
+                service, "Digitale Laufzettel", "root"
+            )
             logger.info("Created root folder: %s", root_folder_id)
         except Exception:
-            logger.exception("Failed to create root 'Laufzettel' folder")
+            logger.exception("Failed to create root 'Digitale Laufzettel' folder")
             return None
 
     try:
