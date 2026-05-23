@@ -662,6 +662,10 @@
             }
         };
 
+        // Safari-iOS spezifische Video-Constraints
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
         // Kamera wählen (versuche zuerst Rückkamera)
         let cameraId = null;
         try {
@@ -682,17 +686,43 @@
 
         try {
             if (cameraId) {
+                // Safari-iOS: use videoConstraints for better camera control
+                const startConfig = isIOS && isSafari ? {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    videoConstraints: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    }
+                } : config;
+
                 await html5QrCode.start(
                     cameraId,
-                    config,
+                    startConfig,
                     onQRCodeSuccess,
                     onQRCodeError
                 );
             } else {
-                // Fallback: facingMode versuchen
+                // Fallback: facingMode versuchen mit Safari-spezifischen Constraints
+                const fallbackConfig = isIOS && isSafari ? {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    videoConstraints: {
+                        facingMode: { exact: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                } : config;
+
                 await html5QrCode.start(
                     { facingMode: 'environment' },
-                    config,
+                    fallbackConfig,
                     onQRCodeSuccess,
                     onQRCodeError
                 );
@@ -701,23 +731,52 @@
         } catch (err) {
             console.error('Failed to start QR scanner:', err);
             const statusEl = document.getElementById('scanner-status');
-            
+
+            // Safari-specific error handling
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
             // Provide helpful error messages based on error type
             if (err.name === 'NotAllowedError') {
-                statusEl.innerHTML = '⚠️ Kamera-Zugriff verweigert.<br><small>Bitte Kamera-Berechtigung erteilen.</small>';
+                statusEl.innerHTML = '⚠️ Kamera-Zugriff verweigert.<br><small>Bitte Kamera-Berechtigung erteilen (Settings → Safari → Camera).</small>';
             } else if (err.name === 'NotFoundError') {
                 statusEl.innerHTML = '⚠️ Keine Kamera gefunden.<br><small>Bitte Token manuell eingeben.</small>';
             } else if (err.name === 'NotReadableError') {
                 statusEl.innerHTML = '⚠️ Kamera wird bereits verwendet.<br><small>Bitte andere App schließen.</small>';
+            } else if (err.name === 'OverconstrainedError' || isIOS && isSafari) {
+                // Safari/iOS specific error
+                statusEl.innerHTML = '⚠️ Safari-Kamera-Problem.<br><small>1. Safari neu starten<br>2. Website-Daten löschen<br>3. Token manuell eingeben</small>';
             } else {
                 statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
             }
             document.getElementById('scanner-hint').style.display = 'none';
+
+            // Safari-iOS fallback: Try simpler config without videoConstraints
+            if (isIOS && isSafari) {
+                console.log('Attempting Safari fallback with simpler config');
+                try {
+                    await html5QrCode.start(
+                        { facingMode: 'environment' },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 }
+                        },
+                        onQRCodeSuccess,
+                        onQRCodeError
+                    );
+                    document.getElementById('scanner-hint').style.display = 'block';
+                    console.log('Safari fallback successful');
+                    return;
+                } catch (safariErr) {
+                    console.error('Safari fallback failed:', safariErr);
+                }
+            }
+
             // Letzter Fallback: irgendeine Kamera
             try {
                 await html5QrCode.start(
                     { video: true },
-                    config,
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
                     onQRCodeSuccess,
                     onQRCodeError
                 );
