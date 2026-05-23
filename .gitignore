@@ -39,3 +39,5 @@ config/config.json
 .DS_Store
 Thumbs.db
 .omc/project-memory.json
+config/gdrive_client_secrets.json
+config/gdrive_token.json
