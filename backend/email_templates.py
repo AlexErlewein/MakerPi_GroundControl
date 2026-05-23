@@ -22,7 +22,7 @@ _PAYMENT_LABELS = {
 
 
 def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None) -> str:
-    """HTML receipt email for a paid Laufzettel."""
+    """HTML receipt email for a paid or newly created Laufzettel."""
     date_str = lz.date.strftime("%d.%m.%Y") if lz.date else "—"
     method_label = _PAYMENT_LABELS.get(
         lz.payment_method or "", lz.payment_method or "—"
@@ -57,16 +57,26 @@ def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None)
             "<tr><td colspan='3' style='color:#888'>Keine Materialien erfasst</td></tr>"
         )
 
+    # Adjust content based on payment status
+    if lz.payment_method:
+        subject_header = "Quittung"
+        intro_text = f"Hier ist deine Quittung für deinen Besuch im H3cke."
+        cta_text = f"Laufzettel #{lz.id} ansehen"
+    else:
+        subject_header = "Laufzettel erstellt"
+        intro_text = f"Hallo {owner}, danke für deinen Besuch im H3cke! Dein Laufzettel wurde erfolgreich erstellt."
+        cta_text = f"Laufzettel #{lz.id} verwalten"
+
     return f"""<!DOCTYPE html>
 <html lang="de">
-<head><meta charset="utf-8"><title>Quittung Laufzettel #{lz.id}</title>
+<head><meta charset="utf-8"><title>Laufzettel #{lz.id} – H3cke</title>
 <style>{_BASE_STYLE}</style></head>
 <body>
-<h1>Quittung – Laufzettel #{lz.id}</h1>
+<h1>{subject_header} – Laufzettel #{lz.id}</h1>
 <p>
+  {intro_text}<br>
   <strong>Datum:</strong> {date_str}<br>
-  <strong>Name:</strong> {owner}<br>
-  <strong>Zahlungsart:</strong> {method_label}
+  {method_label != "—" and f"<strong>Zahlungsart:</strong> {method_label}" or ""}
 </p>
 <table>
   <thead>
@@ -83,8 +93,12 @@ def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None)
 
 <p style="margin: 20px 0;">
   <a class="btn" href="{view_url}" style="display: block; text-align: center;">
-    Laufzettel #{lz.id} ansehen
+    {cta_text}
   </a>
+</p>
+
+<p style="font-size: 0.85em; color: #666;">
+  Direktlink: <a href="{view_url}" style="color: #666;">{view_url}</a>
 </p>
 
 <p class="footer">H3cke Makerspace &middot; Vielen Dank für deinen Besuch!</p>
@@ -112,7 +126,7 @@ def easyverein_signup_html(name: str, signup_url: str) -> str:
 <body>
 <h1>Willkommen im H3cke Makerspace!</h1>
 <p>Hallo {name},</p>
-<p>danke für deinen Besuch im H3cke! Wir freuen uns, dass du unsere Maschinen und
+<p>danke für deinen Besuch in der H3cke! Wir freuen uns, dass du unsere Maschinen und
 Materialien genutzt hast.</p>
 <p>Als <strong>Mitglied</strong> profitierst du von:</p>
 <ul>

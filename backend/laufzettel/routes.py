@@ -1265,23 +1265,59 @@ async def create_guest_laufzettel(
     # Set guest_id cookie
     request.session["guest_id"] = guest_id
 
-    # EasyVerein signup email (non-critical, fire-and-forget)
-    if data.email and _send_email and easyverein_signup_html:
-        try:
-            from backend.config import EASYVEREIN_SIGNUP_URL
+    # Send emails (non-critical, fire-and-forget)
+    if data.email:
+        # Get materials for the new Laufzettel (should be empty at creation, but fetch anyway)
+        materials = (
+            db.query(LaufzettelMaterial)
+            .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+            .order_by(LaufzettelMaterial.id)
+            .all()
+        )
 
-            html = easyverein_signup_html(data.name, EASYVEREIN_SIGNUP_URL)
-            asyncio.create_task(
-                _send_email(
-                    to=data.email,
-                    subject="Willkommen im H3cke! Jetzt Mitglied werden",
-                    html_body=html,
+        # 1. EasyVerein signup email
+        if _send_email and easyverein_signup_html:
+            try:
+                from backend.config import EASYVEREIN_SIGNUP_URL
+
+                html = easyverein_signup_html(data.name, EASYVEREIN_SIGNUP_URL)
+                asyncio.create_task(
+                    _send_email(
+                        to=data.email,
+                        subject="Willkommen im H3cke! Jetzt Mitglied werden",
+                        html_body=html,
+                    )
                 )
-            )
-        except Exception:
-            logger.exception(
-                "Failed to schedule easyVerein signup email for guest %s", lz.id
-            )
+            except Exception:
+                logger.exception(
+                    "Failed to schedule easyVerein signup email for guest Laufzettel #%s",
+                    lz.id,
+                )
+
+        # 2. Welcome email with direct link to view Laufzettel
+        if _send_email and laufzettel_receipt_html:
+            try:
+                # Construct direct view URL
+                view_url = f"{request.url.scheme}://{request.url.netloc}/laufzettel/view/{lz.id}"
+
+                html = laufzettel_receipt_html(lz, materials, view_url)
+                asyncio.create_task(
+                    _send_email(
+                        to=data.email,
+                        subject=f"Dein H3cke Laufzettel #{lz.id} ist erstellt!",
+                        html_body=html,
+                    )
+                )
+                logger.info(
+                    "Sent welcome email with view link to %s for Laufzettel #%s",
+                    data.email,
+                    lz.id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to schedule welcome email with view link for guest Laufzettel #%s",
+                    lz.id,
+                )
 
     d = lz.to_dict()
     d["material"] = []
