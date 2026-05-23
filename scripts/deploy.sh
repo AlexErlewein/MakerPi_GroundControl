@@ -81,7 +81,20 @@ fi
 # ── 5. Optional: update Python deps ───────────────────────────────────────
 if [ "$UPDATE_DEPS" = "1" ]; then
     echo "📦 Updating Python dependencies..."
-    ssh "$PI_USER@$PI_HOST" "cd $PROJECT_DIR && if command -v uv &>/dev/null; then uv sync; else .venv/bin/pip install -r requirements.txt; fi"
+    ssh "$PI_USER@$PI_HOST" "
+        set -e
+        cd $PROJECT_DIR
+
+        # Ensure uv is installed
+        if ! command -v uv &>/dev/null; then
+            echo 'uv not found, installing...'
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH=\"\$HOME/.local/bin:\$PATH\"
+        fi
+
+        echo 'Syncing dependencies with uv...'
+        uv sync
+    "
 fi
 
 # ── 6. Restart service ────────────────────────────────────────────────────
