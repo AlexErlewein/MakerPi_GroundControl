@@ -56,10 +56,8 @@ def _schedule_pdf_upload(lz: Laufzettel, materials: list) -> None:
         pdf_bytes = generate_pdf(lz, materials)
         filename = pdf_filename(lz)
         year, month = drive_folder_names(lz)
-        asyncio.create_task(
-            asyncio.get_event_loop().run_in_executor(
-                None, upload_pdf, pdf_bytes, filename, year, month
-            )
+        asyncio.get_event_loop().run_in_executor(
+            None, upload_pdf, pdf_bytes, filename, year, month
         )
     except Exception:
         logger.exception("PDF generation failed for Laufzettel #%s", lz.id)
@@ -76,11 +74,19 @@ def _get_laufzettel_email(lz: "Laufzettel") -> str | None:
         members_db = MembersSession()
         try:
             if lz.mitglied_id:
-                m = members_db.query(Mitglied).filter(Mitglied.id == lz.mitglied_id).first()
+                m = (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.id == lz.mitglied_id)
+                    .first()
+                )
                 if m and m.email:
                     return m.email
             if lz.uid and not lz.uid.startswith("GUEST-"):
-                m = members_db.query(Mitglied).filter(Mitglied.nfc_uid == lz.uid).first()
+                m = (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.nfc_uid == lz.uid)
+                    .first()
+                )
                 if m and m.email:
                     return m.email
                 tag = (
@@ -305,18 +311,25 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
         try:
             handle_stale_laufzettel(resolved_mitglied_db_id, db)
         except Exception:
-            logger.exception("handle_stale_laufzettel failed for mitglied_id=%s", resolved_mitglied_db_id)
+            logger.exception(
+                "handle_stale_laufzettel failed for mitglied_id=%s",
+                resolved_mitglied_db_id,
+            )
 
     # Re-check for an existing open laufzettel for today (may have been created by carry-over)
     existing_open = (
-        db.query(Laufzettel)
-        .filter(
-            Laufzettel.mitglied_id == resolved_mitglied_db_id,
-            Laufzettel.date == entry_date,
-            Laufzettel.payment_method.is_(None),
+        (
+            db.query(Laufzettel)
+            .filter(
+                Laufzettel.mitglied_id == resolved_mitglied_db_id,
+                Laufzettel.date == entry_date,
+                Laufzettel.payment_method.is_(None),
+            )
+            .first()
         )
-        .first()
-    ) if resolved_mitglied_db_id else existing_open
+        if resolved_mitglied_db_id
+        else existing_open
+    )
     if existing_open:
         materials = (
             db.query(LaufzettelMaterial)
@@ -1256,7 +1269,9 @@ async def create_guest_laufzettel(
                 )
             )
         except Exception:
-            logger.exception("Failed to schedule easyVerein signup email for guest %s", lz.id)
+            logger.exception(
+                "Failed to schedule easyVerein signup email for guest %s", lz.id
+            )
 
     d = lz.to_dict()
     d["material"] = []
