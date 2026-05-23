@@ -116,8 +116,7 @@ def easyverein_signup_html(name: str, signup_url: str) -> str:
 Materialien genutzt hast.</p>
 <p>Als <strong>Mitglied</strong> profitierst du von:</p>
 <ul>
-  <li>Günstigeren Materialpreisen</li>
-  <li>24/7 Zugang mit deiner persönlichen RFID-Karte</li>
+  <li>Dein digitaler Laufzettel mit deiner persönlichen RFID-Karte</li>
   <li>Nutzung aller Maschinen und Werkzeuge</li>
   <li>Einer aktiven Community von Makern</li>
 </ul>
