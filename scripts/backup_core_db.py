@@ -23,18 +23,28 @@ def create_local_backup():
     timestamp = datetime.now().strftime("%Y%m%d")
     backup_name = f"core_db_{timestamp}.db"
 
+    # Validate database first
+    try:
+        check = sqlite3.connect(str(db_path))
+        check.execute("PRAGMA integrity_check").fetchone()
+        check.close()
+    except Exception as e:
+        print(f"ERROR: Database integrity check failed: {e}")
+        raise
+
+    # Use SQLite's online backup API
     source = sqlite3.connect(str(db_path))
-    backup = sqlite3.connect(":memory:")
+    backup_path = PROJECT_ROOT / f"backups/core_db/{backup_name}"
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+
+    backup = sqlite3.connect(str(backup_path))
     source.backup(backup)
-    backup_bytes = b"\x00"  # Placeholder - we'll read directly
-
-    # Get backup as bytes
-    backup_bytes = b""
-    for line in backup.iterdump():
-        backup_bytes += f"{line};\n".encode("utf-8")
-
-    source.close()
     backup.close()
+    source.close()
+
+    # Read backup as bytes
+    backup_bytes = backup_path.read_bytes()
+    backup_path.unlink()  # Clean up local temp
 
     return backup_name, backup_bytes
 
