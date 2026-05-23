@@ -561,7 +561,7 @@ def handle_device_message(topic: str, payload: str):
                 )
                 _notify_scan_subscribers(uid, device_id)
 
-                # Publish scan result to LilyGo display (and other displays)
+                # Publish scan result to all displays
                 global mqtt_client
                 if mqtt_client:
                     try:
@@ -576,15 +576,19 @@ def handle_device_message(topic: str, payload: str):
                                 "source": "REMOTE",
                             }
                         )
+                        # Publish to legacy LilyGo channel (backward compat)
                         mqtt_client.publish("lilygo/user_info", response_payload)
+                        # Publish to device-specific channel so each scanner sees its own result
+                        mqtt_client.publish(f"{device_id}/user_info", response_payload)
                         logger.info(
-                            "[SCAN] Published to lilygo/user_info: uid=%r validated=%s",
+                            "[SCAN] Published user_info to lilygo/user_info and %s/user_info: uid=%r validated=%s",
+                            device_id,
                             uid,
                             validated,
                         )
                     except Exception as e:
                         logger.error(
-                            f"[SCAN] Failed to publish to lilygo/user_info: {e}"
+                            f"[SCAN] Failed to publish user_info: {e}"
                         )
 
                 # Auto-create Laufzettel for validated scans
