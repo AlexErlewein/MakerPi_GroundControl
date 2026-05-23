@@ -1546,17 +1546,18 @@ async def confirm_wero_payment(
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
-        # Push notification (non-critical)
-        try:
-            if send_push_notification:
-                send_push_notification(
-                    title="Zahlung eingegangen",
-                    body=f"Laufzettel #{laufzettel_id} – Wero-Zahlung",
-                    tag=f"payment-{laufzettel_id}",
-                    url=f"/laufzettel/{laufzettel_id}",
-                )
-        except Exception:
-            pass
+
+    # Push notification (non-critical)
+    try:
+        if send_push_notification:
+            send_push_notification(
+                title="Zahlung eingegangen",
+                body=f"Laufzettel #{laufzettel_id} – Wero-Zahlung",
+                tag=f"payment-{laufzettel_id}",
+                url=f"/laufzettel/{laufzettel_id}",
+            )
+    except Exception:
+        pass
     return d
 
 
@@ -1588,13 +1589,15 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
         # Prepare materials data with calculated prices
         materials_data = []
         for mat in materials:
-            materials_data.append({
-                "name": mat.name,
-                "description": mat.description,
-                "quantity": mat.menge,
-                "unit": mat.unit,
-                "price": mat.calculated_price or 0.0,
-            })
+            materials_data.append(
+                {
+                    "name": mat.name,
+                    "description": mat.description,
+                    "quantity": mat.menge,
+                    "unit": mat.unit,
+                    "price": mat.calculated_price or 0.0,
+                }
+            )
 
         return templates.TemplateResponse(
             "public-laufzettel.html",
