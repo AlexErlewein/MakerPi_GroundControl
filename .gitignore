@@ -41,3 +41,7 @@ Thumbs.db
 .omc/project-memory.json
 config/gdrive_client_secrets.json
 config/gdrive_token.json
+
+# Gmail OAuth2 credentials
+config/gmail_oauth_client_secrets.json
+config/gmail_oauth_token.json
