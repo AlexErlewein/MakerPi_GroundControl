@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -20,14 +19,6 @@ async def get_oauth_token() -> str:
     from backend.config import (
         GMAIL_OAUTH_ENABLED,
         GMAIL_OAUTH_TOKEN_FILE,
-        GMAIL_OAUTH_USERNAME,
-        SMTP_FROM_EMAIL,
-        SMTP_HOST,
-        SMTP_PASSWORD,
-        SMTP_PORT,
-        SMTP_STARTTLS,
-        SMTP_TLS,
-        SMTP_USERNAME,
     )
 
     global _oauth_credentials
@@ -46,8 +37,8 @@ async def get_oauth_token() -> str:
 
     # Import here to avoid issues when not using OAuth
     try:
-        from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
     except ImportError:
         logger.error("google-auth not installed for OAuth2 support")
         raise RuntimeError("google-auth package required for OAuth2")
@@ -101,8 +92,9 @@ async def send_via_gmail_api(
     """Send email via Gmail API (supports aliases properly)."""
     try:
         import base64
-        from google.oauth2.credentials import Credentials
+
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
     except ImportError:
         logger.error("Google API client libraries not installed")
@@ -163,7 +155,7 @@ async def send_email(
     to: Union[str, list],
     subject: str,
     html_body: str,
-    text_body: str = None,
+    text_body: str = "",
 ) -> bool:
     """Send an HTML email via SMTP. Returns True on success, False on failure.
 
