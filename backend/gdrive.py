@@ -91,21 +91,38 @@ def upload_pdf(
 
     from backend.config import GOOGLE_DRIVE_ROOT_FOLDER_ID
 
-    if not GOOGLE_DRIVE_ROOT_FOLDER_ID:
-        logger.warning("google_drive_root_folder_id is not set; skipping upload")
-        return None
-
     service = get_drive_service()
     if service is None:
         return None
 
+    # If no root folder ID, create a "Laufzettel" folder at Drive root
+    root_folder_id = GOOGLE_DRIVE_ROOT_FOLDER_ID
+    if not root_folder_id:
+        try:
+            logger.info(
+                "No google_drive_root_folder_id set, creating 'Laufzettel' folder"
+            )
+            root_folder_id = find_or_create_folder(service, "Laufzettel", "root")
+            logger.info("Created root folder: %s", root_folder_id)
+        except Exception:
+            logger.exception("Failed to create root 'Laufzettel' folder")
+            return None
+
     try:
-        year_folder_id = find_or_create_folder(service, year, GOOGLE_DRIVE_ROOT_FOLDER_ID)
+        year_folder_id = find_or_create_folder(
+            service, year, GOOGLE_DRIVE_ROOT_FOLDER_ID
+        )
         month_folder_id = find_or_create_folder(service, month_name, year_folder_id)
 
-        media = MediaInMemoryUpload(pdf_bytes, mimetype="application/pdf", resumable=False)
+        media = MediaInMemoryUpload(
+            pdf_bytes, mimetype="application/pdf", resumable=False
+        )
         file_metadata = {"name": filename, "parents": [month_folder_id]}
-        f = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+        f = (
+            service.files()
+            .create(body=file_metadata, media_body=media, fields="id")
+            .execute()
+        )
         file_id = f.get("id")
         logger.info("Uploaded PDF '%s' to Drive (id=%s)", filename, file_id)
         return file_id
