@@ -16,7 +16,8 @@
       "Bash(xargs cat *)",
       "mcp__plugin_oh-my-claudecode_t__lsp_document_symbols",
       "Bash(python3 -c ' *)",
-      "Bash(python3)"
+      "Bash(python3)",
+      "Bash(cd /Users/alex/Desktop/code/Others/ESP_Dial && find . -type f -name \"*.md\" -o -name \"README*\" -o -name \"platformio.ini\" -o -name \"CMakeLists.txt\" | head -20)"
     ]
   }
 }

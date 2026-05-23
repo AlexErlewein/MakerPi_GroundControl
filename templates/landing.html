@@ -465,6 +465,7 @@
     }
 
     async function attemptRFIDLogin(rfidUid) {
+        console.log('[NFC-LOGIN] Attempting login with UID:', rfidUid);
         rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
         rfidError.style.display = 'none';
 
@@ -476,14 +477,34 @@
                 body: JSON.stringify({rfid_uid: rfidUid})
             });
 
+            console.log('[NFC-LOGIN] Response status:', res.status);
             const data = await res.json();
+            console.log('[NFC-LOGIN] Response data:', data);
 
             if (data.success) {
                 rfidStatus.innerHTML = '<span class="status-text success">✓ Angemeldet!</span>';
+                console.log('[NFC-LOGIN] Login successful, redirecting to:', data.redirect || '/member');
+                
+                // Store the redirect URL in case reload is needed
+                if (data.redirect) {
+                    sessionStorage.setItem('nfc_login_redirect', data.redirect);
+                }
+                
+                // Use a small delay to ensure session is set
                 setTimeout(() => {
+                    // Try to redirect
                     window.location.href = data.redirect || '/member';
+                    
+                    // Fallback: if not redirected after 2s, reload
+                    setTimeout(() => {
+                        if (!data.redirect.includes(window.location.pathname)) {
+                            console.log('[NFC-LOGIN] Redirect not triggered, reloading page');
+                            window.location.reload();
+                        }
+                    }, 2000);
                 }, 500);
             } else {
+                console.error('[NFC-LOGIN] Login failed:', data.error);
                 rfidStatus.innerHTML = `
                     <div class="scanning-animation">
                         <span class="pulse"></span>
@@ -499,7 +520,7 @@
                 }, 5000);
             }
         } catch (e) {
-            console.error('Login error:', e);
+            console.error('[NFC-LOGIN] Network error:', e);
             rfidStatus.innerHTML = `
                 <div class="scanning-animation">
                     <span class="pulse"></span>
@@ -508,6 +529,11 @@
                 </div>
                 <span class="status-text">Warte auf Karte...</span>
             `;
+            rfidError.textContent = 'Verbindungsfehler. Bitte erneut versuchen.';
+            rfidError.style.display = 'block';
+            setTimeout(() => {
+                rfidError.style.display = 'none';
+            }, 3000);
         }
     }
 
@@ -603,6 +629,17 @@
         const overlay = document.getElementById('qr-scanner-overlay');
         overlay.classList.add('active');
 
+        // Check if HTTPS or localhost - required for camera access on iOS Safari
+        const isSecureContext = window.isSecureContext;
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        if (!isSecureContext && !isLocalhost) {
+            const statusEl = document.getElementById('scanner-status');
+            statusEl.innerHTML = '⚠️ Kamera-Zugriff erfordert HTTPS.<br><small>Bitte Token manuell eingeben oder HTTPS aktivieren.</small>';
+            document.getElementById('scanner-hint').style.display = 'none';
+            return;
+        }
+
         // Zähler zurücksetzen
         scanAttemptCount = 0;
         lastStatusUpdate = 0;
@@ -610,13 +647,14 @@
         if (statusEl) {
             statusEl.textContent = '📷 QR-Code vor die Kamera halten...';
         }
+        document.getElementById('scanner-hint').style.display = 'block';
 
         html5QrCode = new Html5Qrcode('qr-reader');
 
-        // iOS-optimierte Konfiguration
+        // iOS-optimierte Konfiguration mit Verbesserungen
         const config = {
-            fps: 5,
-            qrbox: { width: 200, height: 200 },
+            fps: 10,  // Erhöht von 5 auf 10 für bessere Reaktion
+            qrbox: { width: 250, height: 250 },  // Größerer Scan-Bereich
             aspectRatio: 1.0,
             disableFlip: false,
             experimentalFeatures: {
@@ -662,6 +700,19 @@
             console.log('QR scanner started successfully');
         } catch (err) {
             console.error('Failed to start QR scanner:', err);
+            const statusEl = document.getElementById('scanner-status');
+            
+            // Provide helpful error messages based on error type
+            if (err.name === 'NotAllowedError') {
+                statusEl.innerHTML = '⚠️ Kamera-Zugriff verweigert.<br><small>Bitte Kamera-Berechtigung erteilen.</small>';
+            } else if (err.name === 'NotFoundError') {
+                statusEl.innerHTML = '⚠️ Keine Kamera gefunden.<br><small>Bitte Token manuell eingeben.</small>';
+            } else if (err.name === 'NotReadableError') {
+                statusEl.innerHTML = '⚠️ Kamera wird bereits verwendet.<br><small>Bitte andere App schließen.</small>';
+            } else {
+                statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
+            }
+            document.getElementById('scanner-hint').style.display = 'none';
             // Letzter Fallback: irgendeine Kamera
             try {
                 await html5QrCode.start(
@@ -670,9 +721,10 @@
                     onQRCodeSuccess,
                     onQRCodeError
                 );
+                document.getElementById('scanner-hint').style.display = 'block';
             } catch (err2) {
                 console.error('All QR scanner fallbacks failed:', err2);
-                alert('Kamera konnte nicht gestartet werden. Bitte Token manuell eingeben.');
+                statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
                 stopQRScanner();
             }
         }
@@ -782,39 +834,61 @@
     }
 
     function startScanStream() {
-        if (!pairingToken) return;
+        if (!pairingToken) {
+            console.log('[SSE] No pairing token, skipping SSE connection');
+            return;
+        }
 
+        console.log('[SSE] Starting SSE connection with token:', pairingToken.substring(0, 8) + '...');
+        
         // Close existing connection
         if (scanEventSource) {
+            console.log('[SSE] Closing existing SSE connection');
             scanEventSource.close();
         }
 
         // Use SSE with token parameter
-        scanEventSource = new EventSource(
-            `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`
-        );
+        const sseUrl = `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`;
+        console.log('[SSE] Connecting to:', sseUrl);
+        
+        scanEventSource = new EventSource(sseUrl);
+
+        scanEventSource.addEventListener('config', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                console.log('[SSE] Config received:', data);
+                pairedDeviceId = data.enrollment_reader_id;
+                document.getElementById('connected-device-id').textContent = pairedDeviceId;
+            } catch (err) {
+                console.error('[SSE] Config parse error:', err);
+            }
+        });
 
         scanEventSource.addEventListener('scan', (e) => {
             try {
                 const data = JSON.parse(e.data);
+                console.log('[SSE] Scan event received:', data);
                 if (data.uid) {
+                    console.log('[SSE] Calling attemptRFIDLogin with UID:', data.uid);
                     attemptRFIDLogin(data.uid);
                 }
             } catch (err) {
-                console.error('SSE parse error:', err);
+                console.error('[SSE] Parse error:', err);
             }
         });
 
         scanEventSource.addEventListener('error', (e) => {
-            console.error('SSE error:', e);
+            console.error('[SSE] Connection error:', e);
             // Token might be invalid - clear and reload
             if (e.data && (e.data.includes('Invalid') || e.data.includes('expired'))) {
+                console.log('[SSE] Token invalid or expired, clearing pairing');
+                alert('Pairing-Token ungültig oder abgelaufen. Bitte erneut verbinden.');
                 clearPairing();
             }
         });
 
         scanEventSource.addEventListener('open', () => {
-            console.log('SSE connected for device:', pairedDeviceId);
+            console.log('[SSE] Connection established for device:', pairedDeviceId);
         });
     }
 

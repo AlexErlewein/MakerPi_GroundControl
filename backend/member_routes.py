@@ -19,7 +19,12 @@ from backend.laufzettel.routes import MaterialCreate
 from backend.members.db import get_db as get_members_db
 from backend.members.models import Mitglied, RFIDTag
 from backend.catalog.db import get_db as get_catalog_db
-from backend.catalog.models import Location, MaterialKategorie, MaterialUnterkategorie, MaterialVariante
+from backend.catalog.models import (
+    Location,
+    MaterialKategorie,
+    MaterialUnterkategorie,
+    MaterialVariante,
+)
 from backend.laufzettel.utils import handle_stale_laufzettel
 
 logger = logging.getLogger(__name__)
@@ -147,15 +152,30 @@ async def member_laufzettel_open(
     katalog_data = []
     for loc in locations:
         loc_dict = loc.to_dict()
-        kategorien = catalog_db.query(MaterialKategorie).filter(MaterialKategorie.location_id == loc.id).order_by(MaterialKategorie.name).all()
+        kategorien = (
+            catalog_db.query(MaterialKategorie)
+            .filter(MaterialKategorie.location_id == loc.id)
+            .order_by(MaterialKategorie.name)
+            .all()
+        )
         loc_dict["kategorien"] = []
         for kat in kategorien:
             kat_dict = kat.to_dict()
-            unterkategorien = catalog_db.query(MaterialUnterkategorie).filter(MaterialUnterkategorie.kategorie_id == kat.id).order_by(MaterialUnterkategorie.name).all()
+            unterkategorien = (
+                catalog_db.query(MaterialUnterkategorie)
+                .filter(MaterialUnterkategorie.kategorie_id == kat.id)
+                .order_by(MaterialUnterkategorie.name)
+                .all()
+            )
             kat_dict["unterkategorien"] = []
             for ukat in unterkategorien:
                 ukat_dict = ukat.to_dict()
-                varianten = catalog_db.query(MaterialVariante).filter(MaterialVariante.unterkategorie_id == ukat.id).order_by(MaterialVariante.id).all()
+                varianten = (
+                    catalog_db.query(MaterialVariante)
+                    .filter(MaterialVariante.unterkategorie_id == ukat.id)
+                    .order_by(MaterialVariante.id)
+                    .all()
+                )
                 ukat_dict["varianten"] = [v.to_dict() for v in varianten]
                 kat_dict["unterkategorien"].append(ukat_dict)
             loc_dict["kategorien"].append(kat_dict)
@@ -243,7 +263,9 @@ async def member_download_pdf(
     if not is_member_session_valid(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = auth_db.query(User).filter(User.username == request.session.get("user")).first()
+    user = (
+        auth_db.query(User).filter(User.username == request.session.get("user")).first()
+    )
     if not user or user.role not in ["admin", "member"]:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -460,7 +482,11 @@ async def login_via_rfid(
     rfid_uid = body.get("rfid_uid", "").strip().upper()
     from datetime import datetime, timezone
 
-    logger.info("[RFID-LOGIN] Attempt with uid=%r", rfid_uid)
+    logger.info(
+        "[RFID-LOGIN] Attempt with uid=%r, cookie=%r",
+        rfid_uid,
+        request.headers.get("cookie", "")[:100],
+    )
 
     # Primary lookup: find member directly by nfc_uid
     mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
@@ -539,6 +565,13 @@ async def login_via_rfid(
     request.session["admin_verified_at"] = None
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
+    logger.info(
+        "[RFID-LOGIN] Session created for user=%s mitglied_id=%s is_admin=%s",
+        user.username,
+        user.mitglied_id,
+        request.session["is_admin_capable"],
+    )
+
     # Handle stale open laufzettel from previous days
     stale_result = {"action": "none"}
     if user.mitglied_id:
@@ -548,11 +581,14 @@ async def login_via_rfid(
         try:
             stale_result = handle_stale_laufzettel(user.mitglied_id, lz_db)
         except Exception:
-            logger.exception("[RFID-LOGIN] handle_stale_laufzettel failed for mitglied_id=%s", user.mitglied_id)
+            logger.exception(
+                "[RFID-LOGIN] handle_stale_laufzettel failed for mitglied_id=%s",
+                user.mitglied_id,
+            )
         finally:
             lz_db.close()
 
-    return {
+    result = {
         "success": True,
         "user": {
             "id": user.id,
@@ -565,6 +601,12 @@ async def login_via_rfid(
         "redirect": "/member",
         "stale_laufzettel": stale_result.get("action"),
     }
+    logger.info(
+        "[RFID-LOGIN] Returning success for user=%s redirect=%s",
+        user.username,
+        result["redirect"],
+    )
+    return result
 
 
 # ── Kasse (Payment Checkout) ────────────────────────────────────────────────

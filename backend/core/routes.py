@@ -463,9 +463,7 @@ async def get_available_devices(
         raise HTTPException(status_code=403, detail="Admin verification required")
 
     # Get all devices with active pairings
-    paired_device_ids = {
-        p.device_id for p in db.query(DevicePairing).all()
-    }
+    paired_device_ids = {p.device_id for p in db.query(DevicePairing).all()}
 
     # Get all devices
     all_devices = db.query(Device).order_by(Device.last_seen.desc()).all()
@@ -701,21 +699,45 @@ async def scan_stream(
     If a pairing token is provided, validates it and only sends events
     from the paired device.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     # Validate token if provided
     allowed_device = None
     if token:
         token_hash = _hash_token(token)
-        pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+        pairing = (
+            db.query(DevicePairing)
+            .filter(DevicePairing.token_hash == token_hash)
+            .first()
+        )
+
+        logger.info(
+            "[SSE] Pairing token validation: token_hash=%s found=%s",
+            token_hash[:16],
+            bool(pairing),
+        )
 
         if not pairing:
+            logger.warning("[SSE] Invalid pairing token received")
             return StreamingResponse(
-                iter([f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"]),
+                iter(
+                    [
+                        f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"
+                    ]
+                ),
                 media_type="text/event-stream",
             )
 
         if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+            logger.warning("[SSE] Expired pairing token received")
             return StreamingResponse(
-                iter([f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"]),
+                iter(
+                    [
+                        f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"
+                    ]
+                ),
                 media_type="text/event-stream",
             )
 
@@ -725,24 +747,39 @@ async def scan_stream(
         db.commit()
 
         allowed_device = pairing.device_id
+        logger.info("[SSE] Pairing validated for device_id=%s", allowed_device)
 
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
     entry = (queue, loop, allowed_device)  # Include allowed_device for filtering
     scan_subscribers.append(entry)
+    logger.info(
+        "[SSE] Client connected, subscriber count=%d allowed_device=%s",
+        len(scan_subscribers),
+        allowed_device,
+    )
 
     async def event_generator():
         try:
             # First event: send configured reader id so the client can filter
-            reader_id = allowed_device if allowed_device else _app_config.ENROLLMENT_READER_ID
+            reader_id = (
+                allowed_device if allowed_device else _app_config.ENROLLMENT_READER_ID
+            )
+            logger.info(
+                "[SSE] Sending config event: reader_id=%s paired=%s",
+                reader_id,
+                allowed_device is not None,
+            )
             yield f"event: config\ndata: {json.dumps({'enrollment_reader_id': reader_id, 'paired': allowed_device is not None})}\n\n"
 
             deadline = loop.time() + 30
             while True:
                 if await request.is_disconnected():
+                    logger.info("[SSE] Client disconnected")
                     break
                 remaining = deadline - loop.time()
                 if remaining <= 0:
+                    logger.info("[SSE] Timeout, closing connection")
                     yield f"event: timeout\ndata: {json.dumps({'message': 'timeout'})}\n\n"
                     break
                 try:
@@ -751,13 +788,28 @@ async def scan_stream(
                     )
                     # If paired, only send events from the allowed device
                     if allowed_device and event.get("device_id") != allowed_device:
+                        logger.debug(
+                            "[SSE] Skipping event from different device: %s (allowed: %s)",
+                            event.get("device_id"),
+                            allowed_device,
+                        )
                         continue
+                    logger.debug(
+                        "[SSE] Sending scan event: uid=%s device_id=%s",
+                        event.get("uid"),
+                        event.get("device_id"),
+                    )
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue
+        except Exception as e:
+            logger.exception("[SSE] Error in event generator: %s", e)
         finally:
             if entry in scan_subscribers:
                 scan_subscribers.remove(entry)
+                logger.info(
+                    "[SSE] Client removed, subscriber count=%d", len(scan_subscribers)
+                )
 
     return StreamingResponse(
         event_generator(),
@@ -917,17 +969,29 @@ async def payment_scan_stream(
     allowed_device = None
     if token:
         token_hash = _hash_token(token)
-        pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+        pairing = (
+            db.query(DevicePairing)
+            .filter(DevicePairing.token_hash == token_hash)
+            .first()
+        )
 
         if not pairing:
             return StreamingResponse(
-                iter([f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"]),
+                iter(
+                    [
+                        f"event: error\ndata: {json.dumps({'error': 'Invalid pairing token'})}\n\n"
+                    ]
+                ),
                 media_type="text/event-stream",
             )
 
         if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
             return StreamingResponse(
-                iter([f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"]),
+                iter(
+                    [
+                        f"event: error\ndata: {json.dumps({'error': 'Token expired'})}\n\n"
+                    ]
+                ),
                 media_type="text/event-stream",
             )
 
@@ -945,7 +1009,9 @@ async def payment_scan_stream(
 
     async def event_generator():
         try:
-            reader_id = allowed_device if allowed_device else _app_config.PAYMENT_READER_ID
+            reader_id = (
+                allowed_device if allowed_device else _app_config.PAYMENT_READER_ID
+            )
             yield f"event: config\ndata: {json.dumps({'payment_reader_id': reader_id, 'paired': allowed_device is not None})}\n\n"
 
             deadline = loop.time() + 120
@@ -1096,7 +1162,9 @@ async def validate_pairing_token(
     """Validate a pairing token and return device info if valid."""
     token_hash = _hash_token(data.pairing_token)
 
-    pairing = db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+    pairing = (
+        db.query(DevicePairing).filter(DevicePairing.token_hash == token_hash).first()
+    )
 
     if not pairing:
         return {"valid": False, "error": "Invalid token"}
