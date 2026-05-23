@@ -109,9 +109,7 @@ def upload_pdf(
             return None
 
     try:
-        year_folder_id = find_or_create_folder(
-            service, year, GOOGLE_DRIVE_ROOT_FOLDER_ID
-        )
+        year_folder_id = find_or_create_folder(service, year, root_folder_id)
         month_folder_id = find_or_create_folder(service, month_name, year_folder_id)
 
         media = MediaInMemoryUpload(
