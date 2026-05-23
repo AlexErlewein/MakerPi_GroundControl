@@ -27,6 +27,11 @@ scan_subscribers: list = []
 _kaffeemaschine_last_scan: dict = {}
 KAFFEEMASCHINE_DEBOUNCE_S = 15  # seconds between Kaffee increments for same card
 
+# Scan deduplication: drop duplicate on_message calls for the same uid+device within 2s.
+# The paho-mqtt client can deliver messages twice when the connection is unstable.
+_scan_dedup: dict = {}  # {(device_id, uid): datetime}
+SCAN_DEDUP_S = 2
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
@@ -410,6 +415,16 @@ def handle_device_message(topic: str, payload: str):
             try:
                 data = json.loads(payload)
                 uid = data.get("uid", "").upper()
+
+                # Dedup: paho-mqtt can deliver the same message twice on reconnect
+                dedup_key = (device_id, uid)
+                now_dt = _utcnow()
+                last_seen = _scan_dedup.get(dedup_key)
+                if last_seen and (now_dt - last_seen).total_seconds() < SCAN_DEDUP_S:
+                    logger.debug("[SCAN] Duplicate dropped uid=%r device_id=%r", uid, device_id)
+                    return
+                _scan_dedup[dedup_key] = now_dt
+
                 validated = 0
                 owner_name = None
 
