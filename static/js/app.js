@@ -34,7 +34,6 @@ async function loadDashboardStats() {
 
             // Make GDrive link clickable when connected
             const gdriveLink = document.getElementById('gdrive-link');
-            const gdriveButton = document.getElementById('gdrive-button');
             if (gdriveLink && data.system_status.gdrive.status === 'ok') {
                 // Use the Google Drive URL if available
                 const gdriveUrl = data.system_status.gdrive.url || null;
@@ -43,13 +42,6 @@ async function loadDashboardStats() {
                     gdriveLink.onclick = () => {
                         window.open(gdriveUrl, '_blank');
                     };
-                    // Show button as well
-                    if (gdriveButton) {
-                        gdriveButton.style.display = 'inline-block';
-                        gdriveButton.onclick = () => {
-                            window.open(gdriveUrl, '_blank');
-                        };
-                    }
                 }
             } else if (gdriveLink) {
                 gdriveLink.style.cursor = 'default';
