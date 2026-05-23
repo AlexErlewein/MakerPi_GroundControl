@@ -36,19 +36,24 @@ async function loadDashboardStats() {
             const gdriveLink = document.getElementById('gdrive-link');
             const gdriveButton = document.getElementById('gdrive-button');
             if (gdriveLink && data.system_status.gdrive.status === 'ok') {
-                // TODO: Add Google Drive URL when provided
-                // For now, make it a span that shows as connected
-                gdriveLink.style.cursor = 'pointer';
-                gdriveLink.onclick = () => {
-                    alert('Google Drive URL will be added later');
-                };
-                // Show button as well
-                if (gdriveButton) {
-                    gdriveButton.style.display = 'inline-block';
-                    gdriveButton.onclick = () => {
-                        alert('Google Drive URL will be added later');
+                // Use the Google Drive URL if available
+                const gdriveUrl = data.system_status.gdrive.url || null;
+                if (gdriveUrl) {
+                    gdriveLink.style.cursor = 'pointer';
+                    gdriveLink.onclick = () => {
+                        window.open(gdriveUrl, '_blank');
                     };
+                    // Show button as well
+                    if (gdriveButton) {
+                        gdriveButton.style.display = 'inline-block';
+                        gdriveButton.onclick = () => {
+                            window.open(gdriveUrl, '_blank');
+                        };
+                    }
                 }
+            } else if (gdriveLink) {
+                gdriveLink.style.cursor = 'default';
+                gdriveLink.onclick = null;
             }
         }
     } catch (error) {

@@ -164,10 +164,15 @@ def check_gdrive_status() -> dict:
     """Check if Google Drive authentication is working."""
     try:
         from backend.gdrive import get_drive_service
+        from backend.config import GOOGLE_DRIVE_ROOT_FOLDER_ID
 
         service = get_drive_service()
         if service:
-            return {"status": "ok", "message": "Connected"}
+            # Build the Drive URL from the root folder ID
+            gdrive_url = (
+                f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_ROOT_FOLDER_ID}"
+            )
+            return {"status": "ok", "message": "Connected", "url": gdrive_url}
         else:
             return {"status": "error", "message": "Not configured"}
     except Exception as e:

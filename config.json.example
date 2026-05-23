@@ -18,5 +18,13 @@
     "payment_reader_id": "",
     "card_writer_id": "",
     "shopify_store": "your-store.myshopify.com",
-    "shopify_access_token": "shpat_YOUR_ACCESS_TOKEN_HERE"
+    "shopify_access_token": "shpat_YOUR_ACCESS_TOKEN_HERE",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 465,
+    "smtp_from_email": "noreply@h3cke.de",
+    "smtp_starttls": false,
+    "smtp_tls": true,
+    "gmail_oauth_enabled": true,
+    "gmail_oauth_token_file": "config/gmail_oauth_token.json",
+    "gmail_oauth_username": "alex@h3cke.de"
 }

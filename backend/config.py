@@ -70,9 +70,7 @@ PAYMENT_READER_ID: str = _cfg.get(
 )
 
 # NFC Card Writer - the dedicated device used for writing member data to cards
-CARD_WRITER_ID: str = _cfg.get(
-    "card_writer_id", os.environ.get("CARD_WRITER_ID", "")
-)
+CARD_WRITER_ID: str = _cfg.get("card_writer_id", os.environ.get("CARD_WRITER_ID", ""))
 
 # NFC security
 # "permissive": legacy UID-only cards still work (flagged as unverified in scan log)
@@ -93,7 +91,9 @@ GOOGLE_DRIVE_ENABLED: bool = _cfg.get(
 )
 GOOGLE_DRIVE_CLIENT_SECRETS_FILE: str = _cfg.get(
     "google_drive_client_secrets_file",
-    os.environ.get("GOOGLE_DRIVE_CLIENT_SECRETS_FILE", "config/gdrive_client_secrets.json"),
+    os.environ.get(
+        "GOOGLE_DRIVE_CLIENT_SECRETS_FILE", "config/gdrive_client_secrets.json"
+    ),
 )
 GOOGLE_DRIVE_TOKEN_FILE: str = _cfg.get(
     "google_drive_token_file",
@@ -131,12 +131,33 @@ SMTP_HOST: str = _cfg.get("smtp_host", os.environ.get("SMTP_HOST", ""))
 SMTP_PORT: int = _cfg.get("smtp_port", int(os.environ.get("SMTP_PORT", "587")))
 SMTP_USERNAME: str = _cfg.get("smtp_username", os.environ.get("SMTP_USERNAME", ""))
 SMTP_PASSWORD: str = _cfg.get("smtp_password", os.environ.get("SMTP_PASSWORD", ""))
-SMTP_FROM_EMAIL: str = _cfg.get("smtp_from_email", os.environ.get("SMTP_FROM_EMAIL", ""))
+SMTP_FROM_EMAIL: str = _cfg.get(
+    "smtp_from_email", os.environ.get("SMTP_FROM_EMAIL", "")
+)
 SMTP_STARTTLS: bool = _cfg.get(
     "smtp_starttls", os.environ.get("SMTP_STARTTLS", "true").lower() == "true"
 )
 SMTP_TLS: bool = _cfg.get(
     "smtp_tls", os.environ.get("SMTP_TLS", "false").lower() == "true"
+)
+
+# Gmail OAuth2 configuration (alternative to SMTP_USERNAME/SMTP_PASSWORD)
+GMAIL_OAUTH_ENABLED: bool = _cfg.get(
+    "gmail_oauth_enabled",
+    os.environ.get("GMAIL_OAUTH_ENABLED", "false").lower() == "true",
+)
+GMAIL_OAUTH_TOKEN_FILE: str = _cfg.get(
+    "gmail_oauth_token_file",
+    os.environ.get("GMAIL_OAUTH_TOKEN_FILE", "config/gmail_oauth_token.json"),
+)
+# OAuth authentication account (must be the real Google account, not an alias)
+GMAIL_OAUTH_USERNAME: str = _cfg.get(
+    "gmail_oauth_username",
+    os.environ.get("GMAIL_OAUTH_USERNAME", SMTP_FROM_EMAIL),
+)
+GMAIL_OAUTH_TOKEN_FILE: str = _cfg.get(
+    "gmail_oauth_token_file",
+    os.environ.get("GMAIL_OAUTH_TOKEN_FILE", "config/gmail_oauth_token.json"),
 )
 
 # EasyVerein membership signup URL (sent to guests after creating a Laufzettel)
