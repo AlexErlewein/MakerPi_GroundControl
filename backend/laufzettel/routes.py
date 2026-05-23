@@ -686,6 +686,7 @@ class BarPayRequest(BaseModel):
 @router.post("/api/laufzettel/{laufzettel_id}/pay/bar")
 async def pay_bar(
     laufzettel_id: int,
+    request: Request,
     body: BarPayRequest = BarPayRequest(),
     db: Session = Depends(get_db),
 ):
@@ -711,7 +712,7 @@ async def pay_bar(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
-    _schedule_receipt_email(lz, materials)
+    _schedule_receipt_email(lz, materials, request)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
@@ -851,7 +852,10 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
 
 @router.get("/api/laufzettel/{laufzettel_id}/pay/karte/status")
 async def get_karte_status(
-    laufzettel_id: int, client_transaction_id: str, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    client_transaction_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Check status of card payment"""
     from datetime import datetime, timezone
@@ -915,7 +919,7 @@ async def get_karte_status(
                         )
                         d["material"] = [m.to_dict() for m in materials]
                         _schedule_pdf_upload(lz, materials)
-                        _schedule_receipt_email(lz, materials)
+                        _schedule_receipt_email(lz, materials, request)
                         from backend.buchhaltung.accounting import (
                             record_laufzettel_payment,
                         )
@@ -941,7 +945,9 @@ async def get_karte_status(
 
 
 @router.post("/api/laufzettel/{laufzettel_id}/pay/karte/confirm-mock")
-async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
+async def confirm_mock_karte(
+    laufzettel_id: int, request: Request, db: Session = Depends(get_db)
+):
     """Confirm mock card payment"""
     from datetime import datetime, timezone
 
@@ -963,7 +969,7 @@ async def confirm_mock_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
-    _schedule_receipt_email(lz, materials)
+    _schedule_receipt_email(lz, materials, request)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)
@@ -1053,6 +1059,7 @@ async def pay_checkout_link(laufzettel_id: int, db: Session = Depends(get_db)):
 async def get_checkout_status(
     laufzettel_id: int,
     checkout_id: str,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Poll SumUp for hosted checkout status; auto-confirms the Laufzettel when paid"""
@@ -1100,7 +1107,7 @@ async def get_checkout_status(
         )
         d["material"] = [m.to_dict() for m in materials]
         _schedule_pdf_upload(lz, materials)
-        _schedule_receipt_email(lz, materials)
+        _schedule_receipt_email(lz, materials, request)
         from backend.buchhaltung.accounting import record_laufzettel_payment
 
         record_laufzettel_payment(lz, materials)
@@ -1474,7 +1481,10 @@ async def pay_wero(laufzettel_id: int, request: Request, db: Session = Depends(g
 
 @router.get("/api/laufzettel/{laufzettel_id}/pay/wero/status")
 async def get_wero_status(
-    laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    checkout_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Check status of Wero payment"""
     from datetime import datetime, timezone
@@ -1520,7 +1530,7 @@ async def get_wero_status(
             )
             d["material"] = [m.to_dict() for m in materials]
             _schedule_pdf_upload(lz, materials)
-            _schedule_receipt_email(lz, materials)
+            _schedule_receipt_email(lz, materials, request)
             from backend.buchhaltung.accounting import record_laufzettel_payment
 
             record_laufzettel_payment(lz, materials)
@@ -1543,7 +1553,10 @@ async def get_wero_status(
 
 @router.post("/api/laufzettel/{laufzettel_id}/pay/wero/confirm")
 async def confirm_wero_payment(
-    laufzettel_id: int, checkout_id: str, db: Session = Depends(get_db)
+    laufzettel_id: int,
+    checkout_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Manually confirm Wero payment (for mock mode or when webhook fails)"""
     from datetime import datetime, timezone
@@ -1578,7 +1591,7 @@ async def confirm_wero_payment(
     )
     d["material"] = [m.to_dict() for m in materials]
     _schedule_pdf_upload(lz, materials)
-    _schedule_receipt_email(lz, materials)
+    _schedule_receipt_email(lz, materials, request)
     from backend.buchhaltung.accounting import record_laufzettel_payment
 
     record_laufzettel_payment(lz, materials)

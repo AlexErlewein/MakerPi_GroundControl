@@ -21,7 +21,9 @@ _PAYMENT_LABELS = {
 }
 
 
-def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None) -> str:
+def laufzettel_receipt_html(
+    lz, materials: list, view_url: Optional[str] = None, request=None
+) -> str:
     """HTML receipt email for a paid or newly created Laufzettel."""
     date_str = lz.date.strftime("%d.%m.%Y") if lz.date else "—"
     method_label = _PAYMENT_LABELS.get(
@@ -29,9 +31,14 @@ def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None)
     )
     owner = lz.owner_name or "Gast"
 
-    # Use provided view URL or construct default
+    # Use provided view URL or construct from request (using Pi's IP)
     if not view_url:
-        view_url = f"https://h3cke.de/laufzettel/view/{lz.id}"
+        if request:
+            base_url = f"{request.url.scheme}://{request.url.netloc}"
+        else:
+            # Fallback to Pi's internal IP when no request context
+            base_url = "http://192.168.3.228:8443"
+        view_url = f"{base_url}/laufzettel/view/{lz.id}"
 
     rows_html = ""
     total = 0.0
@@ -60,11 +67,11 @@ def laufzettel_receipt_html(lz, materials: list, view_url: Optional[str] = None)
     # Adjust content based on payment status
     if lz.payment_method:
         subject_header = "Quittung"
-        intro_text = f"Hier ist deine Quittung für deinen Besuch im H3cke."
+        intro_text = "Hier ist deine Quittung für deinen Besuch in der H3cke."
         cta_text = f"Laufzettel #{lz.id} ansehen"
     else:
         subject_header = "Laufzettel erstellt"
-        intro_text = f"Hallo {owner}, danke für deinen Besuch im H3cke! Dein Laufzettel wurde erfolgreich erstellt."
+        intro_text = f"Hallo {owner}, danke für deinen Besuch in der H3cke! Dein Laufzettel wurde erfolgreich erstellt."
         cta_text = f"Laufzettel #{lz.id} verwalten"
 
     return f"""<!DOCTYPE html>
