@@ -97,10 +97,18 @@ if [ "$UPDATE_DEPS" = "1" ]; then
     "
 fi
 
-# ── 6. Restart service ────────────────────────────────────────────────────
+# ── 6. Update litestream config & restart service ────────────────────────
 echo "🔄 Restarting GroundControl service..."
-ssh -t "$PI_USER@$PI_HOST" "sudo systemctl restart groundcontrol && sleep 2 && \
-    sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'"
+ssh -t "$PI_USER@$PI_HOST" "
+    # Sync litestream config if it exists in the repo
+    if [ -f config/litestream.yml ]; then
+        sudo cp config/litestream.yml /etc/litestream.yml
+        sudo systemctl restart litestream 2>/dev/null || true
+        echo '  Litestream config synced'
+    fi
+    sudo systemctl restart groundcontrol && sleep 2 && \
+    sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'
+"
 
 echo ""
 echo "✅ Deploy complete!"

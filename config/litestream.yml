@@ -1,6 +1,10 @@
 # Litestream configuration for MakerPi GroundControl database backups.
 # Deployed to Pi via: sudo bash scripts/setup-litestream.sh
 # Copies this file to /etc/litestream.yml on the Pi.
+#
+# B2 Free tier: 2,500 Class C transactions/day.
+# This config targets ~300/day (snapshots + WAL segments).
+# Google Drive daily backup (backup_all_dbs.py) provides a second backup layer.
 
 dbs:
   - path: /home/dev/Code/MakerPi_GroundControl/auth.db
@@ -11,8 +15,9 @@ dbs:
         path: groundcontrol/auth
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
+        sync-interval: 5s
+        snapshot-interval: 6h
         retention: 168h
-        snapshot-interval: 1h
 
   - path: /home/dev/Code/MakerPi_GroundControl/members.db
     replicas:
@@ -22,8 +27,9 @@ dbs:
         path: groundcontrol/members
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
+        sync-interval: 5s
+        snapshot-interval: 6h
         retention: 168h
-        snapshot-interval: 1h
 
   - path: /home/dev/Code/MakerPi_GroundControl/laufzettel.db
     replicas:
@@ -33,8 +39,9 @@ dbs:
         path: groundcontrol/laufzettel
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
+        sync-interval: 5s
+        snapshot-interval: 6h
         retention: 168h
-        snapshot-interval: 1h
 
   - path: /home/dev/Code/MakerPi_GroundControl/catalog.db
     replicas:
@@ -44,8 +51,9 @@ dbs:
         path: groundcontrol/catalog
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
+        sync-interval: 5s
+        snapshot-interval: 6h
         retention: 168h
-        snapshot-interval: 1h
 
   - path: /home/dev/Code/MakerPi_GroundControl/buchhaltung.db
     replicas:
@@ -55,8 +63,9 @@ dbs:
         path: groundcontrol/buchhaltung
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
+        sync-interval: 5s
+        snapshot-interval: 6h
         retention: 168h
-        snapshot-interval: 1h
 
   # core.db disabled - MQTT message log, not critical data
   # causes B2 transaction cap exceeded errors due to high write frequency
