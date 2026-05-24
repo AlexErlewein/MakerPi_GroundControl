@@ -101,8 +101,10 @@ function buildDetailHTML(c) {
     let html = '';
 
     // Info section
+    const balanceClass = c.balance <= 0 && c.enabled ? 'color:var(--text-secondary)' : 'color:var(--accent)';
     html += `<div class="detail-section">
-        <div class="detail-row"><span class="label">Guthaben</span><span class="value" style="font-size:1.2rem;font-weight:700;color:var(--accent)">${fmt(c.balance, c.currency)}</span></div>
+        <div class="detail-row"><span class="label">Guthaben</span><span class="value" style="font-size:1.2rem;font-weight:700;${balanceClass}">${fmt(c.balance, c.currency)}</span></div>
+        <div class="detail-row"><span class="label">Status</span><span class="value">${c.enabled ? '<span class="badge badge-active">Aktiv</span>' : '<span class="badge badge-disabled">Inaktiv</span>'}</span></div>
         <div class="detail-row"><span class="label">Anfangswert</span><span class="value">${fmt(c.initial_value, c.currency)}</span></div>
         <div class="detail-row"><span class="label">Eingelöst</span><span class="value">${fmt(redeemed, c.currency)}</span></div>
         <div class="detail-row"><span class="label">Erstellt</span><span class="value">${fmtDate(c.created_at)}</span></div>
@@ -139,6 +141,16 @@ function buildDetailHTML(c) {
             </select>
             <button class="btn-sm" id="adjust-btn" onclick="adjustBalance(${c.id})">Ausführen</button>
             <span class="status-msg" id="adjust-status"></span>
+        </div>
+    </div>`;
+
+    // Status toggle section
+    const toggleLabel = c.enabled ? 'Deaktivieren' : 'Reaktivieren';
+    const toggleClass = c.enabled ? 'danger' : '';
+    html += `<div class="detail-section">
+        <div class="detail-actions">
+            <button class="btn-sm ${toggleClass}" onclick="toggleStatus(${c.id})">${toggleLabel}</button>
+            <span class="status-msg" id="toggle-status"></span>
         </div>
     </div>`;
 
@@ -242,6 +254,31 @@ async function adjustBalance(cardId) {
         statusEl.className = 'status-msg err';
     } finally {
         btn.disabled = false;
+    }
+}
+
+async function toggleStatus(cardId) {
+    const statusEl = document.getElementById('toggle-status');
+
+    if (!confirm('Status dieses Gutscheins ändern?')) return;
+
+    statusEl.textContent = '';
+    statusEl.className = 'status-msg';
+
+    try {
+        const res = await fetch(`/api/shopify/gift-cards/${cardId}/toggle`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err.detail);
+        }
+        const { disabled } = await res.json();
+        statusEl.textContent = disabled ? 'Deaktiviert ✓' : 'Reaktiviert ✓';
+        statusEl.className = 'status-msg ok';
+        // Reload detail and table
+        openDetailModal(cardId, document.getElementById('tx-modal-title').textContent.split('– ')[1]?.trim() || '');
+    } catch (e) {
+        statusEl.textContent = e.message;
+        statusEl.className = 'status-msg err';
     }
 }
 

@@ -252,6 +252,7 @@ fragment GiftCardDetail on GiftCard {
   createdAt
   updatedAt
   expiresOn
+  enabled
   note
   customer {
     id
@@ -318,6 +319,7 @@ async def get_gift_card_detail(gift_card_id: int):
         "balance": float(balance.get("amount", 0)),
         "currency": balance.get("currencyCode", "EUR"),
         "initial_value": float(initial.get("amount", 0)),
+        "enabled": gc.get("enabled", True),
         "created_at": gc.get("createdAt"),
         "updated_at": gc.get("updatedAt"),
         "expires_on": gc.get("expiresOn"),
@@ -474,3 +476,58 @@ async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
         "amount": float(amt),
         "currency": (adj.get("amount") or {}).get("currencyCode", "EUR"),
     }
+
+
+# ── Deactivate / Reactivate Gift Card ────────────────────────────────────────
+
+
+@router.post("/api/shopify/gift-cards/{gift_card_id}/toggle")
+async def toggle_gift_card_status(gift_card_id: int):
+    """Toggle a gift card between enabled and disabled via GraphQL."""
+    # Determine current state by checking disabledAt via GraphQL
+    query_check = """
+    query($id: ID!) {
+      giftCard(id: $id) {
+        disabledAt
+      }
+    }
+    """
+    data = await _graphql_query(
+        query_check, {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+    )
+    gc = data.get("giftCard", {})
+    is_disabled = gc.get("disabledAt") is not None
+
+    if is_disabled:
+        # Reactivate via REST (update disabled_at to null)
+        mutation = """
+        mutation($id: ID!) {
+          giftCardUpdate(input: {id: $id}) {
+            giftCard { disabledAt }
+            userErrors { field message }
+          }
+        }
+        """
+        variables = {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+        data = await _graphql_query(mutation, variables)
+        result = data.get("giftCardUpdate", {})
+    else:
+        mutation = """
+        mutation($id: ID!) {
+          giftCardDeactivate(input: {id: $id}) {
+            giftCard { disabledAt }
+            userErrors { field message }
+          }
+        }
+        """
+        variables = {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+        data = await _graphql_query(mutation, variables)
+        result = data.get("giftCardDeactivate", {})
+
+    errors = result.get("userErrors", [])
+    if errors:
+        msgs = "; ".join(e.get("message", "") for e in errors)
+        raise HTTPException(status_code=400, detail=f"Shopify: {msgs}")
+
+    new_disabled = (result.get("giftCard") or {}).get("disabledAt")
+    return {"disabled": new_disabled is not None}
