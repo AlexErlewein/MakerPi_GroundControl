@@ -32,6 +32,11 @@ KAFFEEMASCHINE_DEBOUNCE_S = 15  # seconds between Kaffee increments for same car
 _scan_dedup: dict = {}  # {(device_id, uid): datetime}
 SCAN_DEDUP_S = 2
 
+# Payload-level dedup: prevents storing identical messages that arrive within 1s.
+# Some devices (e.g. PicoW NFC readers) publish the same payload twice in rapid succession.
+_payload_dedup: dict = {}  # {(topic, payload_hash): datetime}
+PAYLOAD_DEDUP_S = 1
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
@@ -199,6 +204,19 @@ def on_message(client, userdata, msg):
         payload_str = msg.payload.decode("utf-8") if msg.payload else ""
     except UnicodeDecodeError:
         payload_str = str(msg.payload)
+
+    # Payload-level dedup: skip storing + processing if identical message was
+    # seen on this topic within the dedup window (catches device-side doubles)
+    if payload_str:
+        import hashlib
+
+        pd_key = (msg.topic, hashlib.sha256(payload_str.encode()).digest()[:8])
+        pd_last = _payload_dedup.get(pd_key)
+        pd_now = _utcnow()
+        if pd_last and (pd_now - pd_last).total_seconds() < PAYLOAD_DEDUP_S:
+            logger.debug("[DEDUP] Payload duplicate dropped: topic=%r", msg.topic)
+            return
+        _payload_dedup[pd_key] = pd_now
 
     # Store message (only if meaningful)
     if should_store_message(msg.topic):
@@ -372,26 +390,30 @@ def handle_device_message(topic: str, payload: str):
                 if card_signature and card_member_id:
                     from backend.members.signature import verify_card_signature
 
-                    # Prefer DB name over card-provided name for signature verification.
-                    # The HMAC was generated with the DB name at enrollment, but cards
-                    # may store a truncated name (MIFARE block size limits), so using
-                    # card_name would produce a different hash and reject valid cards.
+                    # Prefer DB values over card-provided data for signature verification.
+                    # The HMAC was generated with DB data at enrollment, but cards may
+                    # store truncated names (MIFARE block size limits) or a member_id
+                    # that has since changed via easyVerein sync — using card-side data
+                    # would produce a different hash and reject valid cards.
                     verify_name = (mitglied.name if mitglied else None) or card_name
+                    verify_member_id = member_id_str or card_member_id
                     if verify_name:
                         if verify_card_signature(
-                            card_member_id, uid, verify_name, card_signature
+                            verify_member_id, uid, verify_name, card_signature
                         ):
                             card_verified = 1
                             logger.info(
-                                "[SCAN] Signature VERIFIED uid=%r member_id=%r",
+                                "[SCAN] Signature VERIFIED uid=%r member_id=%r (card=%r)",
                                 uid,
+                                verify_member_id,
                                 card_member_id,
                             )
                         else:
                             card_verified = 0
                             logger.warning(
-                                "[SCAN] Signature REJECTED uid=%r member_id=%r — possible clone attempt",
+                                "[SCAN] Signature REJECTED uid=%r member_id=%r (card=%r) — possible clone attempt",
                                 uid,
+                                verify_member_id,
                                 card_member_id,
                             )
                     else:
