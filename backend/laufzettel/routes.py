@@ -1643,13 +1643,29 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
         for mat in materials:
             materials_data.append(
                 {
-                    "name": mat.name,
-                    "description": mat.description,
+                    "name": mat.name or "—",
                     "quantity": mat.menge,
                     "unit": mat.unit,
-                    "price": mat.calculated_price or 0.0,
+                    "price": mat.calculated_price if mat.calculated_price is not None else 0.0,
                 }
             )
+
+        # Pre-format datetimes — SQLite may return strings instead of datetime
+        # objects for timezone-aware columns, so we normalise here.
+        from backend.laufzettel.models import _naive_to_utc as _lz_utc
+        import datetime as _dt
+
+        def _fmt(val, fmt):
+            if val is None:
+                return None
+            if isinstance(val, str):
+                # SQLite sometimes returns the raw ISO string
+                try:
+                    val = _dt.datetime.fromisoformat(val.replace("Z", "+00:00"))
+                except ValueError:
+                    return val
+            val = _lz_utc(val)
+            return val.strftime(fmt)
 
         return templates.TemplateResponse(
             "public-laufzettel.html",
@@ -1657,6 +1673,9 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                 "request": request,
                 "laufzettel": lz,
                 "materials": materials_data,
+                "start_str": _fmt(lz.start, "%H:%M"),
+                "paid_at_str": _fmt(lz.paid_at, "%d.%m.%Y um %H:%M"),
+                "date_str": lz.date.strftime("%d.%m.%Y") if lz.date else "—",
             },
         )
     finally:

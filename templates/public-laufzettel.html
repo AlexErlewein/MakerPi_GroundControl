@@ -29,12 +29,12 @@
         <div class="info-grid">
             <div class="info-item">
                 <span class="info-label">Datum</span>
-                <span class="info-value">{{ laufzettel.date or '—' }}</span>
+                <span class="info-value">{{ date_str }}</span>
             </div>
-            {% if laufzettel.start %}
+            {% if start_str %}
             <div class="info-item">
                 <span class="info-label">Von</span>
-                <span class="info-value">{{ laufzettel.start.strftime('%H:%M') }}</span>
+                <span class="info-value">{{ start_str }}</span>
             </div>
             {% endif %}
             <div class="info-item">
@@ -61,9 +61,9 @@
             {% endif %}
         </div>
 
-        {% if laufzettel.payment_method and laufzettel.paid_at %}
+        {% if laufzettel.payment_method and paid_at_str %}
         <div class="payment-locked-banner" style="margin-top:16px;">
-            ✓ Bezahlt am {{ laufzettel.paid_at.strftime('%d.%m.%Y um %H:%M') }} Uhr
+            ✓ Bezahlt am {{ paid_at_str }} Uhr
         </div>
         {% endif %}
     </section>
@@ -127,9 +127,7 @@
             const price = m.price != null
                 ? `<span class="price-col">${m.price.toFixed(2)} €</span>`
                 : '<span style="color:var(--text-secondary)">—</span>';
-            const nameCell = m.description
-                ? `${esc(m.name)}<br><small style="color:var(--text-secondary);font-size:0.8rem;">${esc(m.description)}</small>`
-                : esc(m.name);
+            const nameCell = esc(m.name);
             return `<tr>
                 <td>${i + 1}</td>
                 <td>${nameCell}</td>
