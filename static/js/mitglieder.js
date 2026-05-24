@@ -95,53 +95,32 @@ async function startNfcScan() {
         return;
     }
 
-    // Check for pairing token first
-    if (!pairingToken) {
-        // Try to load from localStorage via DevicePairing module
-        if (window.DevicePairing) {
-            const stored = window.DevicePairing.loadStoredToken();
-            if (stored) {
-                pairingToken = stored.token;
-                pairedDeviceId = stored.deviceId;
-                console.log("[NFC] Loaded pairing token for device:", pairedDeviceId);
-            }
+    // Try to load pairing token from localStorage (optional — not required)
+    if (!pairingToken && window.DevicePairing) {
+        const stored = window.DevicePairing.loadStoredToken();
+        if (stored) {
+            pairingToken = stored.token;
+            pairedDeviceId = stored.deviceId;
+            console.log("[NFC] Loaded pairing token for device:", pairedDeviceId);
         }
     }
 
-    // If still no token, show pairing modal
-    if (!pairingToken) {
-        if (window.DevicePairing) {
-            window.DevicePairing.showTokenInputModal(
-                (validation) => {
-                    pairingToken = validation.token || document.getElementById('pairing-token-input').value.trim().replace(/-/g, '');
-                    pairedDeviceId = validation.device_id;
-                    // Retry scan
-                    startNfcScan();
-                },
-                () => {
-                    setScanStatus("Pairing erforderlich für NFC-Zugriff", "error");
-                }
-            );
-        } else {
-            setScanStatus("Device-Pairing Modul nicht geladen", "error");
-        }
-        return;
-    }
-
-    // Use paired device instead of enrollment reader
+    // Use paired device or fall back to configured enrollment reader
     const targetDevice = pairedDeviceId || enrollmentReaderId;
-    if (!targetDevice) {
-        setScanStatus("Kein NFC-Reader verfügbar", "error");
+    if (!targetDevice && !pairingToken) {
+        setScanStatus("Kein NFC-Reader konfiguriert. Bitte in den Geräte-Einstellungen einen Enrollment-Reader festlegen.", "error");
         return;
     }
 
     btn.textContent = "\u23F3 Warte auf Scan... (Abbrechen)";
     btn.disabled = false;
-    setScanStatus(`Bereit – halte die Karte an den Reader "${targetDevice}"...`, "info");
+    setScanStatus(`Bereit – halte die Karte an den Reader "${targetDevice || pairedDeviceId}"...`, "info");
 
-    // Build SSE URL with token
-    const sseUrl = `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`;
-    console.log("[NFC] Opening SSE stream with pairing token");
+    // Build SSE URL — include token only if one is available
+    const sseUrl = pairingToken
+        ? `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`
+        : `/api/scans/stream`;
+    console.log("[NFC] Opening SSE stream, paired:", !!pairingToken, "device:", targetDevice);
     const evtSource = new EventSource(sseUrl);
     activeScanSource = evtSource;
     let configuredReader = targetDevice;
