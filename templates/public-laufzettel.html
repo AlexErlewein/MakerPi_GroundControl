@@ -114,6 +114,11 @@
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function getGroupLabel(m) {
+        if (m.tax_rate === 0) return 'Spenden';
+        return m.location || 'Freitext';
+    }
+
     function renderMaterials() {
         const tbody = document.getElementById('material-body');
         const tfoot = document.getElementById('material-total');
@@ -122,20 +127,38 @@
             tfoot.classList.add('hidden');
             return;
         }
-        const rows = MATERIALS_DATA.map((m, i) => {
+
+        // Sort: Spenden last, then by location, then by name
+        const sorted = [...MATERIALS_DATA].sort((a, b) => {
+            const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+            if (sA !== sB) return sA ? 1 : -1;
+            const locA = a.location || '￿';
+            const locB = b.location || '￿';
+            return locA.localeCompare(locB) || (a.name || '').localeCompare(b.name || '');
+        });
+
+        let lastGroup = undefined;
+        let rowIndex = 0;
+        const rows = [];
+        for (const m of sorted) {
+            const group = getGroupLabel(m);
+            if (group !== lastGroup) {
+                rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(group)}</span></td></tr>`);
+                lastGroup = group;
+            }
+            rowIndex++;
             const qty = m.quantity != null ? String(m.quantity) : '—';
             const price = m.price != null
                 ? `<span class="price-col">${m.price.toFixed(2)} €</span>`
                 : '<span style="color:var(--text-secondary)">—</span>';
-            const nameCell = esc(m.name);
-            return `<tr>
-                <td>${i + 1}</td>
-                <td>${nameCell}</td>
+            rows.push(`<tr>
+                <td>${rowIndex}</td>
+                <td>${esc(m.name)}</td>
                 <td>${esc(qty)}</td>
                 <td>${esc(m.unit || '—')}</td>
                 <td>${price}</td>
-            </tr>`;
-        });
+            </tr>`);
+        }
         tbody.innerHTML = rows.join('');
     }
 

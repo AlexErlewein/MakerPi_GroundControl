@@ -1638,6 +1638,38 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
             .all()
         )
 
+        # Build variante_id -> location_name map from catalog DB
+        variante_ids = [m.variante_id for m in materials if m.variante_id]
+        location_map: dict[int, str] = {}
+        if variante_ids:
+            try:
+                from backend.catalog.db import SessionLocal as CatalogSession
+                from backend.catalog.models import (
+                    Location,
+                    MaterialKategorie,
+                    MaterialUnterkategorie,
+                    MaterialVariante,
+                )
+
+                cat_db = CatalogSession()
+                try:
+                    rows = (
+                        cat_db.query(MaterialVariante, MaterialKategorie, Location)
+                        .join(
+                            MaterialKategorie,
+                            MaterialVariante.kategorie_id == MaterialKategorie.id,
+                        )
+                        .join(Location, MaterialKategorie.location_id == Location.id)
+                        .filter(MaterialVariante.id.in_(variante_ids))
+                        .all()
+                    )
+                    for v, _k, loc in rows:
+                        location_map[v.id] = loc.name
+                finally:
+                    cat_db.close()
+            except Exception:
+                pass  # location grouping is optional; don't crash if catalog unavailable
+
         # Prepare materials data with calculated prices
         materials_data = []
         for mat in materials:
@@ -1647,6 +1679,8 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                     "quantity": mat.menge,
                     "unit": mat.unit,
                     "price": mat.calculated_price if mat.calculated_price is not None else 0.0,
+                    "tax_rate": mat.tax_rate,
+                    "location": location_map.get(mat.variante_id) if mat.variante_id else None,
                 }
             )
 
