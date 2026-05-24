@@ -4,8 +4,6 @@ Covers GET /register (HTML page) and POST /api/register (JSON API).
 Uses the `client` and `members_db` fixtures from conftest.py which wire up
 an in-memory SQLite database and skip MQTT/APScheduler entirely.
 """
-import pytest
-
 
 VALID_PAYLOAD = {
     "salutation": "Frau",
@@ -43,6 +41,7 @@ class TestRegistrationAPI:
         assert data["success"] is True
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "anna.muster@example.com")
@@ -71,13 +70,21 @@ class TestRegistrationAPI:
 
     def test_register_missing_first_name(self, client):
         """Blank first_name must be rejected with 400 or 422."""
-        payload = {**VALID_PAYLOAD, "first_name": "", "email": "blank.first@example.com"}
+        payload = {
+            **VALID_PAYLOAD,
+            "first_name": "",
+            "email": "blank.first@example.com",
+        }
         resp = client.post("/api/register", json=payload)
         assert resp.status_code in (400, 422)
 
     def test_register_missing_last_name(self, client):
         """Blank family_name must be rejected with 400 or 422."""
-        payload = {**VALID_PAYLOAD, "family_name": "", "email": "blank.last@example.com"}
+        payload = {
+            **VALID_PAYLOAD,
+            "family_name": "",
+            "email": "blank.last@example.com",
+        }
         resp = client.post("/api/register", json=payload)
         assert resp.status_code in (400, 422)
 
@@ -89,7 +96,11 @@ class TestRegistrationAPI:
 
     def test_register_privacy_not_accepted(self, client):
         """privacy_accepted=False must return 400 mentioning Datenschutz."""
-        payload = {**VALID_PAYLOAD, "privacy_accepted": False, "email": "noprivacy@example.com"}
+        payload = {
+            **VALID_PAYLOAD,
+            "privacy_accepted": False,
+            "email": "noprivacy@example.com",
+        }
         resp = client.post("/api/register", json=payload)
         assert resp.status_code == 400
         assert "datenschutz" in resp.json()["detail"].lower()
@@ -101,6 +112,7 @@ class TestRegistrationAPI:
         assert resp.status_code == 200
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "inactive.check@example.com")
@@ -115,6 +127,7 @@ class TestRegistrationAPI:
         client.post("/api/register", json=payload)
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "memberid.check@example.com")
@@ -129,6 +142,7 @@ class TestRegistrationAPI:
     ):
         """Without an API key the local record should have a REG- prefixed member_id."""
         import backend.config as config_module
+
         monkeypatch.setattr(config_module, "EASYVEREIN_API_KEY", "")
 
         payload = {**VALID_PAYLOAD, "email": "nokey@example.com"}
@@ -136,6 +150,7 @@ class TestRegistrationAPI:
         assert resp.status_code == 200
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "nokey@example.com")
@@ -149,6 +164,7 @@ class TestRegistrationAPI:
     ):
         """If the easyVerein API call raises, a local record must still be saved."""
         import backend.config as config_module
+
         monkeypatch.setattr(config_module, "EASYVEREIN_API_KEY", "fake-key")
         monkeypatch.setattr(config_module, "EASYVEREIN_REGISTRATION_MOCK", False)
 
@@ -169,6 +185,7 @@ class TestRegistrationAPI:
         assert resp.status_code == 200
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "failtest@example.com")
@@ -182,6 +199,7 @@ class TestRegistrationAPI:
     ):
         """With EASYVEREIN_API_KEY set and mock mode on, membership_number comes from mock."""
         import backend.config as config_module
+
         monkeypatch.setattr(config_module, "EASYVEREIN_API_KEY", "mock-key")
         monkeypatch.setattr(config_module, "EASYVEREIN_REGISTRATION_MOCK", True)
 
@@ -190,6 +208,7 @@ class TestRegistrationAPI:
         assert resp.status_code == 200
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "mockmode@example.com")
@@ -206,6 +225,7 @@ class TestRegistrationAPI:
         client.post("/api/register", json=payload)
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "phone.check@example.com")
@@ -221,6 +241,7 @@ class TestRegistrationAPI:
         assert resp.status_code == 200
 
         from backend.members.models import Mitglied
+
         m = (
             members_db.query(Mitglied)
             .filter(Mitglied.email == "upper.case@example.com")

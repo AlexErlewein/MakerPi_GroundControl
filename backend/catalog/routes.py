@@ -203,10 +203,36 @@ async def update_location(
 
 @router.delete("/api/katalog/locations/{loc_id}")
 async def delete_location(loc_id: int, db: Session = Depends(get_db)):
-    """Delete a location"""
+    """Delete a location and all its kategorien, unterkategorien, and varianten"""
     loc = db.query(Location).filter(Location.id == loc_id).first()
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
+    kat_ids = [
+        k.id
+        for k in db.query(MaterialKategorie.id).filter(
+            MaterialKategorie.location_id == loc_id
+        )
+    ]
+    if kat_ids:
+        ukat_ids = [
+            u.id
+            for u in db.query(MaterialUnterkategorie.id).filter(
+                MaterialUnterkategorie.kategorie_id.in_(kat_ids)
+            )
+        ]
+        if ukat_ids:
+            db.query(MaterialVariante).filter(
+                MaterialVariante.unterkategorie_id.in_(ukat_ids)
+            ).delete(synchronize_session=False)
+        db.query(MaterialVariante).filter(
+            MaterialVariante.kategorie_id.in_(kat_ids)
+        ).delete(synchronize_session=False)
+        db.query(MaterialUnterkategorie).filter(
+            MaterialUnterkategorie.kategorie_id.in_(kat_ids)
+        ).delete(synchronize_session=False)
+        db.query(MaterialKategorie).filter(
+            MaterialKategorie.location_id == loc_id
+        ).delete(synchronize_session=False)
     db.delete(loc)
     db.commit()
     return {"success": True}
@@ -265,10 +291,26 @@ async def update_kategorie(
 
 @router.delete("/api/katalog/kategorien/{kat_id}")
 async def delete_kategorie(kat_id: int, db: Session = Depends(get_db)):
-    """Delete a material category"""
+    """Delete a material category and all its unterkategorien and varianten"""
     k = db.query(MaterialKategorie).filter(MaterialKategorie.id == kat_id).first()
     if not k:
         raise HTTPException(status_code=404, detail="Kategorie not found")
+    ukat_ids = [
+        u.id
+        for u in db.query(MaterialUnterkategorie.id).filter(
+            MaterialUnterkategorie.kategorie_id == kat_id
+        )
+    ]
+    if ukat_ids:
+        db.query(MaterialVariante).filter(
+            MaterialVariante.unterkategorie_id.in_(ukat_ids)
+        ).delete(synchronize_session=False)
+    db.query(MaterialVariante).filter(MaterialVariante.kategorie_id == kat_id).delete(
+        synchronize_session=False
+    )
+    db.query(MaterialUnterkategorie).filter(
+        MaterialUnterkategorie.kategorie_id == kat_id
+    ).delete(synchronize_session=False)
     db.delete(k)
     db.commit()
     return {"success": True}
@@ -353,7 +395,7 @@ async def update_unterkategorie(
 
 @router.delete("/api/katalog/unterkategorien/{ukat_id}")
 async def delete_unterkategorie(ukat_id: int, db: Session = Depends(get_db)):
-    """Delete a material subcategory"""
+    """Delete a material subcategory and all its varianten"""
     u = (
         db.query(MaterialUnterkategorie)
         .filter(MaterialUnterkategorie.id == ukat_id)
@@ -361,6 +403,9 @@ async def delete_unterkategorie(ukat_id: int, db: Session = Depends(get_db)):
     )
     if not u:
         raise HTTPException(status_code=404, detail="Unterkategorie not found")
+    db.query(MaterialVariante).filter(
+        MaterialVariante.unterkategorie_id == ukat_id
+    ).delete(synchronize_session=False)
     db.delete(u)
     db.commit()
     return {"success": True}
@@ -543,7 +588,9 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         db.flush()
         return ukat, False
 
-    def upsert_variante(kategorie_id: int, unterkategorie_id: int, name: str, price: float):
+    def upsert_variante(
+        kategorie_id: int, unterkategorie_id: int, name: str, price: float
+    ):
         var = (
             db.query(MaterialVariante)
             .filter(
@@ -601,7 +648,9 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                     if ukat_created:
                         created_unterkategorien += 1
                     for var_data in ukat_data.varianten:
-                        if upsert_variante(kat.id, ukat.id, var_data.name, var_data.price):
+                        if upsert_variante(
+                            kat.id, ukat.id, var_data.name, var_data.price
+                        ):
                             created_varianten += 1
                         else:
                             updated_varianten += 1

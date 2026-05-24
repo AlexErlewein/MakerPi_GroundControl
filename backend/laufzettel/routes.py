@@ -252,7 +252,7 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
         .filter(
             Laufzettel.uid == uid,
             Laufzettel.date == entry_date,
-            Laufzettel.payment_method == None,
+            Laufzettel.payment_method.is_(None),
         )
         .first()
     )
@@ -1243,7 +1243,7 @@ async def create_guest_laufzettel(
         .filter(
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == entry_date,
-            Laufzettel.payment_method == None,
+            Laufzettel.payment_method.is_(None),
         )
         .first()
     )
@@ -1345,7 +1345,7 @@ async def get_guest_laufzettel(guest_id: str, db: Session = Depends(get_db)):
         .filter(
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == today,
-            Laufzettel.payment_method == None,
+            Laufzettel.payment_method.is_(None),
         )
         .first()
     )
@@ -1376,7 +1376,7 @@ async def get_guest_previous_unpaid(guest_id: str, db: Session = Depends(get_db)
         .filter(
             Laufzettel.guest_id == guest_id,
             Laufzettel.date < today,
-            Laufzettel.payment_method == None,
+            Laufzettel.payment_method.is_(None),
         )
         .order_by(Laufzettel.date.desc())
         .first()
@@ -1647,7 +1647,6 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                 from backend.catalog.models import (
                     Location,
                     MaterialKategorie,
-                    MaterialUnterkategorie,
                     MaterialVariante,
                 )
 
@@ -1678,9 +1677,13 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                     "name": mat.name or "—",
                     "quantity": mat.menge,
                     "unit": mat.unit,
-                    "price": mat.calculated_price if mat.calculated_price is not None else 0.0,
+                    "price": mat.calculated_price
+                    if mat.calculated_price is not None
+                    else 0.0,
                     "tax_rate": mat.tax_rate,
-                    "location": location_map.get(mat.variante_id) if mat.variante_id else None,
+                    "location": location_map.get(mat.variante_id)
+                    if mat.variante_id
+                    else None,
                 }
             )
 

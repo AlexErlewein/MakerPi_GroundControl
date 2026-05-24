@@ -181,9 +181,7 @@ async def register_member(
 
     # Check for duplicate email
     existing = (
-        db.query(Mitglied)
-        .filter(Mitglied.email == data.email.lower().strip())
-        .first()
+        db.query(Mitglied).filter(Mitglied.email == data.email.lower().strip()).first()
     )
     if existing:
         raise HTTPException(

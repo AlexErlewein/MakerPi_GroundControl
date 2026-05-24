@@ -1,4 +1,5 @@
 """Shared pytest fixtures for GroundControl tests"""
+
 import os
 import pytest
 

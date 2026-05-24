@@ -14,15 +14,15 @@ if TYPE_CHECKING:
 
 
 # Corporate Identity Colors (from style.css)
-_CI_ACCENT = (208, 68, 23)       # #d04417 - orange/red
-_CI_HEADER_BG = (60, 65, 75)     # dark grey for table headers
-_CI_ROW_ALT_BG = (242, 242, 245) # very light grey for alternating data rows
+_CI_ACCENT = (208, 68, 23)  # #d04417 - orange/red
+_CI_HEADER_BG = (60, 65, 75)  # dark grey for table headers
+_CI_ROW_ALT_BG = (242, 242, 245)  # very light grey for alternating data rows
 _CI_TEXT_PRIMARY = (30, 30, 30)  # near-black text for PDF body
 _CI_TEXT_SECONDARY = (100, 100, 105)  # medium grey for labels
-_CI_TEXT_ON_DARK = (255, 255, 255)    # white text on dark header fills
-_CI_BORDER = (180, 180, 185)     # light grey border
-_CI_SUCCESS = (53, 119, 48)      # #357730 - success green
-_CI_WARNING = (210, 153, 34)     # #d29922 - warning yellow
+_CI_TEXT_ON_DARK = (255, 255, 255)  # white text on dark header fills
+_CI_BORDER = (180, 180, 185)  # light grey border
+_CI_SUCCESS = (53, 119, 48)  # #357730 - success green
+_CI_WARNING = (210, 153, 34)  # #d29922 - warning yellow
 
 _PAYMENT_LABELS = {
     "bar": "Bar",
@@ -31,8 +31,19 @@ _PAYMENT_LABELS = {
 }
 
 _MONTH_DE = [
-    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
-    "Juli", "August", "September", "Oktober", "November", "Dezember",
+    "",
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
 ]
 
 
@@ -156,7 +167,11 @@ def generate_pdf(
             grand_total += price
 
         # menge / dimensions text
-        if m.laenge_cm is not None and m.breite_cm is not None and m.hoehe_cm is not None:
+        if (
+            m.laenge_cm is not None
+            and m.breite_cm is not None
+            and m.hoehe_cm is not None
+        ):
             vol = m.laenge_cm * m.breite_cm * m.hoehe_cm
             menge_str = f"{m.laenge_cm}x{m.breite_cm}x{m.hoehe_cm} ({vol:.1f}cm3)"
         elif m.menge is not None:
@@ -197,7 +212,9 @@ def generate_pdf(
         pdf.set_fill_color(*_CI_HEADER_BG)
         pdf.set_font("Helvetica", style="B", size=8)
         pdf.set_text_color(*_CI_TEXT_ON_DARK)
-        for w, h in zip(tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]):
+        for w, h in zip(
+            tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]
+        ):
             pdf.cell(w, 6, h, border="B", fill=True)
 
         # Gesamtbetrag aligned on same height as the header bar

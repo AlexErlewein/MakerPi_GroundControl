@@ -14,9 +14,9 @@ import sqlite3
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.gdrive import get_drive_service, find_or_create_folder
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaInMemoryUpload
+from backend.gdrive import get_drive_service, find_or_create_folder  # noqa: E402
+from googleapiclient.errors import HttpError  # noqa: E402
+from googleapiclient.http import MediaInMemoryUpload  # noqa: E402
 
 # Database files to backup (relative to PROJECT_ROOT)
 DATABASES = [

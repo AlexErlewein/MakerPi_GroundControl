@@ -53,9 +53,7 @@ class TestCardSignature:
         assert not verify_card_signature("M001", "04A3B5C2", "Alice Example", "")
 
     def test_verify_rejects_forged_hex_string(self):
-        assert not verify_card_signature(
-            "M001", "04A3B5C2", "Alice Example", "a" * 64
-        )
+        assert not verify_card_signature("M001", "04A3B5C2", "Alice Example", "a" * 64)
 
 
 class TestMifareSectorKey:
@@ -79,8 +77,10 @@ class TestMifareSectorKey:
         # Reload config so the empty value is picked up
         import importlib
         import backend.config as cfg
+
         importlib.reload(cfg)
         import backend.members.signature as sig_mod
+
         importlib.reload(sig_mod)
         key = sig_mod.get_mifare_sector_key()
         assert len(key) == 12
@@ -90,8 +90,10 @@ class TestMifareSectorKey:
         os.environ["MIFARE_SECTOR_KEY"] = custom
         import importlib
         import backend.config as cfg
+
         importlib.reload(cfg)
         import backend.members.signature as sig_mod
+
         importlib.reload(sig_mod)
         assert sig_mod.get_mifare_sector_key() == custom
         # Clean up

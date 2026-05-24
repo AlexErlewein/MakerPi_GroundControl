@@ -13,7 +13,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
-from .models import MQTTMessage, Device, TagScan, ZigbeeDevice, DevicePairing
+from .models import MQTTMessage, Device, TagScan, DevicePairing
 from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
 import backend.config as _app_config
 import hashlib
@@ -68,52 +68,6 @@ async def check_docs_status() -> dict:
     except Exception:
         pass
     return {"status": "error", "message": "Offline"}
-
-
-def check_zigbee_status() -> dict:
-    """Check if zigbee2mqtt frontend (port 8090) and USB device are accessible."""
-    import socket
-
-    status_parts = []
-    errors = []
-
-    # Check port 8090 accessibility
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex(("localhost", 8090))
-        sock.close()
-        if result == 0:
-            status_parts.append("Web UI accessible")
-        else:
-            errors.append("Web UI offline")
-    except Exception:
-        errors.append("Web UI check failed")
-
-    # Check USB device
-    try:
-        usb_path = Path("/dev/ttyUSB0")
-        if usb_path.exists():
-            status_parts.append("USB connected")
-        else:
-            # Try alternative path
-            usb_path_alt = Path("/dev/ttyACM0")
-            if usb_path_alt.exists():
-                status_parts.append("USB connected (ACM0)")
-            else:
-                errors.append("USB not found")
-    except Exception:
-        errors.append("USB check failed")
-
-    if errors and not status_parts:
-        return {"status": "error", "message": ", ".join(errors)}
-    elif status_parts and not errors:
-        return {"status": "ok", "message": ", ".join(status_parts)}
-    else:
-        return {
-            "status": "warning",
-            "message": f"{', '.join(status_parts)}; {', '.join(errors)}",
-        }
 
 
 def check_database_status() -> dict:
@@ -435,7 +389,6 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     # Get system status
     system_status = {
         "docs": await check_docs_status(),
-        "zigbee": check_zigbee_status(),
         "databases": check_database_status(),
         "gdrive": check_gdrive_status(),
     }
@@ -637,58 +590,6 @@ async def get_scan_stats(db: Session = Depends(get_db)):
         "unknown": unknown,
         "validation_rate": validated / total if total > 0 else 0,
     }
-
-
-# ── Zigbee Devices API ───────────────────────────────────────────────────────
-
-
-@router.get("/api/zigbee-devices")
-async def get_zigbee_devices(db: Session = Depends(get_db)):
-    """List all discovered Zigbee devices"""
-    devices = db.query(ZigbeeDevice).order_by(ZigbeeDevice.last_seen.desc()).all()
-    return [d.to_dict() for d in devices]
-
-
-@router.get("/api/zigbee-devices/{ieee_address}")
-async def get_zigbee_device(ieee_address: str, db: Session = Depends(get_db)):
-    """Get single Zigbee device details by IEEE address"""
-    device = (
-        db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee_address).first()
-    )
-    if not device:
-        raise HTTPException(status_code=404, detail="Zigbee device not found")
-    return device.to_dict()
-
-
-@router.get("/api/zigbee-devices/{ieee_address}/messages")
-async def get_zigbee_device_messages(
-    ieee_address: str, limit: int = 50, db: Session = Depends(get_db)
-):
-    """Get recent MQTT messages for a specific Zigbee device"""
-    # Search by IEEE address or friendly name in MQTT topics
-    device = (
-        db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee_address).first()
-    )
-    if not device:
-        raise HTTPException(status_code=404, detail="Zigbee device not found")
-
-    # Build search terms: both IEEE and friendly name
-    search_terms = [ieee_address]
-    if device.friendly_name:
-        search_terms.append(device.friendly_name)
-
-    # Query messages that match any of the search terms in the topic
-    q = db.query(MQTTMessage)
-    filter_conditions = [
-        MQTTMessage.topic.like(f"zigbee2mqtt/%{term}%") for term in search_terms
-    ]
-    if filter_conditions:
-        from sqlalchemy import or_
-
-        q = q.filter(or_(*filter_conditions))
-
-    messages = q.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
-    return [m.to_dict() for m in messages]
 
 
 @router.get("/api/scans/stream")

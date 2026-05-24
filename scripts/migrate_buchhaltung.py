@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Backfill existing paid Laufzettel into buchhaltung.db. Idempotent."""
+
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.laufzettel.db import SessionLocal as LZSession
@@ -22,7 +24,11 @@ count = 0
 for lz in paid:
     if lz.id in already_recorded:
         continue
-    materials = lz_db.query(LaufzettelMaterial).filter(LaufzettelMaterial.laufzettel_id == lz.id).all()
+    materials = (
+        lz_db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+        .all()
+    )
     record_laufzettel_payment(lz, materials)
     count += 1
 

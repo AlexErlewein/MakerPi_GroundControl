@@ -5,8 +5,6 @@ const REFRESH_INTERVAL = 500; // 0.5 seconds
 
 let refreshTimer = null;
 let allDevices = [];
-let expandedZigbee = new Set(); // Track expanded zigbee rows
-
 // DOM Elements
 const statusFilter = document.getElementById('status-filter');
 const nfcFilter = document.getElementById('nfc-filter');
@@ -48,7 +46,6 @@ async function loadAllData() {
     await Promise.all([
         loadStats(),
         loadDevices(),
-        loadZigbeeDevices(),
         loadMessages((document.getElementById('topic-filter') || {}).value || '')
     ]);
 }
@@ -85,97 +82,6 @@ async function loadDevices() {
             tbody.innerHTML = `<tr><td colspan="6" class="error-text">Error loading devices</td></tr>`;
         }
     }
-}
-
-// Load Zigbee devices
-async function loadZigbeeDevices() {
-    try {
-        const response = await fetch(`${API_BASE}/api/zigbee-devices`);
-        if (!response.ok) throw new Error(`API error ${response.status}`);
-        const devices = await response.json();
-
-        const countEl = document.getElementById('zigbee-device-count');
-        if (countEl) countEl.textContent = devices.length;
-
-        const tbody = document.getElementById('zigbee-devices-body');
-        if (!tbody) return;
-
-        if (devices.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7">No Zigbee devices found.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = devices.map(device => {
-            const effectiveStatus = getEffectiveStatus(device.last_seen);
-            const displayName = device.friendly_name || device.ieee_address || 'Unknown';
-            const isExpanded = expandedZigbee.has(device.ieee_address);
-            const batteryDisplay = device.battery != null
-                ? `<span class="battery-level ${device.battery < 20 ? 'low' : device.battery < 50 ? 'medium' : 'good'}">${device.battery}%</span>`
-                : '—';
-            const lqDisplay = device.linkquality != null
-                ? `<span class="linkquality ${device.linkquality < 50 ? 'weak' : device.linkquality < 100 ? 'medium' : 'good'}">${device.linkquality}</span>`
-                : '—';
-
-            let rows = `
-            <tr class="zigbee-row ${isExpanded ? 'expanded' : ''}" data-ieee="${escapeHtml(device.ieee_address || '')}">
-                <td class="expand-toggle" onclick="toggleZigbeeRow('${escapeHtml(device.ieee_address || '')}')">
-                    <span class="expand-arrow">${isExpanded ? '▼' : '▶'}</span>
-                </td>
-                <td><strong>${escapeHtml(displayName)}</strong></td>
-                <td>${escapeHtml(device.model || '—')}</td>
-                <td><span class="status-badge ${effectiveStatus}">${effectiveStatus}</span></td>
-                <td>${batteryDisplay}</td>
-                <td>${lqDisplay}</td>
-                <td>${formatTime(device.last_seen)}</td>
-            </tr>`;
-
-            if (isExpanded) {
-                rows += renderZigbeeProperties(device);
-            }
-
-            return rows;
-        }).join('');
-    } catch (error) {
-        console.error('Failed to load Zigbee devices:', error);
-    }
-}
-
-// Toggle expanded zigbee row
-function toggleZigbeeRow(ieee) {
-    if (expandedZigbee.has(ieee)) {
-        expandedZigbee.delete(ieee);
-    } else {
-        expandedZigbee.add(ieee);
-    }
-    loadZigbeeDevices();
-}
-
-// Render zigbee device properties sub-row
-function renderZigbeeProperties(device) {
-    let props = {};
-    try {
-        if (device.raw_payload) {
-            props = JSON.parse(device.raw_payload);
-        }
-    } catch (e) { /* ignore parse errors */ }
-
-    // Filter out internal/already-shown keys
-    const skipKeys = new Set(['battery', 'linkquality', 'last_seen', 'update', 'update_available']);
-    const entries = Object.entries(props).filter(([k]) => !skipKeys.has(k));
-
-    if (entries.length === 0) {
-        return `<tr class="zigbee-props-row"><td colspan="7"><div class="props-grid"><em>No properties available</em></div></td></tr>`;
-    }
-
-    const propsHtml = entries.map(([key, value]) => {
-        let displayValue = value;
-        if (typeof value === 'object' && value !== null) {
-            displayValue = JSON.stringify(value);
-        }
-        return `<div class="prop-item"><span class="prop-key">${escapeHtml(key)}</span><span class="prop-value">${escapeHtml(String(displayValue))}</span></div>`;
-    }).join('');
-
-    return `<tr class="zigbee-props-row"><td colspan="7"><div class="props-grid">${propsHtml}</div></td></tr>`;
 }
 
 // Load messages

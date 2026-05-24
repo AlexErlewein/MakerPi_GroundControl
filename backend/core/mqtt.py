@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 
 from backend.config import MQTT_BROKER, MQTT_PORT
 from .db import SessionLocal
-from .models import MQTTMessage, Device, TagScan, ZigbeeDevice
+from .models import MQTTMessage, Device, TagScan
 
 # Push notification support (import at module level, calls wrapped in try/except)
 try:
@@ -38,41 +38,15 @@ def _utcnow():
 
 
 def should_store_message(topic: str) -> bool:
-    """Determine if an MQTT message should be stored in the database.
-
-    Returns False for:
-    - Heartbeat messages (/heartbeat, /availability)
-    - Status messages (/status, /online, /offline)
-    - zigbee2mqtt availability messages
-
-    Returns True for:
-    - Scan messages (/scan, /nfc, /tag)
-    - Device data messages (zigbee2mqtt measurements, etc.)
-    """
-    # Skip heartbeat/availability topics
+    """Return False for heartbeat/availability/status noise, True for meaningful messages."""
+    if topic.startswith("zigbee2mqtt"):
+        return False
     if "/heartbeat" in topic or "/availability" in topic:
         return False
-    if topic.startswith("zigbee2mqtt") and "/availability" in topic:
-        return False
-
-    # Skip status messages
     if "/status" in topic:
         return False
     if topic.endswith("/online") or topic.endswith("/offline"):
         return False
-
-    # Keep scan messages
-    if "/scan" in topic or "/nfc" in topic or "/tag" in topic:
-        return True
-
-    # Keep zigbee2mqtt device data (but not bridge state)
-    if topic.startswith("zigbee2mqtt"):
-        if "/bridge" in topic:
-            return False  # Skip bridge topics
-        return True
-
-    # Keep device messages that aren't heartbeats/status
-    # (e.g., picow_nfc_01/config, picow_nfc_01/command, etc.)
     return True
 
 
@@ -247,180 +221,9 @@ def on_message(client, userdata, msg):
         logger.error(f"Error handling device message: {e}")
 
 
-def _extract_zigbee_device_info(payload: str) -> dict:
-    """Extract common Zigbee device attributes from payload."""
-    info = {}
-    try:
-        data = json.loads(payload)
-        info["battery"] = data.get("battery")
-        info["linkquality"] = data.get("linkquality")
-        info["temperature"] = data.get("temperature")
-        info["humidity"] = data.get("humidity")
-        info["pressure"] = data.get("pressure")
-        info["occupancy"] = data.get("occupancy")
-        info["illuminance"] = data.get("illuminance")
-        info["state"] = data.get("state")
-    except (json.JSONDecodeError, AttributeError):
-        pass
-    return info
-
-
-def _update_or_create_zigbee_device(
-    db, device_identifier: str, payload: str, is_bridge_message: bool = False
-):
-    """Update or create a ZigbeeDevice entry based on identifier (IEEE or friendly_name).
-
-    Args:
-        db: Database session
-        device_identifier: IEEE address (0x...) or friendly name
-        payload: The MQTT payload as string
-        is_bridge_message: Whether this is from bridge/devices topic
-    """
-    try:
-        data = json.loads(payload) if payload else {}
-    except json.JSONDecodeError:
-        data = {}
-
-    # Try to find by IEEE address first
-    zigbee_device = None
-    if device_identifier.startswith("0x"):
-        zigbee_device = (
-            db.query(ZigbeeDevice)
-            .filter(ZigbeeDevice.ieee_address == device_identifier)
-            .first()
-        )
-    else:
-        # Try by friendly name
-        zigbee_device = (
-            db.query(ZigbeeDevice)
-            .filter(ZigbeeDevice.friendly_name == device_identifier)
-            .first()
-        )
-
-    # If still not found, try to match by ieee_address in the data
-    if not zigbee_device and isinstance(data, dict):
-        ieee = data.get("ieee_address") or data.get("device", {}).get("ieeeAddr")
-        if ieee:
-            zigbee_device = (
-                db.query(ZigbeeDevice).filter(ZigbeeDevice.ieee_address == ieee).first()
-            )
-
-    if not zigbee_device:
-        zigbee_device = ZigbeeDevice()
-        db.add(zigbee_device)
-
-    # Update identifier if not set
-    if device_identifier.startswith("0x") and not zigbee_device.ieee_address:
-        zigbee_device.ieee_address = device_identifier
-    elif not device_identifier.startswith("0x") and not zigbee_device.friendly_name:
-        zigbee_device.friendly_name = device_identifier
-
-    # Update from payload data
-    if isinstance(data, dict):
-        # Friendly name
-        if "friendly_name" in data and not zigbee_device.friendly_name:
-            zigbee_device.friendly_name = data["friendly_name"]
-
-        # IEEE address from data
-        ieee = (
-            data.get("ieee_address")
-            or data.get("ieeeAddr")
-            or data.get("device", {}).get("ieeeAddr")
-        )
-        if ieee and not zigbee_device.ieee_address:
-            zigbee_device.ieee_address = ieee
-
-        # Model and vendor
-        if "model_id" in data or "model" in data:
-            zigbee_device.model = data.get("model_id") or data.get("model")
-        if "vendor" in data or "manufacturer" in data:
-            zigbee_device.vendor = data.get("vendor") or data.get("manufacturer")
-        if "description" in data:
-            zigbee_device.description = data["description"]
-
-        # Status
-        if "state" in data:
-            state = data["state"]
-            if isinstance(state, str):
-                zigbee_device.status = (
-                    "online" if state.upper() in ("ON", "OPEN") else "offline"
-                )
-
-        # Metrics
-        if zigbee_device.battery is None:
-            zigbee_device.battery = data.get("battery")
-        if zigbee_device.linkquality is None:
-            zigbee_device.linkquality = data.get("linkquality")
-
-        # Exposes
-        if "exposes" in data:
-            zigbee_device.exposes = json.dumps(data["exposes"])
-
-    # Always update last_seen and raw_payload
-    zigbee_device.last_seen = _utcnow()
-    if payload:
-        # Truncate if too large
-        zigbee_device.raw_payload = payload[:10000] if len(payload) > 10000 else payload
-
-    return zigbee_device
-
-
-def handle_zigbee2mqtt_message(topic: str, payload: str) -> bool:
-    """Handle Zigbee2MQTT specific messages.
-
-    Returns True if the message was handled as a Zigbee2MQTT message.
-    """
-    if not topic.startswith("zigbee2mqtt/"):
-        return False
-
-    parts = topic.split("/")
-    if len(parts) < 2:
-        return False
-
-    db = SessionLocal()
-    try:
-        subtopic = parts[1]
-
-        # Bridge topics
-        if subtopic == "bridge":
-            if len(parts) >= 3 and parts[2] == "devices":
-                # Full device list from bridge
-                try:
-                    devices = json.loads(payload)
-                    if isinstance(devices, list):
-                        for dev in devices:
-                            if dev.get("type") == "Coordinator":
-                                continue  # Skip coordinator
-                            friendly = dev.get("friendly_name") or dev.get(
-                                "ieee_address"
-                            )
-                            if friendly:
-                                _update_or_create_zigbee_device(
-                                    db, friendly, json.dumps(dev), True
-                                )
-                                db.commit()
-                except json.JSONDecodeError:
-                    pass
-            return True
-
-        # Device-level topic: zigbee2mqtt/<device_name_or_ieee>
-        device_identifier = subtopic
-        _update_or_create_zigbee_device(db, device_identifier, payload)
-        db.commit()
-        return True
-
-    except Exception as e:
-        logger.error(f"Error handling Zigbee2MQTT message: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
-
-
 def handle_device_message(topic: str, payload: str):
     """Process device-related messages"""
-    # Try Zigbee2MQTT handling first
-    if handle_zigbee2mqtt_message(topic, payload):
+    if topic.startswith("zigbee2mqtt"):
         return
 
     parts = topic.split("/")
@@ -686,7 +489,6 @@ def handle_device_message(topic: str, payload: str):
                         )
 
                         # Use locking to prevent race conditions when creating Laufzettel
-                        from sqlalchemy.orm import with_for_update
 
                         # Lock any existing open Laufzettel for this UID today to prevent concurrent creation
                         locked_lz = (

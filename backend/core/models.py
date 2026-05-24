@@ -102,53 +102,23 @@ class TagScan(Base):
         }
 
 
-class ZigbeeDevice(Base):
-    __tablename__ = "zigbee_devices"
-
-    id = Column(Integer, primary_key=True, index=True)
-    ieee_address = Column(String, unique=True, index=True)  # 0x00158d00044c2287
-    friendly_name = Column(String)  # z.B. "temperatur_sensor_buero"
-    last_seen = Column(DateTime(timezone=True), default=_utcnow)
-    status = Column(String, default="unknown")  # online, offline, unknown
-    battery = Column(Integer, nullable=True)  # Battery level in %
-    linkquality = Column(Integer, nullable=True)  # Signal quality
-    model = Column(String, nullable=True)  # z.B. "WSDCGQ11LM"
-    vendor = Column(String, nullable=True)  # z.B. "Xiaomi"
-    description = Column(String, nullable=True)  # z.B. "Aqara temperature sensor"
-    exposes = Column(Text, nullable=True)  # JSON array of exposed capabilities
-    raw_payload = Column(Text, nullable=True)  # Last payload as JSON
-
-    def to_dict(self):
-        ts = _naive_to_utc(self.last_seen) if self.last_seen else None
-        return {
-            "id": self.id,
-            "ieee_address": self.ieee_address,
-            "friendly_name": self.friendly_name,
-            "last_seen": ts.isoformat() if ts else None,
-            "status": self.status,
-            "battery": self.battery,
-            "linkquality": self.linkquality,
-            "model": self.model,
-            "vendor": self.vendor,
-            "description": self.description,
-            "exposes": self.exposes,
-            "raw_payload": self.raw_payload,
-        }
-
-
 class DevicePairing(Base):
     """Token-based pairing between NFC scanner and client device."""
 
     __tablename__ = "device_pairings"
 
     id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String, index=True)  # NFC scanner device ID (e.g., "picow_nfc_01")
+    device_id = Column(
+        String, index=True
+    )  # NFC scanner device ID (e.g., "picow_nfc_01")
     token_hash = Column(String, index=True)  # SHA256 hash of the pairing token
     paired_by = Column(String)  # Username of admin who created the pairing
     paired_at = Column(DateTime(timezone=True), default=_utcnow)
     last_used = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)  # Optional expiration
-    description = Column(String, nullable=True)  # Human-readable description (e.g., "Kasse Tablet 1")
+    description = Column(
+        String, nullable=True
+    )  # Human-readable description (e.g., "Kasse Tablet 1")
     client_ip = Column(String, nullable=True)  # IP of client when last used
 
     def to_dict(self):

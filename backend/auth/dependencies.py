@@ -1,12 +1,12 @@
 """Auth dependencies for FastAPI"""
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from fastapi import Request, HTTPException
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from .db import SessionLocal
 from .models import User
-from backend.config import SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
+from backend.config import ADMIN_USERNAME, ADMIN_PASSWORD
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ADMIN_TIMEOUT_MINUTES = 10

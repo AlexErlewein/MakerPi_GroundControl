@@ -15,9 +15,7 @@ from .dependencies import (
     is_admin_verified,
     verify_admin_password,
     get_session_info,
-    require_admin,
     is_member_session_valid,
-    ADMIN_TIMEOUT_MINUTES,
 )
 
 router = APIRouter()
@@ -136,7 +134,7 @@ async def unified_login(
                     members_db.query(RFIDTag)
                     .filter(
                         RFIDTag.member_id == mitglied.member_id,
-                        RFIDTag.is_admin == True,
+                        RFIDTag.is_admin.is_(True),
                         RFIDTag.active == 1,
                     )
                     .first()

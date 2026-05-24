@@ -19,17 +19,15 @@ from backend.member_routes import router as member_router
 from backend.push.routes import router as push_router
 from backend.shopify.routes import router as shopify_router
 from backend.plane.routes import router as plane_router
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from backend.members.easyverein import sync_members_from_easyverein
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Setup
 app = FastAPI(title="MakerPi GroundControl")
-
-# APScheduler setup for scheduled tasks
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from backend.members.easyverein import sync_members_from_easyverein
 
 scheduler = AsyncIOScheduler()
 

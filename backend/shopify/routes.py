@@ -73,7 +73,11 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
 
     async with httpx.AsyncClient(timeout=20) as client:
         while url:
-            resp = await client.get(url, headers=_shopify_headers(), params=params if url == _shopify_url("gift_cards.json") else {})
+            resp = await client.get(
+                url,
+                headers=_shopify_headers(),
+                params=params if url == _shopify_url("gift_cards.json") else {},
+            )
             if resp.status_code != 200:
                 raise HTTPException(
                     status_code=resp.status_code,
@@ -160,7 +164,9 @@ async def gift_card_summary():
     total_issued = sum(c["initial_value"] for c in cards)
     total_outstanding = sum(c["balance"] for c in cards if c["status"] == "enabled")
     total_redeemed = total_issued - sum(c["balance"] for c in cards)
-    active_count = sum(1 for c in cards if c["status"] == "enabled" and c["balance"] > 0)
+    active_count = sum(
+        1 for c in cards if c["status"] == "enabled" and c["balance"] > 0
+    )
 
     return {
         "total_cards": len(cards),

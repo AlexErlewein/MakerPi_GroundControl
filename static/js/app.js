@@ -28,8 +28,7 @@ async function loadDashboardStats() {
         // Update system status indicators
         if (data.system_status) {
             updateStatusIndicator('docs', data.system_status.docs);
-            updateStatusIndicator('zigbee', data.system_status.zigbee);
-            updateStatusIndicator('databases', data.system_status.databases);
+updateStatusIndicator('databases', data.system_status.databases);
             updateStatusIndicator('gdrive', data.system_status.gdrive);
 
             // Make GDrive link clickable when connected

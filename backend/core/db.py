@@ -1,7 +1,7 @@
 """Core database - owns core.db"""
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from backend.config import CORE_DB_URL
 from .models import Base
 

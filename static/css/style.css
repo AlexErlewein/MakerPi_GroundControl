@@ -672,64 +672,6 @@ footer {
 /* ── Misc helpers ────────────────────────────────────────────────────────── */
 .optional { color: var(--text-secondary); font-size: 0.8rem; }
 
-/* Zigbee Device Styles */
-.ieee-address {
-    font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.85em;
-    color: var(--text-secondary);
-}
-
-.battery-level {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.battery-level.good {
-    background: rgba(53, 119, 48, 0.2);
-    color: #4caf50;
-}
-
-.battery-level.medium {
-    background: rgba(210, 153, 34, 0.2);
-    color: var(--warning);
-}
-
-.battery-level.low {
-    background: rgba(192, 57, 43, 0.2);
-    color: var(--danger);
-}
-
-.battery-unknown, .linkquality-unknown {
-    color: var(--text-secondary);
-    font-style: italic;
-}
-
-.linkquality {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.linkquality.good {
-    background: rgba(53, 119, 48, 0.2);
-    color: #4caf50;
-}
-
-.linkquality.medium {
-    background: rgba(210, 153, 34, 0.2);
-    color: var(--warning);
-}
-
-.linkquality.weak {
-    background: rgba(192, 57, 43, 0.2);
-    color: var(--danger);
-}
-
 /* System Status Grid */
 .system-status-grid {
     display: grid;

@@ -4,8 +4,6 @@ Reset the database - WARNING: This will delete all data!
 Use this if you prefer to start fresh rather than migrate.
 """
 
-import sqlite3
-import sys
 from pathlib import Path
 
 # Database path

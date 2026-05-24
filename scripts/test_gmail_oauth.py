@@ -36,7 +36,7 @@ async def main():
     with open(token_path) as f:
         token_data = json.load(f)
 
-    print(f"\n✓ OAuth token file found")
+    print("\n✓ OAuth token file found")
     print(f"  Client ID: {token_data.get('client_id', 'N/A')[:30]}...")
     print(f"  Scopes: {', '.join(token_data.get('scopes', []))}")
     print(f"  Expiry: {token_data.get('expiry', 'N/A')}")

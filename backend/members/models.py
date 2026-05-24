@@ -1,6 +1,6 @@
 """Members models - Mitglied and RFIDTag tables"""
 
-from datetime import datetime, timezone, date as date_type
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Date, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
