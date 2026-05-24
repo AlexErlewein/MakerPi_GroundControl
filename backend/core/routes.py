@@ -124,7 +124,7 @@ def check_database_status() -> dict:
     # Check if Litestream process is running
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "litestream"],
+            ["/usr/bin/pgrep", "-f", "litestream"],
             capture_output=True,
             text=True,
             timeout=2,
@@ -133,8 +133,8 @@ def check_database_status() -> dict:
             status_parts.append("Litestream running")
         else:
             errors.append("Litestream not running")
-    except Exception:
-        errors.append("Litestream check failed")
+    except Exception as e:
+        errors.append(f"Litestream check failed: {e}")
 
     # Check B2 connection via litestream config
     if _app_config.LITESTREAM_ENABLED:
