@@ -1291,7 +1291,7 @@ async def create_guest_laufzettel(
                 asyncio.create_task(
                     _send_email(
                         to=data.email,
-                        subject="Willkommen im H3cke! Jetzt Mitglied werden",
+                        subject="Willkommen in der H3cke! Jetzt Mitglied werden",
                         html_body=html,
                     )
                 )
@@ -1305,7 +1305,10 @@ async def create_guest_laufzettel(
         if _send_email and laufzettel_receipt_html:
             try:
                 # Construct direct view URL
-                view_url = f"{request.url.scheme}://{request.url.netloc}/laufzettel/view/{lz.id}"
+                from backend.config import PUBLIC_BASE_URL
+
+                base = PUBLIC_BASE_URL or f"{request.url.scheme}://{request.url.netloc}"
+                view_url = f"{base}/laufzettel/view/{lz.id}"
 
                 html = laufzettel_receipt_html(lz, materials, view_url)
                 asyncio.create_task(

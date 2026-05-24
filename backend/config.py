@@ -174,6 +174,12 @@ EASYVEREIN_SIGNUP_URL: str = _cfg.get(
     "easyverein_signup_url", os.environ.get("EASYVEREIN_SIGNUP_URL", "")
 )
 
+# Public base URL used when constructing links in emails (behind a reverse proxy
+# request.url.netloc resolves to the internal address, not the public domain)
+PUBLIC_BASE_URL: str = _cfg.get(
+    "public_base_url", os.environ.get("PUBLIC_BASE_URL", "")
+).rstrip("/")
+
 # Shopify configuration
 SHOPIFY_STORE: str = _cfg.get(
     "shopify_store", os.environ.get("SHOPIFY_STORE", "")

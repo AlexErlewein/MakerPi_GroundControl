@@ -87,13 +87,15 @@ def laufzettel_receipt_html(
     )
     owner = lz.owner_name or "Gast"
 
-    # Use provided view URL or construct from request (using Pi's IP)
     if not view_url:
-        if request:
+        from backend.config import PUBLIC_BASE_URL
+
+        if PUBLIC_BASE_URL:
+            base_url = PUBLIC_BASE_URL
+        elif request:
             base_url = f"{request.url.scheme}://{request.url.netloc}"
         else:
-            # Fallback to Pi's internal IP when no request context
-            base_url = "http://192.168.3.228:8443"
+            base_url = "https://h3cke.de"
         view_url = f"{base_url}/laufzettel/view/{lz.id}"
 
     rows_html = ""
@@ -189,7 +191,7 @@ def easyverein_signup_html(name: str, signup_url: str) -> str:
 <style>{_BASE_STYLE}</style></head>
 <body>
 {_H3CKE_LOGO}
-<h1>Willkommen im H3cke Makerspace!</h1>
+<h1>Willkommen in der H3cke! Jetzt Mitglied werden</h1>
 <p>Hallo {name},</p>
 <p>danke für deinen Besuch in der H3cke! Wir freuen uns, dass du unsere Maschinen und
 Materialien genutzt hast.</p>
