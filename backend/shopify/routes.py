@@ -6,6 +6,7 @@ import time
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 from backend.auth.dependencies import check_auth
 from backend.config import (
@@ -86,12 +87,44 @@ def _shopify_url(path: str) -> str:
     return f"https://{SHOPIFY_STORE}/admin/api/{_SHOPIFY_API_VERSION}/{path}"
 
 
+def _graphql_url() -> str:
+    return f"https://{SHOPIFY_STORE}/admin/api/{_SHOPIFY_API_VERSION}/graphql.json"
+
+
 def _is_configured() -> bool:
     """Check if Shopify is configured with either static token or OAuth credentials."""
     return bool(
         SHOPIFY_STORE
         and (SHOPIFY_ACCESS_TOKEN or (SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET))
     )
+
+
+async def _graphql_query(query: str, variables: dict | None = None) -> dict:
+    """Execute a GraphQL query against the Shopify Admin API."""
+    token = await _get_access_token()
+    payload: dict = {"query": query}
+    if variables:
+        payload["variables"] = variables
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(
+            _graphql_url(),
+            headers={
+                "X-Shopify-Access-Token": token,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Shopify GraphQL error: {resp.text}",
+        )
+    data = resp.json()
+    if "errors" in data:
+        msgs = "; ".join(e.get("message", "") for e in data["errors"])
+        raise HTTPException(status_code=400, detail=f"Shopify GraphQL: {msgs}")
+    return data.get("data", {})
 
 
 # ── Page ─────────────────────────────────────────────────────────────────────
@@ -182,40 +215,243 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
     return {"gift_cards": result, "total": len(result)}
 
 
-@router.get("/api/shopify/gift-cards/{gift_card_id}/transactions")
-async def get_gift_card_transactions(gift_card_id: int):
-    """Fetch transaction history for a specific gift card"""
-    token = await _get_access_token()
-    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+# ── Gift Card Detail (GraphQL) ────────────────────────────────────────────────
 
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.get(
-            _shopify_url(f"gift_cards/{gift_card_id}/transactions.json"),
-            headers=headers,
-        )
-        if resp.status_code == 404:
+
+_GIFT_CARD_DETAIL_FRAGMENT = """
+fragment GiftCardDetail on GiftCard {
+  id
+  lastCharacters
+  balance { amount currencyCode }
+  initialValue { amount currencyCode }
+  createdAt
+  updatedAt
+  expiresOn
+  note
+  customer {
+    id
+    firstName
+    lastName
+    email
+  }
+  transactions(first: 50) {
+    edges {
+      node {
+        id
+        amount { amount currencyCode }
+        note
+        processedAt
+      }
+    }
+  }
+}
+"""
+
+
+@router.get("/api/shopify/gift-cards/{gift_card_id}")
+async def get_gift_card_detail(gift_card_id: int):
+    """Fetch full gift card detail including customer and transactions via GraphQL."""
+    query = f"""
+    {{ giftCard(id: "gid://shopify/GiftCard/{gift_card_id}") {{
+      ...GiftCardDetail
+    }} }}
+    {_GIFT_CARD_DETAIL_FRAGMENT}
+    """
+    try:
+        data = await _graphql_query(query)
+    except HTTPException as exc:
+        if exc.status_code == 400 and "not found" in exc.detail.lower():
             raise HTTPException(status_code=404, detail="Gift card not found")
-        if resp.status_code != 200:
-            raise HTTPException(
-                status_code=resp.status_code,
-                detail=f"Shopify API error: {resp.text}",
-            )
+        raise
 
-    transactions = resp.json().get("gift_card_transactions", [])
-    result = []
-    for t in transactions:
-        result.append(
+    gc = data.get("giftCard")
+    if not gc:
+        raise HTTPException(status_code=404, detail="Gift card not found")
+
+    balance = gc.get("balance", {}) or {}
+    initial = gc.get("initialValue", {}) or {}
+    customer = gc.get("customer")
+
+    tx_edges = (gc.get("transactions") or {}).get("edges") or []
+    transactions = []
+    for edge in tx_edges:
+        node = edge.get("node", {})
+        amt = (node.get("amount") or {}).get("amount", "0")
+        transactions.append(
             {
-                "id": t["id"],
-                "gift_card_id": t.get("gift_card_id"),
-                "amount": float(t.get("amount", 0)),
-                "kind": t.get("kind", ""),  # credit | debit
-                "created_at": t.get("created_at"),
-                "order_id": t.get("order_id"),
-                "note": t.get("note") or "",
+                "id": node.get("id"),
+                "amount": float(amt),
+                "currency": (node.get("amount") or {}).get("currencyCode", "EUR"),
+                "note": node.get("note") or "",
+                "processed_at": node.get("processedAt"),
             }
         )
-    return {"transactions": result}
+
+    return {
+        "id": gift_card_id,
+        "last_characters": gc.get("lastCharacters", ""),
+        "balance": float(balance.get("amount", 0)),
+        "currency": balance.get("currencyCode", "EUR"),
+        "initial_value": float(initial.get("amount", 0)),
+        "created_at": gc.get("createdAt"),
+        "updated_at": gc.get("updatedAt"),
+        "expires_on": gc.get("expiresOn"),
+        "note": gc.get("note") or "",
+        "customer": {
+            "id": customer.get("id"),
+            "name": f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip(),
+            "email": customer.get("email"),
+        }
+        if customer
+        else None,
+        "transactions": transactions,
+    }
+
+
+# ── Gift Card Transactions (GraphQL fallback) ────────────────────────────────
+
+
+@router.get("/api/shopify/gift-cards/{gift_card_id}/transactions")
+async def get_gift_card_transactions(gift_card_id: int):
+    """Fetch transaction history for a specific gift card via GraphQL."""
+    query = """
+    query($id: ID!) {
+      giftCard(id: $id) {
+        transactions(first: 50) {
+          edges {
+            node {
+              id
+              amount { amount currencyCode }
+              note
+              processedAt
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        data = await _graphql_query(
+            query, {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+        )
+    except HTTPException as exc:
+        if exc.status_code == 400 and "not found" in exc.detail.lower():
+            raise HTTPException(status_code=404, detail="Gift card not found")
+        raise
+
+    gc = data.get("giftCard")
+    if not gc:
+        raise HTTPException(status_code=404, detail="Gift card not found")
+
+    tx_edges = (gc.get("transactions") or {}).get("edges") or []
+    transactions = []
+    for edge in tx_edges:
+        node = edge.get("node", {})
+        amt = (node.get("amount") or {}).get("amount", "0")
+        transactions.append(
+            {
+                "id": node.get("id"),
+                "amount": float(amt),
+                "currency": (node.get("amount") or {}).get("currencyCode", "EUR"),
+                "note": node.get("note") or "",
+                "processed_at": node.get("processedAt"),
+            }
+        )
+    return {"transactions": transactions}
+
+
+# ── Update Gift Card Note ────────────────────────────────────────────────────
+
+
+class NoteUpdate(BaseModel):
+    note: str
+
+
+@router.put("/api/shopify/gift-cards/{gift_card_id}/note")
+async def update_gift_card_note(gift_card_id: int, body: NoteUpdate):
+    """Update the merchant note on a gift card via REST API."""
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.put(
+            _shopify_url(f"gift_cards/{gift_card_id}.json"),
+            headers={
+                "X-Shopify-Access-Token": token,
+                "Content-Type": "application/json",
+            },
+            json={
+                "gift_card": {
+                    "id": gift_card_id,
+                    "note": body.note if body.note.strip() else None,
+                }
+            },
+        )
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Shopify API error: {resp.text}",
+        )
+    gc = resp.json().get("gift_card", {})
+    return {"note": gc.get("note") or ""}
+
+
+# ── Adjust Gift Card Balance ─────────────────────────────────────────────────
+
+
+class BalanceAdjust(BaseModel):
+    amount: float
+    note: str = ""
+
+
+@router.post("/api/shopify/gift-cards/{gift_card_id}/adjust")
+async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
+    """Adjust a gift card balance (positive = credit, negative = debit) via GraphQL."""
+    gid = f"gid://shopify/GiftCard/{gift_card_id}"
+
+    if body.amount > 0:
+        mutation = """
+        mutation($id: ID!, $amount: MoneyInput!, $note: String) {
+          giftCardCredit(input: {giftCardId: $id, creditAmount: $amount, note: $note}) {
+            giftCardAdjustment { id amount { amount currencyCode } }
+            userErrors { field message }
+          }
+        }
+        """
+    elif body.amount < 0:
+        mutation = """
+        mutation($id: ID!, $amount: MoneyInput!, $note: String) {
+          giftCardDebit(input: {giftCardId: $id, debitAmount: $amount, note: $note}) {
+            giftCardAdjustment { id amount { amount currencyCode } }
+            userErrors { field message }
+          }
+        }
+        """
+    else:
+        raise HTTPException(status_code=400, detail="Amount must not be zero")
+
+    variables = {
+        "id": gid,
+        "amount": {"amount": str(abs(body.amount)), "currencyCode": "EUR"},
+        "note": body.note if body.note.strip() else None,
+    }
+
+    data = await _graphql_query(mutation, variables)
+
+    key = "giftCardCredit" if body.amount > 0 else "giftCardDebit"
+    result = data.get(key, {})
+    errors = result.get("userErrors", [])
+    if errors:
+        msgs = "; ".join(e.get("message", "") for e in errors)
+        raise HTTPException(status_code=400, detail=f"Shopify: {msgs}")
+
+    adj = result.get("giftCardAdjustment", {})
+    amt = (adj.get("amount") or {}).get("amount", "0")
+    return {
+        "amount": float(amt),
+        "currency": (adj.get("amount") or {}).get("currencyCode", "EUR"),
+    }
+
+
+# ── Summary ──────────────────────────────────────────────────────────────────
 
 
 @router.get("/api/shopify/gift-cards/summary")

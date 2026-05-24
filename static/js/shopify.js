@@ -62,7 +62,7 @@ async function loadCards(status = 'enabled') {
                 <td>${fmtDate(c.created_at)}</td>
                 <td>${c.expires_on ? fmtDate(c.expires_on) : '–'}</td>
                 <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${c.note || ''}</td>
-                <td><button class="btn btn-secondary" style="padding:3px 10px;font-size:0.8rem" onclick="openTxModal(${c.id}, '${code}')">Details</button></td>
+                <td><button class="btn btn-secondary" style="padding:3px 10px;font-size:0.8rem" onclick="openDetailModal(${c.id}, '${code}')">Details</button></td>
             </tr>`;
         }).join('');
     } catch (e) {
@@ -70,42 +70,178 @@ async function loadCards(status = 'enabled') {
     }
 }
 
-async function openTxModal(cardId, code) {
+// ── Detail Modal ────────────────────────────────────────────────────────────
+
+async function openDetailModal(cardId, code) {
     const overlay = document.getElementById('tx-modal');
     const title = document.getElementById('tx-modal-title');
     const body = document.getElementById('tx-modal-body');
 
-    title.textContent = `Transaktionen – ${code}`;
+    title.textContent = `Gutschein – ${code}`;
     body.innerHTML = '<p style="color:var(--text-secondary)">Lade...</p>';
     overlay.classList.add('open');
 
     try {
-        const res = await fetch(`/api/shopify/gift-cards/${cardId}/transactions`);
+        const res = await fetch(`/api/shopify/gift-cards/${cardId}`);
         if (!res.ok) {
             const err = await res.json().catch(() => ({ detail: res.statusText }));
             body.innerHTML = `<p style="color:var(--danger)">Fehler: ${err.detail}</p>`;
             return;
         }
-        const { transactions } = await res.json();
+        const card = await res.json();
 
-        if (!transactions.length) {
-            body.innerHTML = '<p style="color:var(--text-secondary)">Keine Transaktionen vorhanden.</p>';
-            return;
-        }
+        body.innerHTML = buildDetailHTML(card);
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger)">Netzwerkfehler: ${e.message}</p>`;
+    }
+}
 
-        body.innerHTML = transactions.map(t => {
-            const kindClass = t.kind === 'credit' ? 'tx-kind-credit' : 'tx-kind-debit';
-            const kindLabel = t.kind === 'credit' ? '+ Aufladung' : '– Einlösung';
-            const sign = t.kind === 'credit' ? '+' : '-';
+function buildDetailHTML(c) {
+    const redeemed = c.initial_value - c.balance;
+    let html = '';
+
+    // Info section
+    html += `<div class="detail-section">
+        <div class="detail-row"><span class="label">Guthaben</span><span class="value" style="font-size:1.2rem;font-weight:700;color:var(--accent)">${fmt(c.balance, c.currency)}</span></div>
+        <div class="detail-row"><span class="label">Anfangswert</span><span class="value">${fmt(c.initial_value, c.currency)}</span></div>
+        <div class="detail-row"><span class="label">Eingelöst</span><span class="value">${fmt(redeemed, c.currency)}</span></div>
+        <div class="detail-row"><span class="label">Erstellt</span><span class="value">${fmtDate(c.created_at)}</span></div>
+        ${c.expires_on ? `<div class="detail-row"><span class="label">Ablaufdatum</span><span class="value">${fmtDate(c.expires_on)}</span></div>` : ''}
+    </div>`;
+
+    // Customer section
+    if (c.customer) {
+        html += `<div class="detail-section">
+            <h4>Kunde</h4>
+            <div class="detail-row"><span class="label">Name</span><span class="value">${c.customer.name}</span></div>
+            ${c.customer.email ? `<div class="detail-row"><span class="label">E-Mail</span><span class="value"><a href="mailto:${c.customer.email}" style="color:var(--accent)">${c.customer.email}</a></span></div>` : ''}
+        </div>`;
+    }
+
+    // Note section
+    html += `<div class="detail-section">
+        <h4>Notiz</h4>
+        <textarea class="note-textarea" id="detail-note" placeholder="Interne Notiz hinzufügen…">${c.note || ''}</textarea>
+        <div class="detail-actions">
+            <button class="btn-sm primary" id="save-note-btn" onclick="saveNote(${c.id})">Speichern</button>
+            <span class="status-msg" id="note-status"></span>
+        </div>
+    </div>`;
+
+    // Balance adjustment section
+    html += `<div class="detail-section">
+        <h4>Guthaben anpassen</h4>
+        <div class="adjust-row">
+            <input type="number" class="adjust-input" id="adjust-amount" step="0.01" min="0.01" placeholder="Betrag">
+            <select class="adjust-input" id="adjust-type" style="width:auto">
+                <option value="credit">Aufladen (+)</option>
+                <option value="debit">Abziehen (−)</option>
+            </select>
+            <button class="btn-sm" id="adjust-btn" onclick="adjustBalance(${c.id})">Ausführen</button>
+            <span class="status-msg" id="adjust-status"></span>
+        </div>
+    </div>`;
+
+    // Transactions section
+    html += '<hr class="detail-divider"><div class="detail-section"><h4>Transaktionen</h4>';
+    if (c.transactions.length) {
+        html += c.transactions.map(t => {
+            const isCredit = t.amount > 0;
+            const cls = isCredit ? 'tx-kind-credit' : 'tx-kind-debit';
+            const label = isCredit ? '+ Aufladung' : '– Einlösung';
+            const sign = isCredit ? '+' : '-';
             return `<div class="tx-row">
-                <span class="${kindClass}">${kindLabel}</span>
-                <span class="tx-amount">${sign}${fmt(Math.abs(t.amount))}</span>
-                <span class="tx-date">${fmtDate(t.created_at)}</span>
+                <span class="${cls}">${label}</span>
+                <span class="tx-amount">${sign}${fmt(Math.abs(t.amount), t.currency)}</span>
+                <span class="tx-date">${fmtDate(t.processed_at)}</span>
                 ${t.note ? `<span class="tx-note">${t.note}</span>` : ''}
             </div>`;
         }).join('');
+    } else {
+        html += '<p style="color:var(--text-secondary);font-size:0.9rem">Keine Transaktionen vorhanden.</p>';
+    }
+    html += '</div>';
+
+    return html;
+}
+
+async function saveNote(cardId) {
+    const noteEl = document.getElementById('detail-note');
+    const statusEl = document.getElementById('note-status');
+    const btn = document.getElementById('save-note-btn');
+    const note = noteEl.value;
+
+    btn.disabled = true;
+    statusEl.textContent = '';
+    statusEl.className = 'status-msg';
+
+    try {
+        const res = await fetch(`/api/shopify/gift-cards/${cardId}/note`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err.detail);
+        }
+        statusEl.textContent = 'Gespeichert ✓';
+        statusEl.className = 'status-msg ok';
+        // Update table note column silently
+        loadCards(document.getElementById('status-filter')?.value || 'enabled');
     } catch (e) {
-        body.innerHTML = `<p style="color:var(--danger)">Netzwerkfehler: ${e.message}</p>`;
+        statusEl.textContent = e.message;
+        statusEl.className = 'status-msg err';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function adjustBalance(cardId) {
+    const amountEl = document.getElementById('adjust-amount');
+    const typeEl = document.getElementById('adjust-type');
+    const statusEl = document.getElementById('adjust-status');
+    const btn = document.getElementById('adjust-btn');
+    const amount = parseFloat(amountEl.value);
+
+    if (!amount || amount <= 0) {
+        statusEl.textContent = 'Bitte einen gültigen Betrag eingeben';
+        statusEl.className = 'status-msg err';
+        return;
+    }
+
+    const finalAmount = typeEl.value === 'debit' ? -Math.abs(amount) : Math.abs(amount);
+    const note = `${typeEl.value === 'credit' ? 'Manuelle Aufladung' : 'Manueller Abzug'} via GroundControl`;
+
+    btn.disabled = true;
+    statusEl.textContent = '';
+    statusEl.className = 'status-msg';
+
+    if (!confirm(`${typeEl.value === 'credit' ? 'Aufladen' : 'Abziehen'}: ${fmt(Math.abs(amount))} – sicher?`)) {
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/shopify/gift-cards/${cardId}/adjust`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: finalAmount, note }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err.detail);
+        }
+        statusEl.textContent = `Erfolgreich: ${typeEl.value === 'credit' ? '+' : '−'}${fmt(amount)} ✓`;
+        statusEl.className = 'status-msg ok';
+        amountEl.value = '';
+        // Reload detail and table
+        openDetailModal(cardId, document.getElementById('tx-modal-title').textContent.split('– ')[1]?.trim() || '');
+    } catch (e) {
+        statusEl.textContent = e.message;
+        statusEl.className = 'status-msg err';
+    } finally {
+        btn.disabled = false;
     }
 }
 

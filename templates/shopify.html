@@ -76,6 +76,35 @@
         background: var(--bg-secondary); color: var(--text-primary);
         font-size: 0.9rem; cursor: pointer;
     }
+    .detail-section { margin-bottom: 16px; }
+    .detail-section h4 { margin: 0 0 6px; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+    .detail-section .value { font-size: 0.95rem; color: var(--text-primary); }
+    .detail-row { display: flex; gap: 12px; margin-bottom: 6px; font-size: 0.9rem; }
+    .detail-row .label { color: var(--text-secondary); min-width: 100px; }
+    .detail-row .value { color: var(--text-primary); font-weight: 500; }
+    .detail-divider { border: none; border-top: 1px solid var(--border-color); margin: 16px 0; }
+    .note-textarea {
+        width: 100%; min-height: 50px; padding: 8px 10px; border-radius: 6px;
+        border: 1px solid var(--border-color); background: var(--bg-tertiary);
+        color: var(--text-primary); font-size: 0.9rem; font-family: inherit;
+        resize: vertical;
+    }
+    .detail-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .adjust-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .adjust-input {
+        width: 100px; padding: 6px 10px; border-radius: 6px;
+        border: 1px solid var(--border-color); background: var(--bg-tertiary);
+        color: var(--text-primary); font-size: 0.9rem; font-family: inherit;
+    }
+    .btn-sm { padding: 4px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; }
+    .btn-sm:hover { background: var(--border-color); }
+    .btn-sm.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-sm.primary:hover { opacity: 0.85; }
+    .btn-sm.danger { color: #f87171; }
+    .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-msg { font-size: 0.82rem; margin-top: 4px; }
+    .status-msg.ok { color: #22c55e; }
+    .status-msg.err { color: #f87171; }
 </style>
 {% endblock %}
 
@@ -86,7 +115,7 @@
     {% if not shopify_configured %}
     <div class="not-configured">
         <h2>Shopify nicht konfiguriert</h2>
-        <p>Bitte <code>shopify_store</code> und <code>shopify_access_token</code> in <code>config/config.json</code> eintragen.</p>
+        <p>Bitte <code>shopify_store</code> und <code>shopify_client_id</code> / <code>shopify_client_secret</code> in <code>config/config.json</code> eintragen.</p>
     </div>
     {% else %}
 
@@ -151,16 +180,16 @@
     {% endif %}
 </div>
 
-<!-- Transaction Modal -->
+<!-- Detail Modal -->
 <div class="tx-modal-overlay" id="tx-modal">
     <div class="tx-modal">
         <button class="close-btn" id="tx-close">×</button>
-        <h3 id="tx-modal-title">Transaktionen</h3>
+        <h3 id="tx-modal-title">Gutschein-Details</h3>
         <div id="tx-modal-body"><p style="color:var(--text-secondary)">Lade...</p></div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/shopify.js?v=1"></script>
+<script src="/static/js/shopify.js?v=2"></script>
 {% endblock %}
