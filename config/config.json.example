@@ -60,6 +60,12 @@
 
     "_comment_https": "HTTPS via Nginx + mkcert: run 'sudo bash scripts/setup-https.sh' once on the Pi. Then distribute ~/mkcert-rootCA.crt to client devices.",
 
+    "_comment_shopify": "Shopify gift card tracking via Admin API. Use Dev Dashboard client credentials (auto-refreshes token). Legacy: set shopify_access_token directly.",
+    "shopify_store": "",
+    "shopify_client_id": "",
+    "shopify_client_secret": "",
+    "shopify_access_token": "",
+
     "_comment_litestream": "Litestream backups to Backblaze B2. Run scripts/setup-litestream.sh on the Pi.",
     "litestream_enabled": false,
     "backblaze_endpoint": "s3.us-west-004.backblazeb2.com",

@@ -1,34 +1,97 @@
 """Shopify routes - Gift card / voucher tracking via Shopify Admin API"""
 
+import logging
+import time
+
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from backend.config import SHOPIFY_ACCESS_TOKEN, SHOPIFY_STORE
 from backend.auth.dependencies import check_auth
+from backend.config import (
+    SHOPIFY_ACCESS_TOKEN,
+    SHOPIFY_CLIENT_ID,
+    SHOPIFY_CLIENT_SECRET,
+    SHOPIFY_STORE,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 _SHOPIFY_API_VERSION = "2024-04"
 
+# ── Token cache (auto-refresh for Dev Dashboard apps) ─────────────────────────
 
-def _shopify_headers() -> dict:
-    return {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-        "Content-Type": "application/json",
-    }
+_cached_token: str = SHOPIFY_ACCESS_TOKEN or ""
+_token_expires_at: float = 0.0
+
+
+async def _get_access_token() -> str:
+    """Return a valid access token, refreshing via client_credentials grant if needed."""
+    global _cached_token, _token_expires_at
+
+    # Static token from config (legacy admin-created custom app)
+    if SHOPIFY_ACCESS_TOKEN and not SHOPIFY_CLIENT_ID:
+        return SHOPIFY_ACCESS_TOKEN
+
+    # Refresh if expired or never fetched
+    if not _cached_token or time.time() >= _token_expires_at:
+        if not SHOPIFY_CLIENT_ID or not SHOPIFY_CLIENT_SECRET:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Shopify not configured. Set shopify_client_id and "
+                    "shopify_client_secret (or shopify_access_token) in config.json."
+                ),
+            )
+        token_url = f"https://{SHOPIFY_STORE}/admin/oauth/access_token"
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(
+                    token_url,
+                    data={
+                        "grant_type": "client_credentials",
+                        "client_id": SHOPIFY_CLIENT_ID,
+                        "client_secret": SHOPIFY_CLIENT_SECRET,
+                    },
+                )
+            if resp.status_code != 200:
+                logger.error(
+                    "Shopify token refresh failed: %s %s", resp.status_code, resp.text
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Shopify token refresh failed: {resp.status_code} {resp.text}",
+                )
+            data = resp.json()
+            _cached_token = data["access_token"]
+            _token_expires_at = (
+                time.time() + data.get("expires_in", 86399) - 300
+            )  # refresh 5 min early
+            logger.info(
+                "Shopify access token refreshed, expires in %ss", data.get("expires_in")
+            )
+        except httpx.HTTPError as exc:
+            logger.error("Shopify token refresh error: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=f"Shopify token refresh error: {exc}",
+            )
+
+    return _cached_token
 
 
 def _shopify_url(path: str) -> str:
     return f"https://{SHOPIFY_STORE}/admin/api/{_SHOPIFY_API_VERSION}/{path}"
 
 
-def _check_configured():
-    if not SHOPIFY_STORE or not SHOPIFY_ACCESS_TOKEN:
-        raise HTTPException(
-            status_code=503,
-            detail="Shopify not configured. Add shopify_store and shopify_access_token to config.json.",
-        )
+def _is_configured() -> bool:
+    """Check if Shopify is configured with either static token or OAuth credentials."""
+    return bool(
+        SHOPIFY_STORE
+        and (SHOPIFY_ACCESS_TOKEN or (SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET))
+    )
 
 
 # ── Page ─────────────────────────────────────────────────────────────────────
@@ -48,7 +111,7 @@ async def shopify_page(request: Request):
             "request": request,
             "nav_active": "shopify",
             "current_user": request.session.get("user"),
-            "shopify_configured": bool(SHOPIFY_STORE and SHOPIFY_ACCESS_TOKEN),
+            "shopify_configured": _is_configured(),
         },
     )
 
@@ -62,7 +125,8 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
     Fetch gift cards from Shopify.
     status: enabled | disabled | all
     """
-    _check_configured()
+    token = await _get_access_token()
+    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
 
     params = {"limit": min(limit, 250)}
     if status != "all":
@@ -75,7 +139,7 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
         while url:
             resp = await client.get(
                 url,
-                headers=_shopify_headers(),
+                headers=headers,
                 params=params if url == _shopify_url("gift_cards.json") else {},
             )
             if resp.status_code != 200:
@@ -121,12 +185,13 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
 @router.get("/api/shopify/gift-cards/{gift_card_id}/transactions")
 async def get_gift_card_transactions(gift_card_id: int):
     """Fetch transaction history for a specific gift card"""
-    _check_configured()
+    token = await _get_access_token()
+    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.get(
             _shopify_url(f"gift_cards/{gift_card_id}/transactions.json"),
-            headers=_shopify_headers(),
+            headers=headers,
         )
         if resp.status_code == 404:
             raise HTTPException(status_code=404, detail="Gift card not found")
@@ -156,8 +221,6 @@ async def get_gift_card_transactions(gift_card_id: int):
 @router.get("/api/shopify/gift-cards/summary")
 async def gift_card_summary():
     """Aggregate summary: total issued, total balance outstanding, total redeemed"""
-    _check_configured()
-
     all_cards_resp = await list_gift_cards(status="all", limit=250)
     cards = all_cards_resp["gift_cards"]
 

@@ -183,7 +183,16 @@ PUBLIC_BASE_URL: str = _cfg.get(
 # Shopify configuration
 SHOPIFY_STORE: str = _cfg.get(
     "shopify_store", os.environ.get("SHOPIFY_STORE", "")
-)  # e.g. "your-store.myshopify.com"
+)  # e.g. "f83098-8d.myshopify.com"
+SHOPIFY_CLIENT_ID: str = _cfg.get(
+    "shopify_client_id", os.environ.get("SHOPIFY_CLIENT_ID", "")
+)
+SHOPIFY_CLIENT_SECRET: str = _cfg.get(
+    "shopify_client_secret", os.environ.get("SHOPIFY_CLIENT_SECRET", "")
+)
+# Legacy: use a static access_token if set (admin-created custom app).
+# If empty, the app will auto-refresh via client_credentials grant using
+# CLIENT_ID + CLIENT_SECRET (Dev Dashboard apps).
 SHOPIFY_ACCESS_TOKEN: str = _cfg.get(
     "shopify_access_token", os.environ.get("SHOPIFY_ACCESS_TOKEN", "")
 )
