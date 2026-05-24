@@ -235,12 +235,26 @@ def handle_device_message(topic: str, payload: str):
 
     db = SessionLocal()
     try:
-        # Update device last_seen
+        # Update device last_seen - but skip auto-creation for retained offline status messages
         device = db.query(Device).filter(Device.device_id == device_id).first()
         if not device:
-            device = Device(device_id=device_id, name=device_id)
-            db.add(device)
-        device.last_seen = _utcnow()
+            # Only auto-create device if this is NOT a retained "offline" status message
+            # Retained offline status messages are replayed by Mosquitto even when devices are powered off
+            should_create = True
+            if subtopic in ("status", "heartbeat"):
+                try:
+                    data = json.loads(payload)
+                    if data.get("status") == "offline":
+                        should_create = False
+                except json.JSONDecodeError:
+                    pass
+
+            if should_create:
+                device = Device(device_id=device_id, name=device_id)
+                db.add(device)
+
+        if device:
+            device.last_seen = _utcnow()
 
         # Handle status updates (heartbeat or status subtopic)
         if subtopic in ("status", "heartbeat"):
