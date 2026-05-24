@@ -157,11 +157,14 @@ async def create_member_application(data: dict) -> dict:
     from backend.config import EASYVEREIN_REGISTRATION_MOCK
 
     if EASYVEREIN_REGISTRATION_MOCK:
+        import time
+
+        mock_num = int(time.time() * 1000) % 1_000_000
         logger.info("easyVerein registration mock mode: skipping real API call")
         return {
             "ev_member_id": 99999,
             "ev_contact_id": 88888,
-            "membership_number": "MOCK-001",
+            "membership_number": f"MOCK-{mock_num:06d}",
         }
 
     headers = get_auth_headers()  # raises ValueError if no API key

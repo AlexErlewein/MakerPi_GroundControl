@@ -196,8 +196,9 @@ class TestRegistrationAPI:
             .first()
         )
         assert m is not None
-        # Mock returns membership_number="MOCK-001" so member_id should be that
-        assert m.member_id == "MOCK-001"
+        # Mock returns a unique MOCK-{timestamp} membership number
+        assert m.member_id is not None
+        assert m.member_id.startswith("MOCK-")
 
     def test_register_stores_phone(self, client, members_db):
         """mobile_phone from the payload should be stored on the Mitglied record."""

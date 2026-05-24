@@ -211,10 +211,11 @@ async def register_member(
         ts = int(dt_datetime.now(dt_timezone.utc).timestamp())
         member_id = f"REG-{ts}"
 
-    # Avoid member_id collision (very unlikely with timestamp but be safe)
+    # Avoid member_id collision — use a fresh timestamp suffix if the ID is taken
     clash = db.query(Mitglied).filter(Mitglied.member_id == member_id).first()
     if clash:
-        member_id = f"{member_id}-{clash.id}"
+        ts = int(dt_datetime.now(dt_timezone.utc).timestamp() * 1000) % 1_000_000
+        member_id = f"REG-{ts}"
 
     new_member = Mitglied(
         member_id=member_id,
