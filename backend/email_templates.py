@@ -185,7 +185,7 @@ def easyverein_signup_html(name: str, signup_url: str) -> str:
 
     return f"""<!DOCTYPE html>
 <html lang="de">
-<head><meta charset="utf-8"><title>Willkommen im H3cke!</title>
+<head><meta charset="utf-8"><title>Willkommen in der H3cke!</title>
 <style>{_BASE_STYLE}</style></head>
 <body>
 {_H3CKE_LOGO}

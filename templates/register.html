@@ -1,0 +1,1266 @@
+{% extends "base.html" %}
+
+{% block title %}Mitglied werden – H3cke MakerSpace{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 100vh;
+        background: var(--bg-primary);
+        padding: 32px 16px 48px;
+    }
+
+    .reg-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 36px 40px;
+        width: 100%;
+        max-width: 520px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .reg-logo {
+        height: 64px;
+        width: auto;
+        filter: brightness(1.6);
+    }
+
+    .reg-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        text-align: center;
+    }
+
+    /* ---- Progress bar ---- */
+    .progress-bar {
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+        position: relative;
+    }
+
+    .progress-step .step-circle {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--bg-tertiary);
+        border: 2px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s ease;
+        position: relative;
+        z-index: 1;
+    }
+
+    .progress-step .step-label {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        text-align: center;
+        white-space: nowrap;
+        transition: color 0.25s ease;
+    }
+
+    .progress-step.active .step-circle {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+    }
+
+    .progress-step.active .step-label {
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    .progress-step.done .step-circle {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        opacity: 0.6;
+    }
+
+    .progress-connector {
+        flex: 1;
+        height: 2px;
+        background: var(--border-color);
+        margin-bottom: 20px;
+        transition: background 0.25s ease;
+    }
+
+    .progress-connector.done {
+        background: var(--accent);
+        opacity: 0.6;
+    }
+
+    /* ---- Form steps ---- */
+    .reg-step {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .reg-step.active {
+        display: flex;
+    }
+
+    .reg-step h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 4px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    /* ---- Field groups ---- */
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .field-group > label {
+        font-size: 0.83rem;
+        color: var(--text-secondary);
+    }
+
+    .field-group > label .req {
+        color: var(--accent);
+        margin-left: 2px;
+    }
+
+    .field-group input,
+    .field-group select {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        outline: none;
+        box-sizing: border-box;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+
+    .field-group input:focus,
+    .field-group select:focus {
+        border-color: var(--accent);
+    }
+
+    .field-group input.invalid {
+        border-color: var(--danger);
+    }
+
+    .field-group select option {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .field-row {
+        display: flex;
+        gap: 12px;
+    }
+
+    .field-row .field-group {
+        flex: 1;
+    }
+
+    /* ---- Anrede radios ---- */
+    .anrede-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .anrede-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        transition: border-color 0.2s, background 0.2s;
+        flex: 1;
+        justify-content: center;
+        user-select: none;
+    }
+
+    .anrede-option input[type="radio"] {
+        display: none;
+    }
+
+    .anrede-option.selected {
+        border-color: var(--accent);
+        background: rgba(255, 111, 0, 0.1);
+        color: var(--accent);
+    }
+
+    /* ---- Membership group cards ---- */
+    .membership-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .mc-option {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        background: var(--bg-tertiary);
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        user-select: none;
+    }
+
+    .mc-option:hover {
+        border-color: var(--accent);
+    }
+
+    .mc-option input[type="radio"] {
+        display: none;
+    }
+
+    .mc-option.selected {
+        border-color: var(--accent);
+        background: rgba(255, 111, 0, 0.08);
+    }
+
+    .mc-info {
+        flex: 1;
+    }
+
+    .mc-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .mc-price {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+
+    .mc-check {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: transparent;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .mc-option.selected .mc-check {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+    }
+
+    /* ---- Payment method cards ---- */
+    .payment-cards {
+        display: flex;
+        gap: 12px;
+    }
+
+    .pc-option {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 18px 12px;
+        background: var(--bg-tertiary);
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        text-align: center;
+        user-select: none;
+    }
+
+    .pc-option:hover {
+        border-color: var(--accent);
+    }
+
+    .pc-option input[type="radio"] {
+        display: none;
+    }
+
+    .pc-option.selected {
+        border-color: var(--accent);
+        background: rgba(255, 111, 0, 0.08);
+    }
+
+    .pc-icon {
+        font-size: 1.8rem;
+    }
+
+    .pc-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .pc-desc {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    /* ---- SEPA section ---- */
+    .sepa-section {
+        display: none;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    .sepa-section.visible {
+        display: flex;
+    }
+
+    .sepa-mandate {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 0.83rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .sepa-mandate input[type="checkbox"] {
+        margin-top: 2px;
+        flex-shrink: 0;
+        accent-color: var(--accent);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .sepa-mandate label {
+        cursor: pointer;
+    }
+
+    /* ---- Summary ---- */
+    .summary-section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .summary-block {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .summary-block-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 7px 14px;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .summary-rows {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .summary-row {
+        display: flex;
+        gap: 12px;
+        font-size: 0.88rem;
+    }
+
+    .sr-label {
+        color: var(--text-secondary);
+        min-width: 130px;
+        flex-shrink: 0;
+    }
+
+    .sr-value {
+        color: var(--text-primary);
+        word-break: break-word;
+    }
+
+    /* ---- Privacy ---- */
+    .privacy-check {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .privacy-check input[type="checkbox"] {
+        margin-top: 2px;
+        flex-shrink: 0;
+        accent-color: var(--accent);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .privacy-check label {
+        cursor: pointer;
+    }
+
+    .privacy-check a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .privacy-check a:hover {
+        text-decoration: underline;
+    }
+
+    /* ---- Navigation buttons ---- */
+    .reg-nav {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+        margin-top: 4px;
+    }
+
+    .btn-back {
+        padding: 10px 20px;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.2s, color 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-back:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .btn-next {
+        flex: 1;
+        padding: 11px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        transition: opacity 0.2s;
+    }
+
+    .btn-next:hover {
+        opacity: 0.88;
+    }
+
+    .btn-next:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* ---- Inline error ---- */
+    .reg-error {
+        width: 100%;
+        background: rgba(248, 81, 73, 0.12);
+        border: 1px solid var(--danger);
+        border-radius: 6px;
+        color: var(--danger);
+        font-size: 0.88rem;
+        padding: 10px 12px;
+        text-align: center;
+        display: none;
+    }
+
+    /* ---- Notice box ---- */
+    .notice-box {
+        background: rgba(255, 111, 0, 0.08);
+        border: 1px solid rgba(255, 111, 0, 0.3);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* ---- Success card ---- */
+    .reg-success {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        text-align: center;
+        padding: 12px 0;
+    }
+
+    .reg-success .success-icon {
+        font-size: 3.5rem;
+    }
+
+    .reg-success h2 {
+        font-size: 1.3rem;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .reg-success p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .btn-home {
+        padding: 11px 28px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        text-decoration: none;
+        display: inline-block;
+        transition: opacity 0.2s;
+    }
+
+    .btn-home:hover {
+        opacity: 0.88;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 540px) {
+        .reg-card {
+            padding: 24px 18px;
+        }
+
+        .field-row {
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .payment-cards {
+            flex-direction: column;
+        }
+
+        .anrede-group {
+            flex-wrap: wrap;
+        }
+
+        .progress-step .step-label {
+            display: none;
+        }
+
+        .sr-label {
+            min-width: 100px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reg-card">
+    <img src="/graphics/H3ckeLogo.svg" class="reg-logo" alt="H3cke MakerSpace">
+    <h1 class="reg-title">Mitglied werden</h1>
+
+    <!-- Progress indicator -->
+    <div class="progress-bar" id="progress-bar">
+        <div class="progress-step active" id="ps-1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Persönlich</div>
+        </div>
+        <div class="progress-connector" id="pc-1"></div>
+        <div class="progress-step" id="ps-2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Adresse</div>
+        </div>
+        <div class="progress-connector" id="pc-2"></div>
+        <div class="progress-step" id="ps-3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Mitgliedschaft</div>
+        </div>
+        <div class="progress-connector" id="pc-3"></div>
+        <div class="progress-step" id="ps-4">
+            <div class="step-circle">4</div>
+            <div class="step-label">Zahlung</div>
+        </div>
+        <div class="progress-connector" id="pc-4"></div>
+        <div class="progress-step" id="ps-5">
+            <div class="step-circle">5</div>
+            <div class="step-label">Bestätigung</div>
+        </div>
+    </div>
+
+    <!-- Error banner (shared across steps) -->
+    <div class="reg-error" id="reg-error"></div>
+
+    <!-- ===== STEP 1: Persönliche Daten ===== -->
+    <div class="reg-step active" id="step-1">
+        <h2>Persönliche Daten</h2>
+
+        <div class="field-group">
+            <label>Anrede</label>
+            <div class="anrede-group" id="anrede-group">
+                <label class="anrede-option selected" data-value="">
+                    <input type="radio" name="salutation" value="" checked>
+                    <span>Keine Angabe</span>
+                </label>
+                <label class="anrede-option" data-value="Herr">
+                    <input type="radio" name="salutation" value="Herr">
+                    <span>Herr</span>
+                </label>
+                <label class="anrede-option" data-value="Frau">
+                    <input type="radio" name="salutation" value="Frau">
+                    <span>Frau</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-group">
+                <label for="first_name">Vorname <span class="req">*</span></label>
+                <input type="text" id="first_name" autocomplete="given-name" placeholder="Max">
+            </div>
+            <div class="field-group">
+                <label for="family_name">Nachname <span class="req">*</span></label>
+                <input type="text" id="family_name" autocomplete="family-name" placeholder="Mustermann">
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label for="email">E-Mail-Adresse <span class="req">*</span></label>
+            <input type="email" id="email" autocomplete="email" inputmode="email" placeholder="max@example.com">
+        </div>
+
+        <div class="field-group">
+            <label for="date_of_birth">Geburtsdatum</label>
+            <input type="date" id="date_of_birth" autocomplete="bday">
+        </div>
+
+        <div class="field-row">
+            <div class="field-group">
+                <label for="mobile_phone">Handy</label>
+                <input type="tel" id="mobile_phone" autocomplete="tel" placeholder="+49 170 1234567">
+            </div>
+            <div class="field-group">
+                <label for="private_phone">Telefon</label>
+                <input type="tel" id="private_phone" autocomplete="tel-local" placeholder="+49 30 1234567">
+            </div>
+        </div>
+
+        <div class="reg-nav">
+            <button type="button" class="btn-next" onclick="nextStep(1)">Weiter →</button>
+        </div>
+    </div>
+
+    <!-- ===== STEP 2: Adresse ===== -->
+    <div class="reg-step" id="step-2">
+        <h2>Adresse</h2>
+
+        <div class="field-group">
+            <label for="street">Straße &amp; Hausnummer</label>
+            <input type="text" id="street" autocomplete="street-address" placeholder="Musterstraße 42">
+        </div>
+
+        <div class="field-row">
+            <div class="field-group" style="flex: 0 0 110px;">
+                <label for="zip_code">PLZ</label>
+                <input type="text" id="zip_code" autocomplete="postal-code" placeholder="12345" maxlength="10">
+            </div>
+            <div class="field-group">
+                <label for="city">Stadt</label>
+                <input type="text" id="city" autocomplete="address-level2" placeholder="Berlin">
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label for="country">Land</label>
+            <input type="text" id="country" autocomplete="country-name" value="Deutschland" placeholder="Deutschland">
+        </div>
+
+        <div class="reg-nav">
+            <button type="button" class="btn-back" onclick="prevStep(2)">← Zurück</button>
+            <button type="button" class="btn-next" onclick="nextStep(2)">Weiter →</button>
+        </div>
+    </div>
+
+    <!-- ===== STEP 3: Mitgliedschaft ===== -->
+    <div class="reg-step" id="step-3">
+        <h2>Mitgliedschaft</h2>
+
+        {% if membership_groups %}
+        <div class="field-group">
+            <label>Mitgliedschaftsart <span class="req">*</span></label>
+            <div class="membership-cards" id="membership-cards">
+                {% for group in membership_groups %}
+                <label class="mc-option" data-url="{{ group.ev_url }}" data-amount="{{ group.amount }}">
+                    <input type="radio" name="membership_group" value="{{ group.ev_url }}">
+                    <div class="mc-info">
+                        <div class="mc-name">{{ group.label }}</div>
+                        <div class="mc-price">{{ group.amount }} €/Monat</div>
+                    </div>
+                    <div class="mc-check">✓</div>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="field-group">
+            <label for="payment_amount_input">Monatsbeitrag (€) <span class="req">*</span></label>
+            <input type="number" id="payment_amount_input" min="0" step="0.50" placeholder="30.00">
+        </div>
+        {% endif %}
+
+        <!-- Hidden carriers -->
+        <input type="hidden" id="membership_group_url" value="">
+        <input type="hidden" id="payment_amount" value="">
+
+        <div class="field-group">
+            <label for="payment_interval">Zahlungsintervall</label>
+            <select id="payment_interval">
+                <option value="1">Monatlich</option>
+                <option value="3">Vierteljährlich</option>
+                <option value="6">Halbjährlich</option>
+                <option value="12">Jährlich</option>
+            </select>
+        </div>
+
+        {% if not easyverein_configured %}
+        <div class="notice-box">
+            Hinweis: easyVerein ist nicht konfiguriert. Dein Antrag wird gespeichert und muss manuell bearbeitet werden.
+        </div>
+        {% endif %}
+
+        <div class="reg-nav">
+            <button type="button" class="btn-back" onclick="prevStep(3)">← Zurück</button>
+            <button type="button" class="btn-next" onclick="nextStep(3)">Weiter →</button>
+        </div>
+    </div>
+
+    <!-- ===== STEP 4: Zahlung ===== -->
+    <div class="reg-step" id="step-4">
+        <h2>Zahlungsart</h2>
+
+        <div class="field-group">
+            <label>Wie möchtest du zahlen? <span class="req">*</span></label>
+            <div class="payment-cards" id="payment-cards">
+                <label class="pc-option" data-value="0">
+                    <input type="radio" name="method_of_payment" value="0">
+                    <span class="pc-icon">🏦</span>
+                    <span class="pc-title">Überweisung</span>
+                    <span class="pc-desc">Du überweist den Beitrag selbst</span>
+                </label>
+                <label class="pc-option" data-value="1">
+                    <input type="radio" name="method_of_payment" value="1">
+                    <span class="pc-icon">📄</span>
+                    <span class="pc-title">SEPA-Lastschrift</span>
+                    <span class="pc-desc">Beitrag wird automatisch eingezogen</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="sepa-section" id="sepa-section">
+            <div class="field-group">
+                <label for="iban">IBAN <span class="req">*</span></label>
+                <input type="text" id="iban" placeholder="DE00 0000 0000 0000 0000 00" autocomplete="off" maxlength="34">
+            </div>
+            <div class="field-group">
+                <label for="bic">BIC <span class="req">*</span></label>
+                <input type="text" id="bic" placeholder="BELADEBEXXX" autocomplete="off">
+            </div>
+            <div class="field-group">
+                <label for="bank_account_owner">Kontoinhaber <span class="req">*</span></label>
+                <input type="text" id="bank_account_owner" autocomplete="name" placeholder="Max Mustermann">
+            </div>
+            <div class="sepa-mandate">
+                <input type="checkbox" id="sepa_mandate">
+                <label for="sepa_mandate">
+                    Ich erteile hiermit das SEPA-Lastschriftmandat und ermächtige den H3cke e.V., Zahlungen von
+                    meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die
+                    vom H3cke e.V. auf mein Konto gezogenen Lastschriften einzulösen.
+                </label>
+            </div>
+        </div>
+
+        <div class="reg-nav">
+            <button type="button" class="btn-back" onclick="prevStep(4)">← Zurück</button>
+            <button type="button" class="btn-next" onclick="nextStep(4)">Weiter →</button>
+        </div>
+    </div>
+
+    <!-- ===== STEP 5: Zusammenfassung ===== -->
+    <div class="reg-step" id="step-5">
+        <h2>Zusammenfassung &amp; Bestätigung</h2>
+
+        <div class="summary-section" id="summary-section">
+            <!-- populated by buildSummary() -->
+        </div>
+
+        <div class="privacy-check">
+            <input type="checkbox" id="privacy_accepted">
+            <label for="privacy_accepted">
+                Ich habe die <a href="#" target="_blank">Datenschutzerklärung</a> gelesen und stimme der
+                Verarbeitung meiner Daten gemäß DSGVO zu. <span class="req">*</span>
+            </label>
+        </div>
+
+        <div class="reg-nav">
+            <button type="button" class="btn-back" onclick="prevStep(5)">← Zurück</button>
+            <button type="button" class="btn-next" id="submit-btn" onclick="submitForm()">Antrag einreichen</button>
+        </div>
+    </div>
+
+    <!-- ===== SUCCESS STATE ===== -->
+    <div class="reg-success" id="reg-success">
+        <div class="success-icon">✅</div>
+        <h2>Antrag eingereicht!</h2>
+        <p>
+            Vielen Dank für dein Interesse am H3cke MakerSpace.<br>
+            Wir melden uns in Kürze bei dir.
+        </p>
+        <a href="/" class="btn-home">Zur Startseite</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    'use strict';
+
+    var currentStep = 1;
+    var TOTAL_STEPS = 5;
+
+    // ==================== NAVIGATION ====================
+
+    function showStep(n) {
+        for (var i = 1; i <= TOTAL_STEPS; i++) {
+            var el = document.getElementById('step-' + i);
+            if (el) el.classList.toggle('active', i === n);
+        }
+        updateProgress(n);
+        currentStep = n;
+        clearError();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateProgress(n) {
+        for (var i = 1; i <= TOTAL_STEPS; i++) {
+            var ps = document.getElementById('ps-' + i);
+            if (!ps) continue;
+            ps.classList.remove('active', 'done');
+            if (i < n) ps.classList.add('done');
+            else if (i === n) ps.classList.add('active');
+
+            if (i < TOTAL_STEPS) {
+                var pc = document.getElementById('pc-' + i);
+                if (pc) pc.classList.toggle('done', i < n);
+            }
+        }
+    }
+
+    window.nextStep = function (from) {
+        if (!validateStep(from)) return;
+        if (from === 4) buildSummary();
+        showStep(from + 1);
+    };
+
+    window.prevStep = function (from) {
+        showStep(from - 1);
+    };
+
+    // ==================== VALIDATION ====================
+
+    function markInvalid(el) {
+        el.classList.add('invalid');
+        el.addEventListener('input', function () {
+            el.classList.remove('invalid');
+        }, { once: true });
+    }
+
+    function showError(msg) {
+        var box = document.getElementById('reg-error');
+        box.textContent = msg;
+        box.style.display = 'block';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function clearError() {
+        var box = document.getElementById('reg-error');
+        box.style.display = 'none';
+        box.textContent = '';
+    }
+
+    function validateStep(n) {
+        clearError();
+        var valid = true;
+
+        if (n === 1) {
+            var fn = document.getElementById('first_name');
+            var ln = document.getElementById('family_name');
+            var em = document.getElementById('email');
+
+            if (!fn.value.trim()) { markInvalid(fn); valid = false; }
+            if (!ln.value.trim()) { markInvalid(ln); valid = false; }
+            if (!em.value.trim() || !em.value.includes('@')) { markInvalid(em); valid = false; }
+
+            if (!valid) { showError('Bitte fülle alle Pflichtfelder aus.'); }
+        }
+
+        if (n === 3) {
+            {% if membership_groups %}
+            var sel = document.querySelector('input[name="membership_group"]:checked');
+            if (!sel) {
+                showError('Bitte wähle eine Mitgliedschaftsart aus.');
+                return false;
+            }
+            {% else %}
+            var amt = document.getElementById('payment_amount_input');
+            if (!amt || !amt.value || parseFloat(amt.value) <= 0) {
+                if (amt) markInvalid(amt);
+                showError('Bitte gib einen gültigen Monatsbeitrag ein.');
+                return false;
+            }
+            document.getElementById('payment_amount').value = amt.value;
+            {% endif %}
+        }
+
+        if (n === 4) {
+            var method = document.querySelector('input[name="method_of_payment"]:checked');
+            if (!method) {
+                showError('Bitte wähle eine Zahlungsart aus.');
+                return false;
+            }
+
+            if (method.value === '1') {
+                var iban = document.getElementById('iban');
+                var bic  = document.getElementById('bic');
+                var own  = document.getElementById('bank_account_owner');
+                var man  = document.getElementById('sepa_mandate');
+
+                if (!iban.value.replace(/\s/g, '') || iban.value.replace(/\s/g, '').length < 15) {
+                    markInvalid(iban); valid = false;
+                }
+                if (!bic.value.trim()) { markInvalid(bic); valid = false; }
+                if (!own.value.trim()) { markInvalid(own); valid = false; }
+
+                if (!man.checked) {
+                    showError('Bitte akzeptiere das SEPA-Lastschriftmandat.');
+                    return false;
+                }
+                if (!valid) { showError('Bitte fülle alle SEPA-Felder aus.'); }
+            }
+        }
+
+        if (n === 5) {
+            var privacy = document.getElementById('privacy_accepted');
+            if (!privacy.checked) {
+                showError('Bitte akzeptiere die Datenschutzerklärung.');
+                return false;
+            }
+        }
+
+        return valid;
+    }
+
+    // ==================== ANREDE RADIO STYLING ====================
+
+    document.querySelectorAll('.anrede-option').forEach(function (label) {
+        label.addEventListener('click', function () {
+            document.querySelectorAll('.anrede-option').forEach(function (l) {
+                l.classList.remove('selected');
+            });
+            label.classList.add('selected');
+        });
+    });
+
+    // ==================== MEMBERSHIP GROUP CARDS ====================
+
+    document.querySelectorAll('.mc-option').forEach(function (label) {
+        label.addEventListener('click', function () {
+            document.querySelectorAll('.mc-option').forEach(function (l) {
+                l.classList.remove('selected');
+            });
+            label.classList.add('selected');
+            document.getElementById('membership_group_url').value = label.dataset.url || '';
+            document.getElementById('payment_amount').value = label.dataset.amount || '';
+        });
+    });
+
+    // ==================== PAYMENT METHOD CARDS ====================
+
+    document.querySelectorAll('.pc-option').forEach(function (label) {
+        label.addEventListener('click', function () {
+            document.querySelectorAll('.pc-option').forEach(function (l) {
+                l.classList.remove('selected');
+            });
+            label.classList.add('selected');
+            var sepaSection = document.getElementById('sepa-section');
+            sepaSection.classList.toggle('visible', label.dataset.value === '1');
+        });
+    });
+
+    // ==================== IBAN FORMATTING ====================
+
+    var ibanInput = document.getElementById('iban');
+    if (ibanInput) {
+        ibanInput.addEventListener('input', function () {
+            var pos = this.selectionStart;
+            var raw = this.value.replace(/\s/g, '').toUpperCase();
+            var formatted = raw.replace(/(.{4})/g, '$1 ').trim();
+            this.value = formatted;
+            // Preserve cursor position approximately
+            try { this.setSelectionRange(pos, pos); } catch (e) {}
+        });
+    }
+
+    // BIC auto-uppercase
+    var bicInput = document.getElementById('bic');
+    if (bicInput) {
+        bicInput.addEventListener('input', function () {
+            var pos = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            try { this.setSelectionRange(pos, pos); } catch (e) {}
+        });
+    }
+
+    // ==================== SUMMARY BUILDER ====================
+
+    function getVal(id) {
+        var el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    }
+
+    function getCheckedVal(name) {
+        var el = document.querySelector('input[name="' + name + '"]:checked');
+        return el ? el.value : '';
+    }
+
+    function getSelectText(id) {
+        var el = document.getElementById(id);
+        if (!el || !el.options[el.selectedIndex]) return '';
+        return el.options[el.selectedIndex].text;
+    }
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function summaryBlock(title, rows) {
+        var rowsHtml = rows.map(function (r) {
+            return '<div class="summary-row">'
+                + '<span class="sr-label">' + esc(r[0]) + '</span>'
+                + '<span class="sr-value">' + esc(r[1] || '—') + '</span>'
+                + '</div>';
+        }).join('');
+        return '<div class="summary-block">'
+            + '<div class="summary-block-title">' + esc(title) + '</div>'
+            + '<div class="summary-rows">' + rowsHtml + '</div>'
+            + '</div>';
+    }
+
+    function buildSummary() {
+        var salutation  = getCheckedVal('salutation') || 'Keine Angabe';
+        var firstName   = getVal('first_name');
+        var familyName  = getVal('family_name');
+        var email       = getVal('email');
+        var dob         = getVal('date_of_birth');
+        var mobile      = getVal('mobile_phone');
+        var phone       = getVal('private_phone');
+
+        var street      = getVal('street');
+        var zip         = getVal('zip_code');
+        var city        = getVal('city');
+        var country     = getVal('country') || 'Deutschland';
+        var addressLine = [street, (zip + ' ' + city).trim(), country].filter(Boolean).join(', ');
+
+        {% if membership_groups %}
+        var membershipLabel = (function () {
+            var selected = document.querySelector('.mc-option.selected');
+            if (!selected) return '—';
+            var nameEl = selected.querySelector('.mc-name');
+            return nameEl ? nameEl.textContent : '—';
+        }());
+        {% else %}
+        var membershipLabel = (getVal('payment_amount_input') || '—') + ' €/Monat';
+        {% endif %}
+
+        var amount      = getVal('payment_amount');
+        var interval    = getSelectText('payment_interval');
+        var methodVal   = getCheckedVal('method_of_payment');
+        var methodLabel = methodVal === '1' ? 'SEPA-Lastschrift' : 'Überweisung';
+
+        var iban        = getVal('iban');
+        var bic         = getVal('bic').toUpperCase();
+        var owner       = getVal('bank_account_owner');
+
+        var html = '';
+
+        html += summaryBlock('Persönliche Daten', [
+            ['Anrede',        salutation],
+            ['Vorname',       firstName],
+            ['Nachname',      familyName],
+            ['E-Mail',        email],
+            ['Geburtsdatum',  dob],
+            ['Handy',         mobile],
+            ['Telefon',       phone],
+        ]);
+
+        html += summaryBlock('Adresse', [
+            ['Adresse', addressLine],
+        ]);
+
+        html += summaryBlock('Mitgliedschaft', [
+            ['Beitragsgruppe',    membershipLabel],
+            ['Monatsbeitrag',     amount ? amount + ' €' : ''],
+            ['Zahlungsintervall', interval],
+        ]);
+
+        var payRows = [['Zahlungsart', methodLabel]];
+        if (methodVal === '1') {
+            payRows.push(['IBAN',         iban]);
+            payRows.push(['BIC',          bic]);
+            payRows.push(['Kontoinhaber', owner]);
+        }
+        html += summaryBlock('Zahlung', payRows);
+
+        document.getElementById('summary-section').innerHTML = html;
+    }
+
+    // ==================== SUBMIT ====================
+
+    window.submitForm = function () {
+        if (!validateStep(5)) return;
+
+        var btn = document.getElementById('submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Wird gesendet…';
+        clearError();
+
+        var methodVal  = getCheckedVal('method_of_payment');
+        var ibanRaw    = document.getElementById('iban').value.replace(/\s/g, '');
+
+        {% if membership_groups %}
+        var membershipUrl = getVal('membership_group_url') || null;
+        var amount        = parseFloat(getVal('payment_amount')) || null;
+        {% else %}
+        var membershipUrl = null;
+        var amtRaw        = getVal('payment_amount_input');
+        var amount        = amtRaw ? parseFloat(amtRaw) : null;
+        {% endif %}
+
+        var intervalEl = document.getElementById('payment_interval');
+        var intervalVal = intervalEl ? parseInt(intervalEl.value, 10) : 1;
+
+        var payload = {
+            salutation:              getCheckedVal('salutation') || '',
+            first_name:              getVal('first_name'),
+            family_name:             getVal('family_name'),
+            email:                   getVal('email'),
+            date_of_birth:           getVal('date_of_birth') || null,
+            mobile_phone:            getVal('mobile_phone') || null,
+            private_phone:           getVal('private_phone') || null,
+            street:                  getVal('street') || null,
+            zip_code:                getVal('zip_code') || null,
+            city:                    getVal('city') || null,
+            country:                 getVal('country') || 'Deutschland',
+            membership_group_url:    membershipUrl,
+            payment_amount:          amount,
+            payment_interval_months: intervalVal,
+            method_of_payment:       methodVal !== '' ? parseInt(methodVal, 10) : 0,
+            iban:                    ibanRaw || null,
+            bic:                     getVal('bic').toUpperCase() || null,
+            bank_account_owner:      getVal('bank_account_owner') || null,
+            privacy_accepted:        document.getElementById('privacy_accepted').checked,
+        };
+
+        fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+        .then(function (res) {
+            if (res.ok) {
+                document.getElementById('progress-bar').style.display = 'none';
+                for (var i = 1; i <= TOTAL_STEPS; i++) {
+                    var el = document.getElementById('step-' + i);
+                    if (el) el.classList.remove('active');
+                }
+                document.getElementById('reg-error').style.display = 'none';
+                document.getElementById('reg-success').style.display = 'flex';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                return res.json().catch(function () { return {}; }).then(function (data) {
+                    showError(data.detail || 'Fehler beim Einreichen des Antrags.');
+                    btn.disabled = false;
+                    btn.textContent = 'Antrag einreichen';
+                });
+            }
+        })
+        .catch(function () {
+            showError('Netzwerkfehler. Bitte versuche es erneut.');
+            btn.disabled = false;
+            btn.textContent = 'Antrag einreichen';
+        });
+    };
+
+}());
+</script>
+{% endblock %}

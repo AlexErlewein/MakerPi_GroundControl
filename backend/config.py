@@ -58,6 +58,15 @@ EASYVEREIN_API_KEY: str = _cfg.get(
 EASYVEREIN_ORG_ID: str = _cfg.get(
     "easyverein_org_id", os.environ.get("EASYVEREIN_ORG_ID", "")
 )
+EASYVEREIN_REGISTRATION_MOCK: bool = _cfg.get(
+    "easyverein_registration_mock",
+    os.environ.get("EASYVEREIN_REGISTRATION_MOCK", "false").lower() == "true",
+)
+EASYVEREIN_SIGNUP_REDIRECT_URL: str = _cfg.get(
+    "easyverein_signup_redirect_url",
+    os.environ.get("EASYVEREIN_SIGNUP_REDIRECT_URL", ""),
+)
+MEMBERSHIP_GROUPS: list = _cfg.get("membership_groups", [])
 
 # NFC Enrollment Reader - the dedicated device used for enrolling member cards
 ENROLLMENT_READER_ID: str = _cfg.get(

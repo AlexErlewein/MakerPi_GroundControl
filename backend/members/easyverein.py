@@ -89,6 +89,168 @@ def get_auth_headers() -> dict:
     }
 
 
+async def post_with_retry(
+    client: httpx.AsyncClient, url: str, headers: dict, json_data: dict
+) -> httpx.Response:
+    """POST with retry logic for rate limiting and disconnection errors"""
+    last_exception = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = await client.post(url, headers=headers, json=json_data)
+            if response.status_code == 429:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(
+                    f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            response.raise_for_status()
+            return response
+        except httpx.HTTPStatusError as e:
+            last_exception = e
+            if e.response.status_code == 429 and attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(
+                    f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+        except httpx.RemoteProtocolError as e:
+            last_exception = e
+            if attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(
+                    f"Server disconnected, waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+        except Exception as e:
+            last_exception = e
+            if attempt < MAX_RETRIES - 1:
+                wait_time = RETRY_DELAY * (attempt + 1)
+                logger.warning(
+                    f"Request failed ({type(e).__name__}), waiting {wait_time}s before retry {attempt + 1}/{MAX_RETRIES}"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+    if last_exception:
+        raise last_exception
+    raise RuntimeError("Max retries exceeded")
+
+
+async def create_member_application(data: dict) -> dict:
+    """Create a new member application in easyVerein (two-step: contact-details then member).
+
+    data keys: first_name, family_name, email, date_of_birth (optional), mobile_phone (optional),
+               private_phone (optional), street (optional), zip_code (optional), city (optional),
+               country (optional), iban (optional), bic (optional), bank_account_owner (optional),
+               method_of_payment (optional int), membership_group_url (optional str),
+               payment_amount (optional float), payment_interval_months (optional int),
+               salutation (optional str)
+
+    Returns dict with ev_member_id, ev_contact_id, membership_number.
+    Raises ValueError if API key not configured.
+    Raises httpx.HTTPStatusError on API failure.
+    """
+    from backend.config import EASYVEREIN_REGISTRATION_MOCK
+
+    if EASYVEREIN_REGISTRATION_MOCK:
+        logger.info("easyVerein registration mock mode: skipping real API call")
+        return {
+            "ev_member_id": 99999,
+            "ev_contact_id": 88888,
+            "membership_number": "MOCK-001",
+        }
+
+    headers = get_auth_headers()  # raises ValueError if no API key
+
+    timeout = httpx.Timeout(60.0, connect=30.0)
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+
+    async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
+        # Step 1: Create contact-details
+        contact_payload: dict = {"isCompany": False}
+        if data.get("salutation"):
+            contact_payload["salutation"] = data["salutation"]
+        if data.get("first_name"):
+            contact_payload["firstName"] = data["first_name"]
+        if data.get("family_name"):
+            contact_payload["familyName"] = data["family_name"]
+        if data.get("email"):
+            contact_payload["privateEmail"] = data["email"]
+        if data.get("mobile_phone"):
+            contact_payload["mobilePhone"] = data["mobile_phone"]
+        if data.get("private_phone"):
+            contact_payload["privatePhone"] = data["private_phone"]
+        if data.get("date_of_birth"):
+            contact_payload["dateOfBirth"] = data["date_of_birth"]
+        if data.get("street"):
+            contact_payload["street"] = data["street"]
+        if data.get("zip_code"):
+            contact_payload["zip"] = data["zip_code"]
+        if data.get("city"):
+            contact_payload["city"] = data["city"]
+        if data.get("country"):
+            contact_payload["country"] = data["country"]
+        if data.get("iban"):
+            contact_payload["iban"] = data["iban"]
+        if data.get("bic"):
+            contact_payload["bic"] = data["bic"]
+        if data.get("bank_account_owner"):
+            contact_payload["bankAccountOwner"] = data["bank_account_owner"]
+        if data.get("method_of_payment") is not None:
+            contact_payload["methodOfPayment"] = data["method_of_payment"]
+
+        logger.info(f"Creating easyVerein contact-details for {data.get('email')}")
+        contact_resp = await post_with_retry(
+            client, f"{EASYVEREIN_API_BASE}/contact-details/", headers, contact_payload
+        )
+        contact_data = contact_resp.json()
+        contact_url = contact_data.get("url") or contact_data.get("id")
+        if not contact_url:
+            raise ValueError(
+                f"easyVerein contact-details response missing 'url': {contact_data}"
+            )
+
+        logger.info(f"Created contact-details: {contact_url}")
+
+        # Step 2: Create member
+        member_payload: dict = {
+            "emailOrUserName": data["email"],
+            "contactDetails": contact_url,
+            "isApplication": True,
+        }
+        if data.get("membership_group_url"):
+            member_payload["memberGroups"] = [data["membership_group_url"]]
+        if data.get("payment_amount") is not None:
+            member_payload["paymentAmount"] = data["payment_amount"]
+        if data.get("payment_interval_months") is not None:
+            member_payload["paymentIntervallMonths"] = data["payment_interval_months"]
+
+        logger.info(f"Creating easyVerein member for {data.get('email')}")
+        member_resp = await post_with_retry(
+            client, f"{EASYVEREIN_API_BASE}/member/", headers, member_payload
+        )
+        member_data = member_resp.json()
+
+        ev_member_id = member_data.get("id")
+        membership_number = member_data.get("membershipNumber") or str(ev_member_id)
+        contact_id = contact_data.get("id")
+
+        logger.info(
+            f"Created easyVerein member {ev_member_id} (membership_number={membership_number})"
+        )
+
+        return {
+            "ev_member_id": ev_member_id,
+            "ev_contact_id": contact_id,
+            "membership_number": str(membership_number) if membership_number else None,
+        }
+
+
 def get_sync_status() -> dict:
     """Get the last sync status"""
     global _last_sync_result

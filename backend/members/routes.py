@@ -1,5 +1,7 @@
 """Members routes - API and pages for Mitglied and RFIDTag"""
 
+import logging
+from datetime import datetime as dt_datetime, timezone as dt_timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -20,6 +22,7 @@ class CardWriteRequest(BaseModel):
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class MitgliedCreate(BaseModel):
@@ -46,6 +49,33 @@ class MitgliedUpdate(BaseModel):
     nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
+
+
+class MemberRegistrationRequest(BaseModel):
+    # Step 1 - Personal
+    salutation: Optional[str] = None
+    first_name: str
+    family_name: str
+    email: str
+    date_of_birth: Optional[str] = None
+    mobile_phone: Optional[str] = None
+    private_phone: Optional[str] = None
+    # Step 2 - Address
+    street: Optional[str] = None
+    zip_code: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = "Deutschland"
+    # Step 3 - Membership
+    membership_group_url: Optional[str] = None
+    payment_amount: Optional[float] = None
+    payment_interval_months: Optional[int] = 1
+    # Step 4 - Payment
+    method_of_payment: Optional[int] = None
+    iban: Optional[str] = None
+    bic: Optional[str] = None
+    bank_account_owner: Optional[str] = None
+    # Consent
+    privacy_accepted: bool = False
 
 
 class TagCreate(BaseModel):
@@ -109,6 +139,107 @@ async def tags_page(request: Request):
             "current_user": request.session.get("user"),
         },
     )
+
+
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """Public member registration form"""
+    from fastapi.templating import Jinja2Templates
+    from backend.config import EASYVEREIN_API_KEY, MEMBERSHIP_GROUPS
+
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+            "membership_groups": MEMBERSHIP_GROUPS,
+            "easyverein_configured": bool(EASYVEREIN_API_KEY),
+        },
+    )
+
+
+@router.post("/api/register")
+async def register_member(
+    data: MemberRegistrationRequest, db: Session = Depends(get_db)
+):
+    """Public endpoint: submit a new member application.
+
+    Creates an application in easyVerein (if configured) and a local inactive Mitglied.
+    """
+    from backend.members.easyverein import create_member_application
+    from backend.config import EASYVEREIN_API_KEY
+
+    if not data.privacy_accepted:
+        raise HTTPException(
+            status_code=400, detail="Datenschutzerklärung muss akzeptiert werden"
+        )
+
+    if not data.first_name.strip() or not data.family_name.strip():
+        raise HTTPException(
+            status_code=422, detail="Vor- und Nachname sind erforderlich"
+        )
+
+    if not data.email.strip():
+        raise HTTPException(status_code=422, detail="E-Mail-Adresse ist erforderlich")
+
+    # Check for duplicate email
+    existing = (
+        db.query(Mitglied)
+        .filter(Mitglied.email == data.email.lower().strip())
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409, detail="Diese E-Mail-Adresse ist bereits registriert"
+        )
+
+    full_name = f"{data.first_name.strip()} {data.family_name.strip()}"
+    member_id: Optional[str] = None
+    ev_warning: Optional[str] = None
+
+    if EASYVEREIN_API_KEY:
+        try:
+            ev_result = await create_member_application(data.model_dump())
+            membership_number = ev_result.get("membership_number")
+            if membership_number:
+                member_id = str(membership_number)
+        except Exception as e:
+            logger.warning(
+                f"easyVerein registration failed, creating local-only record: {e}"
+            )
+            ev_warning = str(e)
+
+    if not member_id:
+        # Local-only fallback: generate a placeholder ID
+        ts = int(dt_datetime.now(dt_timezone.utc).timestamp())
+        member_id = f"REG-{ts}"
+
+    # Avoid member_id collision (very unlikely with timestamp but be safe)
+    clash = db.query(Mitglied).filter(Mitglied.member_id == member_id).first()
+    if clash:
+        member_id = f"{member_id}-{clash.id}"
+
+    new_member = Mitglied(
+        member_id=member_id,
+        name=full_name,
+        email=data.email.lower().strip(),
+        phone=data.mobile_phone or data.private_phone,
+        status="inactive",
+        joined_date=None,
+        notes=(
+            f"Antrag über Webformular. Zahlung: {data.method_of_payment}, "
+            f"Betrag: {data.payment_amount}€/{data.payment_interval_months}Mo"
+        ),
+    )
+    db.add(new_member)
+    db.commit()
+
+    response: dict = {"success": True, "message": "Antrag erfolgreich eingereicht"}
+    if ev_warning:
+        response["warning"] = (
+            "Antrag lokal gespeichert; easyVerein-Übertragung fehlgeschlagen"
+        )
+    return response
 
 
 # ── Mitglied API ──────────────────────────────────────────────────────────────

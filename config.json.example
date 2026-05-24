@@ -14,6 +14,12 @@
     "wero_api_key": "YOUR_WERO_API_KEY",
     "easyverein_api_key": "YOUR_EASYVEREIN_API_KEY_HERE",
     "easyverein_org_id": "YOUR_ORG_ID_HERE",
+    "easyverein_registration_mock": false,
+    "easyverein_signup_redirect_url": "",
+    "membership_groups": [
+        {"label": "Regulär (30 €/Monat)", "ev_url": "", "amount": 30},
+        {"label": "Ermäßigt (15 €/Monat)", "ev_url": "", "amount": 15}
+    ],
     "enrollment_reader_id": "",
     "payment_reader_id": "",
     "card_writer_id": "",
