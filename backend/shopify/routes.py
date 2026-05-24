@@ -215,6 +215,31 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
     return {"gift_cards": result, "total": len(result)}
 
 
+# ── Summary (must be before {gift_card_id} to avoid route conflict) ──────────
+
+
+@router.get("/api/shopify/gift-cards/summary")
+async def gift_card_summary():
+    """Aggregate summary: total issued, total balance outstanding, total redeemed"""
+    all_cards_resp = await list_gift_cards(status="all", limit=250)
+    cards = all_cards_resp["gift_cards"]
+
+    total_issued = sum(c["initial_value"] for c in cards)
+    total_outstanding = sum(c["balance"] for c in cards if c["status"] == "enabled")
+    total_redeemed = total_issued - sum(c["balance"] for c in cards)
+    active_count = sum(
+        1 for c in cards if c["status"] == "enabled" and c["balance"] > 0
+    )
+
+    return {
+        "total_cards": len(cards),
+        "active_cards": active_count,
+        "total_issued_eur": round(total_issued, 2),
+        "total_outstanding_eur": round(total_outstanding, 2),
+        "total_redeemed_eur": round(total_redeemed, 2),
+    }
+
+
 # ── Gift Card Detail (GraphQL) ────────────────────────────────────────────────
 
 
@@ -448,29 +473,4 @@ async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
     return {
         "amount": float(amt),
         "currency": (adj.get("amount") or {}).get("currencyCode", "EUR"),
-    }
-
-
-# ── Summary ──────────────────────────────────────────────────────────────────
-
-
-@router.get("/api/shopify/gift-cards/summary")
-async def gift_card_summary():
-    """Aggregate summary: total issued, total balance outstanding, total redeemed"""
-    all_cards_resp = await list_gift_cards(status="all", limit=250)
-    cards = all_cards_resp["gift_cards"]
-
-    total_issued = sum(c["initial_value"] for c in cards)
-    total_outstanding = sum(c["balance"] for c in cards if c["status"] == "enabled")
-    total_redeemed = total_issued - sum(c["balance"] for c in cards)
-    active_count = sum(
-        1 for c in cards if c["status"] == "enabled" and c["balance"] > 0
-    )
-
-    return {
-        "total_cards": len(cards),
-        "active_cards": active_count,
-        "total_issued_eur": round(total_issued, 2),
-        "total_outstanding_eur": round(total_outstanding, 2),
-        "total_redeemed_eur": round(total_redeemed, 2),
     }
