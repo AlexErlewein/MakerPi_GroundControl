@@ -18,7 +18,9 @@
       "Bash(python3 -c ' *)",
       "Bash(python3)",
       "Bash(cd /Users/alex/Desktop/code/Others/ESP_Dial && find . -type f -name \"*.md\" -o -name \"README*\" -o -name \"platformio.ini\" -o -name \"CMakeLists.txt\" | head -20)",
-      "WebFetch(domain:micropython.org)"
+      "WebFetch(domain:micropython.org)",
+      "Bash(kill %1)",
+      "Bash(git add *)"
     ]
   }
 }
