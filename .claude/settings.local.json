@@ -21,7 +21,9 @@
       "WebFetch(domain:micropython.org)",
       "Bash(kill %1)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Read(//tmp/**)",
+      "Bash(cat /tmp/h3cke_logo_b64.txt)"
     ]
   }
 }

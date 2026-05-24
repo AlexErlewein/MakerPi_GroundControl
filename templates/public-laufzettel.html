@@ -618,22 +618,16 @@
                     <span class="info-label">Inhaber</span>
                     <span class="info-value highlight">{{ laufzettel.owner_name or 'Gast' }}</span>
                 </div>
-                {% if laufzettel.email %}
+                {% if laufzettel.guest_email %}
                 <div class="info-item full-width">
                     <span class="info-label">E-Mail</span>
-                    <span class="info-value">{{ laufzettel.email }}</span>
+                    <span class="info-value">{{ laufzettel.guest_email }}</span>
                 </div>
                 {% endif %}
                 {% if laufzettel.member_id %}
                 <div class="info-item">
                     <span class="info-label">Mitglied Nr.</span>
                     <span class="info-value">{{ laufzettel.member_id }}</span>
-                </div>
-                {% endif %}
-                {% if laufzettel.guest_name %}
-                <div class="info-item">
-                    <span class="info-label">Gast</span>
-                    <span class="info-value">{{ laufzettel.guest_name }}</span>
                 </div>
                 {% endif %}
             </div>
@@ -683,7 +677,7 @@
             <div class="total-section">
                 <div class="total-row main-total">
                     <span class="total-label main-total">Gesamtbetrag</span>
-                    <span class="total-value main-total">€{{ "%.2f"|format(laufzettel.total_amount) }}</span>
+                    <span class="total-value main-total">€{{ "%.2f"|format(materials | sum(attribute='price')) }}</span>
                 </div>
             </div>
 
@@ -714,10 +708,8 @@
                     <div>
                         <div class="payment-detail-label">Zahlungsdatum</div>
                         <div class="payment-detail-value">
-                            {% if laufzettel.payment_timestamp %}
-                            {{ laufzettel.payment_timestamp.strftime('%d.%m.%Y %H:%M') }}
-                            {% else %}
-                            {{ laufzettel.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                            {% if laufzettel.paid_at %}
+                            {{ laufzettel.paid_at.strftime('%d.%m.%Y %H:%M') }}
                             {% endif %}
                         </div>
                     </div>
