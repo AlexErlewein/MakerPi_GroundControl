@@ -458,9 +458,10 @@ _VALID_TAX_RATES = {0, 7, 19, 0.0, 7.0, 19.0}
 
 @router.post("/api/katalog/bulk-import")
 async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
-    """Find-or-create a location then bulk-create all categories and variants in
-    one atomic transaction. Returns a summary of what was created.
+    """Upsert a location and all its categories/variants in one atomic transaction.
 
+    Merges by name at every level — safe to import the same file multiple times
+    or to merge multiple CSV files into the same location without creating duplicates.
     Supports both old format (Kategorie with varianten directly) and new format
     (Kategorie with unterkategorien containing varianten). Old-format rows are
     wrapped into a 'Standard' Unterkategorie automatically.
@@ -489,18 +490,20 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                     detail=f"Ungültiger Steuersatz: {ukat.tax_rate}. Erlaubt: 0, 7, 19",
                 )
 
-    loc = db.query(Location).filter(Location.name == data.location_name).first()
-    if not loc:
-        loc = Location(name=data.location_name)
-        db.add(loc)
-        db.flush()
+    # ── helpers ───────────────────────────────────────────────────────────────
 
-    created_kategorien = 0
-    created_varianten = 0
-    try:
-        for kat_data in data.kategorien:
+    def upsert_kategorie(location_id: int, kat_data: BulkKategorieIn):
+        kat = (
+            db.query(MaterialKategorie)
+            .filter(
+                MaterialKategorie.location_id == location_id,
+                MaterialKategorie.name == kat_data.name,
+            )
+            .first()
+        )
+        if kat is None:
             kat = MaterialKategorie(
-                location_id=loc.id,
+                location_id=location_id,
                 name=kat_data.name,
                 pricing_model=kat_data.pricing_model,
                 unit=kat_data.unit,
@@ -508,51 +511,117 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
             )
             db.add(kat)
             db.flush()
-            created_kategorien += 1
+            return kat, True
+        return kat, False
+
+    def upsert_unterkategorie(
+        kategorie_id: int, name: str, pricing_model: str, unit, tax_rate: float
+    ):
+        ukat = (
+            db.query(MaterialUnterkategorie)
+            .filter(
+                MaterialUnterkategorie.kategorie_id == kategorie_id,
+                MaterialUnterkategorie.name == name,
+            )
+            .first()
+        )
+        if ukat is None:
+            ukat = MaterialUnterkategorie(
+                kategorie_id=kategorie_id,
+                name=name,
+                pricing_model=pricing_model,
+                unit=unit,
+                tax_rate=tax_rate,
+            )
+            db.add(ukat)
+            db.flush()
+            return ukat, True
+        # Update mutable fields on existing record
+        ukat.pricing_model = pricing_model
+        ukat.unit = unit
+        ukat.tax_rate = tax_rate
+        db.flush()
+        return ukat, False
+
+    def upsert_variante(kategorie_id: int, unterkategorie_id: int, name: str, price: float):
+        var = (
+            db.query(MaterialVariante)
+            .filter(
+                MaterialVariante.unterkategorie_id == unterkategorie_id,
+                MaterialVariante.name == name,
+            )
+            .first()
+        )
+        if var is None:
+            db.add(
+                MaterialVariante(
+                    kategorie_id=kategorie_id,
+                    unterkategorie_id=unterkategorie_id,
+                    name=name,
+                    price=price,
+                )
+            )
+            return True
+        # Update price on existing record
+        var.price = price
+        return False
+
+    # ── upsert location ───────────────────────────────────────────────────────
+
+    loc = db.query(Location).filter(Location.name == data.location_name).first()
+    if not loc:
+        loc = Location(name=data.location_name)
+        db.add(loc)
+        db.flush()
+
+    created_kategorien = 0
+    updated_kategorien = 0
+    created_unterkategorien = 0
+    created_varianten = 0
+    updated_varianten = 0
+
+    try:
+        for kat_data in data.kategorien:
+            kat, kat_created = upsert_kategorie(loc.id, kat_data)
+            if kat_created:
+                created_kategorien += 1
+            else:
+                updated_kategorien += 1
 
             if kat_data.unterkategorien:
                 # New format: explicit unterkategorien
                 for ukat_data in kat_data.unterkategorien:
-                    ukat = MaterialUnterkategorie(
-                        kategorie_id=kat.id,
-                        name=ukat_data.name,
-                        pricing_model=ukat_data.pricing_model,
-                        unit=ukat_data.unit,
-                        tax_rate=ukat_data.tax_rate,
+                    ukat, ukat_created = upsert_unterkategorie(
+                        kat.id,
+                        ukat_data.name,
+                        ukat_data.pricing_model,
+                        ukat_data.unit,
+                        ukat_data.tax_rate,
                     )
-                    db.add(ukat)
-                    db.flush()
+                    if ukat_created:
+                        created_unterkategorien += 1
                     for var_data in ukat_data.varianten:
-                        db.add(
-                            MaterialVariante(
-                                kategorie_id=kat.id,
-                                unterkategorie_id=ukat.id,
-                                name=var_data.name,
-                                price=var_data.price,
-                            )
-                        )
-                        created_varianten += 1
+                        if upsert_variante(kat.id, ukat.id, var_data.name, var_data.price):
+                            created_varianten += 1
+                        else:
+                            updated_varianten += 1
             elif kat_data.varianten:
                 # Old/CSV format: varianten directly on kategorie → wrap in "Standard"
-                ukat = MaterialUnterkategorie(
-                    kategorie_id=kat.id,
-                    name="Standard",
-                    pricing_model=kat_data.pricing_model,
-                    unit=kat_data.unit,
-                    tax_rate=kat_data.tax_rate,
+                ukat, ukat_created = upsert_unterkategorie(
+                    kat.id,
+                    "Standard",
+                    kat_data.pricing_model,
+                    kat_data.unit,
+                    kat_data.tax_rate,
                 )
-                db.add(ukat)
-                db.flush()
+                if ukat_created:
+                    created_unterkategorien += 1
                 for var_data in kat_data.varianten:
-                    db.add(
-                        MaterialVariante(
-                            kategorie_id=kat.id,
-                            unterkategorie_id=ukat.id,
-                            name=var_data.name,
-                            price=var_data.price,
-                        )
-                    )
-                    created_varianten += 1
+                    if upsert_variante(kat.id, ukat.id, var_data.name, var_data.price):
+                        created_varianten += 1
+                    else:
+                        updated_varianten += 1
+
         db.commit()
     except Exception as e:
         db.rollback()
@@ -562,5 +631,8 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         "success": True,
         "location": loc.to_dict(),
         "created_kategorien": created_kategorien,
+        "updated_kategorien": updated_kategorien,
+        "created_unterkategorien": created_unterkategorien,
         "created_varianten": created_varianten,
+        "updated_varianten": updated_varianten,
     }

@@ -1,25 +1,26 @@
 standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
-Töpferei,Ton,Standard,per_gram,g,19,fein,0.05
-Töpferei,Ton,Standard,per_gram,g,19,grob,0.03
-Töpferei,Glasur,Standard,per_unit,Stück,19,transparent,2.50
-Töpferei,Glasur,Standard,per_unit,Stück,19,kobaltblau,3.00
-Töpferei,Glasur,Standard,per_unit,Stück,19,terrakotta,2.80
-Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Eiche,0.0012
-Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Esche,0.0009
-Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Altholz,0.0004
-Holz-Werkstatt,Sperrholz,Standard,per_volume_cm3,cm³,19,6mm Birke,0.0008
-Holz-Werkstatt,Sperrholz,Standard,per_volume_cm3,cm³,19,12mm Birke,0.0008
-FabLab,Filament,Standard,per_gram,g,19,PLA,0.02
-FabLab,Filament,Standard,per_gram,g,19,PETG,0.025
-FabLab,Filament,Standard,per_gram,g,19,TPU,0.035
-FabLab,Filament,Standard,per_gram,g,19,ABS,0.022
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton weiss,16
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton rot,16
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton recycling,14
+Keramikwerkstatt,Verbrauchsmaterial,Giesston,per_volume_l,l,19,Giesston recycling,10
+FabLab,Filament,PLA,per_gram,g,19,weiss,0.02
+FabLab,Filament,PLA,per_gram,g,19,schwarz,0.02
+FabLab,Filament,PETG,per_gram,g,19,transparent,0.025
+FabLab,Filament,TPU,per_gram,g,19,schwarz,0.035
 FabLab,Harz,Standard,per_gram,g,19,Standard,0.04
 FabLab,Harz,Standard,per_gram,g,19,flexibel,0.06
-FabLab,Kleinteile,Standard,per_unit,Stück,19,M3-Schraube,0.05
-FabLab,Kleinteile,Standard,per_unit,Stück,19,M3-Mutter,0.03
-FabLab,Kleinteile,Standard,per_unit,Stück,19,Heißklebestick,0.20
-Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,3mm klar,0.015
-Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,3mm schwarz,0.015
-Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,5mm klar,0.018
-Laserschneiden,Sperrholz,Standard,per_volume_cm3,cm³,19,3mm Pappel,0.006
-Laserschneiden,Sperrholz,Standard,per_volume_cm3,cm³,19,4mm Pappel,0.006
+FabLab,Kleinteile,Schrauben,per_unit,Stueck,19,M3-Schraube 10mm,0.05
+FabLab,Kleinteile,Schrauben,per_unit,Stueck,19,M3-Mutter,0.03
+FabLab,Kleinteile,Klebstoff,per_unit,Stueck,19,Heissklebebstick,0.20
+Holzwerkstatt,Massivholz,Weichholz,per_volume_m3,m3,19,Fichte,700
+Holzwerkstatt,Massivholz,Weichholz,per_volume_m3,m3,19,Kiefer,800
+Holzwerkstatt,Massivholz,Hartholz,per_volume_m3,m3,19,Eiche,2600
+Holzwerkstatt,Massivholz,Hartholz,per_volume_m3,m3,19,Nussbaum europ.,4000
+Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,9 mm,18
+Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,12 mm,28
+Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,18 mm,36
+Holzwerkstatt,Verbrauchsmaterial,Holzschraube,per_unit,Stueck,19,20 mm,0.4
+Holzwerkstatt,Verbrauchsmaterial,Holzschraube,per_unit,Stueck,19,60 mm,0.6
+Holzwerkstatt,Verbrauchsmaterial,Schleifmittel,per_unit,Stueck,19,Schleifpapier Exzenterschleifer,1.5
+Holzwerkstatt,Verbrauchsmaterial,Schleifmittel,per_area_dm2,dm2,19,Schleifpapier lose,1
+Holzwerkstatt,Verbrauchsmaterial,Klebstoff,per_volume_l,l,19,Holzleim D3,20
