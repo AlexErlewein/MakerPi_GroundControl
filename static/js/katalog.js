@@ -16,9 +16,22 @@ const PRICING_LABELS = {
 };
 
 async function loadKatalog() {
-    const res = await fetch("/api/katalog");
-    katalog = await res.json();
-    renderTree();
+    try {
+        const res = await fetch("/api/katalog");
+        if (!res.ok) {
+            console.error("API error:", res.status, res.statusText);
+            const tree = document.getElementById("katalog-tree");
+            if (tree) tree.innerHTML = `<p class="empty" style="color:var(--error)">Fehler beim Laden: ${res.status} ${res.statusText}</p>`;
+            return;
+        }
+        katalog = await res.json();
+        console.log("Loaded catalog:", katalog);
+        renderTree();
+    } catch (error) {
+        console.error("Failed to load catalog:", error);
+        const tree = document.getElementById("katalog-tree");
+        if (tree) tree.innerHTML = `<p class="empty" style="color:var(--error)">Netzwerkfehler: ${error.message}</p>`;
+    }
 }
 
 function renderTree() {
