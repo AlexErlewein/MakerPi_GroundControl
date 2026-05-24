@@ -26,6 +26,12 @@
 
     "easyverein_api_key": "",
     "easyverein_org_id": "",
+    "easyverein_registration_mock": false,
+    "easyverein_signup_url": "",
+    "membership_groups": [
+        {"label": "Regulär (30 €/Monat)", "ev_url": "", "amount": 30},
+        {"label": "Ermäßigt (15 €/Monat)", "ev_url": "", "amount": 15}
+    ],
 
     "enrollment_reader_id": "",
     "payment_reader_id": "",
@@ -50,7 +56,6 @@
     "smtp_from_email": "",
     "smtp_starttls": true,
     "smtp_tls": false,
-    "easyverein_signup_url": "",
 
     "_comment_https": "HTTPS via Nginx + mkcert: run 'sudo bash scripts/setup-https.sh' once on the Pi. Then distribute ~/mkcert-rootCA.crt to client devices.",
 
