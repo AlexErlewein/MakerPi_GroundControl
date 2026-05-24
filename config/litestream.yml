@@ -1,20 +1,20 @@
 # Litestream configuration for MakerPi GroundControl database backups.
-# Copy this file to config/litestream.yml and fill in your Backblaze B2 credentials.
-# Then run: sudo bash scripts/setup-litestream.sh
+# Deployed to Pi via: sudo bash scripts/setup-litestream.sh
+# Copies this file to /etc/litestream.yml on the Pi.
 
 dbs:
-  - path: /home/alex/MakerPi_GroundControl/auth.db
+  - path: /home/dev/Code/MakerPi_GroundControl/auth.db
     replicas:
       - type: s3
-        endpoint: s3.eu-central-003.backblazeb2.com   # adjust region to your bucket
+        endpoint: s3.eu-central-003.backblazeb2.com
         bucket: h3ckePiDatabase
         path: groundcontrol/auth
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
-        retention: 168h                               # keep 7 days of WAL history
+        retention: 168h
         snapshot-interval: 1h
 
-  - path: /home/alex/MakerPi_GroundControl/members.db
+  - path: /home/dev/Code/MakerPi_GroundControl/members.db
     replicas:
       - type: s3
         endpoint: s3.eu-central-003.backblazeb2.com
@@ -25,7 +25,7 @@ dbs:
         retention: 168h
         snapshot-interval: 1h
 
-  - path: /home/alex/MakerPi_GroundControl/laufzettel.db
+  - path: /home/dev/Code/MakerPi_GroundControl/laufzettel.db
     replicas:
       - type: s3
         endpoint: s3.eu-central-003.backblazeb2.com
@@ -36,7 +36,7 @@ dbs:
         retention: 168h
         snapshot-interval: 1h
 
-  - path: /home/alex/MakerPi_GroundControl/catalog.db
+  - path: /home/dev/Code/MakerPi_GroundControl/catalog.db
     replicas:
       - type: s3
         endpoint: s3.eu-central-003.backblazeb2.com
@@ -47,24 +47,16 @@ dbs:
         retention: 168h
         snapshot-interval: 1h
 
-  - path: /home/alex/MakerPi_GroundControl/core.db
+  - path: /home/dev/Code/MakerPi_GroundControl/buchhaltung.db
     replicas:
       - type: s3
         endpoint: s3.eu-central-003.backblazeb2.com
         bucket: h3ckePiDatabase
-        path: groundcontrol/core
-        access-key-id: 003616c7fded3aa0000000001
-        secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
-        retention: 168h
-        snapshot-interval: 1h
-
-- path: /home/alex/MakerPi_GroundControl/buchhaltung.db
-    replicas:
-      - type: s3
-        endpoint: s3.eu-central-003.backblazeb2.com
-        bucket: makerpi-backups
         path: groundcontrol/buchhaltung
         access-key-id: 003616c7fded3aa0000000001
         secret-access-key: K003p61zKkoqHf4fKPKbcPCiDD5eb+4
         retention: 168h
         snapshot-interval: 1h
+
+  # core.db disabled - MQTT message log, not critical data
+  # causes B2 transaction cap exceeded errors due to high write frequency

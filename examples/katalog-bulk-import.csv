@@ -1,25 +1,25 @@
-standort,kategorie,preismodell,einheit,steuersatz,variante,preis
-Töpferei,Ton,per_gram,g,19,fein,0.05
-Töpferei,Ton,per_gram,g,19,grob,0.03
-Töpferei,Glasur,per_unit,Stück,19,transparent,2.50
-Töpferei,Glasur,per_unit,Stück,19,kobaltblau,3.00
-Töpferei,Glasur,per_unit,Stück,19,terrakotta,2.80
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Eiche,0.0012
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Esche,0.0009
-Holz-Werkstatt,Holz,per_volume_cm3,cm³,19,Altholz,0.0004
-Holz-Werkstatt,Sperrholz,per_volume_cm3,cm³,19,6mm Birke,0.0008
-Holz-Werkstatt,Sperrholz,per_volume_cm3,cm³,19,12mm Birke,0.0008
-FabLab,Filament,per_gram,g,19,PLA,0.02
-FabLab,Filament,per_gram,g,19,PETG,0.025
-FabLab,Filament,per_gram,g,19,TPU,0.035
-FabLab,Filament,per_gram,g,19,ABS,0.022
-FabLab,Harz,per_gram,g,19,Standard,0.04
-FabLab,Harz,per_gram,g,19,flexibel,0.06
-FabLab,Kleinteile,per_unit,Stück,19,M3-Schraube,0.05
-FabLab,Kleinteile,per_unit,Stück,19,M3-Mutter,0.03
-FabLab,Kleinteile,per_unit,Stück,19,Heißklebestick,0.20
-Laserschneiden,Acrylglas,per_volume_cm3,cm³,19,3mm klar,0.015
-Laserschneiden,Acrylglas,per_volume_cm3,cm³,19,3mm schwarz,0.015
-Laserschneiden,Acrylglas,per_volume_cm3,cm³,19,5mm klar,0.018
-Laserschneiden,Sperrholz,per_volume_cm3,cm³,19,3mm Pappel,0.006
-Laserschneiden,Sperrholz,per_volume_cm3,cm³,19,4mm Pappel,0.006
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+Töpferei,Ton,Standard,per_gram,g,19,fein,0.05
+Töpferei,Ton,Standard,per_gram,g,19,grob,0.03
+Töpferei,Glasur,Standard,per_unit,Stück,19,transparent,2.50
+Töpferei,Glasur,Standard,per_unit,Stück,19,kobaltblau,3.00
+Töpferei,Glasur,Standard,per_unit,Stück,19,terrakotta,2.80
+Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Eiche,0.0012
+Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Esche,0.0009
+Holz-Werkstatt,Holz,Standard,per_volume_cm3,cm³,19,Altholz,0.0004
+Holz-Werkstatt,Sperrholz,Standard,per_volume_cm3,cm³,19,6mm Birke,0.0008
+Holz-Werkstatt,Sperrholz,Standard,per_volume_cm3,cm³,19,12mm Birke,0.0008
+FabLab,Filament,Standard,per_gram,g,19,PLA,0.02
+FabLab,Filament,Standard,per_gram,g,19,PETG,0.025
+FabLab,Filament,Standard,per_gram,g,19,TPU,0.035
+FabLab,Filament,Standard,per_gram,g,19,ABS,0.022
+FabLab,Harz,Standard,per_gram,g,19,Standard,0.04
+FabLab,Harz,Standard,per_gram,g,19,flexibel,0.06
+FabLab,Kleinteile,Standard,per_unit,Stück,19,M3-Schraube,0.05
+FabLab,Kleinteile,Standard,per_unit,Stück,19,M3-Mutter,0.03
+FabLab,Kleinteile,Standard,per_unit,Stück,19,Heißklebestick,0.20
+Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,3mm klar,0.015
+Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,3mm schwarz,0.015
+Laserschneiden,Acrylglas,Standard,per_volume_cm3,cm³,19,5mm klar,0.018
+Laserschneiden,Sperrholz,Standard,per_volume_cm3,cm³,19,3mm Pappel,0.006
+Laserschneiden,Sperrholz,Standard,per_volume_cm3,cm³,19,4mm Pappel,0.006
