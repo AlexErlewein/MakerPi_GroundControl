@@ -47,6 +47,10 @@ def should_store_message(topic: str) -> bool:
         return False
     if topic.endswith("/online") or topic.endswith("/offline"):
         return False
+    # Don't store our own user_info publishes — we publish to lilygo/user_info
+    # and {device}/user_info but subscribe to #, so they echo back to us
+    if topic.endswith("/user_info"):
+        return False
     return True
 
 
@@ -368,10 +372,11 @@ def handle_device_message(topic: str, payload: str):
                 if card_signature and card_member_id:
                     from backend.members.signature import verify_card_signature
 
-                    # Use card-provided name if present; else look up from DB.
-                    # The HMAC was generated with the member's name, so we need it
-                    # to recompute the expected signature for comparison.
-                    verify_name = card_name or (mitglied.name if mitglied else None)
+                    # Prefer DB name over card-provided name for signature verification.
+                    # The HMAC was generated with the DB name at enrollment, but cards
+                    # may store a truncated name (MIFARE block size limits), so using
+                    # card_name would produce a different hash and reject valid cards.
+                    verify_name = (mitglied.name if mitglied else None) or card_name
                     if verify_name:
                         if verify_card_signature(
                             card_member_id, uid, verify_name, card_signature
