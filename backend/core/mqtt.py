@@ -1,5 +1,6 @@
 """MQTT client for core module"""
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -208,8 +209,6 @@ def on_message(client, userdata, msg):
     # Payload-level dedup: skip storing + processing if identical message was
     # seen on this topic within the dedup window (catches device-side doubles)
     if payload_str:
-        import hashlib
-
         pd_key = (msg.topic, hashlib.sha256(payload_str.encode()).digest()[:8])
         pd_last = _payload_dedup.get(pd_key)
         pd_now = _utcnow()
