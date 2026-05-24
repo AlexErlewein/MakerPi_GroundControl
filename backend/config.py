@@ -210,9 +210,13 @@ PLANE_PROJECT_ID: str = _cfg.get(
 )
 
 # Database paths (each module owns its own)
-AUTH_DB_URL: str = "sqlite:///./auth.db"
-MEMBERS_DB_URL: str = "sqlite:///./members.db"
-LAUFZETTEL_DB_URL: str = "sqlite:///./laufzettel.db"
-CATALOG_DB_URL: str = "sqlite:///./catalog.db"
-CORE_DB_URL: str = "sqlite:///./core.db"
-BUCHHALTUNG_DB_URL: str = "sqlite:///./buchhaltung.db"
+# Use absolute paths based on project root to avoid multiple DB files
+import os
+PROJECT_ROOT = Path(__file__).parent.parent
+
+AUTH_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/auth.db"
+MEMBERS_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/members.db"
+LAUFZETTEL_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/laufzettel.db"
+CATALOG_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/catalog.db"
+CORE_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/core.db"
+BUCHHALTUNG_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/buchhaltung.db"
