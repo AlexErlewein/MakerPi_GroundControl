@@ -433,44 +433,48 @@ class BalanceAdjust(BaseModel):
 async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
     """Adjust a gift card balance (positive = credit, negative = debit) via GraphQL."""
     gid = f"gid://shopify/GiftCard/{gift_card_id}"
+    note_val = body.note if body.note.strip() else None
 
     if body.amount > 0:
         mutation = """
         mutation($id: ID!, $amount: MoneyInput!, $note: String) {
-          giftCardCredit(input: {giftCardId: $id, creditAmount: $amount, note: $note}) {
-            giftCardAdjustment { id amount { amount currencyCode } }
+          giftCardCredit(id: $id, creditInput: {creditAmount: $amount, note: $note}) {
+            giftCardCreditTransaction { amount { amount currencyCode } }
             userErrors { field message }
           }
         }
         """
+        result_key = "giftCardCredit"
+        tx_key = "giftCardCreditTransaction"
     elif body.amount < 0:
         mutation = """
         mutation($id: ID!, $amount: MoneyInput!, $note: String) {
-          giftCardDebit(input: {giftCardId: $id, debitAmount: $amount, note: $note}) {
-            giftCardAdjustment { id amount { amount currencyCode } }
+          giftCardDebit(id: $id, debitInput: {debitAmount: $amount, note: $note}) {
+            giftCardDebitTransaction { amount { amount currencyCode } }
             userErrors { field message }
           }
         }
         """
+        result_key = "giftCardDebit"
+        tx_key = "giftCardDebitTransaction"
     else:
         raise HTTPException(status_code=400, detail="Amount must not be zero")
 
     variables = {
         "id": gid,
         "amount": {"amount": str(abs(body.amount)), "currencyCode": "EUR"},
-        "note": body.note if body.note.strip() else None,
+        "note": note_val,
     }
 
     data = await _graphql_query(mutation, variables)
 
-    key = "giftCardCredit" if body.amount > 0 else "giftCardDebit"
-    result = data.get(key, {})
+    result = data.get(result_key, {})
     errors = result.get("userErrors", [])
     if errors:
         msgs = "; ".join(e.get("message", "") for e in errors)
         raise HTTPException(status_code=400, detail=f"Shopify: {msgs}")
 
-    adj = result.get("giftCardAdjustment", {})
+    adj = result.get(tx_key, {})
     amt = (adj.get("amount") or {}).get("amount", "0")
     return {
         "amount": float(amt),
@@ -484,6 +488,8 @@ async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
 @router.post("/api/shopify/gift-cards/{gift_card_id}/toggle")
 async def toggle_gift_card_status(gift_card_id: int):
     """Toggle a gift card between enabled and disabled via GraphQL."""
+    gid = f"gid://shopify/GiftCard/{gift_card_id}"
+
     # Determine current state by checking disabledAt via GraphQL
     query_check = """
     query($id: ID!) {
@@ -499,28 +505,28 @@ async def toggle_gift_card_status(gift_card_id: int):
     is_disabled = gc.get("disabledAt") is not None
 
     if is_disabled:
-        # Reactivate via REST (update disabled_at to null)
+        # Reactivate via giftCardUpdate
         mutation = """
-        mutation($id: ID!) {
-          giftCardUpdate(input: {id: $id}) {
+        mutation($id: ID!, $input: GiftCardUpdateInput!) {
+          giftCardUpdate(id: $id, input: $input) {
             giftCard { disabledAt }
             userErrors { field message }
           }
         }
         """
-        variables = {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+        variables = {"id": gid, "input": {}}
         data = await _graphql_query(mutation, variables)
         result = data.get("giftCardUpdate", {})
     else:
         mutation = """
         mutation($id: ID!) {
-          giftCardDeactivate(input: {id: $id}) {
+          giftCardDeactivate(id: $id) {
             giftCard { disabledAt }
             userErrors { field message }
           }
         }
         """
-        variables = {"id": f"gid://shopify/GiftCard/{gift_card_id}"}
+        variables = {"id": gid}
         data = await _graphql_query(mutation, variables)
         result = data.get("giftCardDeactivate", {})
 
