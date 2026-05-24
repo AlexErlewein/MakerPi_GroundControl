@@ -101,6 +101,10 @@
         opacity: 0.6;
     }
 
+    .progress-step.skipped .step-circle {
+        opacity: 0.25;
+    }
+
     .progress-connector {
         flex: 1;
         height: 2px;
@@ -223,139 +227,31 @@
         color: var(--accent);
     }
 
-    /* ---- Membership group cards ---- */
-    .membership-cards {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .mc-option {
+    /* ---- Amount input with currency prefix ---- */
+    .amount-input-wrap {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 14px 16px;
-        background: var(--bg-tertiary);
-        border: 2px solid var(--border-color);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: border-color 0.2s, background 0.2s;
+    }
+
+    .amount-prefix {
+        position: absolute;
+        left: 12px;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        pointer-events: none;
         user-select: none;
     }
 
-    .mc-option:hover {
-        border-color: var(--accent);
-    }
-
-    .mc-option input[type="radio"] {
-        display: none;
-    }
-
-    .mc-option.selected {
-        border-color: var(--accent);
-        background: rgba(255, 111, 0, 0.08);
-    }
-
-    .mc-info {
-        flex: 1;
-    }
-
-    .mc-name {
-        font-weight: 600;
-        color: var(--text-primary);
-        font-size: 0.95rem;
-    }
-
-    .mc-price {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-top: 2px;
-    }
-
-    .mc-check {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        border: 2px solid var(--border-color);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.75rem;
-        color: transparent;
-        transition: all 0.2s;
-        flex-shrink: 0;
-    }
-
-    .mc-option.selected .mc-check {
-        border-color: var(--accent);
-        background: var(--accent);
-        color: #fff;
-    }
-
-    /* ---- Payment method cards ---- */
-    .payment-cards {
-        display: flex;
-        gap: 12px;
-    }
-
-    .pc-option {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        padding: 18px 12px;
-        background: var(--bg-tertiary);
-        border: 2px solid var(--border-color);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: border-color 0.2s, background 0.2s;
-        text-align: center;
-        user-select: none;
-    }
-
-    .pc-option:hover {
-        border-color: var(--accent);
-    }
-
-    .pc-option input[type="radio"] {
-        display: none;
-    }
-
-    .pc-option.selected {
-        border-color: var(--accent);
-        background: rgba(255, 111, 0, 0.08);
-    }
-
-    .pc-icon {
-        font-size: 1.8rem;
-    }
-
-    .pc-title {
-        font-weight: 600;
-        color: var(--text-primary);
-        font-size: 0.95rem;
-    }
-
-    .pc-desc {
-        font-size: 0.78rem;
-        color: var(--text-secondary);
-        line-height: 1.4;
+    .amount-input-wrap input {
+        padding-left: 28px;
     }
 
     /* ---- SEPA section ---- */
     .sepa-section {
-        display: none;
+        display: flex;
         flex-direction: column;
         gap: 14px;
-        padding: 16px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-    }
-
-    .sepa-section.visible {
-        display: flex;
     }
 
     .sepa-mandate {
@@ -449,18 +345,14 @@
         cursor: pointer;
     }
 
-    .privacy-check label {
-        cursor: pointer;
-    }
+    .privacy-check label { cursor: pointer; }
 
     .privacy-check a {
         color: var(--accent);
         text-decoration: none;
     }
 
-    .privacy-check a:hover {
-        text-decoration: underline;
-    }
+    .privacy-check a:hover { text-decoration: underline; }
 
     /* ---- Navigation buttons ---- */
     .reg-nav {
@@ -502,14 +394,8 @@
         transition: opacity 0.2s;
     }
 
-    .btn-next:hover {
-        opacity: 0.88;
-    }
-
-    .btn-next:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
+    .btn-next:hover { opacity: 0.88; }
+    .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ---- Inline error ---- */
     .reg-error {
@@ -545,9 +431,7 @@
         padding: 12px 0;
     }
 
-    .reg-success .success-icon {
-        font-size: 3.5rem;
-    }
+    .reg-success .success-icon { font-size: 3.5rem; }
 
     .reg-success h2 {
         font-size: 1.3rem;
@@ -577,36 +461,15 @@
         transition: opacity 0.2s;
     }
 
-    .btn-home:hover {
-        opacity: 0.88;
-    }
+    .btn-home:hover { opacity: 0.88; }
 
     /* ---- Responsive ---- */
     @media (max-width: 540px) {
-        .reg-card {
-            padding: 24px 18px;
-        }
-
-        .field-row {
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .payment-cards {
-            flex-direction: column;
-        }
-
-        .anrede-group {
-            flex-wrap: wrap;
-        }
-
-        .progress-step .step-label {
-            display: none;
-        }
-
-        .sr-label {
-            min-width: 100px;
-        }
+        .reg-card { padding: 24px 18px; }
+        .field-row { flex-direction: column; gap: 14px; }
+        .anrede-group { flex-wrap: wrap; }
+        .progress-step .step-label { display: none; }
+        .sr-label { min-width: 100px; }
     }
 </style>
 {% endblock %}
@@ -741,32 +604,14 @@
     <div class="reg-step" id="step-3">
         <h2>Mitgliedschaft</h2>
 
-        {% if membership_groups %}
-        <div class="field-group">
-            <label>Mitgliedschaftsart <span class="req">*</span></label>
-            <div class="membership-cards" id="membership-cards">
-                {% for group in membership_groups %}
-                <label class="mc-option" data-url="{{ group.ev_url }}" data-amount="{{ group.amount }}">
-                    <input type="radio" name="membership_group" value="{{ group.ev_url }}">
-                    <div class="mc-info">
-                        <div class="mc-name">{{ group.label }}</div>
-                        <div class="mc-price">{{ group.amount }} €/Monat</div>
-                    </div>
-                    <div class="mc-check">✓</div>
-                </label>
-                {% endfor %}
-            </div>
-        </div>
-        {% else %}
         <div class="field-group">
             <label for="payment_amount_input">Monatsbeitrag (€) <span class="req">*</span></label>
-            <input type="number" id="payment_amount_input" min="0" step="0.50" placeholder="30.00">
+            <div class="amount-input-wrap">
+                <span class="amount-prefix">€</span>
+                <input type="number" id="payment_amount_input" min="0" step="0.50" placeholder="0.00">
+            </div>
+            <span style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">0 € möglich (Fördermitgliedschaft ohne SEPA)</span>
         </div>
-        {% endif %}
-
-        <!-- Hidden carriers -->
-        <input type="hidden" id="membership_group_url" value="">
-        <input type="hidden" id="payment_amount" value="">
 
         <div class="field-group">
             <label for="payment_interval">Zahlungsintervall</label>
@@ -790,41 +635,16 @@
         </div>
     </div>
 
-    <!-- ===== STEP 4: Zahlung ===== -->
+    <!-- ===== STEP 4: Zahlung (SEPA) — skipped when amount = 0 ===== -->
     <div class="reg-step" id="step-4">
-        <h2>Zahlungsart</h2>
+        <h2>SEPA-Lastschrift</h2>
 
-        <div class="field-group">
-            <label>Wie möchtest du zahlen? <span class="req">*</span></label>
-            <div class="payment-cards" id="payment-cards">
-                <label class="pc-option" data-value="0">
-                    <input type="radio" name="method_of_payment" value="0">
-                    <span class="pc-icon">🏦</span>
-                    <span class="pc-title">Überweisung</span>
-                    <span class="pc-desc">Du überweist den Beitrag selbst</span>
-                </label>
-                <label class="pc-option" data-value="1">
-                    <input type="radio" name="method_of_payment" value="1">
-                    <span class="pc-icon">📄</span>
-                    <span class="pc-title">SEPA-Lastschrift</span>
-                    <span class="pc-desc">Beitrag wird automatisch eingezogen</span>
-                </label>
-            </div>
-        </div>
-
-        <div class="sepa-section" id="sepa-section">
+        <div class="sepa-section">
             <div class="field-group">
                 <label for="iban">IBAN <span class="req">*</span></label>
-                <input type="text" id="iban" placeholder="DE00 0000 0000 0000 0000 00" autocomplete="off" maxlength="34">
+                <input type="text" id="iban" placeholder="DE00 0000 0000 0000 0000 00" autocomplete="off" maxlength="42" inputmode="text">
             </div>
-            <div class="field-group">
-                <label for="bic">BIC <span class="req">*</span></label>
-                <input type="text" id="bic" placeholder="BELADEBEXXX" autocomplete="off">
-            </div>
-            <div class="field-group">
-                <label for="bank_account_owner">Kontoinhaber <span class="req">*</span></label>
-                <input type="text" id="bank_account_owner" autocomplete="name" placeholder="Max Mustermann">
-            </div>
+
             <div class="sepa-mandate">
                 <input type="checkbox" id="sepa_mandate">
                 <label for="sepa_mandate">
@@ -852,7 +672,7 @@
         <div class="privacy-check">
             <input type="checkbox" id="privacy_accepted">
             <label for="privacy_accepted">
-                Ich habe die <a href="#" target="_blank">Datenschutzerklärung</a> gelesen und stimme der
+                Ich habe die <a href="https://h3cke.de/pages/datenschutz" target="_blank">Datenschutzerklärung</a> gelesen und stimme der
                 Verarbeitung meiner Daten gemäß DSGVO zu. <span class="req">*</span>
             </label>
         </div>
@@ -884,6 +704,18 @@
     var currentStep = 1;
     var TOTAL_STEPS = 5;
 
+    function getAmountValue() {
+        var el = document.getElementById('payment_amount_input');
+        if (!el || el.value === '') return null;
+        var v = parseFloat(el.value);
+        return isNaN(v) ? null : v;
+    }
+
+    function isZeroAmount() {
+        var v = getAmountValue();
+        return v !== null && v === 0;
+    }
+
     // ==================== NAVIGATION ====================
 
     function showStep(n) {
@@ -898,12 +730,18 @@
     }
 
     function updateProgress(n) {
+        var skipStep4 = isZeroAmount();
         for (var i = 1; i <= TOTAL_STEPS; i++) {
             var ps = document.getElementById('ps-' + i);
             if (!ps) continue;
-            ps.classList.remove('active', 'done');
-            if (i < n) ps.classList.add('done');
-            else if (i === n) ps.classList.add('active');
+            ps.classList.remove('active', 'done', 'skipped');
+            if (i === 4 && skipStep4 && n === 5) {
+                ps.classList.add('skipped');
+            } else if (i < n) {
+                ps.classList.add('done');
+            } else if (i === n) {
+                ps.classList.add('active');
+            }
 
             if (i < TOTAL_STEPS) {
                 var pc = document.getElementById('pc-' + i);
@@ -914,11 +752,22 @@
 
     window.nextStep = function (from) {
         if (!validateStep(from)) return;
+        if (from === 3 && isZeroAmount()) {
+            // Skip payment step for 0 € members
+            buildSummary();
+            showStep(5);
+            return;
+        }
         if (from === 4) buildSummary();
         showStep(from + 1);
     };
 
     window.prevStep = function (from) {
+        if (from === 5 && isZeroAmount()) {
+            // Payment step was skipped, go back to step 3
+            showStep(3);
+            return;
+        }
         showStep(from - 1);
     };
 
@@ -946,62 +795,41 @@
 
     function validateStep(n) {
         clearError();
-        var valid = true;
 
         if (n === 1) {
             var fn = document.getElementById('first_name');
             var ln = document.getElementById('family_name');
             var em = document.getElementById('email');
-
+            var valid = true;
             if (!fn.value.trim()) { markInvalid(fn); valid = false; }
             if (!ln.value.trim()) { markInvalid(ln); valid = false; }
             if (!em.value.trim() || !em.value.includes('@')) { markInvalid(em); valid = false; }
-
             if (!valid) { showError('Bitte fülle alle Pflichtfelder aus.'); }
+            return valid;
         }
 
         if (n === 3) {
-            {% if membership_groups %}
-            var sel = document.querySelector('input[name="membership_group"]:checked');
-            if (!sel) {
-                showError('Bitte wähle eine Mitgliedschaftsart aus.');
-                return false;
-            }
-            {% else %}
             var amt = document.getElementById('payment_amount_input');
-            if (!amt || !amt.value || parseFloat(amt.value) <= 0) {
-                if (amt) markInvalid(amt);
-                showError('Bitte gib einen gültigen Monatsbeitrag ein.');
+            var v = parseFloat(amt.value);
+            if (amt.value === '' || isNaN(v) || v < 0) {
+                markInvalid(amt);
+                showError('Bitte gib einen gültigen Monatsbeitrag ein (0 € oder mehr).');
                 return false;
             }
-            document.getElementById('payment_amount').value = amt.value;
-            {% endif %}
         }
 
         if (n === 4) {
-            var method = document.querySelector('input[name="method_of_payment"]:checked');
-            if (!method) {
-                showError('Bitte wähle eine Zahlungsart aus.');
+            var iban = document.getElementById('iban');
+            var man  = document.getElementById('sepa_mandate');
+            var ibanClean = iban.value.replace(/\s/g, '');
+            if (!ibanClean || ibanClean.length < 15) {
+                markInvalid(iban);
+                showError('Bitte gib eine gültige IBAN ein.');
                 return false;
             }
-
-            if (method.value === '1') {
-                var iban = document.getElementById('iban');
-                var bic  = document.getElementById('bic');
-                var own  = document.getElementById('bank_account_owner');
-                var man  = document.getElementById('sepa_mandate');
-
-                if (!iban.value.replace(/\s/g, '') || iban.value.replace(/\s/g, '').length < 15) {
-                    markInvalid(iban); valid = false;
-                }
-                if (!bic.value.trim()) { markInvalid(bic); valid = false; }
-                if (!own.value.trim()) { markInvalid(own); valid = false; }
-
-                if (!man.checked) {
-                    showError('Bitte akzeptiere das SEPA-Lastschriftmandat.');
-                    return false;
-                }
-                if (!valid) { showError('Bitte fülle alle SEPA-Felder aus.'); }
+            if (!man.checked) {
+                showError('Bitte akzeptiere das SEPA-Lastschriftmandat.');
+                return false;
             }
         }
 
@@ -1013,7 +841,7 @@
             }
         }
 
-        return valid;
+        return true;
     }
 
     // ==================== ANREDE RADIO STYLING ====================
@@ -1027,32 +855,6 @@
         });
     });
 
-    // ==================== MEMBERSHIP GROUP CARDS ====================
-
-    document.querySelectorAll('.mc-option').forEach(function (label) {
-        label.addEventListener('click', function () {
-            document.querySelectorAll('.mc-option').forEach(function (l) {
-                l.classList.remove('selected');
-            });
-            label.classList.add('selected');
-            document.getElementById('membership_group_url').value = label.dataset.url || '';
-            document.getElementById('payment_amount').value = label.dataset.amount || '';
-        });
-    });
-
-    // ==================== PAYMENT METHOD CARDS ====================
-
-    document.querySelectorAll('.pc-option').forEach(function (label) {
-        label.addEventListener('click', function () {
-            document.querySelectorAll('.pc-option').forEach(function (l) {
-                l.classList.remove('selected');
-            });
-            label.classList.add('selected');
-            var sepaSection = document.getElementById('sepa-section');
-            sepaSection.classList.toggle('visible', label.dataset.value === '1');
-        });
-    });
-
     // ==================== IBAN FORMATTING ====================
 
     var ibanInput = document.getElementById('iban');
@@ -1062,17 +864,6 @@
             var raw = this.value.replace(/\s/g, '').toUpperCase();
             var formatted = raw.replace(/(.{4})/g, '$1 ').trim();
             this.value = formatted;
-            // Preserve cursor position approximately
-            try { this.setSelectionRange(pos, pos); } catch (e) {}
-        });
-    }
-
-    // BIC auto-uppercase
-    var bicInput = document.getElementById('bic');
-    if (bicInput) {
-        bicInput.addEventListener('input', function () {
-            var pos = this.selectionStart;
-            this.value = this.value.toUpperCase();
             try { this.setSelectionRange(pos, pos); } catch (e) {}
         });
     }
@@ -1117,69 +908,48 @@
     }
 
     function buildSummary() {
-        var salutation  = getCheckedVal('salutation') || 'Keine Angabe';
-        var firstName   = getVal('first_name');
-        var familyName  = getVal('family_name');
-        var email       = getVal('email');
-        var dob         = getVal('date_of_birth');
-        var mobile      = getVal('mobile_phone');
-        var phone       = getVal('private_phone');
+        var salutation = getCheckedVal('salutation') || 'Keine Angabe';
+        var firstName  = getVal('first_name');
+        var familyName = getVal('family_name');
+        var email      = getVal('email');
+        var dob        = getVal('date_of_birth');
+        var mobile     = getVal('mobile_phone');
+        var phone      = getVal('private_phone');
 
-        var street      = getVal('street');
-        var zip         = getVal('zip_code');
-        var city        = getVal('city');
-        var country     = getVal('country') || 'Deutschland';
+        var street  = getVal('street');
+        var zip     = getVal('zip_code');
+        var city    = getVal('city');
+        var country = getVal('country') || 'Deutschland';
         var addressLine = [street, (zip + ' ' + city).trim(), country].filter(Boolean).join(', ');
 
-        {% if membership_groups %}
-        var membershipLabel = (function () {
-            var selected = document.querySelector('.mc-option.selected');
-            if (!selected) return '—';
-            var nameEl = selected.querySelector('.mc-name');
-            return nameEl ? nameEl.textContent : '—';
-        }());
-        {% else %}
-        var membershipLabel = (getVal('payment_amount_input') || '—') + ' €/Monat';
-        {% endif %}
-
-        var amount      = getVal('payment_amount');
-        var interval    = getSelectText('payment_interval');
-        var methodVal   = getCheckedVal('method_of_payment');
-        var methodLabel = methodVal === '1' ? 'SEPA-Lastschrift' : 'Überweisung';
-
-        var iban        = getVal('iban');
-        var bic         = getVal('bic').toUpperCase();
-        var owner       = getVal('bank_account_owner');
+        var amtRaw   = getVal('payment_amount_input');
+        var amtVal   = parseFloat(amtRaw);
+        var amtLabel = (!isNaN(amtVal)) ? amtVal.toFixed(2) + ' €/Monat' : '—';
+        var interval = getSelectText('payment_interval');
 
         var html = '';
-
         html += summaryBlock('Persönliche Daten', [
-            ['Anrede',        salutation],
-            ['Vorname',       firstName],
-            ['Nachname',      familyName],
-            ['E-Mail',        email],
-            ['Geburtsdatum',  dob],
-            ['Handy',         mobile],
-            ['Telefon',       phone],
+            ['Anrede',       salutation],
+            ['Vorname',      firstName],
+            ['Nachname',     familyName],
+            ['E-Mail',       email],
+            ['Geburtsdatum', dob],
+            ['Handy',        mobile],
+            ['Telefon',      phone],
         ]);
-
-        html += summaryBlock('Adresse', [
-            ['Adresse', addressLine],
-        ]);
-
+        html += summaryBlock('Adresse', [['Adresse', addressLine]]);
         html += summaryBlock('Mitgliedschaft', [
-            ['Beitragsgruppe',    membershipLabel],
-            ['Monatsbeitrag',     amount ? amount + ' €' : ''],
-            ['Zahlungsintervall', interval],
+            ['Monatsbeitrag',    amtLabel],
+            ['Zahlungsintervall', (!isNaN(amtVal) && amtVal > 0) ? interval : '—'],
         ]);
 
-        var payRows = [['Zahlungsart', methodLabel]];
-        if (methodVal === '1') {
-            payRows.push(['IBAN',         iban]);
-            payRows.push(['BIC',          bic]);
-            payRows.push(['Kontoinhaber', owner]);
+        if (!isNaN(amtVal) && amtVal > 0) {
+            var ibanDisplay = getVal('iban');
+            html += summaryBlock('Zahlung', [
+                ['Zahlungsart', 'SEPA-Lastschrift'],
+                ['IBAN',        ibanDisplay],
+            ]);
         }
-        html += summaryBlock('Zahlung', payRows);
 
         document.getElementById('summary-section').innerHTML = html;
     }
@@ -1194,18 +964,9 @@
         btn.textContent = 'Wird gesendet…';
         clearError();
 
-        var methodVal  = getCheckedVal('method_of_payment');
-        var ibanRaw    = document.getElementById('iban').value.replace(/\s/g, '');
-
-        {% if membership_groups %}
-        var membershipUrl = getVal('membership_group_url') || null;
-        var amount        = parseFloat(getVal('payment_amount')) || null;
-        {% else %}
-        var membershipUrl = null;
-        var amtRaw        = getVal('payment_amount_input');
-        var amount        = amtRaw ? parseFloat(amtRaw) : null;
-        {% endif %}
-
+        var amtRaw  = getVal('payment_amount_input');
+        var amount  = amtRaw !== '' ? parseFloat(amtRaw) : null;
+        var ibanRaw = document.getElementById('iban').value.replace(/\s/g, '');
         var intervalEl = document.getElementById('payment_interval');
         var intervalVal = intervalEl ? parseInt(intervalEl.value, 10) : 1;
 
@@ -1221,13 +982,10 @@
             zip_code:                getVal('zip_code') || null,
             city:                    getVal('city') || null,
             country:                 getVal('country') || 'Deutschland',
-            membership_group_url:    membershipUrl,
             payment_amount:          amount,
-            payment_interval_months: intervalVal,
-            method_of_payment:       methodVal !== '' ? parseInt(methodVal, 10) : 0,
-            iban:                    ibanRaw || null,
-            bic:                     getVal('bic').toUpperCase() || null,
-            bank_account_owner:      getVal('bank_account_owner') || null,
+            payment_interval_months: (amount !== null && amount > 0) ? intervalVal : null,
+            method_of_payment:       (amount !== null && amount > 0) ? 1 : null,
+            iban:                    (ibanRaw && amount > 0) ? ibanRaw : null,
             privacy_accepted:        document.getElementById('privacy_accepted').checked,
         };
 

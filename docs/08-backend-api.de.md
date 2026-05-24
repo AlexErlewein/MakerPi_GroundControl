@@ -114,6 +114,13 @@ http://localhost:8000
 
 > Beide `POST /pay/...` Endpunkte geben `409` zurück, wenn der Laufzettel bereits bezahlt ist.
 
+### Mitglied-Registrierung
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/register` | Öffentliches Registrierungsformular |
+| `POST` | `/api/register` | Neue Mitglied-Anmeldung einreichen (erstellt easyVerein + lokalen Datensatz) |
+
 ### Material-Katalog
 
 | Methode | Pfad | Beschreibung |

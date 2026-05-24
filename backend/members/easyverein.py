@@ -144,12 +144,11 @@ async def post_with_retry(
 async def create_member_application(data: dict) -> dict:
     """Create a new member application in easyVerein (two-step: contact-details then member).
 
-    data keys: first_name, family_name, email, date_of_birth (optional), mobile_phone (optional),
-               private_phone (optional), street (optional), zip_code (optional), city (optional),
-               country (optional), iban (optional), bic (optional), bank_account_owner (optional),
-               method_of_payment (optional int), membership_group_url (optional str),
-               payment_amount (optional float), payment_interval_months (optional int),
-               salutation (optional str)
+    data keys: first_name, family_name, email, salutation (optional), date_of_birth (optional),
+               mobile_phone (optional), private_phone (optional), street (optional),
+               zip_code (optional), city (optional), country (optional), iban (optional),
+               method_of_payment (optional int), payment_amount (optional float),
+               payment_interval_months (optional int)
 
     Returns dict with ev_member_id, ev_contact_id, membership_number.
     Raises ValueError if API key not configured.
@@ -197,10 +196,6 @@ async def create_member_application(data: dict) -> dict:
             contact_payload["country"] = data["country"]
         if data.get("iban"):
             contact_payload["iban"] = data["iban"]
-        if data.get("bic"):
-            contact_payload["bic"] = data["bic"]
-        if data.get("bank_account_owner"):
-            contact_payload["bankAccountOwner"] = data["bank_account_owner"]
         if data.get("method_of_payment") is not None:
             contact_payload["methodOfPayment"] = data["method_of_payment"]
 

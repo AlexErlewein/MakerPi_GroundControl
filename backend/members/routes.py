@@ -65,15 +65,12 @@ class MemberRegistrationRequest(BaseModel):
     zip_code: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = "Deutschland"
-    # Step 3 - Membership
-    membership_group_url: Optional[str] = None
+    # Step 3 - Membership (free-entry amount, 0 allowed)
     payment_amount: Optional[float] = None
-    payment_interval_months: Optional[int] = 1
-    # Step 4 - Payment
+    payment_interval_months: Optional[int] = None
+    # Step 4 - Payment (SEPA only; skipped when payment_amount == 0)
     method_of_payment: Optional[int] = None
     iban: Optional[str] = None
-    bic: Optional[str] = None
-    bank_account_owner: Optional[str] = None
     # Consent
     privacy_accepted: bool = False
 

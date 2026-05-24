@@ -16,7 +16,7 @@ Devices publish to topics with the following patterns:
 | `{device_id}/nfc` | NFC / RFID scan event |
 | `{device_id}/material` | Material usage report |
 
-> All incoming topics are stored in `mqtt_messages` regardless of type. Topic-specific logic runs on top of that.
+> **Message Filtering**: Not all incoming topics are stored. Heartbeat, status, and availability messages are filtered out to reduce database load. See the "Message Storage Filtering" section below for details.
 
 ## Incoming message flow
 
@@ -100,6 +100,24 @@ Every incoming MQTT message is stored in `mqtt_messages`:
 | `device_id` | Extracted from topic prefix |
 
 This gives a full audit trail for debugging and review.
+
+### Message storage filtering
+
+To reduce database load from routine MQTT traffic, certain message types are filtered out and not stored:
+
+**Filtered out (not stored):**
+- Heartbeat messages: topics containing `/heartbeat` or `/availability`
+- Status messages: topics containing `/status`, `/online`, or `/offline`
+- zigbee2mqtt availability messages: `zigbee2mqtt/.../availability`
+- zigbee2mqtt bridge state messages: topics containing `/bridge`
+
+**Stored (kept for audit trail):**
+- Scan messages: topics containing `/scan`, `/nfc`, or `/tag`
+- Device data messages: zigbee2mqtt sensor measurements, device payloads
+- Command/config messages: device configuration and command topics
+- Other device messages: any topic that doesn't match the filter patterns
+
+This filtering significantly reduces the growth rate of the `mqtt_messages` table while preserving all important operational data for debugging and audit purposes.
 
 ## Error handling
 

@@ -138,9 +138,22 @@ E-Mail ist vollständig optional. Wenn `smtp_host` leer ist, wird der E-Mail-Ver
 | `smtp_starttls` | `true` | STARTTLS auf Port 587 verwenden. Auf `false` setzen, wenn `smtp_tls: true` verwendet wird |
 | `smtp_tls` | `false` | Direkte TLS-Verbindung auf Port 465. Bei Verwendung `smtp_starttls: false` setzen |
 
+### Gmail OAuth2 (Empfohlen für Gmail)
+
+Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Passwort-Authentifizierung empfohlen.
+
+| Schlüssel | Standard | Beschreibung |
+|---|---|---|
+| `gmail_oauth_enabled` | `false` | OAuth2-Authentifizierung für Gmail aktivieren |
+| `gmail_oauth_token_file` | `"config/gmail_oauth_token.json"` | Pfad zur OAuth-Token-Datei |
+| `gmail_oauth_username` | `""` | Gmail-Benutzername (für Alias-Unterstützung wie `noreply@domain.com`) |
+
+**Einrichtung:** Siehe [Gmail OAuth2 Setup Guide](./GMAIL_OAUTH_SETUP.md) für detaillierte Anweisungen.
+
 **Welche E-Mails werden gesendet:**
 - **Zahlungsquittung** — wird nach Bezahlung eines Laufzettels an die E-Mail-Adresse des Mitglieds/Gastes gesendet
 - **EasyVerein-Anmeldeeinladung** — wird an Gäste gesendet, wenn sie das Gast-Laufzettel-Formular absenden (erfordert gesetzten `easyverein_signup_url`)
+- **Willkommens-E-Mail** — wird an Gäste gesendet, wenn sie einen Laufzettel erstellen, mit direktem Link zu ihrem Laufzettel
 
 **Gängige Anbietereinstellungen:**
 

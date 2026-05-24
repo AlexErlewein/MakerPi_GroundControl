@@ -60,6 +60,13 @@ API endpoints are split across module route files (`backend/laufzettel/routes.py
 | `DELETE` | `/api/laufzettel/{id}/pay/karte` | Cancel a pending card payment |
 | `DELETE` | `/api/laufzettel/{id}/pay` | Reset payment status (admin correction) |
 
+### Member Registration
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/register` | Public member registration form |
+| `POST` | `/api/register` | Submit new member application (creates easyVerein + local record) |
+
 `payment_mode` values: `"solo"` (Cloud API to paired Solo reader), `"payment_switch"` (URL scheme → SumUp app on phone), `"mock"`, or `null` (unconfigured).
 
 > All `POST /pay/...` endpoints return `409` if the Laufzettel is already paid.

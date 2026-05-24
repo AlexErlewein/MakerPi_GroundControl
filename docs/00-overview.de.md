@@ -111,6 +111,7 @@ flowchart LR
 | `/laufzettel` | Laufzettel-Liste und manuelle Erstellung |
 | `/laufzettel/{id}` | Laufzettel-Details und Material-Bearbeitung |
 | `/katalog` | Materialkatalog-Verwaltung |
+| `/register` | Öffentliches Mitglied-Registrierungsformular |
 | `/guest/laufzettel` | Gast-Eingabeformular für Nicht-Mitglieder (QR-Code) |
 
 ## Ports auf einen Blick
@@ -128,4 +129,6 @@ flowchart LR
 - [Web-UI Guide](./02-web-ui.md) — Was jede Seite tut
 - [Tags und Laufzettel](./03-tags-and-laufzettel.md) — Kern-User-Workflow im Detail
 - [Gast-Laufzettel](./17-guest-laufzettel.md) — Nicht-Mitglied-Nutzung über QR-Code
-- [Konfigurationsreferenz](./18-configuration-reference.md) — Alle Konfigurationsschlüssel, wo man API-Zugangsdaten bekommt
+- [Mitglied-Registrierung](./19-member-registration.de.md) — Öffentliche Mitglied-Anmeldung und easyVerein-Integration
+- [Konfigurationsreferenz](./18-configuration-reference.de.md) — Alle Konfigurationsschlüssel, wo man API-Zugangsdaten bekommt
+- [Changelog](./CHANGELOG.md) — Änderungen und neue Funktionen

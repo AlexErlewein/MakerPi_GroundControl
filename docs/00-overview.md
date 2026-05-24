@@ -102,6 +102,8 @@ flowchart LR
 | `/laufzettel` | Laufzettel list and manual creation |
 | `/laufzettel/{id}` | Laufzettel detail and material editing |
 | `/katalog` | Material catalog management |
+| `/register` | Public member registration form |
+| `/guest/laufzettel` | Guest entry form for non-members (QR code) |
 
 ## Ports at a glance
 
@@ -117,3 +119,5 @@ flowchart LR
 - [Quickstart](./01-quickstart.md) — get running in 2 minutes
 - [Web UI Guide](./02-web-ui.md) — what each page does
 - [Tags and Laufzettel](./03-tags-and-laufzettel.md) — core user workflow in detail
+- [Member Registration](./19-member-registration.md) — public member signup and easyVerein integration
+- [Changelog](./CHANGELOG.md) — recent changes and new features

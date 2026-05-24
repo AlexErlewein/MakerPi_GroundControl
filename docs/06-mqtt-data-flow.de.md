@@ -56,6 +56,22 @@ Jede Nachricht wird in `core.db` → `mqtt_messages` gespeichert:
 | `timestamp` | UTC-Zeitpunkt des Empfangs |
 | `device_id` | Extrahiert aus Topic-Pfad |
 
+**Nachrichten-Filterung:** Um die Datenbankbelastung durch routinemäßigen MQTT-Verkehr zu reduzieren, werden bestimmte Nachrichtstypen herausgefiltert und nicht gespeichert:
+
+**Herausgefiltert (nicht gespeichert):**
+- Heartbeat-Nachrichten: Topics mit `/heartbeat` oder `/availability`
+- Status-Nachrichten: Topics mit `/status`, `/online` oder `/offline`
+- zigbee2mqtt-Verfügbarkeitsnachrichten: `zigbee2mqtt/.../availability`
+- zigbee2mqtt-Bridge-State-Nachrichten: Topics mit `/bridge`
+
+**Gespeichert (für Audit-Trail behalten):**
+- Scan-Nachrichten: Topics mit `/scan`, `/nfc` oder `/tag`
+- Gerätedaten-Nachrichten: zigbee2mqtt-Sensormessungen, Geräte-Payloads
+- Kommando/Konfigurations-Nachrichten: Gerätekonfiguration und Kommando-Topics
+- Andere Gerätenachrichten: Jedes Topic, das nicht auf die Filtermuster passt
+
+Diese Filterung reduziert die Wachstumsrate der `mqtt_messages`-Tabelle erheblich, während alle wichtigen operativen Daten für Debugging und Audit-Zwecke erhalten bleiben.
+
 ### 4. Geräte-Update
 
 Für `status`-Nachrichten:

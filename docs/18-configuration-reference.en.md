@@ -138,9 +138,22 @@ Email is fully optional. If `smtp_host` is empty, all email sending is silently 
 | `smtp_starttls` | `true` | Use STARTTLS upgrade on port 587. Set to `false` when using `smtp_tls: true` |
 | `smtp_tls` | `false` | Connect with direct TLS on port 465. Set `smtp_starttls: false` when using this |
 
+### Gmail OAuth2 (Recommended for Gmail)
+
+For Gmail accounts, OAuth2 authentication is recommended over traditional password auth.
+
+| Key | Default | Description |
+|---|---|---|
+| `gmail_oauth_enabled` | `false` | Enable OAuth2 authentication for Gmail |
+| `gmail_oauth_token_file` | `"config/gmail_oauth_token.json"` | Path to OAuth token file |
+| `gmail_oauth_username` | `""` | Gmail username (for alias support like `noreply@domain.com`) |
+
+**Setup:** See [Gmail OAuth2 Setup Guide](./GMAIL_OAUTH_SETUP.md) for detailed instructions.
+
 **What emails are sent:**
 - **Payment receipt** — sent to the member/guest email address after a Laufzettel is paid
 - **EasyVerein signup invite** — sent to guests when they submit the guest Laufzettel form (requires `easyverein_signup_url` to be set)
+- **Welcome email** — sent to guests when they create a Laufzettel, with direct link to their Laufzettel
 
 **Common provider settings:**
 
