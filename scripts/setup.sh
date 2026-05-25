@@ -6,7 +6,6 @@
 #   - uv (fast Python package manager)
 #   - Mosquitto MQTT broker
 #   - MakerPi GroundControl FastAPI backend
-#   - Plane issue tracker (Docker, optional)
 #   - SQLite WAL mode + DB integrity cron job
 
 set -e
@@ -141,88 +140,43 @@ Environment="PATH=$SERVICE_HOME/.local/bin"
 WantedBy=multi-user.target
 EOF
 
-# ── Issue Trackers (Docker) ────────────────────────────────────────────────
-echo -e "${YELLOW}Setting up issue trackers (Plane + YouTrack)...${NC}"
+# ── Remove legacy Docker issue trackers ──────────────────────────────────────
+echo -e "${YELLOW}Checking for legacy issue tracker installations...${NC}"
+REMOVED_SOMETHING=false
 
+# Stop and remove YouTrack container
+if command -v docker &> /dev/null && docker ps -a --format '{{.Names}}' | grep -q 'youtrack-server'; then
+    echo "  Removing YouTrack container..."
+    docker stop youtrack-server 2>/dev/null || true
+    docker rm youtrack-server 2>/dev/null || true
+    REMOVED_SOMETHING=true
+fi
+
+# Remove Plane containers (various naming schemes)
 if command -v docker &> /dev/null; then
-    # Add $SERVICE_USER to docker group so they can manage containers
-    usermod -aG docker "$SERVICE_USER" 2>/dev/null || true
-
-    # ── Plane (port 3000) ──────────────────────────────────────────────────
-    PLANE_DIR="/opt/plane"
-    mkdir -p "$PLANE_DIR"
-    chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
-
-    if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
-        echo "  Downloading Plane docker-compose.yaml and plane.env..."
-        PLANE_DL_OK=true
-        wget -q -O "$PLANE_DIR/docker-compose.yaml" \
-            https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml 2>/dev/null || \
-        curl -fsSL -o "$PLANE_DIR/docker-compose.yaml" \
-            https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml || \
-        { echo "    ⚠️  Failed to download docker-compose.yaml"; PLANE_DL_OK=false; }
-
-        wget -q -O "$PLANE_DIR/plane.env" \
-            https://github.com/makeplane/plane/releases/latest/download/plane.env 2>/dev/null || \
-        curl -fsSL -o "$PLANE_DIR/plane.env" \
-            https://github.com/makeplane/plane/releases/latest/download/plane.env || \
-        { echo "    ⚠️  Failed to download plane.env"; PLANE_DL_OK=false; }
-        if [ "$PLANE_DL_OK" = true ]; then
-            chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/docker-compose.yaml" "$PLANE_DIR/plane.env"
-            echo "  ✅ Plane files downloaded to $PLANE_DIR"
-            echo "  To start manually:"
-            echo "    cd $PLANE_DIR && docker compose up -d"
-            echo "  (edit plane.env first to set port, database, etc.)"
-        else
-            echo "  Troubleshoot:"
-            echo "    curl -v https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml"
+    for container in plane-web plane-api plane-worker plane-beat-worker plane-proxy plane-db plane-redis plane-mq plane-minio plane-space plane-admin; do
+        if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+            echo "  Removing Plane container: $container"
+            docker stop "$container" 2>/dev/null || true
+            docker rm "$container" 2>/dev/null || true
+            REMOVED_SOMETHING=true
         fi
-        echo "  ✅ Plane container already configured"
-    fi
-
-    # ── YouTrack (port 8081 → container 8080) ──────────────────────────────
-    YOUTRACK_DIR="/opt/youtrack"
-    YOUTRACK_DATA="$YOUTRACK_DIR/data"
-    YOUTRACK_CONF="$YOUTRACK_DIR/conf"
-    YOUTRACK_LOGS="$YOUTRACK_DIR/logs"
-    YOUTRACK_BACKUPS="$YOUTRACK_DIR/backups"
-    for d in "$YOUTRACK_DATA" "$YOUTRACK_CONF" "$YOUTRACK_LOGS" "$YOUTRACK_BACKUPS"; do
-        mkdir -p "$d"
     done
-    chown -R "$SERVICE_USER":"$SERVICE_USER" "$YOUTRACK_DIR"
+fi
 
-    if ! docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
-        echo "  Starting YouTrack container (port 8081)..."
-        echo "  (pulling ~1.8GB image, this may take a while...)"
-        docker run -d \
-            --name youtrack-server \
-            --restart unless-stopped \
-            -v "$YOUTRACK_DATA":/opt/youtrack/data \
-            -v "$YOUTRACK_CONF":/opt/youtrack/conf \
-            -v "$YOUTRACK_LOGS":/opt/youtrack/logs \
-            -v "$YOUTRACK_BACKUPS":/opt/youtrack/backups \
-            -p 8081:8080 \
-            jetbrains/youtrack:2026.1.13570
-
-        if docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
-            echo "  ✅ YouTrack container started"
-        else
-            echo "  ⚠️  YouTrack failed to start (may need more RAM — 4GB+ recommended on ARM)"
-        fi
-    else
-        echo "  ✅ YouTrack container already running"
+# Remove data directories
+for dir in /opt/plane /opt/youtrack; do
+    if [ -d "$dir" ]; then
+        echo "  Removing $dir..."
+        rm -rf "$dir"
+        REMOVED_SOMETHING=true
     fi
+done
 
-    echo ""
-    echo "  Issue trackers (Docker):"
-    echo "    Plane:   http://$(hostname -I | awk '{print $1}'):3000"
-    echo "    YouTrack: http://$(hostname -I | awk '{print $1}'):8081"
-    echo "    To start Plane manually: cd $PLANE_DIR && docker compose up -d"
-
+if [ "$REMOVED_SOMETHING" = true ]; then
+    echo "  ✅ Legacy issue trackers cleaned up (moved to cloud-hosted)"
 else
-    echo "⚠️  Docker not installed — issue tracker setup skipped"
-    echo "  Install Docker: curl -fsSL https://get.docker.com | sh"
-    echo "  Then rerun setup or start manually"
+    echo "  ✅ No legacy installations found"
 fi
 
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
@@ -263,10 +217,6 @@ echo "  http://$(hostname -I | awk '{print $1}'):8000"
 echo ""
 echo -e "${GREEN}Access your docs site at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8001"
-echo ""
-echo -e "${GREEN}Issue trackers (Docker):${NC}"
-echo "  Plane:   http://$(hostname -I | awk '{print $1}'):3000"
-echo "  YouTrack: http://$(hostname -I | awk '{print $1}'):8081"
 echo ""
 echo "MQTT Broker:"
 echo "  Host: $(hostname -I | awk '{print $1}')"
