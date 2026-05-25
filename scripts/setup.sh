@@ -155,18 +155,27 @@ if command -v docker &> /dev/null; then
 
     if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
         echo "  Downloading Plane docker-compose.yaml and plane.env..."
-        curl -fsSL -o "$PLANE_DIR/docker-compose.yaml" \
-            https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml 2>/dev/null || \
-            echo "    ⚠️  Failed to download docker-compose.yaml"
-        curl -fsSL -o "$PLANE_DIR/plane.env" \
-            https://github.com/makeplane/plane/releases/latest/download/plane.env 2>/dev/null || \
-            echo "    ⚠️  Failed to download plane.env"
-        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/docker-compose.yaml" "$PLANE_DIR/plane.env"
-        echo "  Plane files downloaded to $PLANE_DIR"
-        echo "  To start manually:"
-        echo "    cd $PLANE_DIR && docker compose up -d"
-        echo "  (edit plane.env first to set port, database, etc.)"
-    else
+        PLANE_DL_OK=true
+        if ! curl -fsSL -o "$PLANE_DIR/docker-compose.yaml" \
+            https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml; then
+            echo "    ⚠️  Failed to download docker-compose.yaml (check network / DNS)"
+            PLANE_DL_OK=false
+        fi
+        if ! curl -fsSL -o "$PLANE_DIR/plane.env" \
+            https://github.com/makeplane/plane/releases/latest/download/plane.env; then
+            echo "    ⚠️  Failed to download plane.env (check network / DNS)"
+            PLANE_DL_OK=false
+        fi
+        if [ "$PLANE_DL_OK" = true ]; then
+            chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/docker-compose.yaml" "$PLANE_DIR/plane.env"
+            echo "  ✅ Plane files downloaded to $PLANE_DIR"
+            echo "  To start manually:"
+            echo "    cd $PLANE_DIR && docker compose up -d"
+            echo "  (edit plane.env first to set port, database, etc.)"
+        else
+            echo "  Troubleshoot:"
+            echo "    curl -v https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml"
+        fi
         echo "  ✅ Plane container already configured"
     fi
 
