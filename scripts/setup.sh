@@ -6,7 +6,7 @@
 #   - uv (fast Python package manager)
 #   - Mosquitto MQTT broker
 #   - MakerPi GroundControl FastAPI backend
-#   - Zigbee2MQTT (requires a Zigbee USB dongle)
+#   - Plane issue tracker (Docker, optional)
 #   - SQLite WAL mode + DB integrity cron job
 
 set -e
@@ -140,6 +140,39 @@ Environment="PATH=$SERVICE_HOME/.local/bin"
 WantedBy=multi-user.target
 EOF
 
+# ── Plane Issue Tracker (Docker) ──────────────────────────────────────────────
+echo -e "${YELLOW}Setting up Plane issue tracker...${NC}"
+
+if command -v docker &> /dev/null; then
+    PLANE_DIR="/opt/plane"
+    if [ ! -d "$PLANE_DIR" ]; then
+        mkdir -p "$PLANE_DIR"
+        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
+    fi
+
+    if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
+        echo "Downloading Plane docker-compose.yml..."
+        curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml \
+            -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
+        curl -fsSL https://raw.githubusercontent.com/makeplane/plane/deploy/docker-compose.yaml \
+            -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
+        echo "  ⚠️  Could not download docker-compose.yml — download manually from plane.so"
+        echo ""
+        echo "Plane will be available at http://$(hostname -I | awk '{print $1}'):3000 after first start"
+        echo "To start manually:"
+        echo "  cd $PLANE_DIR && docker compose up -d"
+    else
+        echo "✅ Plane Docker container already configured"
+    fi
+
+    # Add $SERVICE_USER to docker group so they can manage containers
+    usermod -aG docker "$SERVICE_USER" 2>/dev/null || true
+else
+    echo "⚠️  Docker not installed — Plane setup skipped"
+    echo "  Install Docker: curl -fsSL https://get.docker.com | sh"
+    echo "  Then rerun setup or start Plane manually"
+fi
+
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
 echo -e "${YELLOW}Setting up DB integrity monitoring cron job...${NC}"
 CRON_CMD="0 * * * * $SERVICE_HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
@@ -179,8 +212,8 @@ echo ""
 echo -e "${GREEN}Access your docs site at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8001"
 echo ""
-echo -e "${GREEN}Zigbee2MQTT frontend at:${NC}"
-echo "  http://$(hostname -I | awk '{print $1}'):8090"
+echo -e "${GREEN}Plane (if configured):${NC}"
+echo "  http://$(hostname -I | awk '{print $1}'):3000"
 echo ""
 echo "MQTT Broker:"
 echo "  Host: $(hostname -I | awk '{print $1}')"

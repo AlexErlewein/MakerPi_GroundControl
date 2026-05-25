@@ -4,7 +4,7 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
 
 ## Features
 
-- **MQTT Broker**: Mosquitto broker with Zigbee2MQTT integration
+- **MQTT Broker**: Mosquitto broker for device communication
 - **RFID/NFC Access Control**: Member authentication with HMAC card signatures (anti-clone protection)
 - **Automatic Work-Order Tracking**: NFC scans auto-create Laufzettel, track material usage, and handle payments
 - **Material Catalog**: 3-level hierarchy (Location → Kategorie → Unterkategorie → Variante), CSV bulk import, flexible pricing models
@@ -27,12 +27,7 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
 │  (NFC scan) │                   │   (broker)   │
 └─────────────┘                   └──────────────┘
                                          ▲    │
- ┌─────────────┐    zigbee2mqtt/   │    │ subscribe
- │  Zigbee     │    ...topics      │    │
- │  Devices    │ ──►┌──────────────┴┐   │
- │  (sensors,  │    │ Zigbee2MQTT   │   │
- │   switches) │    │ (USB dongle)  │   │
- └─────────────┘    └───────────────┘   │
+                                         │    │ subscribe
                                          │
                                          ▼
                                    ┌──────────────┐
@@ -66,7 +61,7 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
 git clone https://github.com/AlexErlewein/MakerPi_GroundControl.git ~/Code/MakerPi_GroundControl
 cd ~/Code/MakerPi_GroundControl
 
-# Run setup (installs dependencies, Mosquitto, Zigbee2MQTT, systemd services)
+# Run setup (installs dependencies, Mosquitto, systemd services)
 sudo bash scripts/setup.sh
 ```
 
@@ -90,7 +85,7 @@ Copy `config/config.json.example` to `config/config.json` (done automatically by
 
 - **Main Dashboard**: `http://<pi-ip>:8000`
 - **Documentation Site**: `http://<pi-ip>:8001`
-- **Zigbee2MQTT Frontend**: `http://<pi-ip>:8090`
+- **Plane** (if configured): `http://<pi-ip>:3000`
 
 ## Project Structure
 
@@ -112,8 +107,7 @@ MakerPi_GroundControl/
 ├── config/
 │   ├── config.json          # Local secrets (gitignored)
 │   ├── config.json.example  # Template
-│   ├── mosquitto.conf       # MQTT broker config
-│   └── zigbee2mqtt.yaml     # Zigbee2MQTT template
+│   └── mosquitto.conf       # MQTT broker config
 ├── docs/
 │   ├── 00-overview.md       # Top-down documentation
 │   └── ...                  # Additional docs
@@ -223,25 +217,47 @@ Configure in `config.json`:
 
 See [docs/13-payments.md](docs/13-payments.md) for full details.
 
-## Plane Issue Tracker
+## Plane Issue Tracker (Self-Hosted)
 
-Enable public bug reports by configuring Plane integration:
+GroundControl integrates with [Plane](https://plane.so) for public bug report submissions. Plane is self-hosted on the Pi via Docker.
 
-1. **Create a Plane account** at [plane.so](https://plane.so)
-2. **Create a project** for bug reports
-3. **Generate an API token** in Settings → API Tokens
-4. **Fill in config.json**:
+### Setup
+
+The setup script (`scripts/setup.sh`) installs Plane automatically. If you need to set it up manually:
+
+```bash
+# Install Plane via Docker (on the Pi)
+mkdir -p /opt/plane
+cd /opt/plane
+
+# Download the latest docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml -o docker-compose.yaml
+
+# Start Plane (first run takes a few minutes)
+docker compose up -d
+
+# Plane will be available at http://<pi-ip>:3000
+```
+
+### Configuration
+
+1. Open `http://<pi-ip>:3000` and create a workspace
+2. Create a project for bug reports
+3. Go to **Settings → API Tokens** and generate a personal token
+4. Fill in `config.json`:
 
 ```json
 {
-    "plane_url": "https://your-plane-instance.com",
-    "plane_api_token": "your-personal-token",
-    "plane_workspace_slug": "your-workspace",
+    "plane_url": "http://localhost:3000",
+    "plane_api_token": "your-personal-api-token",
+    "plane_workspace_slug": "your-workspace-slug",
     "plane_project_id": "your-project-uuid"
 }
 ```
 
-The bug report form is available on the landing page.
+You can find the workspace slug and project UUID from the URLs when browsing Plane, or from the project settings.
+
+The bug report form is available on the public landing page at `/bug-report`.
 
 ## Database Architecture
 
@@ -285,7 +301,6 @@ The script tries REINDEX first (fixes index corruption), then dump/reload, and a
 | `{device_id}/heartbeat` | Device heartbeat with NFC status |
 | `{device_id}/status` | Online/offline status |
 | `{device_id}/tag` | NFC scan event |
-| `zigbee2mqtt/<device>` | Zigbee device state |
 
 NFC scan payload example:
 ```json
@@ -299,17 +314,15 @@ NFC scan payload example:
 sudo systemctl status groundcontrol
 sudo systemctl status groundcontrol-docs
 sudo systemctl status mosquitto
-sudo systemctl status zigbee2mqtt
 
 # View logs
 sudo journalctl -u groundcontrol -f
+sudo journalctl -u groundcontrol-docs -f
 sudo journalctl -u mosquitto -f
-sudo journalctl -u zigbee2mqtt -f
 
 # Restart services
 sudo systemctl restart groundcontrol
 sudo systemctl restart mosquitto
-sudo systemctl restart zigbee2mqtt
 ```
 
 ## easyVerein Member Sync
@@ -344,7 +357,7 @@ Configure in `config.json`:
 - Raspberry Pi OS
 - Python 3.10+
 - Mosquitto MQTT Broker
-- Zigbee USB dongle (optional, for Zigbee2MQTT)
+- Docker (for self-hosted Plane, optional)
 
 ## License
 
