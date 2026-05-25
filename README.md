@@ -228,8 +228,9 @@ Self-hosted issue tracker with a public bug report form. Setup is handled by `sc
 
 ```bash
 mkdir -p /opt/plane && cd /opt/plane
-curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml -o docker-compose.yaml
-docker compose up -d
+curl -fsSL -o setup.sh https://github.com/makeplane/plane/releases/latest/download/setup.sh
+chmod +x setup.sh
+bash setup.sh   # enter 8 to exit, then edit plane.env and re-run
 ```
 
 Configure in `config.json`:

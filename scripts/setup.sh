@@ -154,12 +154,15 @@ if command -v docker &> /dev/null; then
     chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
 
     if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
-        echo "  Downloading Plane docker-compose.yml..."
-        curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml \
-            -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
-        curl -fsSL https://raw.githubusercontent.com/makeplane/plane/deploy/docker-compose.yaml \
-            -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
-        echo "    ⚠️  Could not download docker-compose.yml — download manually from plane.so"
+        echo "  Downloading Plane setup script..."
+        curl -fsSL -o "$PLANE_DIR/setup.sh" \
+            https://github.com/makeplane/plane/releases/latest/download/setup.sh 2>/dev/null && \
+        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/setup.sh" && \
+        chmod +x "$PLANE_DIR/setup.sh" && \
+        echo "  Running Plane setup (enter 8 to exit after download)..."
+        (cd "$PLANE_DIR" && su - "$SERVICE_USER" -c "echo '8' | bash $PLANE_DIR/setup.sh" 2>&1) | head -20 || \
+        echo "    ⚠️  Plane setup script failed — run manually:"
+        echo "      cd $PLANE_DIR && bash setup.sh"
     else
         echo "  ✅ Plane container already configured"
     fi
