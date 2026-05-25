@@ -180,6 +180,7 @@ if command -v docker &> /dev/null; then
 
     if ! docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
         echo "  Starting YouTrack container (port 8081)..."
+        echo "  (pulling ~1.8GB image, this may take a while...)"
         docker run -d \
             --name youtrack-server \
             --restart unless-stopped \
@@ -188,7 +189,7 @@ if command -v docker &> /dev/null; then
             -v "$YOUTRACK_LOGS":/opt/youtrack/logs \
             -v "$YOUTRACK_BACKUPS":/opt/youtrack/backups \
             -p 8081:8080 \
-            jetbrains/youtrack:latest > /dev/null 2>&1
+            jetbrains/youtrack:latest
 
         if docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
             echo "  ✅ YouTrack container started"
