@@ -292,45 +292,6 @@ NFC scan payload example:
 {"uid": "04A3B5C2", "atqa": "0x0044", "sak": "0x00", "tag_type": "MIFARE Classic 1K"}
 ```
 
-## Zigbee2MQTT
-
-Bridges Zigbee USB dongle to Mosquitto, making all Zigbee devices available as MQTT topics.
-
-### Finding your USB dongle port
-
-```bash
-ls /dev/tty{USB,ACM}*
-```
-
-| Dongle | Chip | Adapter | Port |
-|--------|------|---------|------|
-| Sonoff Zigbee 3.0 USB Dongle Plus (P) | CC2652P | `znp` | `/dev/ttyUSB0` |
-| Sonoff Zigbee 3.0 USB Dongle Plus-E | EFR32MG21 | `ezsp` | `/dev/ttyACM0` |
-
-### Updating Zigbee2MQTT config
-
-Edit `/opt/zigbee2mqtt/data/configuration.yaml`:
-
-```yaml
-serial:
-  port: /dev/ttyUSB0   # update this
-  adapter: znp         # 'ezsp' for Dongle-E
-```
-
-Restart: `sudo systemctl restart zigbee2mqtt`
-
-### Pairing devices
-
-```bash
-# Enable joining for 3 minutes
-mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": true, "time": 180}'
-
-# Disable
-mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": false}'
-```
-
-Or use the web frontend at `http://<pi-ip>:8090`.
-
 ## Service Management
 
 ```bash

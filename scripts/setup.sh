@@ -47,11 +47,12 @@ SERVICE_USER=${SUDO_USER:-$USER}
 PROJECT_DIR="$(eval echo ~$SERVICE_USER)/Code/MakerPi_GroundControl"
 
 # ── uv (fast Python package manager) ─────────────────────────────────────────
+UV_BIN="/home/$SERVICE_USER/.local/bin/uv"
+SERVICE_HOME="/home/$SERVICE_USER"
+
 echo -e "${YELLOW}Installing uv package manager...${NC}"
-if ! command -v uv &> /dev/null; then
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    # Make sure the PATH includes ~/.local/bin for the current shell
-    export PATH="$HOME/.local/bin:$PATH"
+if [ ! -f "$UV_BIN" ]; then
+    su - "$SERVICE_USER" -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
     echo "✅ uv installed"
 else
     echo "✅ uv already installed"
@@ -72,7 +73,7 @@ chown mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
 
 # ── Python Dependencies ────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Python packages with uv...${NC}"
-su - "$SERVICE_USER" -c "cd $PROJECT_DIR && $HOME/.local/bin/uv sync"
+su - "$SERVICE_USER" -c "cd $PROJECT_DIR && $UV_BIN sync"
 
 # ── config.json ────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Setting up config.json...${NC}"
@@ -113,10 +114,10 @@ After=network.target mosquitto.service
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$HOME/.local/bin/uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
+ExecStart=$SERVICE_HOME/.local/bin/uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
-Environment="PATH=$HOME/.local/bin"
+Environment="PATH=$SERVICE_HOME/.local/bin"
 
 [Install]
 WantedBy=multi-user.target
@@ -132,10 +133,10 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$HOME/.local/bin/uv run uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
+ExecStart=$SERVICE_HOME/.local/bin/uv run uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=10
-Environment="PATH=$HOME/.local/bin"
+Environment="PATH=$SERVICE_HOME/.local/bin"
 
 [Install]
 WantedBy=multi-user.target
@@ -192,7 +193,7 @@ EOF
 
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
 echo -e "${YELLOW}Setting up DB integrity monitoring cron job...${NC}"
-CRON_CMD="0 * * * * $HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
+CRON_CMD="0 * * * * $SERVICE_HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
 
 # Add to crontab if not already present
 su - "$SERVICE_USER" -c "crontab -l 2>/dev/null | grep -q 'check_db_integrity.py' || (crontab -l 2>/dev/null; echo \"$CRON_CMD\") | crontab -"
