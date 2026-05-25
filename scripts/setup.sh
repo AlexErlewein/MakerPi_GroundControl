@@ -227,7 +227,7 @@ fi
 
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
 echo -e "${YELLOW}Setting up DB integrity monitoring cron job...${NC}"
-CRON_CMD="0 * * * * $SERVICE_HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
+CRON_CMD="0 * * * * $PROJECT_DIR/.venv/bin/python $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
 
 # Add to crontab if not already present
 su - "$SERVICE_USER" -c "crontab -l 2>/dev/null | grep -q 'check_db_integrity.py' || (crontab -l 2>/dev/null; echo \"$CRON_CMD\") | crontab -"
