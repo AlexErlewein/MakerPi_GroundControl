@@ -154,15 +154,18 @@ if command -v docker &> /dev/null; then
     chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
 
     if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
-        echo "  Downloading Plane setup script..."
-        curl -fsSL -o "$PLANE_DIR/setup.sh" \
-            https://github.com/makeplane/plane/releases/latest/download/setup.sh 2>/dev/null && \
-        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/setup.sh" && \
-        chmod +x "$PLANE_DIR/setup.sh" && \
-        echo "  Running Plane setup (enter 8 to exit after download)..."
-        (cd "$PLANE_DIR" && su - "$SERVICE_USER" -c "echo '8' | bash $PLANE_DIR/setup.sh" 2>&1) | head -20 || \
-        echo "    ⚠️  Plane setup script failed — run manually:"
-        echo "      cd $PLANE_DIR && bash setup.sh"
+        echo "  Downloading Plane docker-compose.yaml and plane.env..."
+        curl -fsSL -o "$PLANE_DIR/docker-compose.yaml" \
+            https://github.com/makeplane/plane/releases/latest/download/docker-compose.yaml 2>/dev/null || \
+            echo "    ⚠️  Failed to download docker-compose.yaml"
+        curl -fsSL -o "$PLANE_DIR/plane.env" \
+            https://github.com/makeplane/plane/releases/latest/download/plane.env 2>/dev/null || \
+            echo "    ⚠️  Failed to download plane.env"
+        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR/docker-compose.yaml" "$PLANE_DIR/plane.env"
+        echo "  Plane files downloaded to $PLANE_DIR"
+        echo "  To start manually:"
+        echo "    cd $PLANE_DIR && docker compose up -d"
+        echo "  (edit plane.env first to set port, database, etc.)"
     else
         echo "  ✅ Plane container already configured"
     fi
@@ -189,7 +192,7 @@ if command -v docker &> /dev/null; then
             -v "$YOUTRACK_LOGS":/opt/youtrack/logs \
             -v "$YOUTRACK_BACKUPS":/opt/youtrack/backups \
             -p 8081:8080 \
-            jetbrains/youtrack:latest
+            jetbrains/youtrack:2026.1.13570
 
         if docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
             echo "  ✅ YouTrack container started"
