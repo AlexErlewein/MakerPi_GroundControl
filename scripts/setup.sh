@@ -39,7 +39,8 @@ apt install -y \
     sqlite3 \
     git \
     curl \
-    jq
+    jq \
+    docker.io || true
 
 SERVICE_USER=${SUDO_USER:-$USER}
 PROJECT_DIR="$(eval echo ~$SERVICE_USER)/Code/MakerPi_GroundControl"
@@ -140,37 +141,71 @@ Environment="PATH=$SERVICE_HOME/.local/bin"
 WantedBy=multi-user.target
 EOF
 
-# ── Plane Issue Tracker (Docker) ──────────────────────────────────────────────
-echo -e "${YELLOW}Setting up Plane issue tracker...${NC}"
+# ── Issue Trackers (Docker) ────────────────────────────────────────────────
+echo -e "${YELLOW}Setting up issue trackers (Plane + YouTrack)...${NC}"
 
 if command -v docker &> /dev/null; then
+    # Add $SERVICE_USER to docker group so they can manage containers
+    usermod -aG docker "$SERVICE_USER" 2>/dev/null || true
+
+    # ── Plane (port 3000) ──────────────────────────────────────────────────
     PLANE_DIR="/opt/plane"
-    if [ ! -d "$PLANE_DIR" ]; then
-        mkdir -p "$PLANE_DIR"
-        chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
-    fi
+    mkdir -p "$PLANE_DIR"
+    chown "$SERVICE_USER":"$SERVICE_USER" "$PLANE_DIR"
 
     if ! docker compose -f "$PLANE_DIR/docker-compose.yaml" ps &> /dev/null 2>&1; then
-        echo "Downloading Plane docker-compose.yml..."
+        echo "  Downloading Plane docker-compose.yml..."
         curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml \
             -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
         curl -fsSL https://raw.githubusercontent.com/makeplane/plane/deploy/docker-compose.yaml \
             -o "$PLANE_DIR/docker-compose.yaml" 2>/dev/null || \
-        echo "  ⚠️  Could not download docker-compose.yml — download manually from plane.so"
-        echo ""
-        echo "Plane will be available at http://$(hostname -I | awk '{print $1}'):3000 after first start"
-        echo "To start manually:"
-        echo "  cd $PLANE_DIR && docker compose up -d"
+        echo "    ⚠️  Could not download docker-compose.yml — download manually from plane.so"
     else
-        echo "✅ Plane Docker container already configured"
+        echo "  ✅ Plane container already configured"
     fi
 
-    # Add $SERVICE_USER to docker group so they can manage containers
-    usermod -aG docker "$SERVICE_USER" 2>/dev/null || true
+    # ── YouTrack (port 8081 → container 8080) ──────────────────────────────
+    YOUTRACK_DIR="/opt/youtrack"
+    YOUTRACK_DATA="$YOUTRACK_DIR/data"
+    YOUTRACK_CONF="$YOUTRACK_DIR/conf"
+    YOUTRACK_LOGS="$YOUTRACK_DIR/logs"
+    YOUTRACK_BACKUPS="$YOUTRACK_DIR/backups"
+    for d in "$YOUTRACK_DATA" "$YOUTRACK_CONF" "$YOUTRACK_LOGS" "$YOUTRACK_BACKUPS"; do
+        mkdir -p "$d"
+    done
+    chown -R "$SERVICE_USER":"$SERVICE_USER" "$YOUTRACK_DIR"
+
+    if ! docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
+        echo "  Starting YouTrack container (port 8081)..."
+        docker run -d \
+            --name youtrack-server \
+            --restart unless-stopped \
+            -v "$YOUTRACK_DATA":/opt/youtrack/data \
+            -v "$YOUTRACK_CONF":/opt/youtrack/conf \
+            -v "$YOUTRACK_LOGS":/opt/youtrack/logs \
+            -v "$YOUTRACK_BACKUPS":/opt/youtrack/backups \
+            -p 8081:8080 \
+            jetbrains/youtrack:latest > /dev/null 2>&1
+
+        if docker ps --format '{{.Names}}' | grep -q 'youtrack-server'; then
+            echo "  ✅ YouTrack container started"
+        else
+            echo "  ⚠️  YouTrack failed to start (may need more RAM — 4GB+ recommended on ARM)"
+        fi
+    else
+        echo "  ✅ YouTrack container already running"
+    fi
+
+    echo ""
+    echo "  Issue trackers (Docker):"
+    echo "    Plane:   http://$(hostname -I | awk '{print $1}'):3000"
+    echo "    YouTrack: http://$(hostname -I | awk '{print $1}'):8081"
+    echo "    To start Plane manually: cd $PLANE_DIR && docker compose up -d"
+
 else
-    echo "⚠️  Docker not installed — Plane setup skipped"
+    echo "⚠️  Docker not installed — issue tracker setup skipped"
     echo "  Install Docker: curl -fsSL https://get.docker.com | sh"
-    echo "  Then rerun setup or start Plane manually"
+    echo "  Then rerun setup or start manually"
 fi
 
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
@@ -212,8 +247,9 @@ echo ""
 echo -e "${GREEN}Access your docs site at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8001"
 echo ""
-echo -e "${GREEN}Plane (if configured):${NC}"
-echo "  http://$(hostname -I | awk '{print $1}'):3000"
+echo -e "${GREEN}Issue trackers (Docker):${NC}"
+echo "  Plane:   http://$(hostname -I | awk '{print $1}'):3000"
+echo "  YouTrack: http://$(hostname -I | awk '{print $1}'):8081"
 echo ""
 echo "MQTT Broker:"
 echo "  Host: $(hostname -I | awk '{print $1}')"

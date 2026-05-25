@@ -12,7 +12,8 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
 - **easyVerein Sync**: Automatic daily member sync from easyVerein API
 - **Shopify Gift Cards**: Track and adjust gift card balances via API
 - **Buchhaltung (Accounting)**: Donation (Spende) and spending tracking
-- **Plane Issue Tracker**: Public bug report form integration
+- **Plane Issue Tracker**: Self-hosted bug report form integration (Docker, port 3000)
+- **YouTrack** (optional): Self-hosted project management (Docker, port 8081)
 - **Guest Self-Service**: Public landing page for guest work-order creation
 - **Member Portal**: View own Laufzettel history and account
 - **Web Push Notifications**: Real-time alerts
@@ -217,35 +218,21 @@ Configure in `config.json`:
 
 See [docs/13-payments.md](docs/13-payments.md) for full details.
 
-## Plane Issue Tracker (Self-Hosted)
+## Issue Trackers (Docker)
 
-GroundControl integrates with [Plane](https://plane.so) for public bug report submissions. Plane is self-hosted on the Pi via Docker.
+GroundControl integrates with both [Plane](https://plane.so) and [YouTrack](https://www.jetbrains.com/youtrack/) for issue tracking. Both run as Docker containers on the Pi alongside GroundControl.
 
-### Setup
+### Plane (port 3000)
 
-The setup script (`scripts/setup.sh`) installs Plane automatically. If you need to set it up manually:
+Self-hosted issue tracker with a public bug report form. Setup is handled by `scripts/setup.sh` automatically. If you need to set it up manually:
 
 ```bash
-# Install Plane via Docker (on the Pi)
-mkdir -p /opt/plane
-cd /opt/plane
-
-# Download the latest docker-compose.yml
+mkdir -p /opt/plane && cd /opt/plane
 curl -fsSL https://raw.githubusercontent.com/makeplane/plane/master/docker-compose.yaml -o docker-compose.yaml
-
-# Start Plane (first run takes a few minutes)
 docker compose up -d
-
-# Plane will be available at http://<pi-ip>:3000
 ```
 
-### Configuration
-
-1. Open `http://<pi-ip>:3000` and create a workspace
-2. Create a project for bug reports
-3. Go to **Settings → API Tokens** and generate a personal token
-4. Fill in `config.json`:
-
+Configure in `config.json`:
 ```json
 {
     "plane_url": "http://localhost:3000",
@@ -255,9 +242,30 @@ docker compose up -d
 }
 ```
 
-You can find the workspace slug and project UUID from the URLs when browsing Plane, or from the project settings.
+The bug report form is at `/bug-report`.
 
-The bug report form is available on the public landing page at `/bug-report`.
+### YouTrack (port 8081)
+
+[YouTrack](https://www.jetbrains.com/youtrack/) runs as a Docker container with ARM64 support (since 2025.1). Note: JetBrains does not fully guarantee ARM compatibility.
+
+**Requirements:** 4GB+ RAM recommended (8GB preferred). The 1GB/2GB CM5 variants are too tight.
+
+Setup is handled by `scripts/setup.sh`. Manual setup:
+
+```bash
+mkdir -p /opt/youtrack/{data,conf,logs,backups}
+docker run -d \
+    --name youtrack-server \
+    --restart unless-stopped \
+    -v /opt/youtrack/data:/opt/youtrack/data \
+    -v /opt/youtrack/conf:/opt/youtrack/conf \
+    -v /opt/youtrack/logs:/opt/youtrack/logs \
+    -v /opt/youtrack/backups:/opt/youtrack/backups \
+    -p 8081:8080 \
+    jetbrains/youtrack:latest
+```
+
+First-time setup wizard will be available at `http://<pi-ip>:8081`.
 
 ## Database Architecture
 
