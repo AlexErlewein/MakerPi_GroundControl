@@ -37,8 +37,6 @@ apt install -y \
     mosquitto \
     mosquitto-clients \
     sqlite3 \
-    nodejs \
-    npm \
     git \
     curl \
     jq
@@ -142,55 +140,6 @@ Environment="PATH=$SERVICE_HOME/.local/bin"
 WantedBy=multi-user.target
 EOF
 
-# ── Zigbee2MQTT ────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing Zigbee2MQTT...${NC}"
-
-Z2M_DIR="/opt/zigbee2mqtt"
-
-if [ -d "$Z2M_DIR" ]; then
-    echo "Zigbee2MQTT already cloned, pulling latest..."
-    git -C "$Z2M_DIR" pull
-else
-    git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git "$Z2M_DIR"
-fi
-
-npm install -g pnpm
-rm -rf "$Z2M_DIR/node_modules"
-CI=true pnpm --dir "$Z2M_DIR" install
-
-mkdir -p "$Z2M_DIR/data"
-
-if [ ! -f "$Z2M_DIR/data/configuration.yaml" ]; then
-    cp "$PROJECT_DIR/config/zigbee2mqtt.yaml" "$Z2M_DIR/data/configuration.yaml"
-    echo "Zigbee2MQTT config copied to $Z2M_DIR/data/configuration.yaml"
-else
-    echo "Existing Zigbee2MQTT config found, skipping copy."
-fi
-
-chown -R "$SERVICE_USER":"$SERVICE_USER" "$Z2M_DIR"
-usermod -aG dialout "$SERVICE_USER"
-echo "Added $SERVICE_USER to dialout group (serial port access)"
-
-cat > /etc/systemd/system/zigbee2mqtt.service << EOF
-[Unit]
-Description=Zigbee2MQTT
-After=network.target mosquitto.service
-Wants=mosquitto.service
-
-[Service]
-Type=simple
-User=$SERVICE_USER
-WorkingDirectory=$Z2M_DIR
-ExecStart=node $Z2M_DIR/index.js
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
 # ── DB Integrity Cron Job ─────────────────────────────────────────────────────
 echo -e "${YELLOW}Setting up DB integrity monitoring cron job...${NC}"
 CRON_CMD="0 * * * * $SERVICE_HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
@@ -208,8 +157,6 @@ systemctl enable groundcontrol
 systemctl start groundcontrol
 systemctl enable groundcontrol-docs
 systemctl start groundcontrol-docs
-systemctl enable zigbee2mqtt
-systemctl start zigbee2mqtt
 
 # Wait for services to start
 sleep 5
@@ -225,8 +172,6 @@ echo ""
 systemctl status groundcontrol --no-pager -l | grep -E "(Active:|Main PID)" || echo "GroundControl: running"
 echo ""
 systemctl status groundcontrol-docs --no-pager -l | grep -E "(Active:|Main PID)" || echo "Docs: running"
-echo ""
-systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|Main PID)" || echo "Zigbee2MQTT: running"
 echo ""
 echo -e "${GREEN}Access your dashboard at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8000"
@@ -245,10 +190,8 @@ echo "To view logs:"
 echo "  sudo journalctl -u groundcontrol -f"
 echo "  sudo journalctl -u groundcontrol-docs -f"
 echo "  sudo journalctl -u mosquitto -f"
-echo "  sudo journalctl -u zigbee2mqtt -f"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "  1. Edit config/config.json to add your secrets (SumUp, easyVerein, etc.)"
-echo "  2. If using Zigbee2MQTT: plug in your USB dongle and edit /opt/zigbee2mqtt/data/configuration.yaml"
-echo "  3. Run: sudo systemctl restart zigbee2mqtt"
+echo "  2. Restart: sudo systemctl restart groundcontrol"
 echo ""
