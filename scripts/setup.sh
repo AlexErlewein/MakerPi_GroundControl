@@ -113,7 +113,7 @@ After=network.target mosquitto.service
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$SERVICE_HOME/.local/bin/uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
+ExecStart=$PROJECT_DIR/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 Environment="PATH=$SERVICE_HOME/.local/bin"
@@ -132,7 +132,7 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$SERVICE_HOME/.local/bin/uv run uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
+ExecStart=$PROJECT_DIR/.venv/bin/uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=10
 Environment="PATH=$SERVICE_HOME/.local/bin"
