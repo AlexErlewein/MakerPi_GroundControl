@@ -1,46 +1,61 @@
 # 🛰️ MakerPi GroundControl
 
-MQTT broker management and monitoring system for Raspberry Pi with web interface, including Zigbee2MQTT integration for Zigbee device support.
+Comprehensive Raspberry Pi management system for a makerspace — MQTT monitoring, RFID access control, work-order tracking, material catalog, payments, and more.
 
 ## Features
 
-- **MQTT Broker**: Mosquitto broker running on Raspberry Pi
-- **Zigbee2MQTT**: Bridges Zigbee devices (sensors, switches, lights) to MQTT via USB dongle
-- **Web Dashboard**: Real-time monitoring of connected devices and messages
-- **Documentation Site**: Separate FastAPI-served docs site generated from Markdown files in `docs/`
-- **Data Storage**: SQLite database for message history
-- **Device Tracking**: Automatic device discovery and status tracking
-- **RFID Tag Management**: Register tags, validate scans, view scan history, and register unknown tags directly from scan results
-- **Payment Integration**: Cash and SumUp card reader payment options on Laufzettel
-- **REST API**: Full API for integration with other services
+- **MQTT Broker**: Mosquitto broker with Zigbee2MQTT integration
+- **RFID/NFC Access Control**: Member authentication with HMAC card signatures (anti-clone protection)
+- **Automatic Work-Order Tracking**: NFC scans auto-create Laufzettel, track material usage, and handle payments
+- **Material Catalog**: 3-level hierarchy (Location → Kategorie → Unterkategorie → Variante), CSV bulk import, flexible pricing models
+- **Payment Integration**: SumUp Solo Cloud API, Payment Switch (deep-link), Wero, cash
+- **easyVerein Sync**: Automatic daily member sync from easyVerein API
+- **Shopify Gift Cards**: Track and adjust gift card balances via API
+- **Buchhaltung (Accounting)**: Donation (Spende) and spending tracking
+- **Plane Issue Tracker**: Public bug report form integration
+- **Guest Self-Service**: Public landing page for guest work-order creation
+- **Member Portal**: View own Laufzettel history and account
+- **Web Push Notifications**: Real-time alerts
+- **PWA Support**: Service worker with offline fallback
+- **Documentation Site**: Separate FastAPI-served docs from Markdown files
 
 ## Architecture
 
 ```
 ┌─────────────┐      publish      ┌──────────────┐
 │  PicoW      │ ─────────────────►│   Mosquitto  │
-│  (client)   │                   │   (broker)   │
+│  (NFC scan) │                   │   (broker)   │
 └─────────────┘                   └──────────────┘
-                                        ▲    │
-┌─────────────┐    zigbee2mqtt/   │    │ subscribe
-│  Zigbee     │    ...topics      │    │
-│  Devices    │ ──►┌──────────────┴┐   │
-│  (sensors,  │    │ Zigbee2MQTT   │   │
-│   switches) │    │ (USB dongle)  │   │
-└─────────────┘    └───────────────┘   │
-                                        │
-                                        ▼
-                                  ┌──────────────┐
-                                  │  FastAPI     │
-                                  │  Backend     │
-                                  └──────────────┘
-                                           │
-                                ┌──────────┴──────────┐
-                                ▼                     ▼
-                         ┌────────────┐      ┌─────────────┐
-                         │   SQLite   │      │  Web UI     │
-                         │  Database  │      │  (HTML/JS)  │
-                         └────────────┘      └─────────────┘
+                                         ▲    │
+ ┌─────────────┐    zigbee2mqtt/   │    │ subscribe
+ │  Zigbee     │    ...topics      │    │
+ │  Devices    │ ──►┌──────────────┴┐   │
+ │  (sensors,  │    │ Zigbee2MQTT   │   │
+ │   switches) │    │ (USB dongle)  │   │
+ └─────────────┘    └───────────────┘   │
+                                         │
+                                         ▼
+                                   ┌──────────────┐
+                                   │  FastAPI     │
+                                   │  Main App    │
+                                   │  (port 8000) │
+                                   └──────────────┘
+                                            │
+           ┌────────────────┬───────────────┼──────────────┬─────────────┐
+           ▼                ▼               ▼              ▼             ▼
+    ┌────────────┐   ┌────────────┐  ┌────────────┐ ┌─────────┐ ┌──────────┐
+    │ auth.db    │   │ members.db │  │laufzettel.db│catalog.db│  core.db │
+    │ (users,    │   │ (Mitglied, │  │ (work      │ (materials,│ (MQTT,   │
+    │  sessions) │   │  RFIDTag)  │  │  orders)   │ pricing) │  devices)│
+    └────────────┘   └────────────┘  └────────────┘ └─────────┘ └──────────┘
+                                                      │
+                                              ┌───────┴───────┐
+                                              ▼               ▼
+                                        ┌─────────┐     ┌──────────┐
+                                        │Web UI   │     │Docs App │
+                                        │(HTML/JS)│     │(Markdown)│
+                                        └─────────┘     └──────────┘
+                                         port 8000      port 8001
 ```
 
 ## Quick Start
@@ -48,60 +63,69 @@ MQTT broker management and monitoring system for Raspberry Pi with web interface
 ### 1. Clone on Raspberry Pi
 
 ```bash
-git clone https://github.com/AlexErlewein/MakerPi_GroundControl.git
-cd MakerPi_GroundControl
+git clone https://github.com/AlexErlewein/MakerPi_GroundControl.git ~/Code/MakerPi_GroundControl
+cd ~/Code/MakerPi_GroundControl
 
-# Optional: Install uv for faster package installs
-bash scripts/install_uv.sh
-
-# Run setup
+# Run setup (installs dependencies, Mosquitto, Zigbee2MQTT, systemd services)
 sudo bash scripts/setup.sh
 ```
 
-### 2. Access the Dashboard
+### 2. Configure
 
-Open your browser: `http://<pi-ip>:8000`
-Documentation site: `http://<pi-ip>:8001`
+Copy `config/config.json.example` to `config/config.json` (done automatically by setup) and fill in your settings:
+
+```json
+{
+    "mqtt_broker": "localhost",
+    "mqtt_port": 1883,
+    "secret_key": "change-me-to-a-random-secret",
+    "sumup_api_key": "sup_sk_...",
+    "sumup_merchant_code": "XXXXXXXX",
+    "easyverein_api_key": "...",
+    "easyverein_org_id": "..."
+}
+```
+
+### 3. Access the Dashboard
+
+- **Main Dashboard**: `http://<pi-ip>:8000`
+- **Documentation Site**: `http://<pi-ip>:8001`
+- **Zigbee2MQTT Frontend**: `http://<pi-ip>:8090`
 
 ## Project Structure
 
 ```
 MakerPi_GroundControl/
 ├── backend/
-│   ├── main.py              # Main FastAPI application with MQTT client
-│   └── docs_app.py          # Separate FastAPI docs website
+│   ├── main.py              # Main FastAPI app (port 8000)
+│   ├── docs_app.py          # Docs FastAPI app (port 8000)
+│   ├── auth/                # Authentication, users, sessions, admin escalation
+│   ├── core/                # MQTT client, devices, tag scans, SSE
+│   ├── members/             # Mitglied, RFIDTag, easyVerein sync, NFC signatures
+│   ├── laufzettel/          # Work orders, material usage, payments, PDF
+│   ├── catalog/             # Material catalog (3-level hierarchy)
+│   ├── shopify/             # Gift card management
+│   ├── buchhaltung/         # Accounting (Spenden, spending)
+│   ├── plane/               # Issue tracker integration
+│   ├── push/                # Web push notifications
+│   └── member_routes.py     # Member self-service portal
 ├── config/
-│   ├── mosquitto.conf       # MQTT broker configuration
-│   ├── zigbee2mqtt.yaml     # Zigbee2MQTT configuration template
-│   └── config.json          # Local secrets (gitignored — copy from config.json.example)
+│   ├── config.json          # Local secrets (gitignored)
+│   ├── config.json.example  # Template
+│   ├── mosquitto.conf       # MQTT broker config
+│   └── zigbee2mqtt.yaml     # Zigbee2MQTT template
 ├── docs/
-│   ├── 00-overview.md       # Top-down operator-to-developer documentation
-│   ├── ...
-│   └── PICOW_SETUP.md       # Pico W setup reference
+│   ├── 00-overview.md       # Top-down documentation
+│   └── ...                  # Additional docs
 ├── scripts/
-│   ├── setup.sh                   # Initial setup script for Pi
-│   ├── deploy.sh                  # Deploy updates from dev machine
-│   ├── install_uv.sh              # Install uv (fast package manager)
-│   ├── migrate_add_nfc_status.py  # Database migration script
-│   └── reset_database.py          # Reset database (fresh start)
+│   ├── setup.sh             # Initial Pi setup
+│   ├── deploy.sh            # Deploy from dev machine
+│   └── check_db_integrity.py # Hourly DB health monitor
 ├── static/
-│   ├── css/
-│   │   ├── style.css        # Shared styles
-│   │   ├── database.css     # Database page styles
-│   │   ├── device-detail.css
-│   │   └── tags.css         # Tags page styles
-│   └── js/
-│       ├── app.js           # Dashboard frontend logic
-│       ├── database.js
-│       ├── device-detail.js
-│       └── tags.js          # Tags page frontend logic
-├── templates/
-│   ├── index.html           # Main dashboard
-│   ├── database.html        # Database overview
-│   ├── device-detail.html   # Per-device view
-│   └── tags.html            # RFID tag management
-├── pyproject.toml           # Dependencies and project config (use uv)
-└── README.md
+│   ├── css/                 # Stylesheets
+│   └── js/                  # Frontend logic
+├── templates/               # HTML templates
+└── pyproject.toml           # Dependencies (uv)
 ```
 
 ## Development Workflow
@@ -112,102 +136,207 @@ MakerPi_GroundControl/
 # Install dependencies
 uv sync
 
-# Run locally (requires MQTT broker)
+# Run main app (requires MQTT broker)
 uv run uvicorn backend.main:app --reload
+
+# Run docs app
+uv run uvicorn backend.docs_app:app --reload --port 8001
 ```
 
 ### Deploying to Pi
 
 ```bash
-# Sync code only
-./scripts/deploy.sh raspberrypi.local
+# Commit and deploy (reads pi_host from config.json)
+./scripts/deploy.sh
 
-# Sync code + update dependencies
-./scripts/deploy.sh raspberrypi.local --update-deps
+# Deploy + update dependencies
+./scripts/deploy.sh --update-deps
 ```
 
-### Using uv (Faster Package Management)
+### Using uv (Fast Package Manager)
 
-The project uses [`uv`](https://github.com/astral-sh/uv) for package management. All dependencies are declared in `pyproject.toml`.
+The project uses [`uv`](https://github.com/astral-sh/uv) for package management.
 
-Install on Pi:
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.bashrc
-```
-
-Common commands:
-```bash
-uv sync                                    # install all dependencies
-uv run uvicorn backend.main:app --reload   # run the app
-uv run sqlite_web -H 0.0.0.0 groundcontrol.db  # run DB browser (see below)
+uv sync                                  # install dependencies
+uv run uvicorn backend.main:app --reload # run the app
+uv run pytest                            # run tests
 ```
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Web dashboard |
-| `/database` | GET | Database overview page |
-| `/tags` | GET | RFID tag management page |
-| `/api/status` | GET | System status (MQTT connection) |
-| `/api/devices` | GET | List all registered devices |
-| `/api/devices/{id}` | GET | Device detail + recent messages |
-| `/api/devices/{id}` | DELETE | Delete a device |
-| `/api/devices/{id}/commands` | POST | Send command to device via MQTT |
-| `/api/messages` | GET | Recent messages (`?limit=100&topic=xyz`) |
-| `/api/topics` | GET | List all active topics |
-| `/api/tags` | GET | List all registered RFID tags |
-| `/api/tags` | POST | Register a new tag |
-| `/api/tags/{uid}` | PUT | Update a tag |
-| `/api/tags/{uid}` | DELETE | Delete a tag |
-| `/api/tags/scans` | GET | Recent tag scan events (`?limit=100`) |
-| `/api/database/stats` | GET | Database statistics |
-| `/api/export/devices` | GET | Export devices as CSV |
-| `/api/export/messages` | GET | Export messages as CSV |
-| `/api/payment/config` | GET | Which payment methods are configured (`payment_mode`, `sumup_configured`) |
-| `/api/laufzettel/{id}/pay/bar` | POST | Record cash payment, lock Laufzettel |
-| `/api/laufzettel/{id}/pay/karte` | POST | Initiate card payment (Solo or Payment Switch) |
-| `/api/laufzettel/{id}/pay/karte/status` | GET | Poll transaction status (Solo mode) |
-| `/api/laufzettel/{id}/pay/karte/confirm-mock` | POST | Confirm payment manually (mock / Payment Switch) |
-| `/api/laufzettel/{id}/pay` | DELETE | Reset payment status (admin) |
+The main API is organized by module:
+
+| Route Prefix | Description |
+|--------------|-------------|
+| `/` | Dashboard (admin) |
+| `/dashboard` | Alternative dashboard route |
+| `/database` | Device and message monitoring |
+| `/devices/{id}` | Device detail |
+| `/laufzettel` | Work order management |
+| `/laufzettel/{id}` | Work order detail |
+| `/katalog` | Material catalog |
+| `/mitglieder` | Member management |
+| `/tags` | RFID tag management |
+| `/shopify` | Gift card tracking |
+| `/buchhaltung` | Accounting |
+| `/admin/users` | User management |
+| `/member/` | Member self-service portal |
+| `/guest/` | Guest work order forms |
+| `/api/status` | System status |
+| `/api/devices` | Device list and details |
+| `/api/laufzettel` | Work order CRUD and payment flows |
+| `/api/katalog` | Material catalog API |
+| `/api/mitglieder` | Member API, easyVerein sync |
+| `/api/tags` | RFID tag CRUD |
+| `/api/shopify/gift-cards` | Gift card API |
+| `/api/buchhaltung` | Accounting API |
+
+See `CLAUDE.md` for detailed module architecture.
+
+## Payment Integration
+
+The system supports multiple payment modes, selected automatically based on configuration:
+
+| Mode | Condition | How it works |
+|---|---|---|
+| **Mock** | `sumup_mock: true` | Locks immediately, no real API call |
+| **SumUp Solo** | `sumup_reader_id` set | Pushes checkout to paired Solo terminal |
+| **Payment Switch** | `sumup_affiliate_key` set, no reader | Generates `sumupmerchant://` deep-link |
+| **Wero** | `wero_enabled: true` | Wero payment flow |
+| **Cash (Bar)** | Manual entry | Admin records cash payment |
+
+Configure in `config.json`:
+
+```json
+{
+    "sumup_api_key": "sup_sk_...",
+    "sumup_merchant_code": "XXXXXXXX",
+    "sumup_reader_id": "",
+    "sumup_affiliate_key": "your-affiliate-key",
+    "sumup_mock": false,
+    "wero_enabled": false,
+    "wero_merchant_id": "",
+    "wero_api_key": ""
+}
+```
+
+See [docs/13-payments.md](docs/13-payments.md) for full details.
+
+## Plane Issue Tracker
+
+Enable public bug reports by configuring Plane integration:
+
+1. **Create a Plane account** at [plane.so](https://plane.so)
+2. **Create a project** for bug reports
+3. **Generate an API token** in Settings → API Tokens
+4. **Fill in config.json**:
+
+```json
+{
+    "plane_url": "https://your-plane-instance.com",
+    "plane_api_token": "your-personal-token",
+    "plane_workspace_slug": "your-workspace",
+    "plane_project_id": "your-project-uuid"
+}
+```
+
+The bug report form is available on the landing page.
+
+## Database Architecture
+
+The project uses **6 separate SQLite databases** (one per module), each with WAL mode enabled for crash resilience:
+
+| Database | Purpose |
+|----------|---------|
+| `auth.db` | Users, bcrypt passwords, sessions |
+| `members.db` | Mitglied, RFIDTag, easyVerein sync data |
+| `laufzettel.db` | Laufzettel, material usage, payments |
+| `catalog.db` | Location, Kategorie, Unterkategorie, Variante |
+| `core.db` | MQTT messages, devices, tag scans |
+| `buchhaltung.db` | Spende (donations), spending |
+
+All DBs are in the project root directory (e.g., `/home/alex/Code/MakerPi_GroundControl/`).
+
+### DB Integrity Monitoring
+
+A cron job runs hourly to check database integrity and auto-recover:
+
+```bash
+# Check logs
+cat /var/log/gc-db-check.log
+
+# Run manually
+python3 ~/Code/MakerPi_GroundControl/scripts/check_db_integrity.py
+```
+
+The script tries REINDEX first (fixes index corruption), then dump/reload, and as last resort renames corrupted files so init_db() creates fresh ones on startup.
 
 ## MQTT Configuration
 
-- **Host**: `localhost` (on Pi) or Pi's IP address
+- **Host**: `localhost` (on Pi) or Pi's IP
 - **Port**: `1883`
 - **Anonymous access**: Enabled (for local network)
 
-### Expected MQTT Topic Structure
+### Expected Topic Structure
 
 | Topic | Description |
 |-------|-------------|
-| `{device_id}/heartbeat` | Device heartbeat with NFC hardware status |
-| `{device_id}/status` | Device online/offline status |
-| `{device_id}/tag` | RFID tag scan event (also accepts `/nfc`) |
+| `{device_id}/heartbeat` | Device heartbeat with NFC status |
+| `{device_id}/status` | Online/offline status |
+| `{device_id}/tag` | NFC scan event |
+| `zigbee2mqtt/<device>` | Zigbee device state |
 
 NFC scan payload example:
 ```json
-{"timestamp": "1609464117", "atqa": "0x0004", "sak": "0x08", "uid_dec": 2633114887, "tag_type": "MIFARE Classic", "uid": "9CF22507"}
+{"uid": "04A3B5C2", "atqa": "0x0044", "sak": "0x00", "tag_type": "MIFARE Classic 1K"}
 ```
 
-### Example MQTT Publish (PicoW)
+## Zigbee2MQTT
 
-```python
-import network
-import umqtt.simple
+Bridges Zigbee USB dongle to Mosquitto, making all Zigbee devices available as MQTT topics.
 
-mqtt = umqtt.simple.MQTTClient("pico-w", "192.168.1.100")
-mqtt.connect()
-mqtt.publish("pico-w/sensors/temp", "22.5")
-mqtt.disconnect()
+### Finding your USB dongle port
+
+```bash
+ls /dev/tty{USB,ACM}*
 ```
+
+| Dongle | Chip | Adapter | Port |
+|--------|------|---------|------|
+| Sonoff Zigbee 3.0 USB Dongle Plus (P) | CC2652P | `znp` | `/dev/ttyUSB0` |
+| Sonoff Zigbee 3.0 USB Dongle Plus-E | EFR32MG21 | `ezsp` | `/dev/ttyACM0` |
+
+### Updating Zigbee2MQTT config
+
+Edit `/opt/zigbee2mqtt/data/configuration.yaml`:
+
+```yaml
+serial:
+  port: /dev/ttyUSB0   # update this
+  adapter: znp         # 'ezsp' for Dongle-E
+```
+
+Restart: `sudo systemctl restart zigbee2mqtt`
+
+### Pairing devices
+
+```bash
+# Enable joining for 3 minutes
+mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": true, "time": 180}'
+
+# Disable
+mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": false}'
+```
+
+Or use the web frontend at `http://<pi-ip>:8090`.
 
 ## Service Management
 
 ```bash
-# View service status
+# View status
 sudo systemctl status groundcontrol
+sudo systemctl status groundcontrol-docs
 sudo systemctl status mosquitto
 sudo systemctl status zigbee2mqtt
 
@@ -222,180 +351,31 @@ sudo systemctl restart mosquitto
 sudo systemctl restart zigbee2mqtt
 ```
 
-## Zigbee2MQTT
+## easyVerein Member Sync
 
-Zigbee2MQTT bridges your Zigbee USB dongle to the Mosquitto broker, making all Zigbee devices available as MQTT topics.
+Members are synced daily at 03:00 via APScheduler. The sync:
+- Upserts Mitglieder by `member_id` (membershipNumber)
+- Never overwrites `nfc_uid` or login credentials set locally
+- Syncs name, email, phone, status from easyVerein
 
-### Finding your USB dongle port
-
-Run this on the Pi before and after plugging in the dongle to identify the port:
-
+Trigger manually:
 ```bash
-ls /dev/tty{USB,ACM}*
+curl -X POST http://<pi-ip>:8000/api/mitglieder/sync
 ```
 
-Common ports by dongle variant:
-| Dongle | Chip | Adapter | Typical port |
-|--------|------|---------|--------------|
-| Sonoff Zigbee 3.0 USB Dongle Plus (P) | CC2652P | `znp` | `/dev/ttyUSB0` |
-| Sonoff Zigbee 3.0 USB Dongle Plus-E | EFR32MG21 | `ezsp` | `/dev/ttyACM0` |
+## NFC Card Security
 
-### Updating the config
+Cards use HMAC-SHA256 signatures to bind the card UID to member data, preventing clone attacks:
+- **Signature generation**: Uses SECRET_KEY + member_id + uid + name
+- **Verification**: Compares computed signature against card-stored signature
+- **Modes**: `permissive` (legacy cards OK) or `strict` (only signed cards)
 
-Edit `/opt/zigbee2mqtt/data/configuration.yaml` on the Pi:
-
-```yaml
-serial:
-  port: /dev/ttyUSB0   # ← update this
-  adapter: znp         # ← change to 'ezsp' for Dongle-E
-```
-
-Then restart: `sudo systemctl restart zigbee2mqtt`
-
-### Pairing new Zigbee devices
-
-Temporarily enable joining, then trigger pairing mode on your device:
-
-```bash
-# Enable joining for 3 minutes
-mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": true, "time": 180}'
-
-# Disable joining again
-mosquitto_pub -t zigbee2mqtt/bridge/request/permit_join -m '{"value": false}'
-```
-
-Or use the Zigbee2MQTT web frontend at `http://<pi-ip>:8090`.
-
-### MQTT topics published by Zigbee2MQTT
-
-| Topic | Description |
-|-------|-------------|
-| `zigbee2mqtt/<device_name>` | Device state (temperature, occupancy, etc.) |
-| `zigbee2mqtt/bridge/state` | Bridge online/offline status |
-| `zigbee2mqtt/bridge/devices` | List of all paired devices |
-| `zigbee2mqtt/bridge/log` | Bridge log messages |
-
-## Database
-
-SQLite database located at: `/opt/makerpi-groundcontrol/groundcontrol.db`
-
-### Schema
-
-**devices** table:
-- `id` - Primary key
-- `device_id` - Unique device identifier
-- `name` - Device name
-- `last_seen` - Last activity timestamp
-- `status` - Current status (online/offline/unknown)
-- `nfc_ok` - NFC hardware status (1=OK, 0=Error, NULL=Unknown)
-- `nfc_error` - NFC error message if applicable
-
-**mqtt_messages** table:
-- `id` - Primary key
-- `topic` - MQTT topic
-- `payload` - Message payload
-- `qos` - Quality of Service level
-- `retained` - Retained flag
-- `timestamp` - Message timestamp
-
-**rfid_tags** table:
-- `id` - Primary key
-- `uid` - Tag UID (e.g. `9CF22507`), unique
-- `owner_name` - Name of the tag owner
-- `owner_email` - Owner email (optional)
-- `notes` - Free-text notes (optional)
-- `active` - 1=active, 0=disabled
-- `created_at` - Registration timestamp
-
-**tag_scans** table:
-- `id` - Primary key
-- `uid` - Scanned tag UID
-- `device_id` - Device that performed the scan
-- `timestamp` - Scan timestamp
-- `validated` - 1=known tag, 0=unknown
-- `owner_name` - Owner name if tag was found in registry
-- `tag_type` - e.g. `MIFARE Classic`
-- `atqa` - ATQA value from scan payload
-- `sak` - SAK value from scan payload
-
-### Browsing the Database
-
-Use `sqlite-web` for a web-based read/write UI:
-
-```bash
-# Bind to all interfaces so you can access it from another machine on the network
-uv run sqlite_web -H 0.0.0.0 groundcontrol.db
-```
-
-Then open `http://<pi-ip>:8080` in your browser.
-
-> Note: stop the GroundControl service first if port conflicts occur, or run sqlite-web on a different port with `-p <port>`.
-
-### Database Migrations
-
-When updating to a new version with schema changes, you have two options:
-
-**Option 1: Migrate existing data** (preserves messages and devices):
-```bash
-cd /opt/makerpi-groundcontrol
-python3 scripts/migrate_add_nfc_status.py
-sudo systemctl restart groundcontrol
-```
-
-**Option 2: Reset database** (fresh start, all data lost):
-```bash
-cd /opt/makerpi-groundcontrol
-python3 scripts/reset_database.py
-sudo systemctl restart groundcontrol
-```
-
-## RFID Tag Management
-
-The `/tags` page lets you manage a registry of known RFID tags and view all scan events.
-
-### Registering a tag
-
-- Click **+ Add Tag** and enter the UID, owner name, and optional email/notes.
-- Or scan a tag with a device — it will appear in **Recent Scans** with an ✗ Unknown badge. Click **+ Register** on that row to open the add form with the UID pre-filled.
-
-### How validation works
-
-When a scan arrives on `{device_id}/tag`, the backend looks up the UID in the `rfid_tags` table:
-- **Known & active** → scan is stored as `validated=true`, owner name is recorded.
-- **Unknown** → scan is stored as `validated=false`, shows up highlighted in the scan list.
-
-### Tag states
-
-- **Active** — tag is recognised and validated on scan.
-- **Disabled** — tag exists in the registry but will not be validated (treated as unknown).
-
-## Payment Configuration
-
-Copy `config.json.example` to `config/config.json` (gitignored) and fill in your credentials:
-
+Configure in `config.json`:
 ```json
 {
-    "sumup_api_key": "sup_sk_...",
-    "sumup_merchant_code": "XXXXXXXX",
-    "sumup_reader_id": "",
-    "sumup_affiliate_key": "your-affiliate-key",
-    "sumup_mock": false
+    "nfc_signature_mode": "permissive"
 }
 ```
-
-The system automatically selects the payment mode based on what is configured:
-
-| Mode | Condition | How it works |
-|---|---|---|
-| **Mock** | `sumup_mock: true` | Locks immediately, no real API call |
-| **Solo (Cloud API)** | `sumup_reader_id` set | Pushes checkout directly to paired Solo terminal |
-| **Payment Switch** | `sumup_affiliate_key` set, no reader | Generates a `sumupmerchant://` deep-link; cashier opens SumUp app on phone, amount is pre-filled |
-
-All keys can also be set via environment variables (`SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_READER_ID`, `SUMUP_AFFILIATE_KEY`).
-
-Get your **Affiliate Key** at [developer.sumup.com](https://developer.sumup.com) → *Affiliate Keys*.
-
-See [docs/13-payments.md](docs/13-payments.md) for full details.
 
 ## Requirements
 
@@ -403,6 +383,7 @@ See [docs/13-payments.md](docs/13-payments.md) for full details.
 - Raspberry Pi OS
 - Python 3.10+
 - Mosquitto MQTT Broker
+- Zigbee USB dongle (optional, for Zigbee2MQTT)
 
 ## License
 

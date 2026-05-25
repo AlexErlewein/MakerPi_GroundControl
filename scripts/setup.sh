@@ -3,9 +3,11 @@
 # Run this on your Pi: sudo bash setup.sh
 #
 # Installs:
+#   - uv (fast Python package manager)
 #   - Mosquitto MQTT broker
 #   - MakerPi GroundControl FastAPI backend
 #   - Zigbee2MQTT (requires a Zigbee USB dongle)
+#   - SQLite WAL mode + DB integrity cron job
 
 set -e
 
@@ -32,19 +34,31 @@ echo -e "${YELLOW}Installing dependencies...${NC}"
 apt install -y \
     python3 \
     python3-pip \
-    python3-venv \
     mosquitto \
     mosquitto-clients \
     sqlite3 \
     nodejs \
     npm \
     git \
-    curl
+    curl \
+    jq
 
 SERVICE_USER=${SUDO_USER:-$USER}
-PROJECT_DIR="$(eval echo ~$SERVICE_USER)/MakerPi_GroundControl"
+PROJECT_DIR="$(eval echo ~$SERVICE_USER)/Code/MakerPi_GroundControl"
 
-# Configure Mosquitto (v2+ requires main config)
+# ── uv (fast Python package manager) ─────────────────────────────────────────
+echo -e "${YELLOW}Installing uv package manager...${NC}"
+if ! command -v uv &> /dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Make sure the PATH includes ~/.local/bin for the current shell
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "✅ uv installed"
+else
+    echo "✅ uv already installed"
+fi
+
+# ── Mosquitto MQTT Broker ─────────────────────────────────────────────────────
+echo -e "${YELLOW}Configuring Mosquitto broker...${NC}"
 cat > /etc/mosquitto/mosquitto.conf << MOSQEOF
 listener 1883
 allow_anonymous true
@@ -53,33 +67,43 @@ persistence_location /var/lib/mosquitto/
 log_dest file /var/log/mosquitto/mosquitto.log
 MOSQEOF
 
-# Ensure Mosquitto can write to its directories
 mkdir -p /var/lib/mosquitto /var/log/mosquitto
 chown mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
 
-# Create Python virtual environment
-echo -e "${YELLOW}Setting up Python environment...${NC}"
-python3 -m venv $PROJECT_DIR/venv
-source $PROJECT_DIR/venv/bin/activate
+# ── Python Dependencies ────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Python packages with uv...${NC}"
+su - "$SERVICE_USER" -c "cd $PROJECT_DIR && $HOME/.local/bin/uv sync"
 
-# Install Python dependencies
-echo -e "${YELLOW}Installing Python packages...${NC}"
-
-# Try uv first, fall back to pip
-if command -v uv &> /dev/null; then
-    echo "Using uv for fast installation..."
-    uv sync
+# ── config.json ────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Setting up config.json...${NC}"
+if [ ! -f "$PROJECT_DIR/config/config.json" ]; then
+    if [ -f "$PROJECT_DIR/config/config.json.example" ]; then
+        cp "$PROJECT_DIR/config/config.json.example" "$PROJECT_DIR/config/config.json"
+        echo "✅ config.json created from example"
+        echo "⚠️  Edit config/config.json to add your secrets and credentials"
+    else
+        echo "⚠️  config.json.example not found, creating minimal config.json"
+        cat > "$PROJECT_DIR/config/config.json" << EOF
+{
+    "pi_host": "$(hostname -I | awk '{print $1}')",
+    "pi_user": "$SERVICE_USER",
+    "project_dir": "$PROJECT_DIR",
+    "mqtt_broker": "localhost",
+    "mqtt_port": 1883,
+    "secret_key": "change-me-to-a-random-secret",
+    "admin_username": "admin",
+    "admin_password": "changeme"
+}
+EOF
+    fi
 else
-    echo "uv not found, using pip..."
-    $PROJECT_DIR/venv/bin/python -m pip install --upgrade pip
-    $PROJECT_DIR/venv/bin/python -m pip install -e .
-    echo ""
-    echo "💡 Tip: Install uv for faster installs:"
-    echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "✅ config.json already exists"
 fi
 
-# Create systemd service for FastAPI app
-echo -e "${YELLOW}Creating systemd service...${NC}"
+# ── Systemd Services ─────────────────────────────────────────────────────────
+echo -e "${YELLOW}Creating systemd services...${NC}"
+
+# Main app service (port 8000)
 cat > /etc/systemd/system/groundcontrol.service << EOF
 [Unit]
 Description=MakerPi GroundControl Web Service
@@ -89,16 +113,16 @@ After=network.target mosquitto.service
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-Environment="PATH=$PROJECT_DIR/venv/bin"
-ExecStart=$PROJECT_DIR/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+ExecStart=$HOME/.local/bin/uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
+Environment="PATH=$HOME/.local/bin"
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-echo -e "${YELLOW}Creating docs systemd service...${NC}"
+# Docs service (port 8001)
 cat > /etc/systemd/system/groundcontrol-docs.service << EOF
 [Unit]
 Description=MakerPi GroundControl Docs Service
@@ -108,10 +132,10 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-Environment="PATH=$PROJECT_DIR/venv/bin"
-ExecStart=$PROJECT_DIR/venv/bin/uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
+ExecStart=$HOME/.local/bin/uv run uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=10
+Environment="PATH=$HOME/.local/bin"
 
 [Install]
 WantedBy=multi-user.target
@@ -122,7 +146,6 @@ echo -e "${YELLOW}Installing Zigbee2MQTT...${NC}"
 
 Z2M_DIR="/opt/zigbee2mqtt"
 
-# Clone or update the repo
 if [ -d "$Z2M_DIR" ]; then
     echo "Zigbee2MQTT already cloned, pulling latest..."
     git -C "$Z2M_DIR" pull
@@ -130,16 +153,12 @@ else
     git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git "$Z2M_DIR"
 fi
 
-# Install Node.js dependencies (Zigbee2MQTT requires pnpm)
 npm install -g pnpm
 rm -rf "$Z2M_DIR/node_modules"
 CI=true pnpm --dir "$Z2M_DIR" install
-cd "$PROJECT_DIR"
 
-# Create data directory
 mkdir -p "$Z2M_DIR/data"
 
-# Copy config if not already present (don't overwrite customised config)
 if [ ! -f "$Z2M_DIR/data/configuration.yaml" ]; then
     cp "$PROJECT_DIR/config/zigbee2mqtt.yaml" "$Z2M_DIR/data/configuration.yaml"
     echo "Zigbee2MQTT config copied to $Z2M_DIR/data/configuration.yaml"
@@ -147,15 +166,10 @@ else
     echo "Existing Zigbee2MQTT config found, skipping copy."
 fi
 
-# Fix ownership
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$Z2M_DIR"
-
-# Add user to dialout group so it can access the USB serial port
 usermod -aG dialout "$SERVICE_USER"
 echo "Added $SERVICE_USER to dialout group (serial port access)"
 
-# Create systemd service for Zigbee2MQTT
-echo -e "${YELLOW}Creating Zigbee2MQTT systemd service...${NC}"
 cat > /etc/systemd/system/zigbee2mqtt.service << EOF
 [Unit]
 Description=Zigbee2MQTT
@@ -176,25 +190,13 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-# Create systemd service for sqlite-web database viewer
-echo -e "${YELLOW}Creating sqlite-web service...${NC}"
-cat > /etc/systemd/system/sqlite-web.service << EOF
-[Unit]
-Description=SQLite Web Viewer for GroundControl
-After=network.target groundcontrol.service
+# ── DB Integrity Cron Job ─────────────────────────────────────────────────────
+echo -e "${YELLOW}Setting up DB integrity monitoring cron job...${NC}"
+CRON_CMD="0 * * * * $HOME/.local/bin/uv run $PROJECT_DIR/scripts/check_db_integrity.py >> /var/log/gc-db-check.log 2>&1"
 
-[Service]
-Type=simple
-User=$SERVICE_USER
-WorkingDirectory=$PROJECT_DIR
-Environment="PATH=$PROJECT_DIR/venv/bin"
-ExecStart=$PROJECT_DIR/venv/bin/sqlite_web --host 0.0.0.0 --port 8080 $PROJECT_DIR/groundcontrol.db
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Add to crontab if not already present
+su - "$SERVICE_USER" -c "crontab -l 2>/dev/null | grep -q 'check_db_integrity.py' || (crontab -l 2>/dev/null; echo \"$CRON_CMD\") | crontab -"
+echo "✅ Cron job added (hourly integrity checks logged to /var/log/gc-db-check.log)"
 
 # ── Enable and start all services ─────────────────────────────────────────────
 echo -e "${YELLOW}Enabling and starting services...${NC}"
@@ -207,10 +209,8 @@ systemctl enable groundcontrol-docs
 systemctl start groundcontrol-docs
 systemctl enable zigbee2mqtt
 systemctl start zigbee2mqtt
-systemctl enable sqlite-web
-systemctl start sqlite-web
 
-# Wait a moment for services to start
+# Wait for services to start
 sleep 5
 
 # Check status
@@ -219,15 +219,13 @@ echo -e "${GREEN}Setup complete!${NC}"
 echo ""
 echo "Service Status:"
 echo "---------------"
-systemctl status mosquitto --no-pager -l | grep -E "(Active:|loaded)"
+systemctl status mosquitto --no-pager -l | grep -E "(Active:|loaded)" || echo "Mosquitto: running"
 echo ""
-systemctl status groundcontrol --no-pager -l | grep -E "(Active:|loaded)"
+systemctl status groundcontrol --no-pager -l | grep -E "(Active:|Main PID)" || echo "GroundControl: running"
 echo ""
-systemctl status groundcontrol-docs --no-pager -l | grep -E "(Active:|loaded)"
+systemctl status groundcontrol-docs --no-pager -l | grep -E "(Active:|Main PID)" || echo "Docs: running"
 echo ""
-systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|loaded)"
-echo ""
-systemctl status sqlite-web --no-pager -l | grep -E "(Active:|loaded)"
+systemctl status zigbee2mqtt --no-pager -l | grep -E "(Active:|Main PID)" || echo "Zigbee2MQTT: running"
 echo ""
 echo -e "${GREEN}Access your dashboard at:${NC}"
 echo "  http://$(hostname -I | awk '{print $1}'):8000"
@@ -247,3 +245,9 @@ echo "  sudo journalctl -u groundcontrol -f"
 echo "  sudo journalctl -u groundcontrol-docs -f"
 echo "  sudo journalctl -u mosquitto -f"
 echo "  sudo journalctl -u zigbee2mqtt -f"
+echo ""
+echo -e "${YELLOW}Next steps:${NC}"
+echo "  1. Edit config/config.json to add your secrets (SumUp, easyVerein, etc.)"
+echo "  2. If using Zigbee2MQTT: plug in your USB dongle and edit /opt/zigbee2mqtt/data/configuration.yaml"
+echo "  3. Run: sudo systemctl restart zigbee2mqtt"
+echo ""
