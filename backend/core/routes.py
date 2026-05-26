@@ -71,47 +71,16 @@ async def check_docs_status() -> dict:
 
 
 def check_database_status() -> dict:
-    """Check if Litestream is running and B2 connection is working."""
-    status_parts = []
-    errors = []
-
-    # Check if Litestream process is running
+    """Check Google Drive backup availability."""
     try:
-        result = subprocess.run(
-            ["/usr/bin/pgrep", "-f", "litestream"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-        if result.returncode == 0:
-            status_parts.append("Litestream running")
+        from backend.gdrive import get_drive_service
+        service = get_drive_service()
+        if service:
+            return {"status": "ok", "message": "Google Drive backup active"}
         else:
-            errors.append("Litestream not running")
+            return {"status": "warning", "message": "Google Drive not configured"}
     except Exception as e:
-        errors.append(f"Litestream check failed: {e}")
-
-    # Check B2 connection via litestream config
-    if _app_config.LITESTREAM_ENABLED:
-        try:
-            cfg_path = Path("config/litestream.yml")
-            if cfg_path.exists():
-                status_parts.append("Config present")
-            else:
-                errors.append("Config missing")
-        except Exception:
-            errors.append("Config check failed")
-    else:
-        status_parts.append("Litestream disabled")
-
-    if errors and not status_parts:
-        return {"status": "error", "message": ", ".join(errors)}
-    elif status_parts and not errors:
-        return {"status": "ok", "message": ", ".join(status_parts)}
-    else:
-        return {
-            "status": "warning",
-            "message": f"{', '.join(status_parts)}; {', '.join(errors)}",
-        }
+        return {"status": "error", "message": f"Google Drive error: {e}"}
 
 
 def check_gdrive_status() -> dict:

@@ -113,27 +113,6 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID: str = _cfg.get(
     os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", ""),
 )
 
-# Backblaze B2 / Litestream configuration (for database backups)
-LITESTREAM_ENABLED: bool = _cfg.get(
-    "litestream_enabled",
-    os.environ.get("LITESTREAM_ENABLED", "false").lower() == "true",
-)
-BACKBLAZE_ENDPOINT: str = _cfg.get(
-    "backblaze_endpoint",
-    os.environ.get("BACKBLAZE_ENDPOINT", ""),
-)
-BACKBLAZE_BUCKET: str = _cfg.get(
-    "backblaze_bucket",
-    os.environ.get("BACKBLAZE_BUCKET", ""),
-)
-BACKBLAZE_KEY_ID: str = _cfg.get(
-    "backblaze_key_id",
-    os.environ.get("BACKBLAZE_KEY_ID", ""),
-)
-BACKBLAZE_APPLICATION_KEY: str = _cfg.get(
-    "backblaze_application_key",
-    os.environ.get("BACKBLAZE_APPLICATION_KEY", ""),
-)
 
 # Email (SMTP) configuration
 SMTP_HOST: str = _cfg.get("smtp_host", os.environ.get("SMTP_HOST", ""))
@@ -209,8 +188,6 @@ PLANE_PROJECT_ID: str = _cfg.get(
     "plane_project_id", os.environ.get("PLANE_PROJECT_ID", "")
 )
 
-# Database paths (each module owns its own)
-# Use absolute paths based on project root to avoid multiple DB files
 import os
 PROJECT_ROOT = Path(__file__).parent.parent
 
