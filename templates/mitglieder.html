@@ -27,30 +27,29 @@
 </div>
 {% endif %}
 
-<section class="section" style="margin-bottom:1.5rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-    <h2 style="margin:0;">easyVerein API-Schlüssel</h2>
-    <div style="font-size:0.9em;color:#666;">
-      {% if ev_key_expires_at %}
-        Gültig bis: <strong>{{ ev_key_expires_at }}</strong>
-        {% if ev_key_days_left is not none %}
-          {% if ev_key_days_left <= 0 %}
-            <span style="color:#dc3545;font-weight:600;"> (abgelaufen)</span>
-          {% elif ev_key_days_left <= 7 %}
-            <span style="color:#fd7e14;font-weight:600;"> (noch {{ ev_key_days_left }} Tage)</span>
-          {% else %}
-            <span style="color:#198754;"> (noch {{ ev_key_days_left }} Tage)</span>
-          {% endif %}
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
+  <span style="font-size:0.9em;color:#666;">
+    easyVerein API-Schlüssel:
+    {% if ev_key_expires_at %}
+      gültig bis <strong>{{ ev_key_expires_at }}</strong>
+      {% if ev_key_days_left is not none %}
+        {% if ev_key_days_left <= 0 %}
+          <span style="color:#dc3545;font-weight:600;">(abgelaufen)</span>
+        {% elif ev_key_days_left <= 7 %}
+          <span style="color:#fd7e14;font-weight:600;">(noch {{ ev_key_days_left }} Tage)</span>
+        {% else %}
+          <span style="color:#198754;">(noch {{ ev_key_days_left }} Tage)</span>
         {% endif %}
-      {% else %}
-        <span style="color:#6c757d;">Kein Ablaufdatum hinterlegt</span>
       {% endif %}
-      &nbsp;·&nbsp;
-      <a href="{{ ev_renew_url }}" target="_blank" style="color:#0d6efd;">Schlüssel bei easyVerein erneuern →</a>
-    </div>
-  </div>
+    {% else %}
+      <span style="color:#6c757d;">kein Ablaufdatum hinterlegt</span>
+    {% endif %}
+  </span>
+  <button onclick="toggleApiKeyForm()" class="btn btn-secondary" style="padding:4px 10px;font-size:0.85em;">🔑 Schlüssel aktualisieren</button>
+</div>
 
-  <div id="api-key-form" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+<div id="api-key-form" style="display:none;margin-bottom:1.5rem;padding:14px 16px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;">
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
     <div>
       <label style="display:block;font-size:0.85em;color:#555;margin-bottom:3px;">Neuer API-Schlüssel</label>
       <input type="password" id="ev-api-key-input" placeholder="Schlüssel einfügen..."
@@ -63,9 +62,10 @@
              value="{{ ev_key_expires_at or '' }}">
     </div>
     <button onclick="saveApiKey()" class="btn btn-primary" style="height:36px;">Speichern</button>
+    <a href="{{ ev_renew_url }}" target="_blank" class="btn btn-secondary" style="height:36px;line-height:22px;">Bei easyVerein erneuern →</a>
     <span id="api-key-msg" style="font-size:0.9em;align-self:center;"></span>
   </div>
-</section>
+</div>
 
 <section class="stats">
     <div class="stat-card">
@@ -162,6 +162,10 @@
 <script src="/static/js/device-pairing.js"></script>
 <script src="/static/js/mitglieder.js?v=9"></script>
 <script>
+function toggleApiKeyForm() {
+  const f = document.getElementById('api-key-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
 async function saveApiKey() {
   const key = document.getElementById('ev-api-key-input').value.trim();
   const exp = document.getElementById('ev-expires-input').value;
