@@ -302,7 +302,7 @@ async def get_physical_product():
 
 @router.get("/api/shopify/physical-product/orders")
 async def list_physical_product_orders(limit: int = 50):
-    """Fetch orders containing the physical gift card product, with notes."""
+    """Fetch orders containing the physical gift card product (summary for table)."""
     if not SHOPIFY_PHYSICAL_PRODUCT_ID:
         return {"configured": False, "orders": [], "has_next": False}
 
@@ -316,6 +316,7 @@ async def list_physical_product_orders(limit: int = 50):
             createdAt
             note
             displayFinancialStatus
+            displayFulfillmentStatus
             customer { firstName lastName email }
             lineItems(first: 20) {
               edges {
@@ -379,6 +380,7 @@ async def list_physical_product_orders(limit: int = 50):
                 "created_at": o.get("createdAt"),
                 "note": o.get("note") or "",
                 "financial_status": o.get("displayFinancialStatus", ""),
+                "fulfillment_status": o.get("displayFulfillmentStatus", ""),
                 "customer": {
                     "name": (
                         f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip()
@@ -398,6 +400,134 @@ async def list_physical_product_orders(limit: int = 50):
         "orders": orders,
         "has_next": page_info.get("hasNextPage", False),
         "total": len(orders),
+    }
+
+
+@router.get("/api/shopify/physical-product/orders/{order_id}")
+async def get_physical_product_order_detail(order_id: str):
+    """Fetch full order detail including events/chronik for a physical gift card order."""
+    gid = f"gid://shopify/Order/{order_id}"
+
+    query = """
+    query($id: ID!) {
+      order(id: $id) {
+        id
+        name
+        createdAt
+        updatedAt
+        processedAt
+        note
+        email
+        phone
+        displayFinancialStatus
+        displayFulfillmentStatus
+        totalPrice
+        customer {
+          id
+          firstName
+          lastName
+          email
+          phone
+        }
+        lineItems(first: 20) {
+          edges {
+            node {
+              id
+              title
+              variantTitle
+              quantity
+              originalUnitPrice
+            }
+          }
+        }
+        shippingAddress {
+          name
+          address1
+          address2
+          city
+          zip
+          country
+        }
+        events(first: 50, reverse: false) {
+          edges {
+            node {
+              id
+              createdAt
+              message
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        data = await _graphql_query(query, {"id": gid})
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=f"Shopify order fetch failed: {exc.detail}",
+        )
+
+    o = data.get("order")
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Find the physical gift card line item
+    gc_line = None
+    for li in (o.get("lineItems") or {}).get("edges") or []:
+        item = li["node"]
+        if (
+            "physischer" in item.get("title", "").lower()
+            and "geschenk" in item.get("title", "").lower()
+        ):
+            gc_line = item
+            break
+
+    customer = o.get("customer")
+    events = []
+    for ev in (o.get("events") or {}).get("edges") or []:
+        n = ev["node"]
+        events.append(
+            {
+                "id": n.get("id"),
+                "created_at": n.get("createdAt"),
+                "message": n.get("message") or "",
+            }
+        )
+
+    return {
+        "id": o["id"],
+        "name": o.get("name", ""),
+        "created_at": o.get("createdAt"),
+        "updated_at": o.get("updatedAt"),
+        "processed_at": o.get("processedAt"),
+        "note": o.get("note") or "",
+        "financial_status": o.get("displayFinancialStatus", ""),
+        "fulfillment_status": o.get("displayFulfillmentStatus", ""),
+        "total_price": o.get("totalPrice", "0.00"),
+        "email": o.get("email"),
+        "phone": o.get("phone"),
+        "customer": {
+            "name": (
+                f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip()
+                if customer
+                else ""
+            ),
+            "email": customer.get("email") if customer else None,
+            "phone": customer.get("phone") if customer else None,
+        },
+        "line_item": {
+            "title": gc_line.get("title", "") if gc_line else "",
+            "variant": gc_line.get("variantTitle", "") if gc_line else "",
+            "quantity": gc_line.get("quantity", 0) if gc_line else 0,
+            "unit_price": gc_line.get("originalUnitPrice", "0.00")
+            if gc_line
+            else "0.00",
+        },
+        "shipping_address": o.get("shippingAddress"),
+        "events": events,
+        "shopify_order_id": o["id"].split("/")[-1],
+        "shopify_url": f"https://{SHOPIFY_STORE}/admin/orders/{o['id'].split('/')[-1]}",
     }
 
 

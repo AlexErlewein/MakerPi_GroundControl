@@ -105,19 +105,6 @@
     .status-msg { font-size: 0.82rem; margin-top: 4px; }
     .status-msg.ok { color: #22c55e; }
     .status-msg.err { color: #f87171; }
-    .order-note-cell { max-width: 220px; position: relative; }
-    .order-note-display {
-        cursor: pointer; padding: 4px 6px; border-radius: 4px;
-        border: 1px solid transparent; font-size: 0.9rem;
-        min-height: 28px; white-space: pre-wrap; word-break: break-word;
-    }
-    .order-note-display:hover { border-color: var(--border-color); background: var(--bg-tertiary); }
-    .order-note-edit {
-        width: 100%; min-height: 60px; padding: 6px 8px; border-radius: 4px;
-        border: 1px solid var(--accent); background: var(--bg-tertiary);
-        color: var(--text-primary); font-size: 0.9rem; font-family: inherit;
-        resize: vertical; outline: none;
-    }
     .order-note-actions { display: flex; gap: 4px; margin-top: 4px; justify-content: flex-end; }
     .financial-badge {
         display: inline-block; padding: 2px 8px; border-radius: 10px;
@@ -126,6 +113,24 @@
     .financial-paid { background: rgba(34,197,94,0.15); color: #22c55e; }
     .financial-pending { background: rgba(250,204,21,0.15); color: #facc15; }
     .financial-refunded { background: rgba(156,163,175,0.15); color: var(--text-secondary); }
+    .fulfillment-fulfilled { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .fulfillment-unfulfilled { background: rgba(156,163,175,0.1); color: var(--text-secondary); }
+    .fulfillment-partial { background: rgba(250,204,21,0.15); color: #facc15; }
+    .timeline { margin: 8px 0 0 0; padding: 0; list-style: none; max-height: 400px; overflow-y: auto; }
+    .timeline li {
+        position: relative; padding: 0 0 12px 20px; font-size: 0.85rem; color: var(--text-primary);
+        border-left: 2px solid var(--border-color); margin-left: 6px;
+    }
+    .timeline li:last-child { border-left-color: transparent; padding-bottom: 0; }
+    .timeline li::before {
+        content: ''; position: absolute; left: -5px; top: 4px;
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--border-color); border: 2px solid var(--bg-secondary);
+    }
+    .timeline li:first-child::before { background: var(--accent); }
+    .timeline .tl-time { color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 2px; }
+    .timeline .tl-msg { line-height: 1.4; }
+    .timeline .tl-msg a { color: var(--accent); }
 </style>
 {% endblock %}
 
@@ -212,7 +217,7 @@
     {% endif %}
 </div>
 
-<!-- Detail Modal -->
+<!-- Detail Modal (Gift Cards) -->
 <div class="tx-modal-overlay" id="tx-modal">
     <div class="tx-modal">
         <button class="close-btn" id="tx-close">×</button>
@@ -220,8 +225,17 @@
         <div id="tx-modal-body"><p style="color:var(--text-secondary)">Lade...</p></div>
     </div>
 </div>
+
+<!-- Detail Modal (Physical Gift Card Orders) -->
+<div class="tx-modal-overlay" id="order-modal">
+    <div class="tx-modal" style="max-width:640px">
+        <button class="close-btn" id="order-close">×</button>
+        <h3 id="order-modal-title">Bestellung</h3>
+        <div id="order-modal-body"><p style="color:var(--text-secondary)">Lade...</p></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/shopify.js?v=3"></script>
+<script src="/static/js/shopify.js?v=4"></script>
 {% endblock %}

@@ -313,8 +313,19 @@ async function loadPhysicalOrders() {
                 'PAID': ['Bezahlt', 'financial-paid'],
                 'PENDING': ['Ausstehend', 'financial-pending'],
                 'REFUNDED': ['Erstattet', 'financial-refunded'],
+                'PARTIALLY_REFUNDED': ['Teil-Erstattet', 'financial-pending'],
             };
             const [label, cls] = map[status] || [status, 'financial-pending'];
+            return `<span class="financial-badge ${cls}">${label}</span>`;
+        };
+
+        const fulfillmentBadge = (status) => {
+            const map = {
+                'FULFILLED': ['Versandt', 'fulfillment-fulfilled'],
+                'UNFULFILLED': ['Offen', 'fulfillment-unfulfilled'],
+                'PARTIALLY_FULFILLED': ['Teilweise', 'fulfillment-partial'],
+            };
+            const [label, cls] = map[status] || [status, 'fulfillment-unfulfilled'];
             return `<span class="financial-badge ${cls}">${label}</span>`;
         };
 
@@ -323,27 +334,31 @@ async function loadPhysicalOrders() {
                 <th>Bestellung</th>
                 <th>Datum</th>
                 <th>Kunde</th>
-                <th>Varianten</th>
-                <th>Anzahl</th>
-                <th>Status</th>
+                <th>Variante</th>
+                <th>Stk</th>
+                <th>Bezahlung</th>
+                <th>Versand</th>
                 <th>Kommentar</th>
+                <th></th>
             </tr></thead>
             <tbody>`;
 
         for (const o of data.orders) {
             const customerDisplay = o.customer.name || '<span style="color:var(--text-secondary)">–</span>';
             const customerEmail = o.customer.email ? ` <a href="mailto:${o.customer.email}" style="color:var(--text-secondary);font-size:0.8rem" title="${o.customer.email}">✉</a>` : '';
-            const noteDisplay = o.note || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
+            const noteDisplay = o.note
+                ? `<span title="${o.note.replace(/"/g, '&quot;')}">${o.note.length > 30 ? o.note.substring(0, 30) + '…' : o.note}</span>`
+                : '<span style="color:var(--text-secondary)">–</span>';
             html += `<tr id="order-row-${o.shopify_order_id}">
-                <td><a href="https://${location.host}/admin/orders/${o.shopify_order_id}" target="_blank" style="color:var(--accent);text-decoration:none">${o.name}</a></td>
+                <td style="font-weight:600">${o.name}</td>
                 <td>${fmtDate(o.created_at)}</td>
                 <td>${customerDisplay}${customerEmail}</td>
                 <td>${o.variant || '–'}</td>
                 <td>${o.quantity}</td>
                 <td>${financialBadge(o.financial_status)}</td>
-                <td class="order-note-cell">
-                    <div class="order-note-display" onclick="startEditNote('${o.shopify_order_id}', '${(o.note || '').replace(/'/g, "\\'")}')">${noteDisplay}</div>
-                </td>
+                <td>${fulfillmentBadge(o.fulfillment_status)}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${noteDisplay}</td>
+                <td><button class="btn btn-secondary" style="padding:3px 10px;font-size:0.8rem" onclick="openOrderDetailModal('${o.shopify_order_id}', '${o.name}')">Details</button></td>
             </tr>`;
         }
 
@@ -358,62 +373,159 @@ async function loadPhysicalOrders() {
     }
 }
 
-function startEditNote(orderId, currentNote) {
-    const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
-    if (!cell) return;
-    // Prevent double-edit
-    if (cell.querySelector('.order-note-edit')) return;
+// ── Physical Order Detail Modal ──────────────────────────────────────────
 
-    cell.innerHTML = `
-        <textarea class="order-note-edit" id="note-edit-${orderId}">${currentNote}</textarea>
-        <div class="order-note-actions">
-            <button class="btn-sm" onclick="cancelEditNote('${orderId}', '${currentNote.replace(/'/g, "\\'")}')">Abbrechen</button>
-            <button class="btn-sm primary" onclick="saveOrderNote('${orderId}')">Speichern</button>
+
+async function openOrderDetailModal(orderId, orderName) {
+    const overlay = document.getElementById('order-modal');
+    const title = document.getElementById('order-modal-title');
+    const body = document.getElementById('order-modal-body');
+
+    title.textContent = `Bestellung – ${orderName}`;
+    body.innerHTML = '<p style="color:var(--text-secondary)">Lade...</p>';
+    overlay.classList.add('open');
+
+    try {
+        const res = await fetch(`/api/shopify/physical-product/orders/${orderId}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            body.innerHTML = `<p style="color:var(--danger)">Fehler: ${err.detail}</p>`;
+            return;
+        }
+        const o = await res.json();
+        body.innerHTML = buildOrderDetailHTML(o);
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger)">Netzwerkfehler: ${e.message}</p>`;
+    }
+}
+
+function buildOrderDetailHTML(o) {
+    let html = '';
+
+    // Status badges
+    const financialBadge = (status) => {
+        const map = {
+            'PAID': ['Bezahlt', 'financial-paid'],
+            'PENDING': ['Ausstehend', 'financial-pending'],
+            'REFUNDED': ['Erstattet', 'financial-refunded'],
+        };
+        const [label, cls] = map[status] || [status, 'financial-pending'];
+        return `<span class="financial-badge ${cls}">${label}</span>`;
+    };
+    const fulfillmentBadge = (status) => {
+        const map = {
+            'FULFILLED': ['Versandt/Abgeholt', 'fulfillment-fulfilled'],
+            'UNFULFILLED': ['Offen', 'fulfillment-unfulfilled'],
+            'PARTIALLY_FULFILLED': ['Teilweise', 'fulfillment-partial'],
+        };
+        const [label, cls] = map[status] || [status, 'fulfillment-unfulfilled'];
+        return `<span class="financial-badge ${cls}">${label}</span>`;
+    };
+
+    // Order info
+    html += `<div class="detail-section">
+        <div class="detail-row"><span class="label">Bestellung</span><span class="value" style="font-weight:700">${o.name}</span></div>
+        <div class="detail-row"><span class="label">Erstellt</span><span class="value">${fmtDate(o.created_at)}</span></div>
+        <div class="detail-row"><span class="label">Gesamt</span><span class="value">${fmt(parseFloat(o.total_price) || 0)}</span></div>
+        <div class="detail-row"><span class="label">Bezahlung</span><span class="value">${financialBadge(o.financial_status)}</span></div>
+        <div class="detail-row"><span class="label">Status</span><span class="value">${fulfillmentBadge(o.fulfillment_status)}</span></div>
+        <div class="detail-row"><span class="label">Shopify</span><span class="value"><a href="${o.shopify_url}" target="_blank" style="color:var(--accent)">Im Admin öffnen →</a></span></div>
+    </div>`;
+
+    // Customer info
+    html += `<div class="detail-section">
+        <h4>Kunde</h4>
+        <div class="detail-row"><span class="label">Name</span><span class="value">${o.customer.name || '–'}</span></div>
+        ${o.customer.email ? `<div class="detail-row"><span class="label">E-Mail</span><span class="value"><a href="mailto:${o.customer.email}" style="color:var(--accent)">${o.customer.email}</a></span></div>` : ''}
+        ${o.customer.phone ? `<div class="detail-row"><span class="label">Telefon</span><span class="value">${o.customer.phone}</span></div>` : ''}
+    </div>`;
+
+    // Line item
+    if (o.line_item) {
+        html += `<div class="detail-section">
+            <h4>Artikel</h4>
+            <div class="detail-row"><span class="label">Produkt</span><span class="value">${o.line_item.title}</span></div>
+            ${o.line_item.variant ? `<div class="detail-row"><span class="label">Variante</span><span class="value">${o.line_item.variant}</span></div>` : ''}
+            <div class="detail-row"><span class="label">Anzahl</span><span class="value">${o.line_item.quantity}</span></div>
+            <div class="detail-row"><span class="label">Einzelpreis</span><span class="value">${fmt(parseFloat(o.line_item.unit_price) || 0)}</span></div>
+        </div>`;
+    }
+
+    // Shipping address
+    if (o.shipping_address) {
+        const sa = o.shipping_address;
+        html += `<div class="detail-section">
+            <h4>Lieferadresse</h4>
+            <div class="detail-row"><span class="label">Name</span><span class="value">${sa.name || '–'}</span></div>
+            <div class="detail-row"><span class="label">Adresse</span><span class="value">${[sa.address1, sa.address2, sa.city, sa.zip, sa.country].filter(Boolean).join(', ') || '–'}</span></div>
+        </div>`;
+    }
+
+    // Note section (editable)
+    html += `<div class="detail-section">
+        <h4>Kommentar</h4>
+        <textarea class="note-textarea" id="order-detail-note" placeholder="Kommentar hinzufügen…">${o.note || ''}</textarea>
+        <div class="detail-actions">
+            <button class="btn-sm primary" id="save-order-note-btn" onclick="saveOrderNoteFromModal('${o.shopify_order_id}')">Speichern</button>
+            <span class="status-msg" id="order-note-status"></span>
         </div>
-        <span class="status-msg" id="note-save-status-${orderId}"></span>
-    `;
-    const textarea = document.getElementById(`note-edit-${orderId}`);
-    textarea.focus();
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    </div>`;
+
+    // Chronik / Events timeline
+    html += '<hr class="detail-divider"><div class="detail-section"><h4>Chronik</h4>';
+    if (o.events && o.events.length) {
+        html += '<ul class="timeline">';
+        for (const ev of o.events) {
+            const date = ev.created_at
+                ? new Date(ev.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '';
+            html += `<li>
+                <div class="tl-time">${date}</div>
+                <div class="tl-msg">${ev.message || ''}</div>
+            </li>`;
+        }
+        html += '</ul>';
+    } else {
+        html += '<p style="color:var(--text-secondary);font-size:0.9rem">Keine Einträge.</p>';
+    }
+    html += '</div>';
+
+    return html;
 }
 
-function cancelEditNote(orderId, originalNote) {
-    const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
-    if (!cell) return;
-    const display = originalNote || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
-    cell.innerHTML = `<div class="order-note-display" onclick="startEditNote('${orderId}', '${originalNote.replace(/'/g, "\\'")}')">${display}</div>`;
-}
+async function saveOrderNoteFromModal(orderId) {
+    const noteEl = document.getElementById('order-detail-note');
+    const statusEl = document.getElementById('order-note-status');
+    const btn = document.getElementById('save-order-note-btn');
 
-async function saveOrderNote(orderId) {
-    const textarea = document.getElementById(`note-edit-${orderId}`);
-    const statusEl = document.getElementById(`note-save-status-${orderId}`);
-    if (!textarea || !statusEl) return;
-
-    const newNote = textarea.value;
-    statusEl.textContent = 'Speichert…';
+    btn.disabled = true;
+    statusEl.textContent = '';
     statusEl.className = 'status-msg';
 
     try {
         const res = await fetch(`/api/shopify/physical-product/orders/${orderId}/note`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note: newNote }),
+            body: JSON.stringify({ note: noteEl.value }),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ detail: res.statusText }));
             throw new Error(err.detail);
         }
-        // Replace cell with updated display
-        const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
-        if (cell) {
-            const display = newNote || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
-            const escaped = newNote.replace(/'/g, "\\'");
-            cell.innerHTML = `<div class="order-note-display" onclick="startEditNote('${orderId}', '${escaped}')">${display}</div>`;
-        }
+        statusEl.textContent = 'Gespeichert ✓';
+        statusEl.className = 'status-msg ok';
+        // Refresh table silently
+        loadPhysicalOrders();
     } catch (e) {
         statusEl.textContent = e.message;
         statusEl.className = 'status-msg err';
+    } finally {
+        btn.disabled = false;
     }
+}
+
+function closeOrderModal() {
+    document.getElementById('order-modal').classList.remove('open');
 }
 
 function closeTxModal() {
@@ -426,6 +538,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const txClose = document.getElementById('tx-close');
     const txOverlay = document.getElementById('tx-modal');
     const refreshOrdersBtn = document.getElementById('refresh-orders-btn');
+    const orderClose = document.getElementById('order-close');
+    const orderOverlay = document.getElementById('order-modal');
 
     if (!filterSelect) return; // page not configured
 
@@ -440,6 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refreshOrdersBtn) refreshOrdersBtn.addEventListener('click', loadPhysicalOrders);
     txClose.addEventListener('click', closeTxModal);
     txOverlay.addEventListener('click', (e) => { if (e.target === txOverlay) closeTxModal(); });
+    if (orderClose) orderClose.addEventListener('click', closeOrderModal);
+    if (orderOverlay) orderOverlay.addEventListener('click', (e) => { if (e.target === orderOverlay) closeOrderModal(); });
 
     refresh();
 });
