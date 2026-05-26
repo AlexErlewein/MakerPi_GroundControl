@@ -45,7 +45,8 @@ def _migrate(conn):
 
 
 def init_db():
-    """Create tables"""
+    from backend.db_utils import check_and_recover_engine
+    check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
         _migrate(conn.connection.driver_connection)

@@ -25,7 +25,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     from .models import Base
-
+    from backend.db_utils import check_and_recover_engine
+    check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
 
 

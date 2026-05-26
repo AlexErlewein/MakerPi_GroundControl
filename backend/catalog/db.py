@@ -30,6 +30,8 @@ def get_db():
 
 
 def init_db():
+    from backend.db_utils import check_and_recover_engine
+    check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
         try:

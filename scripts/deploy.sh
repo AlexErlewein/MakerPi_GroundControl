@@ -97,10 +97,23 @@ if [ "$UPDATE_DEPS" = "1" ]; then
     "
 fi
 
-# ── 6. Restart service ───────────────────────────────────────────────────
-echo "🔄 Restarting GroundControl service..."
+# ── 6. Stop service, checkpoint WAL files, then start ────────────────────
+echo "⏹️  Stopping GroundControl service..."
+ssh "$PI_USER@$PI_HOST" "sudo systemctl stop groundcontrol"
+
+echo "💾 Checkpointing WAL files..."
+ssh "$PI_USER@$PI_HOST" "
+    cd $PROJECT_DIR
+    for db in auth.db core.db members.db laufzettel.db catalog.db buchhaltung.db push.db; do
+        if [ -f \"\$db\" ]; then
+            sqlite3 \"\$db\" 'PRAGMA wal_checkpoint(TRUNCATE);' 2>/dev/null && echo \"  ✓ \$db\" || echo \"  ⚠ \$db (checkpoint failed)\"
+        fi
+    done
+"
+
+echo "▶️  Starting GroundControl service..."
 ssh -t "$PI_USER@$PI_HOST" "
-    sudo systemctl restart groundcontrol && sleep 2 && \
+    sudo systemctl start groundcontrol && sleep 2 && \
     sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'
 "
 
