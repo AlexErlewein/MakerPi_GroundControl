@@ -5,6 +5,18 @@
 {% block title %}MakerPi GroundControl{% endblock %}
 
 {% block content %}
+<style>
+.db-tile {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 6px;
+    background: var(--card-bg, #2a2a2a); cursor: pointer;
+    font-size: 0.85rem; transition: opacity 0.15s;
+    border: 1px solid var(--border-color, #444);
+}
+.db-tile:hover { opacity: 0.75; }
+.db-tile.db-checking { opacity: 0.45; pointer-events: none; }
+.db-tile-size { color: var(--text-secondary, #aaa); font-size: 0.75rem; }
+</style>
 <section class="stats">
     <div class="stat-card">
         <h3><a href="/laufzettel" class="stat-link">Offene Laufzettel</a></h3>
@@ -26,25 +38,56 @@
 <section class="section" style="text-align:center; padding: 60px 20px;">
     <h1 style="font-size:2rem; margin-bottom:12px;">MakerPi GroundControl</h1>
     <p style="color:var(--text-secondary); font-size:1.1rem; margin-bottom:24px;">Admin Dashboard</p>
-    <div class="status" id="status" style="justify-content:center;">
-        <span class="status-dot" id="status-dot"></span>
-        <span id="status-text">Connecting...</span>
-    </div>
-    <div class="system-status-grid" style="max-width: 600px; margin: 24px auto 0;">
+    <div class="system-status-grid" style="max-width: 600px; margin: 0 auto;">
         <div class="status-item">
             <a href="{{ request.url.scheme }}://{{ request.url.hostname }}:8001" class="status-link" target="_blank">Docs:</a>
             <span class="status-indicator" id="status-docs">-</span>
             <span class="status-message" id="status-docs-msg"></span>
         </div>
-<div class="status-item">
-            <a href="/database" class="status-link">Databases:</a>
-            <span class="status-indicator" id="status-databases">-</span>
-            <span class="status-message" id="status-databases-msg"></span>
-        </div>
         <div class="status-item">
             <span class="status-link" id="gdrive-link">GDrive:</span>
             <span class="status-indicator" id="status-gdrive">-</span>
             <span class="status-message" id="status-gdrive-msg"></span>
+        </div>
+    </div>
+    <div style="max-width:600px; margin:20px auto 0; text-align:left;">
+        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:8px;">Datenbanken</div>
+        <div id="db-health-tiles" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <div class="db-tile" id="db-tile-auth" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-auth"></span>
+                <span>auth</span>
+                <span class="db-tile-size" id="db-size-auth"></span>
+            </div>
+            <div class="db-tile" id="db-tile-core" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-core"></span>
+                <span>core</span>
+                <span class="db-tile-size" id="db-size-core"></span>
+            </div>
+            <div class="db-tile" id="db-tile-members" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-members"></span>
+                <span>members</span>
+                <span class="db-tile-size" id="db-size-members"></span>
+            </div>
+            <div class="db-tile" id="db-tile-laufzettel" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-laufzettel"></span>
+                <span>laufzettel</span>
+                <span class="db-tile-size" id="db-size-laufzettel"></span>
+            </div>
+            <div class="db-tile" id="db-tile-catalog" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-catalog"></span>
+                <span>catalog</span>
+                <span class="db-tile-size" id="db-size-catalog"></span>
+            </div>
+            <div class="db-tile" id="db-tile-buchhaltung" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-buchhaltung"></span>
+                <span>buchhaltung</span>
+                <span class="db-tile-size" id="db-size-buchhaltung"></span>
+            </div>
+            <div class="db-tile" id="db-tile-push" onclick="checkDbHealth()">
+                <span class="status-indicator" id="db-status-push"></span>
+                <span>push</span>
+                <span class="db-tile-size" id="db-size-push"></span>
+            </div>
         </div>
     </div>
 </section>

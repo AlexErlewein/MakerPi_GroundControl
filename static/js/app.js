@@ -4,9 +4,8 @@ const API_BASE = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboardStats();
-    loadStatus();
+    checkDbHealth();
     setInterval(loadDashboardStats, 10000);
-    setInterval(loadStatus, 5000);
 });
 
 async function loadDashboardStats() {
@@ -28,7 +27,6 @@ async function loadDashboardStats() {
         // Update system status indicators
         if (data.system_status) {
             updateStatusIndicator('docs', data.system_status.docs);
-updateStatusIndicator('databases', data.system_status.databases);
             updateStatusIndicator('gdrive', data.system_status.gdrive);
 
             // Make GDrive link clickable when connected
@@ -76,22 +74,28 @@ function updateStatusIndicator(name, statusData) {
     }
 }
 
-async function loadStatus() {
-    const statusDot = document.getElementById('status-dot');
-    const statusText = document.getElementById('status-text');
-    if (!statusDot || !statusText) return;
+async function checkDbHealth() {
+    const tiles = document.querySelectorAll('.db-tile');
+    tiles.forEach(t => t.classList.add('db-checking'));
     try {
-        const response = await fetch(`${API_BASE}/api/status`);
+        const response = await fetch(`${API_BASE}/api/dashboard/db-health`);
+        if (!response.ok) return;
         const data = await response.json();
-        if (data.mqtt_connected) {
-            statusDot.className = 'status-dot online';
-            statusText.textContent = 'MQTT Connected';
-        } else {
-            statusDot.className = 'status-dot offline';
-            statusText.textContent = 'MQTT Disconnected';
+        for (const db of data.databases) {
+            const indicator = document.getElementById(`db-status-${db.name}`);
+            const sizeEl = document.getElementById(`db-size-${db.name}`);
+            if (indicator) {
+                indicator.className = 'status-indicator';
+                if (db.status === 'ok') indicator.classList.add('status-ok');
+                else if (db.status === 'missing') indicator.classList.add('status-warning');
+                else indicator.classList.add('status-error');
+                indicator.title = db.message || '';
+            }
+            if (sizeEl) sizeEl.textContent = db.size || '';
         }
     } catch (error) {
-        statusDot.className = 'status-dot offline';
-        statusText.textContent = 'Connection Error';
+        console.error('DB health check failed:', error);
+    } finally {
+        tiles.forEach(t => t.classList.remove('db-checking'));
     }
 }

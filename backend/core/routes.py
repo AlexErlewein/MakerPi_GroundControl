@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import subprocess
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta, timezone
@@ -369,6 +368,57 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         "members_today": members_today,
         "system_status": system_status,
     }
+
+
+@router.get("/api/dashboard/db-health")
+async def get_db_health():
+    """Run quick_check on all SQLite databases and return per-DB health status."""
+    import sqlite3
+    from pathlib import Path
+
+    dbs = [
+        ("auth", "auth.db"),
+        ("core", "core.db"),
+        ("members", "members.db"),
+        ("laufzettel", "laufzettel.db"),
+        ("catalog", "catalog.db"),
+        ("buchhaltung", "buchhaltung.db"),
+        ("push", "push.db"),
+    ]
+
+    def _human(b: int) -> str:
+        if b < 1024:
+            return f"{b} B"
+        if b < 1024**2:
+            return f"{b / 1024:.1f} KB"
+        return f"{b / 1024**2:.1f} MB"
+
+    results = []
+    for name, filename in dbs:
+        path = Path(filename)
+        if not path.exists():
+            results.append({"name": name, "status": "missing", "message": "not found", "size": "-"})
+            continue
+        try:
+            size = _human(path.stat().st_size)
+        except OSError:
+            size = "?"
+        try:
+            con = sqlite3.connect(str(path), timeout=5)
+            try:
+                rows = con.execute("PRAGMA quick_check").fetchmany(3)
+                ok = bool(rows and rows[0][0] == "ok")
+            finally:
+                con.close()
+            if ok:
+                results.append({"name": name, "status": "ok", "message": size, "size": size})
+            else:
+                issues = "; ".join(r[0] for r in rows)
+                results.append({"name": name, "status": "error", "message": issues, "size": size})
+        except Exception as e:
+            results.append({"name": name, "status": "error", "message": str(e)[:80], "size": size})
+
+    return {"databases": results}
 
 
 @router.get("/api/devices")
