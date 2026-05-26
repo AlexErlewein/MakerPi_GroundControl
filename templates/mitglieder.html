@@ -28,42 +28,42 @@
 {% endif %}
 
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
-  <span style="font-size:0.9em;color:#666;">
+  <span style="font-size:0.9em;color:var(--text-secondary);">
     easyVerein API-Schlüssel:
     {% if ev_key_expires_at %}
       gültig bis <strong>{{ ev_key_expires_at }}</strong>
       {% if ev_key_days_left is not none %}
         {% if ev_key_days_left <= 0 %}
-          <span style="color:#dc3545;font-weight:600;">(abgelaufen)</span>
+          <span style="color:var(--danger,#dc3545);font-weight:600;">(abgelaufen)</span>
         {% elif ev_key_days_left <= 7 %}
-          <span style="color:#fd7e14;font-weight:600;">(noch {{ ev_key_days_left }} Tage)</span>
+          <span style="color:var(--warning,#fd7e14);font-weight:600;">(noch {{ ev_key_days_left }} Tage)</span>
         {% else %}
-          <span style="color:#198754;">(noch {{ ev_key_days_left }} Tage)</span>
+          <span style="color:var(--success,#198754);">(noch {{ ev_key_days_left }} Tage)</span>
         {% endif %}
       {% endif %}
     {% else %}
-      <span style="color:#6c757d;">kein Ablaufdatum hinterlegt</span>
+      <span style="color:var(--text-secondary);">kein Ablaufdatum hinterlegt</span>
     {% endif %}
   </span>
   <button onclick="toggleApiKeyForm()" class="btn btn-secondary" style="padding:4px 10px;font-size:0.85em;">🔑 Schlüssel aktualisieren</button>
 </div>
 
-<div id="api-key-form" style="display:none;margin-bottom:1.5rem;padding:14px 16px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;">
+<div id="api-key-form" style="display:none;margin-bottom:1.5rem;padding:14px 16px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;">
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
     <div>
-      <label style="display:block;font-size:0.85em;color:#555;margin-bottom:3px;">Neuer API-Schlüssel</label>
+      <label style="display:block;font-size:0.85em;color:var(--text-secondary);margin-bottom:3px;">Neuer API-Schlüssel</label>
       <input type="password" id="ev-api-key-input" placeholder="Schlüssel einfügen..."
-             style="width:320px;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.95em;">
+             style="width:320px;padding:7px 10px;border:1px solid var(--border-color);border-radius:4px;font-size:0.95em;background:var(--bg-secondary);color:var(--text-primary);">
     </div>
     <div>
-      <label style="display:block;font-size:0.85em;color:#555;margin-bottom:3px;">Gültig bis</label>
+      <label style="display:block;font-size:0.85em;color:var(--text-secondary);margin-bottom:3px;">Gültig bis</label>
       <input type="date" id="ev-expires-input"
-             style="padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.95em;"
+             style="padding:7px 10px;border:1px solid var(--border-color);border-radius:4px;font-size:0.95em;background:var(--bg-secondary);color:var(--text-primary);"
              value="{{ ev_key_expires_at or '' }}">
     </div>
     <button onclick="saveApiKey()" class="btn btn-primary" style="height:36px;">Speichern</button>
     <a href="{{ ev_renew_url }}" target="_blank" class="btn btn-secondary" style="height:36px;line-height:22px;">Bei easyVerein erneuern →</a>
-    <span id="api-key-msg" style="font-size:0.9em;align-self:center;"></span>
+    <span id="api-key-msg" style="font-size:0.9em;align-self:center;color:var(--text-primary);"></span>
   </div>
 </div>
 
