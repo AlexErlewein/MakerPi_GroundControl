@@ -11,6 +11,62 @@
 {% endblock %}
 
 {% block content %}
+{% if ev_key_days_left is not none and ev_key_days_left <= 7 %}
+<div class="alert {% if ev_key_days_left <= 0 %}alert-danger{% else %}alert-warning{% endif %}" style="margin-bottom:1rem;padding:12px 16px;border-radius:6px;display:flex;align-items:center;gap:12px;{% if ev_key_days_left <= 0 %}background:#f8d7da;border:1px solid #f5c2c7;color:#842029{% else %}background:#fff3cd;border:1px solid #ffecb5;color:#664d03{% endif %}">
+  <span style="font-size:1.3em;">⚠️</span>
+  <span>
+    {% if ev_key_days_left <= 0 %}
+      easyVerein API-Schlüssel ist abgelaufen — Mitgliedersync funktioniert nicht mehr.
+    {% elif ev_key_days_left == 1 %}
+      easyVerein API-Schlüssel läuft morgen ab.
+    {% else %}
+      easyVerein API-Schlüssel läuft in {{ ev_key_days_left }} Tagen ab.
+    {% endif %}
+    <a href="{{ ev_renew_url }}" target="_blank" style="margin-left:8px;font-weight:600;">Jetzt erneuern →</a>
+  </span>
+</div>
+{% endif %}
+
+<section class="section" style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <h2 style="margin:0;">easyVerein API-Schlüssel</h2>
+    <div style="font-size:0.9em;color:#666;">
+      {% if ev_key_expires_at %}
+        Gültig bis: <strong>{{ ev_key_expires_at }}</strong>
+        {% if ev_key_days_left is not none %}
+          {% if ev_key_days_left <= 0 %}
+            <span style="color:#dc3545;font-weight:600;"> (abgelaufen)</span>
+          {% elif ev_key_days_left <= 7 %}
+            <span style="color:#fd7e14;font-weight:600;"> (noch {{ ev_key_days_left }} Tage)</span>
+          {% else %}
+            <span style="color:#198754;"> (noch {{ ev_key_days_left }} Tage)</span>
+          {% endif %}
+        {% endif %}
+      {% else %}
+        <span style="color:#6c757d;">Kein Ablaufdatum hinterlegt</span>
+      {% endif %}
+      &nbsp;·&nbsp;
+      <a href="{{ ev_renew_url }}" target="_blank" style="color:#0d6efd;">Schlüssel bei easyVerein erneuern →</a>
+    </div>
+  </div>
+
+  <div id="api-key-form" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+    <div>
+      <label style="display:block;font-size:0.85em;color:#555;margin-bottom:3px;">Neuer API-Schlüssel</label>
+      <input type="password" id="ev-api-key-input" placeholder="Schlüssel einfügen..."
+             style="width:320px;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.95em;">
+    </div>
+    <div>
+      <label style="display:block;font-size:0.85em;color:#555;margin-bottom:3px;">Gültig bis</label>
+      <input type="date" id="ev-expires-input"
+             style="padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.95em;"
+             value="{{ ev_key_expires_at or '' }}">
+    </div>
+    <button onclick="saveApiKey()" class="btn btn-primary" style="height:36px;">Speichern</button>
+    <span id="api-key-msg" style="font-size:0.9em;align-self:center;"></span>
+  </div>
+</section>
+
 <section class="stats">
     <div class="stat-card">
         <h3>Gesamt</h3>
@@ -105,4 +161,28 @@
 {% block extra_js %}
 <script src="/static/js/device-pairing.js"></script>
 <script src="/static/js/mitglieder.js?v=9"></script>
+<script>
+async function saveApiKey() {
+  const key = document.getElementById('ev-api-key-input').value.trim();
+  const exp = document.getElementById('ev-expires-input').value;
+  const msg = document.getElementById('api-key-msg');
+  if (!key) { msg.textContent = 'Bitte Schlüssel eingeben.'; msg.style.color='#dc3545'; return; }
+  if (!exp) { msg.textContent = 'Bitte Ablaufdatum auswählen.'; msg.style.color='#dc3545'; return; }
+  msg.textContent = 'Speichere…'; msg.style.color='#555';
+  try {
+    const r = await fetch('/api/mitglieder/update-api-key', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({api_key: key, expires_at: exp})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      msg.textContent = '✓ Gespeichert — Seite wird neu geladen…'; msg.style.color='#198754';
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      msg.textContent = d.detail || 'Fehler beim Speichern.'; msg.style.color='#dc3545';
+    }
+  } catch(e) { msg.textContent = 'Netzwerkfehler.'; msg.style.color='#dc3545'; }
+}
+</script>
 {% endblock %}

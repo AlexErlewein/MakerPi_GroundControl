@@ -92,6 +92,11 @@ class TagUpdate(BaseModel):
     active: bool = None
 
 
+class ApiKeyUpdate(BaseModel):
+    api_key: str
+    expires_at: str  # YYYY-MM-DD
+
+
 @router.on_event("startup")
 async def startup():
     init_db()
@@ -109,12 +114,24 @@ async def mitglieder_page(request: Request):
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
+    from datetime import date
+    import backend.config as _config
+    expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
+    days_left = None
+    if expires_str:
+        try:
+            days_left = (date.fromisoformat(expires_str) - date.today()).days
+        except ValueError:
+            pass
     return templates.TemplateResponse(
         "mitglieder.html",
         {
             "request": request,
             "nav_active": "mitglieder",
             "current_user": request.session.get("user"),
+            "ev_key_expires_at": expires_str,
+            "ev_key_days_left": days_left,
+            "ev_renew_url": f"https://easyverein.com/app/{_config.EASYVEREIN_ORG_ID}/setting/api-key" if _config.EASYVEREIN_ORG_ID else "https://easyverein.com",
         },
     )
 
@@ -410,6 +427,57 @@ async def trigger_easyverein_sync(request: Request):
         raise HTTPException(status_code=403, detail="Admin verification required")
     result = await sync_members_from_easyverein()
     return result
+
+
+@router.get("/api/mitglieder/key-status")
+async def get_key_status(request: Request):
+    """Return current easyVerein API key expiry info."""
+    from datetime import date as _date
+    import backend.config as _config
+    from backend.auth.dependencies import check_auth
+    if not check_auth(request):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
+    days_left = None
+    if expires_str:
+        try:
+            days_left = (_date.fromisoformat(expires_str) - _date.today()).days
+        except ValueError:
+            pass
+    return {
+        "expires_at": expires_str,
+        "days_left": days_left,
+        "renew_url": f"https://easyverein.com/app/{_config.EASYVEREIN_ORG_ID}/setting/api-key"
+        if _config.EASYVEREIN_ORG_ID
+        else "https://easyverein.com",
+    }
+
+
+@router.post("/api/mitglieder/update-api-key")
+async def update_api_key(body: ApiKeyUpdate, request: Request):
+    """Update the easyVerein API key and expiry date in config and in-memory."""
+    import backend.config as _config
+    import backend.members.easyverein as _ev
+    from backend.auth.dependencies import is_admin_verified
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin-Verifizierung erforderlich")
+    if not body.api_key.strip():
+        raise HTTPException(status_code=400, detail="API-Schlüssel darf nicht leer sein")
+    # Validate date format
+    try:
+        from datetime import date as _date
+        _date.fromisoformat(body.expires_at)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ungültiges Datum (erwartet YYYY-MM-DD)")
+    # Persist to config.json and update module-level vars
+    _config.update_config({
+        "easyverein_api_key": body.api_key.strip(),
+        "easyverein_key_expires_at": body.expires_at,
+    })
+    # Also update the easyverein module's own binding (it imported the constant directly)
+    _ev.EASYVEREIN_API_KEY = body.api_key.strip()
+    return {"ok": True, "expires_at": body.expires_at}
 
 
 @router.get("/api/mitglieder/{mitglied_id}")

@@ -563,3 +563,38 @@ async def sync_members_from_easyverein() -> dict:
         }
         _last_sync_result = result
         return result
+
+
+async def check_easyverein_key_expiry() -> None:
+    """Send a warning email if the easyVerein API key expires within 7 days."""
+    import backend.config as _config
+    from backend.email_utils import send_email
+    from backend.email_templates import easyverein_key_expiry_html
+
+    expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
+    if not expires_str:
+        return
+
+    try:
+        expires = date.fromisoformat(expires_str)
+    except ValueError:
+        logger.warning("Invalid easyverein_key_expires_at value: %s", expires_str)
+        return
+
+    days_left = (expires - date.today()).days
+    if days_left > 7:
+        return
+
+    recipient = _config.SMTP_FROM_EMAIL
+    if not recipient:
+        logger.warning("No SMTP_FROM_EMAIL set, skipping key expiry warning email")
+        return
+
+    if days_left <= 0:
+        subject = "easyVerein API-Schlüssel ist abgelaufen — Mitgliedersync gestoppt"
+    else:
+        subject = f"easyVerein API-Schlüssel läuft in {days_left} Tagen ab"
+
+    html = easyverein_key_expiry_html(days_left, _config.EASYVEREIN_ORG_ID)
+    await send_email(to=recipient, subject=subject, html_body=html)
+    logger.info("easyVerein key expiry warning sent (%d days left)", days_left)

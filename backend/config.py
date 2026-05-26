@@ -58,6 +58,7 @@ EASYVEREIN_API_KEY: str = _cfg.get(
 EASYVEREIN_ORG_ID: str = _cfg.get(
     "easyverein_org_id", os.environ.get("EASYVEREIN_ORG_ID", "")
 )
+EASYVEREIN_KEY_EXPIRES_AT: str = _cfg.get("easyverein_key_expires_at", "")
 EASYVEREIN_REGISTRATION_MOCK: bool = _cfg.get(
     "easyverein_registration_mock",
     os.environ.get("EASYVEREIN_REGISTRATION_MOCK", "false").lower() == "true",
@@ -193,8 +194,6 @@ PLANE_PROJECT_ID: str = _cfg.get(
     "plane_project_id", os.environ.get("PLANE_PROJECT_ID", "")
 )
 
-import os
-
 PROJECT_ROOT = Path(__file__).parent.parent
 
 AUTH_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/auth.db"
@@ -203,3 +202,21 @@ LAUFZETTEL_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/laufzettel.db"
 CATALOG_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/catalog.db"
 CORE_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/core.db"
 BUCHHALTUNG_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/buchhaltung.db"
+
+
+def update_config(updates: dict) -> None:
+    """Write updates to config/config.json and refresh module-level variables."""
+    import sys as _sys
+    cfg: dict = {}
+    if _cfg_path.exists():
+        try:
+            cfg = json.loads(_cfg_path.read_text())
+        except Exception:
+            pass
+    cfg.update(updates)
+    _cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+    mod = _sys.modules[__name__]
+    for key, val in updates.items():
+        var_name = key.upper()
+        if hasattr(mod, var_name):
+            setattr(mod, var_name, val)

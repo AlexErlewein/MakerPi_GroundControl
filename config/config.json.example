@@ -26,6 +26,7 @@
 
     "easyverein_api_key": "",
     "easyverein_org_id": "",
+    "easyverein_key_expires_at": "",
     "easyverein_registration_mock": false,
     "easyverein_signup_url": "",
     "membership_groups": [

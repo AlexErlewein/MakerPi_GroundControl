@@ -164,6 +164,39 @@ def laufzettel_receipt_html(
 </html>"""
 
 
+def easyverein_key_expiry_html(days_left: int, org_id: str = "") -> str:
+    renew_url = (
+        f"https://easyverein.com/app/{org_id}/setting/api-key"
+        if org_id
+        else "https://easyverein.com"
+    )
+    if days_left <= 0:
+        status_text = "ist heute abgelaufen"
+        color = "#dc3545"
+    elif days_left == 1:
+        status_text = "läuft morgen ab"
+        color = "#dc3545"
+    elif days_left <= 3:
+        status_text = f"läuft in {days_left} Tagen ab"
+        color = "#dc3545"
+    else:
+        status_text = f"läuft in {days_left} Tagen ab"
+        color = "#fd7e14"
+
+    return f"""<!DOCTYPE html>
+<html><head><style>{_BASE_STYLE}</style></head>
+<body>
+{_H3CKE_LOGO}
+<h1>easyVerein API-Schlüssel {status_text}</h1>
+<p>Der easyVerein API-Schlüssel für GroundControl <strong style="color:{color}">{status_text}</strong>.</p>
+<p>Bitte erneuere den API-Schlüssel, um die Mitgliedersynchronisation aufrechtzuerhalten.</p>
+<a class="btn" href="{renew_url}" target="_blank">Jetzt API-Schlüssel erneuern →</a>
+<p style="margin-top:16px;">Nach der Erneuerung trage den neuen Schlüssel in GroundControl unter
+<strong>Mitglieder → API-Schlüssel aktualisieren</strong> ein.</p>
+<div class="footer">MakerPi GroundControl — automatische Benachrichtigung</div>
+</body></html>"""
+
+
 def easyverein_signup_html(name: str, signup_url: str) -> str:
     """HTML email inviting a guest to sign up as an easyVerein member."""
     if signup_url:

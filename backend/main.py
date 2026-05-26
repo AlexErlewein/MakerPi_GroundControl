@@ -22,7 +22,7 @@ from backend.shopify.routes import router as shopify_router
 from backend.plane.routes import router as plane_router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from backend.members.easyverein import sync_members_from_easyverein
+from backend.members.easyverein import sync_members_from_easyverein, check_easyverein_key_expiry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,6 +41,12 @@ async def start_scheduler():
         sync_members_from_easyverein,
         CronTrigger(hour=3, minute=0),
         id="easyverein_daily_sync",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        check_easyverein_key_expiry,
+        CronTrigger(hour=9, minute=0),
+        id="easyverein_key_expiry_check",
         replace_existing=True,
     )
     scheduler.start()
