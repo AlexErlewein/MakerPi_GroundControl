@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+class NoteUpdate(BaseModel):
+    note: str
+
+
 _SHOPIFY_API_VERSION = "2024-04"
 
 # ── Token cache (auto-refresh for Dev Dashboard apps) ─────────────────────────
@@ -606,10 +611,6 @@ async def get_gift_card_transactions(gift_card_id: int):
 
 
 # ── Update Gift Card Note ────────────────────────────────────────────────────
-
-
-class NoteUpdate(BaseModel):
-    note: str
 
 
 @router.put("/api/shopify/gift-cards/{gift_card_id}/note")
