@@ -98,6 +98,8 @@ EOF
 else
     echo "✅ config.json already exists"
 fi
+# Ensure the service user owns the config directory so the app can write settings at runtime
+chown -R "$SERVICE_USER:$SERVICE_USER" "$PROJECT_DIR/config/"
 
 # ── Systemd Services ─────────────────────────────────────────────────────────
 echo -e "${YELLOW}Creating systemd services...${NC}"

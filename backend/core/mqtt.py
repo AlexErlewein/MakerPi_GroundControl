@@ -237,12 +237,12 @@ def on_message(client, userdata, msg):
 
     # Handle specific message types
     try:
-        handle_device_message(msg.topic, payload_str)
+        handle_device_message(msg.topic, payload_str, retained=bool(msg.retain))
     except Exception as e:
         logger.error(f"Error handling device message: {e}")
 
 
-def handle_device_message(topic: str, payload: str):
+def handle_device_message(topic: str, payload: str, retained: bool = False):
     """Process device-related messages"""
     if topic.startswith("zigbee2mqtt"):
         return
@@ -256,21 +256,12 @@ def handle_device_message(topic: str, payload: str):
 
     db = SessionLocal()
     try:
-        # Update device last_seen - but skip auto-creation for retained offline status messages
+        # Update device last_seen - but skip auto-creation for retained messages.
+        # Mosquitto replays retained messages at startup for devices that may no
+        # longer exist; we only want devices to appear when they're actively live.
         device = db.query(Device).filter(Device.device_id == device_id).first()
         if not device:
-            # Only auto-create device if this is NOT a retained "offline" status message
-            # Retained offline status messages are replayed by Mosquitto even when devices are powered off
-            should_create = True
-            if subtopic in ("status", "heartbeat"):
-                try:
-                    data = json.loads(payload)
-                    if data.get("status") == "offline":
-                        should_create = False
-                except json.JSONDecodeError:
-                    pass
-
-            if should_create:
+            if not retained:
                 device = Device(device_id=device_id, name=device_id)
                 db.add(device)
 

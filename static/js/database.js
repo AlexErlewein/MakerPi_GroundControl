@@ -180,13 +180,15 @@ function renderDevices(devices) {
 
 // Delete device
 async function deleteDevice(deviceId) {
-    if (!confirm(`Delete device "${deviceId}"?\nIt will reappear if it sends a new heartbeat.`)) return;
+    if (!confirm(`Delete device "${deviceId}"?\nIt will reappear only when it actively sends a live message.`)) return;
     try {
         const response = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
         if (!response.ok) {
             const error = await response.json();
             alert(`Failed: ${error.detail || 'Unknown error'}`);
+            return;
         }
+        await loadAllData();
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
