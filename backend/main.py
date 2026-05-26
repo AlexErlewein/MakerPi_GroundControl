@@ -7,6 +7,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from backend.config import SECRET_KEY
 from backend.middleware import PWASessionMiddleware
 from backend.auth.routes import router as auth_router
@@ -51,6 +52,27 @@ async def shutdown_scheduler():
     """Shutdown the scheduler gracefully"""
     scheduler.shutdown()
     logger.info("APScheduler shutdown")
+
+
+@app.on_event("shutdown")
+async def checkpoint_all_wal():
+    """Checkpoint all WAL files on graceful shutdown to prevent corruption on next open."""
+    from backend.auth.db import engine as auth_engine
+    from backend.core.db import engine as core_engine
+    from backend.members.db import engine as members_engine
+    from backend.laufzettel.db import engine as laufzettel_engine
+    from backend.catalog.db import engine as catalog_engine
+    from backend.buchhaltung.db import engine as buchhaltung_engine
+    from backend.push.db import engine as push_engine
+
+    engines = [auth_engine, core_engine, members_engine, laufzettel_engine, catalog_engine, buchhaltung_engine, push_engine]
+    for eng in engines:
+        try:
+            with eng.connect() as conn:
+                conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
+        except Exception as e:
+            logger.warning("WAL checkpoint failed for %s: %s", eng.url, e)
+    logger.info("WAL checkpoint complete for all databases")
 
 
 # Session middleware (required for auth)
