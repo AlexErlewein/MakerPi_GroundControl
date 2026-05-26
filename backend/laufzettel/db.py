@@ -75,13 +75,15 @@ def _migrate(conn):
                 paid_at                 DATETIME,
                 payment_transaction_id  VARCHAR,
                 payment_notes           VARCHAR,
-                created_at              DATETIME
+                created_at              DATETIME,
+                guest_id                VARCHAR,
+                guest_email             VARCHAR
             );
 
             INSERT INTO laufzettel_new
                 SELECT id, uid, date, start, owner_name, member_id, mitglied_id,
                        nodes, payment_method, paid_at, payment_transaction_id,
-                       payment_notes, created_at
+                       payment_notes, created_at, guest_id, guest_email
                 FROM laufzettel;
 
             DROP TABLE laufzettel;
