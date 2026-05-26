@@ -292,6 +292,147 @@ async def get_physical_product():
     }
 
 
+# ── Physical Gift Card Orders ─────────────────────────────────────────────────
+
+
+@router.get("/api/shopify/physical-product/orders")
+async def list_physical_product_orders(limit: int = 50):
+    """Fetch orders containing the physical gift card product, with notes."""
+    if not SHOPIFY_PHYSICAL_PRODUCT_ID:
+        return {"configured": False, "orders": [], "has_next": False}
+
+    query = """
+    query($query: String!, $limit: Int!) {
+      orders(first: $limit, reverse: true, query: $query) {
+        edges {
+          node {
+            id
+            name
+            createdAt
+            note
+            displayFinancialStatus
+            customer { firstName lastName email }
+            lineItems(first: 20) {
+              edges {
+                node {
+                  id
+                  title
+                  variantTitle
+                  quantity
+                }
+              }
+            }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+    """
+    try:
+        data = await _graphql_query(
+            query,
+            {
+                "query": f"product_id:{SHOPIFY_PHYSICAL_PRODUCT_ID.split('/')[-1]}",
+                "limit": min(limit, 250),
+            },
+        )
+    except HTTPException as exc:
+        logger.error("Physical product orders fetch error: %s", exc)
+        return {
+            "configured": True,
+            "orders": [],
+            "has_next": False,
+            "error": str(exc.detail),
+        }
+
+    orders_conn = data.get("orders", {})
+    edges = orders_conn.get("edges") or []
+    page_info = orders_conn.get("pageInfo") or {}
+
+    orders = []
+    for edge in edges:
+        o = edge["node"]
+        # Only include orders that actually have the physical gift card line item
+        gc_line = None
+        for li in (o.get("lineItems") or {}).get("edges") or []:
+            item = li["node"]
+            if (
+                "physischer" in item.get("title", "").lower()
+                and "geschenk" in item.get("title", "").lower()
+            ):
+                gc_line = item
+                break
+
+        if not gc_line:
+            continue
+
+        customer = o.get("customer")
+        orders.append(
+            {
+                "id": o["id"],
+                "name": o.get("name", ""),
+                "created_at": o.get("createdAt"),
+                "note": o.get("note") or "",
+                "financial_status": o.get("displayFinancialStatus", ""),
+                "customer": {
+                    "name": (
+                        f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip()
+                        if customer
+                        else ""
+                    ),
+                    "email": customer.get("email") if customer else None,
+                },
+                "variant": gc_line.get("variantTitle", gc_line.get("title", "")),
+                "quantity": gc_line.get("quantity", 1),
+                "shopify_order_id": o["id"].split("/")[-1],
+            }
+        )
+
+    return {
+        "configured": True,
+        "orders": orders,
+        "has_next": page_info.get("hasNextPage", False),
+        "total": len(orders),
+    }
+
+
+@router.put("/api/shopify/physical-product/orders/{order_id}/note")
+async def update_physical_product_order_note(order_id: str, body: NoteUpdate):
+    """Update the note on a Shopify order (requires write_orders scope)."""
+    gid = f"gid://shopify/Order/{order_id}"
+
+    mutation = """
+    mutation($id: ID!, $note: String) {
+      orderUpdate(input: {id: $id, note: $note}) {
+        order { id note }
+        userErrors { field message }
+      }
+    }
+    """
+    try:
+        data = await _graphql_query(
+            mutation,
+            {
+                "id": gid,
+                "note": body.note if body.note.strip() else None,
+            },
+        )
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=f"Shopify order update failed: {exc.detail}",
+        )
+
+    result = data.get("orderUpdate", {})
+    errors = result.get("userErrors", [])
+    if errors:
+        msgs = "; ".join(e.get("message", "") for e in errors)
+        raise HTTPException(status_code=400, detail=f"Shopify: {msgs}")
+
+    order = result.get("order") or {}
+    return {"note": order.get("note") or ""}
+
+
 # ── Summary (must be before {gift_card_id} to avoid route conflict) ──────────
 
 

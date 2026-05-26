@@ -282,15 +282,15 @@ async function toggleStatus(cardId) {
     }
 }
 
-// ── Physical Gift Card Product ────────────────────────────────────────────
+// ── Physical Gift Card Orders ────────────────────────────────────────────
 
 
-async function loadPhysicalProduct() {
-    const area = document.getElementById('physical-product-area');
+async function loadPhysicalOrders() {
+    const area = document.getElementById('physical-orders-area');
     if (!area) return;
 
     try {
-        const res = await fetch('/api/shopify/physical-product');
+        const res = await fetch('/api/shopify/physical-product/orders');
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
 
@@ -298,42 +298,121 @@ async function loadPhysicalProduct() {
             area.innerHTML = '<p style="color:var(--text-secondary)">Nicht konfiguriert. Setze <code>shopify_physical_product_id</code> in config.json.</p>';
             return;
         }
-        if (!data.product) {
-            area.innerHTML = `<p style="color:var(--text-secondary)">Produkt nicht gefunden. ${data.error || ''}</p>`;
+        if (data.error) {
+            area.innerHTML = `<p style="color:var(--danger)">Fehler: ${data.error}</p>`;
             return;
         }
 
-        const p = data.product;
-        const stockClass = p.total_stock < 0 ? 'stock-negative' : p.total_stock === 0 ? 'stock-zero' : 'stock-positive';
-        const stockLabel = p.total_stock < 0 ? `${p.total_stock} (unterbestand!)` : p.total_stock;
-
-        let html = `<div class="product-header">
-            ${p.image ? `<img class="product-image" src="${p.image}" alt="">` : ''}
-            <div class="product-info">
-                <h3>${p.title}</h3>
-                <div class="meta">
-                    <a href="${p.url}" target="_blank">Im Shopify öffnen</a>
-                    &middot; ${p.total_variants} Varianten &middot;
-                    <span class="${stockClass}">Auf Lager: ${stockLabel}</span>
-                </div>
-            </div>
-        </div>`;
-
-        html += '<div class="variant-grid">';
-        for (const v of p.variants) {
-            const sClass = v.stock < 0 ? 'stock-negative' : v.stock === 0 ? 'stock-zero' : 'stock-positive';
-            const sLabel = v.stock < 0 ? `${v.stock}` : v.stock;
-            html += `<div class="variant-chip">
-                <div class="v-title">${v.title}</div>
-                <div class="v-price">${fmt(v.price)}</div>
-                <div class="v-stock ${sClass}">Lager: ${sLabel}</div>
-            </div>`;
+        if (!data.orders.length) {
+            area.innerHTML = '<p style="color:var(--text-secondary)">Keine Verkäufe für physische Gutscheine gefunden.</p>';
+            return;
         }
-        html += '</div>';
+
+        const financialBadge = (status) => {
+            const map = {
+                'PAID': ['Bezahlt', 'financial-paid'],
+                'PENDING': ['Ausstehend', 'financial-pending'],
+                'REFUNDED': ['Erstattet', 'financial-refunded'],
+            };
+            const [label, cls] = map[status] || [status, 'financial-pending'];
+            return `<span class="financial-badge ${cls}">${label}</span>`;
+        };
+
+        let html = `<div class="table-wrap"><table>
+            <thead><tr>
+                <th>Bestellung</th>
+                <th>Datum</th>
+                <th>Kunde</th>
+                <th>Varianten</th>
+                <th>Anzahl</th>
+                <th>Status</th>
+                <th>Kommentar</th>
+            </tr></thead>
+            <tbody>`;
+
+        for (const o of data.orders) {
+            const customerDisplay = o.customer.name || '<span style="color:var(--text-secondary)">–</span>';
+            const customerEmail = o.customer.email ? ` <a href="mailto:${o.customer.email}" style="color:var(--text-secondary);font-size:0.8rem" title="${o.customer.email}">✉</a>` : '';
+            const noteDisplay = o.note || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
+            html += `<tr id="order-row-${o.shopify_order_id}">
+                <td><a href="https://${location.host}/admin/orders/${o.shopify_order_id}" target="_blank" style="color:var(--accent);text-decoration:none">${o.name}</a></td>
+                <td>${fmtDate(o.created_at)}</td>
+                <td>${customerDisplay}${customerEmail}</td>
+                <td>${o.variant || '–'}</td>
+                <td>${o.quantity}</td>
+                <td>${financialBadge(o.financial_status)}</td>
+                <td class="order-note-cell">
+                    <div class="order-note-display" onclick="startEditNote('${o.shopify_order_id}', '${(o.note || '').replace(/'/g, "\\'")}')">${noteDisplay}</div>
+                </td>
+            </tr>`;
+        }
+
+        html += '</tbody></table></div>';
+        if (data.has_next) {
+            html += '<p style="color:var(--text-secondary);font-size:0.85rem;margin-top:8px">Weitere Bestellungen verfügbar (Pagination nicht implementiert).</p>';
+        }
 
         area.innerHTML = html;
     } catch (e) {
         area.innerHTML = `<p style="color:var(--danger)">Fehler: ${e.message}</p>`;
+    }
+}
+
+function startEditNote(orderId, currentNote) {
+    const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
+    if (!cell) return;
+    // Prevent double-edit
+    if (cell.querySelector('.order-note-edit')) return;
+
+    cell.innerHTML = `
+        <textarea class="order-note-edit" id="note-edit-${orderId}">${currentNote}</textarea>
+        <div class="order-note-actions">
+            <button class="btn-sm" onclick="cancelEditNote('${orderId}', '${currentNote.replace(/'/g, "\\'")}')">Abbrechen</button>
+            <button class="btn-sm primary" onclick="saveOrderNote('${orderId}')">Speichern</button>
+        </div>
+        <span class="status-msg" id="note-save-status-${orderId}"></span>
+    `;
+    const textarea = document.getElementById(`note-edit-${orderId}`);
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function cancelEditNote(orderId, originalNote) {
+    const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
+    if (!cell) return;
+    const display = originalNote || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
+    cell.innerHTML = `<div class="order-note-display" onclick="startEditNote('${orderId}', '${originalNote.replace(/'/g, "\\'")}')">${display}</div>`;
+}
+
+async function saveOrderNote(orderId) {
+    const textarea = document.getElementById(`note-edit-${orderId}`);
+    const statusEl = document.getElementById(`note-save-status-${orderId}`);
+    if (!textarea || !statusEl) return;
+
+    const newNote = textarea.value;
+    statusEl.textContent = 'Speichert…';
+    statusEl.className = 'status-msg';
+
+    try {
+        const res = await fetch(`/api/shopify/physical-product/orders/${orderId}/note`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: newNote }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            throw new Error(err.detail);
+        }
+        // Replace cell with updated display
+        const cell = document.querySelector(`#order-row-${orderId} .order-note-cell`);
+        if (cell) {
+            const display = newNote || '<span style="color:var(--text-secondary);font-style:italic">Klicken zum Bearbeiten</span>';
+            const escaped = newNote.replace(/'/g, "\\'");
+            cell.innerHTML = `<div class="order-note-display" onclick="startEditNote('${orderId}', '${escaped}')">${display}</div>`;
+        }
+    } catch (e) {
+        statusEl.textContent = e.message;
+        statusEl.className = 'status-msg err';
     }
 }
 
@@ -346,19 +425,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const txClose = document.getElementById('tx-close');
     const txOverlay = document.getElementById('tx-modal');
-    const refreshProductBtn = document.getElementById('refresh-product-btn');
+    const refreshOrdersBtn = document.getElementById('refresh-orders-btn');
 
     if (!filterSelect) return; // page not configured
 
     const refresh = () => {
         loadSummary();
         loadCards(filterSelect.value);
-        loadPhysicalProduct();
+        loadPhysicalOrders();
     };
 
     filterSelect.addEventListener('change', () => loadCards(filterSelect.value));
     refreshBtn.addEventListener('click', refresh);
-    if (refreshProductBtn) refreshProductBtn.addEventListener('click', loadPhysicalProduct);
+    if (refreshOrdersBtn) refreshOrdersBtn.addEventListener('click', loadPhysicalOrders);
     txClose.addEventListener('click', closeTxModal);
     txOverlay.addEventListener('click', (e) => { if (e.target === txOverlay) closeTxModal(); });
 
