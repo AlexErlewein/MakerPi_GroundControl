@@ -13,6 +13,7 @@ from backend.config import (
     SHOPIFY_ACCESS_TOKEN,
     SHOPIFY_CLIENT_ID,
     SHOPIFY_CLIENT_SECRET,
+    SHOPIFY_PHYSICAL_PRODUCT_ID,
     SHOPIFY_STORE,
 )
 
@@ -213,6 +214,82 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
         )
 
     return {"gift_cards": result, "total": len(result)}
+
+
+# ── Physical Gift Card Product ────────────────────────────────────────────────
+
+
+@router.get("/api/shopify/physical-product")
+async def get_physical_product():
+    """Fetch the physical gift card product with variant stock levels via GraphQL."""
+    if not SHOPIFY_PHYSICAL_PRODUCT_ID:
+        return {"configured": False, "product": None}
+
+    query = """
+    query($id: ID!) {
+      product(id: $id) {
+        id
+        title
+        handle
+        status
+        featuredImage { url }
+        variants(first: 50) {
+          edges {
+            node {
+              id
+              title
+              price
+              availableForSale
+              inventoryQuantity
+              selectedOptions { name value }
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        data = await _graphql_query(query, {"id": SHOPIFY_PHYSICAL_PRODUCT_ID})
+    except HTTPException:
+        return {"configured": True, "product": None, "error": "Shopify API error"}
+
+    p = data.get("product")
+    if not p:
+        return {"configured": True, "product": None, "error": "Product not found"}
+
+    variants = []
+    total_stock = 0
+    for edge in p.get("variants", {}).get("edges", []):
+        v = edge["node"]
+        qty = v.get("inventoryQuantity", 0)
+        total_stock += qty
+        # Parse "10€ (15€)" format: nominal value and actual price
+        title = v.get("title", "")
+        variants.append(
+            {
+                "id": v["id"],
+                "title": title,
+                "price": float(v.get("price", 0)),
+                "available": v.get("availableForSale", False),
+                "stock": qty,
+            }
+        )
+
+    return {
+        "configured": True,
+        "product": {
+            "id": p["id"],
+            "title": p["title"],
+            "handle": p["handle"],
+            "status": p["status"],
+            "image": (p.get("featuredImage") or {}).get("url", ""),
+            "url": f"https://{SHOPIFY_STORE}/products/{p['handle']}",
+            "variants": variants,
+            "total_stock": total_stock,
+            "total_variants": len(variants),
+            "available_variants": sum(1 for v in variants if v["available"]),
+        },
+    }
 
 
 # ── Summary (must be before {gift_card_id} to avoid route conflict) ──────────

@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime, timezone, date
 from typing import Optional
 import httpx
+from sqlalchemy.exc import IntegrityError
 
 from backend.config import EASYVEREIN_API_KEY, EASYVEREIN_ORG_ID
 from .models import Mitglied
@@ -461,7 +462,6 @@ async def sync_members_from_easyverein() -> dict:
                             skipped_count += 1
                             continue
 
-                        # Check if member already exists by member_id
                         existing = (
                             db.query(Mitglied)
                             .filter(Mitglied.member_id == mapped["member_id"])
@@ -469,7 +469,6 @@ async def sync_members_from_easyverein() -> dict:
                         )
 
                         if existing:
-                            # Update existing member
                             existing.name = mapped["name"]
                             if mapped["email"]:
                                 existing.email = mapped["email"]
@@ -480,10 +479,31 @@ async def sync_members_from_easyverein() -> dict:
                                 existing.joined_date = mapped["joined_date"]
                             updated_count += 1
                         else:
-                            # Create new member
-                            new_member = Mitglied(**mapped)
-                            db.add(new_member)
-                            created_count += 1
+                            sp = db.begin_nested()
+                            try:
+                                db.add(Mitglied(**mapped))
+                                sp.commit()
+                                created_count += 1
+                            except IntegrityError:
+                                sp.rollback()
+                                # Duplicate member_id in API response — treat as update
+                                dup = (
+                                    db.query(Mitglied)
+                                    .filter(Mitglied.member_id == mapped["member_id"])
+                                    .first()
+                                )
+                                if dup:
+                                    dup.name = mapped["name"]
+                                    if mapped["email"]:
+                                        dup.email = mapped["email"]
+                                    if mapped["phone"]:
+                                        dup.phone = mapped["phone"]
+                                    dup.status = mapped["status"]
+                                    if mapped["joined_date"]:
+                                        dup.joined_date = mapped["joined_date"]
+                                    updated_count += 1
+                                else:
+                                    error_count += 1
 
                     except Exception as e:
                         logger.error(

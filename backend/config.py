@@ -175,6 +175,11 @@ SHOPIFY_CLIENT_SECRET: str = _cfg.get(
 SHOPIFY_ACCESS_TOKEN: str = _cfg.get(
     "shopify_access_token", os.environ.get("SHOPIFY_ACCESS_TOKEN", "")
 )
+# Shopify product ID for the physical gift card (GID, e.g. "gid://shopify/Product/15398922584395")
+SHOPIFY_PHYSICAL_PRODUCT_ID: str = _cfg.get(
+    "shopify_physical_product_id",
+    os.environ.get("SHOPIFY_PHYSICAL_PRODUCT_ID", ""),
+)
 
 # Plane issue tracker configuration (for public bug report form)
 PLANE_URL: str = _cfg.get("plane_url", os.environ.get("PLANE_URL", ""))
@@ -189,6 +194,7 @@ PLANE_PROJECT_ID: str = _cfg.get(
 )
 
 import os
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 AUTH_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/auth.db"

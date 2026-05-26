@@ -282,6 +282,61 @@ async function toggleStatus(cardId) {
     }
 }
 
+// ── Physical Gift Card Product ────────────────────────────────────────────
+
+
+async function loadPhysicalProduct() {
+    const area = document.getElementById('physical-product-area');
+    if (!area) return;
+
+    try {
+        const res = await fetch('/api/shopify/physical-product');
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        if (!data.configured) {
+            area.innerHTML = '<p style="color:var(--text-secondary)">Nicht konfiguriert. Setze <code>shopify_physical_product_id</code> in config.json.</p>';
+            return;
+        }
+        if (!data.product) {
+            area.innerHTML = `<p style="color:var(--text-secondary)">Produkt nicht gefunden. ${data.error || ''}</p>`;
+            return;
+        }
+
+        const p = data.product;
+        const stockClass = p.total_stock < 0 ? 'stock-negative' : p.total_stock === 0 ? 'stock-zero' : 'stock-positive';
+        const stockLabel = p.total_stock < 0 ? `${p.total_stock} (unterbestand!)` : p.total_stock;
+
+        let html = `<div class="product-header">
+            ${p.image ? `<img class="product-image" src="${p.image}" alt="">` : ''}
+            <div class="product-info">
+                <h3>${p.title}</h3>
+                <div class="meta">
+                    <a href="${p.url}" target="_blank">Im Shopify öffnen</a>
+                    &middot; ${p.total_variants} Varianten &middot;
+                    <span class="${stockClass}">Auf Lager: ${stockLabel}</span>
+                </div>
+            </div>
+        </div>`;
+
+        html += '<div class="variant-grid">';
+        for (const v of p.variants) {
+            const sClass = v.stock < 0 ? 'stock-negative' : v.stock === 0 ? 'stock-zero' : 'stock-positive';
+            const sLabel = v.stock < 0 ? `${v.stock}` : v.stock;
+            html += `<div class="variant-chip">
+                <div class="v-title">${v.title}</div>
+                <div class="v-price">${fmt(v.price)}</div>
+                <div class="v-stock ${sClass}">Lager: ${sLabel}</div>
+            </div>`;
+        }
+        html += '</div>';
+
+        area.innerHTML = html;
+    } catch (e) {
+        area.innerHTML = `<p style="color:var(--danger)">Fehler: ${e.message}</p>`;
+    }
+}
+
 function closeTxModal() {
     document.getElementById('tx-modal').classList.remove('open');
 }
@@ -291,16 +346,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const txClose = document.getElementById('tx-close');
     const txOverlay = document.getElementById('tx-modal');
+    const refreshProductBtn = document.getElementById('refresh-product-btn');
 
     if (!filterSelect) return; // page not configured
 
     const refresh = () => {
         loadSummary();
         loadCards(filterSelect.value);
+        loadPhysicalProduct();
     };
 
     filterSelect.addEventListener('change', () => loadCards(filterSelect.value));
     refreshBtn.addEventListener('click', refresh);
+    if (refreshProductBtn) refreshProductBtn.addEventListener('click', loadPhysicalProduct);
     txClose.addEventListener('click', closeTxModal);
     txOverlay.addEventListener('click', (e) => { if (e.target === txOverlay) closeTxModal(); });
 

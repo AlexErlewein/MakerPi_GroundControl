@@ -105,6 +105,23 @@
     .status-msg { font-size: 0.82rem; margin-top: 4px; }
     .status-msg.ok { color: #22c55e; }
     .status-msg.err { color: #f87171; }
+    .stock-negative { color: #f87171; font-weight: 600; }
+    .stock-zero { color: var(--text-secondary); }
+    .stock-positive { color: #22c55e; }
+    .product-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+    .product-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
+    .product-header .product-info h3 { margin: 0 0 4px; font-size: 1rem; }
+    .product-header .product-info .meta { color: var(--text-secondary); font-size: 0.85rem; }
+    .product-header .product-info .meta a { color: var(--accent); text-decoration: none; }
+    .product-header .product-info .meta a:hover { text-decoration: underline; }
+    .variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .variant-chip {
+        padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);
+        background: var(--bg-secondary); text-align: center; font-size: 0.85rem;
+    }
+    .variant-chip .v-title { font-weight: 600; margin-bottom: 2px; }
+    .variant-chip .v-price { color: var(--text-secondary); font-size: 0.8rem; }
+    .variant-chip .v-stock { font-size: 0.8rem; margin-top: 2px; }
 </style>
 {% endblock %}
 
@@ -177,6 +194,17 @@
         </table>
     </div>
 
+    <!-- Physical Gift Card Product -->
+    <div class="section-header" style="margin-top: 32px;">
+        <h2>Physische Geschenkgutscheine</h2>
+        <div class="controls">
+            <button class="btn btn-secondary" id="refresh-product-btn">↻ Aktualisieren</button>
+        </div>
+    </div>
+    <div id="physical-product-area">
+        <p style="color:var(--text-secondary)">Lade...</p>
+    </div>
+
     {% endif %}
 </div>
 
@@ -191,5 +219,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/shopify.js?v=2"></script>
+<script src="/static/js/shopify.js?v=3"></script>
 {% endblock %}
