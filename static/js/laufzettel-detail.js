@@ -807,8 +807,140 @@ function getTotal() {
     return mats.reduce((sum, m) => sum + (m.calculated_price != null ? m.calculated_price : 0), 0);
 }
 
+function getRemaining() {
+    if (currentData && currentData.remaining_amount != null) return currentData.remaining_amount;
+    return getTotal();
+}
+
 function fmtEur(val) {
     return val.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+
+// ── Gutschein (Gift Card) ─────────────────────────────────────────────────────
+
+let _pendingGutschein = null; // { id, last_chars, balance }
+
+function toggleGutscheinForm() {
+    const container = document.getElementById("gutschein-form-container");
+    const btn = document.getElementById("gutschein-toggle-btn");
+    const hidden = container.classList.contains("hidden");
+    container.classList.toggle("hidden", !hidden);
+    btn.textContent = hidden ? "🎁 Gutschein schließen" : "🎁 Gutschein einlösen";
+}
+
+async function lookupGutschein() {
+    const raw = (document.getElementById("gutschein-last-chars").value || "").trim().toUpperCase();
+    const errEl = document.getElementById("gutschein-lookup-error");
+    const resultEl = document.getElementById("gutschein-lookup-result");
+    errEl.classList.add("hidden");
+    resultEl.classList.add("hidden");
+    _pendingGutschein = null;
+
+    if (!raw) { errEl.textContent = "Bitte Zeichen eingeben."; errEl.classList.remove("hidden"); return; }
+
+    try {
+        const res = await fetch(`/api/shopify/gift-cards/lookup?last_chars=${encodeURIComponent(raw)}`);
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Fehler"); }
+        const cards = await res.json();
+        if (!cards.length) {
+            errEl.textContent = "Kein aktiver Gutschein mit diesen Zeichen gefunden.";
+            errEl.classList.remove("hidden");
+            return;
+        }
+        const card = cards[0];
+        _pendingGutschein = card;
+        document.getElementById("gutschein-balance-display").textContent = fmtEur(card.balance);
+        document.getElementById("gutschein-id-display").textContent = `ID: ${card.id}`;
+        const remaining = getRemaining();
+        const suggestedAmount = Math.min(card.balance, remaining);
+        document.getElementById("gutschein-amount-input").value = suggestedAmount.toFixed(2);
+        document.getElementById("gutschein-amount-input").max = Math.min(card.balance, remaining).toFixed(2);
+        resultEl.classList.remove("hidden");
+    } catch (err) {
+        errEl.textContent = err.message || "Suche fehlgeschlagen.";
+        errEl.classList.remove("hidden");
+    }
+}
+
+async function applyGutschein() {
+    if (!_pendingGutschein) return;
+    const amount = parseFloat(document.getElementById("gutschein-amount-input").value);
+    if (!amount || amount <= 0) { alert("Bitte einen gültigen Betrag eingeben."); return; }
+    const btn = document.getElementById("gutschein-apply-btn");
+    btn.disabled = true; btn.textContent = "…";
+    try {
+        const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/apply-gutschein`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                shopify_gift_card_id: _pendingGutschein.id,
+                last_chars: _pendingGutschein.last_chars,
+                amount,
+                note: "",
+            }),
+        });
+        if (res.ok) {
+            currentData = await res.json();
+            renderInfo();
+            renderMaterial();
+            document.getElementById("gutschein-form-container").classList.add("hidden");
+            document.getElementById("gutschein-toggle-btn").textContent = "🎁 Gutschein einlösen";
+            document.getElementById("gutschein-last-chars").value = "";
+            _pendingGutschein = null;
+        } else {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
+        }
+    } finally {
+        btn.disabled = false; btn.textContent = "Einlösen";
+    }
+}
+
+async function removeGutschein(gutscheinId) {
+    if (!confirm("Gutschein-Gutschrift stornieren und Betrag zurückbuchen?")) return;
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/gutschein/${gutscheinId}`, { method: "DELETE" });
+    if (res.ok) {
+        currentData = await res.json ? await res.json() : currentData;
+        // Reload full data
+        const r2 = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`);
+        if (r2.ok) currentData = await r2.json();
+        renderInfo();
+        renderMaterial();
+    } else {
+        const err = await res.json();
+        alert("Fehler beim Stornieren: " + (err.detail || "Unbekannter Fehler"));
+    }
+}
+
+function renderGutscheinCredits(locked) {
+    const credits = (currentData && currentData.gutschein_credits) || [];
+    const totalCredited = (currentData && currentData.total_credited) || 0;
+    const remaining = (currentData && currentData.remaining_amount != null) ? currentData.remaining_amount : null;
+
+    const section = document.getElementById("gutschein-credits-section");
+    const gutscheinSection = document.getElementById("gutschein-section");
+
+    if (credits.length > 0) {
+        section.classList.remove("hidden");
+        const list = document.getElementById("gutschein-credits-list");
+        list.innerHTML = credits.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg-secondary);border-radius:6px;border:1px solid var(--border);">
+                <span style="font-size:0.9rem;">🎁 Gutschein …${esc(c.last_chars)} — <strong style="color:var(--success);">-${fmtEur(c.amount_debited)}</strong></span>
+                ${!locked ? `<button class="btn btn-sm btn-danger" onclick="removeGutschein(${c.id})" style="padding:2px 8px;font-size:0.78rem;">✕</button>` : ""}
+            </div>`).join("");
+        if (remaining !== null) {
+            document.getElementById("remaining-amount-display").textContent = fmtEur(remaining);
+            document.getElementById("remaining-amount-row").style.display = remaining <= 0 ? "none" : "";
+        }
+    } else {
+        section.classList.add("hidden");
+    }
+
+    if (!locked) {
+        gutscheinSection.classList.remove("hidden");
+    } else {
+        gutscheinSection.classList.add("hidden");
+    }
 }
 
 function renderPaymentSection(total, hasAnyPrice) {
@@ -837,10 +969,17 @@ function renderPaymentSection(total, hasAnyPrice) {
         weroBtn.classList.add("hidden");
     }
 
+    renderGutscheinCredits(locked);
+
     if (locked) {
         buttons.classList.add("hidden");
         banner.classList.remove("hidden");
-        const methodLabels = { bar: "Bar bezahlt", karte: "Per Karte bezahlt", wero: "Per Wero bezahlt" };
+        const methodLabels = {
+            bar: "Bar bezahlt",
+            karte: "Per Karte bezahlt",
+            wero: "Per Wero bezahlt",
+            gutschein: "Per Gutschein bezahlt",
+        };
         const label = methodLabels[d.payment_method] || "Bezahlt";
         const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
         document.getElementById("payment-locked-text").textContent =
@@ -864,14 +1003,20 @@ function renderPaymentSection(total, hasAnyPrice) {
             (btn) => { btn.disabled = true; btn.style.opacity = "0.4"; btn.style.cursor = "not-allowed"; }
         );
     } else {
-        buttons.classList.remove("hidden");
+        // Hide payment buttons if remaining amount is zero (fully covered by gift cards)
+        const remaining = getRemaining();
+        if (remaining <= 0.005 && (d.gutschein_credits || []).length > 0) {
+            buttons.classList.add("hidden");
+        } else {
+            buttons.classList.remove("hidden");
+        }
         banner.classList.add("hidden");
     }
 }
 
 // Bar modal
 function openBarModal() {
-    const total = getTotal();
+    const total = getRemaining();
     document.getElementById("bar-total-display").textContent = fmtEur(total);
     document.getElementById("bar-notes-input").value = "";
     document.getElementById("bar-modal").classList.remove("hidden");

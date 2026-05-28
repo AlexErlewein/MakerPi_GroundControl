@@ -20,7 +20,7 @@ from backend.config import (
     WERO_MOCK,
 )
 from .db import get_db, init_db
-from .models import Laufzettel, LaufzettelMaterial
+from .models import Laufzettel, LaufzettelGutschein, LaufzettelMaterial
 from .pdf import drive_folder_names, generate_pdf, pdf_filename
 from .utils import handle_stale_laufzettel
 
@@ -421,6 +421,7 @@ async def get_laufzettel_detail(
         .all()
     )
     d["material"] = [m.to_dict() for m in materials]
+    _enrich_with_gutschein(d, db, materials)
     return d
 
 
@@ -757,13 +758,17 @@ async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
             "status": "PENDING",
         }
 
-    # Calculate total from material entries
+    # Calculate remaining amount (material total minus any applied gift card credits)
     materials = (
         db.query(LaufzettelMaterial)
         .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
         .all()
     )
-    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+    mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    _, _credited = _calc_gutschein_totals(db, laufzettel_id)
+    total = max(0.0, mat_total - _credited)
     amount_str = f"{total:.2f}"
 
     if SUMUP_READER_ID and SUMUP_API_KEY and SUMUP_MERCHANT_CODE:
@@ -1021,7 +1026,11 @@ async def pay_checkout_link(laufzettel_id: int, db: Session = Depends(get_db)):
         .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
         .all()
     )
-    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+    _mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    _, _credited = _calc_gutschein_totals(db, laufzettel_id)
+    total = max(0.0, _mat_total - _credited)
 
     payload = {
         "checkout_reference": str(uuid.uuid4()),
@@ -1166,6 +1175,29 @@ def _check_guest_access(request: Request, lz: Laufzettel) -> bool:
     if guest_id and lz.guest_id == guest_id:
         return True
     return False
+
+
+def _calc_gutschein_totals(db: Session, laufzettel_id: int) -> tuple[list, float]:
+    """Return (credits_list, total_credited) for a Laufzettel."""
+    credits = (
+        db.query(LaufzettelGutschein)
+        .filter(LaufzettelGutschein.laufzettel_id == laufzettel_id)
+        .all()
+    )
+    total_credited = round(sum(c.amount_debited for c in credits), 2)
+    return credits, total_credited
+
+
+def _enrich_with_gutschein(d: dict, db: Session, materials: list) -> dict:
+    """Add gutschein_credits, total_credited, remaining_amount to a Laufzettel dict."""
+    credits, total_credited = _calc_gutschein_totals(db, d["id"])
+    mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    d["gutschein_credits"] = [c.to_dict() for c in credits]
+    d["total_credited"] = total_credited
+    d["remaining_amount"] = round(max(0.0, mat_total - total_credited), 2)
+    return d
 
 
 # ── Guest Laufzettel API ─────────────────────────────────────────────────────
@@ -1419,6 +1451,232 @@ async def guest_laufzettel_detail_page(
     )
 
 
+# ── Gutschein (Gift Card) Payment API ────────────────────────────────────────
+
+
+class ApplyGutscheinRequest(BaseModel):
+    shopify_gift_card_id: str
+    last_chars: str
+    amount: float
+    note: str = ""
+
+
+@router.post("/api/laufzettel/{laufzettel_id}/apply-gutschein")
+async def apply_gutschein(
+    laufzettel_id: int,
+    body: ApplyGutscheinRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Apply a Shopify gift card credit to an open Laufzettel (partial or full payment)."""
+    from datetime import datetime, timezone
+    from backend.shopify.routes import _graphql_query
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
+    mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    existing_credits, total_credited = _calc_gutschein_totals(db, laufzettel_id)
+    remaining = round(mat_total - total_credited, 2)
+
+    if body.amount > remaining + 0.005:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Amount {body.amount:.2f} € exceeds remaining balance {remaining:.2f} €",
+        )
+
+    amount_to_debit = round(min(body.amount, remaining), 2)
+    gid = f"gid://shopify/GiftCard/{body.shopify_gift_card_id}"
+    mutation = """
+    mutation($id: ID!, $amount: MoneyInput!, $note: String) {
+      giftCardDebit(id: $id, debitInput: {debitAmount: $amount, note: $note}) {
+        giftCardDebitTransaction { id amount { amount currencyCode } }
+        userErrors { field message }
+      }
+    }
+    """
+    variables = {
+        "id": gid,
+        "amount": {"amount": str(amount_to_debit), "currencyCode": "EUR"},
+        "note": body.note or f"Laufzettel #{laufzettel_id}",
+    }
+
+    try:
+        result_data = await _graphql_query(mutation, variables)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Shopify API error: {exc}")
+
+    gc_result = result_data.get("giftCardDebit", {})
+    errors = gc_result.get("userErrors", [])
+    if errors:
+        msgs = "; ".join(e.get("message", "") for e in errors)
+        raise HTTPException(status_code=400, detail=f"Shopify: {msgs}")
+
+    tx_id = (gc_result.get("giftCardDebitTransaction") or {}).get("id")
+
+    credit = LaufzettelGutschein(
+        laufzettel_id=laufzettel_id,
+        shopify_gift_card_id=body.shopify_gift_card_id,
+        last_chars=body.last_chars,
+        amount_debited=amount_to_debit,
+        transaction_id=tx_id,
+        applied_at=datetime.now(timezone.utc),
+        applied_by=request.session.get("user"),
+        note=body.note or None,
+    )
+    db.add(credit)
+
+    # Auto-lock if fully covered by gift cards
+    new_remaining = round(remaining - amount_to_debit, 2)
+    if new_remaining <= 0.005:
+        lz.payment_method = "gutschein"
+        lz.paid_at = datetime.now(timezone.utc)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        # Compensating credit to undo the Shopify debit
+        try:
+            refund_mut = """
+            mutation($id: ID!, $amount: MoneyInput!, $note: String) {
+              giftCardCredit(id: $id, creditInput: {creditAmount: $amount, note: $note}) {
+                giftCardCreditTransaction { amount { amount } }
+                userErrors { field message }
+              }
+            }
+            """
+            await _graphql_query(
+                refund_mut,
+                {
+                    "id": gid,
+                    "amount": {"amount": str(amount_to_debit), "currencyCode": "EUR"},
+                    "note": "Rollback: DB commit failed",
+                },
+            )
+        except Exception:
+            logger.error(
+                "CRITICAL: Shopify debit rollback failed for GC %s amount %.2f — manual refund required",
+                body.shopify_gift_card_id,
+                amount_to_debit,
+            )
+        raise HTTPException(status_code=500, detail="Failed to record gift card credit")
+
+    db.refresh(lz)
+
+    # If fully paid by gift cards, fire post-payment side effects
+    if lz.payment_method == "gutschein":
+        _schedule_pdf_upload(lz, materials)
+        _schedule_receipt_email(lz, materials, request)
+        from backend.buchhaltung.accounting import record_laufzettel_payment
+
+        record_laufzettel_payment(lz, materials)
+        try:
+            if send_push_notification:
+                send_push_notification(
+                    title="Zahlung eingegangen",
+                    body=f"Laufzettel #{laufzettel_id} — Gutschein-Zahlung",
+                    tag=f"payment-{laufzettel_id}",
+                    url=f"/laufzettel/{laufzettel_id}",
+                )
+        except Exception:
+            pass
+
+    d = lz.to_dict()
+    d["material"] = [m.to_dict() for m in materials]
+    _enrich_with_gutschein(d, db, materials)
+    return d
+
+
+@router.delete("/api/laufzettel/{laufzettel_id}/gutschein/{gutschein_id}")
+async def remove_gutschein(
+    laufzettel_id: int,
+    gutschein_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Remove an applied gift card credit and refund it back to Shopify (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+    from backend.shopify.routes import _graphql_query
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method and lz.payment_method != "gutschein":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot remove a gift card credit after payment by another method",
+        )
+
+    credit = (
+        db.query(LaufzettelGutschein)
+        .filter(
+            LaufzettelGutschein.id == gutschein_id,
+            LaufzettelGutschein.laufzettel_id == laufzettel_id,
+        )
+        .first()
+    )
+    if not credit:
+        raise HTTPException(status_code=404, detail="Gift card credit not found")
+
+    # Refund the debited amount back to the Shopify gift card
+    gid = f"gid://shopify/GiftCard/{credit.shopify_gift_card_id}"
+    refund_mut = """
+    mutation($id: ID!, $amount: MoneyInput!, $note: String) {
+      giftCardCredit(id: $id, creditInput: {creditAmount: $amount, note: $note}) {
+        giftCardCreditTransaction { amount { amount } }
+        userErrors { field message }
+      }
+    }
+    """
+    try:
+        result_data = await _graphql_query(
+            refund_mut,
+            {
+                "id": gid,
+                "amount": {"amount": str(credit.amount_debited), "currencyCode": "EUR"},
+                "note": f"Stornierung: Laufzettel #{laufzettel_id}",
+            },
+        )
+        errors = (result_data.get("giftCardCredit") or {}).get("userErrors", [])
+        if errors:
+            msgs = "; ".join(e.get("message", "") for e in errors)
+            raise HTTPException(
+                status_code=400, detail=f"Shopify refund failed: {msgs}"
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Shopify API error: {exc}")
+
+    db.delete(credit)
+
+    # Unlock if the Laufzettel was paid only by gift cards
+    if lz.payment_method == "gutschein":
+        lz.payment_method = None
+        lz.paid_at = None
+
+    db.commit()
+    return {"success": True, "refunded": credit.amount_debited}
+
+
 # ── Wero Payment API ────────────────────────────────────────────────────────
 
 # In-memory store for pending Wero payments (checkout_id -> {laufzettel_id, created_at, status})
@@ -1440,13 +1698,17 @@ async def pay_wero(laufzettel_id: int, request: Request, db: Session = Depends(g
     if lz.payment_method:
         raise HTTPException(status_code=409, detail="Already paid")
 
-    # Calculate total from material entries
+    # Calculate remaining amount (material total minus any applied gift card credits)
     materials = (
         db.query(LaufzettelMaterial)
         .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
         .all()
     )
-    total = sum(m.calculated_price for m in materials if m.calculated_price is not None)
+    _mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    _, _credited = _calc_gutschein_totals(db, laufzettel_id)
+    total = max(0.0, _mat_total - _credited)
     amount_str = f"{total:.2f}"
 
     # Generate checkout ID

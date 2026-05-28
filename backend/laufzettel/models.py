@@ -102,3 +102,31 @@ class LaufzettelMaterial(Base):
             if self.tax_rate is not None and self.tax_rate == 0
             else self.tax_rate,
         }
+
+
+class LaufzettelGutschein(Base):
+    __tablename__ = "laufzettel_gutschein"
+
+    id = Column(Integer, primary_key=True, index=True)
+    laufzettel_id = Column(Integer, index=True)
+    shopify_gift_card_id = Column(String)  # Shopify numeric ID as string
+    last_chars = Column(String)  # last 4 chars of the GC code for display
+    amount_debited = Column(Float)  # EUR amount taken from the card
+    transaction_id = Column(String, nullable=True)  # Shopify transaction GID
+    applied_at = Column(DateTime(timezone=True), default=_utcnow)
+    applied_by = Column(String, nullable=True)  # username or "member"
+    note = Column(String, nullable=True)
+
+    def to_dict(self):
+        applied_ts = _naive_to_utc(self.applied_at) if self.applied_at else None
+        return {
+            "id": self.id,
+            "laufzettel_id": self.laufzettel_id,
+            "shopify_gift_card_id": self.shopify_gift_card_id,
+            "last_chars": self.last_chars,
+            "amount_debited": self.amount_debited,
+            "transaction_id": self.transaction_id,
+            "applied_at": applied_ts.isoformat() if applied_ts else None,
+            "applied_by": self.applied_by,
+            "note": self.note,
+        }

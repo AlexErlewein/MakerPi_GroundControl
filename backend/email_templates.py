@@ -74,6 +74,7 @@ _PAYMENT_LABELS = {
     "bar": "Barzahlung",
     "karte": "Kartenzahlung",
     "wero": "Wero",
+    "gutschein": "Gutschein",
 }
 
 

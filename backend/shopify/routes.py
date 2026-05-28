@@ -13,6 +13,7 @@ from backend.config import (
     SHOPIFY_ACCESS_TOKEN,
     SHOPIFY_CLIENT_ID,
     SHOPIFY_CLIENT_SECRET,
+    SHOPIFY_GC_CREATION_FEE,
     SHOPIFY_PHYSICAL_PRODUCT_ID,
     SHOPIFY_STORE,
 )
@@ -566,6 +567,145 @@ async def update_physical_product_order_note(order_id: str, body: NoteUpdate):
 
     order = result.get("order") or {}
     return {"note": order.get("note") or ""}
+
+
+# ── Issue Gift Card for Physical Order ───────────────────────────────────────
+
+
+@router.post("/api/shopify/physical-product/orders/{order_id}/issue-gift-card")
+async def issue_gift_card_for_order(order_id: str):
+    """Create a native Shopify gift card for a physical gift card order.
+
+    Calculates value = (line item unit price − SHOPIFY_GC_CREATION_FEE) × quantity,
+    creates the gift card via the REST API, and appends the reference to the order note.
+    The full code is returned once and must be handed to the customer immediately.
+    """
+    if not _is_configured():
+        raise HTTPException(status_code=503, detail="Shopify not configured")
+
+    order_detail = await get_physical_product_order_detail(order_id)
+
+    line = order_detail.get("line_item", {})
+    quantity = int(line.get("quantity") or 1)
+    try:
+        unit_price = float(line.get("unit_price", "0.00"))
+    except (ValueError, TypeError):
+        unit_price = 0.0
+
+    gift_card_value = round((unit_price - SHOPIFY_GC_CREATION_FEE) * quantity, 2)
+    if gift_card_value <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Calculated gift card value is {gift_card_value:.2f} € ≤ 0. "
+                f"Unit price: {unit_price:.2f} €, creation fee: {SHOPIFY_GC_CREATION_FEE:.2f} €."
+            ),
+        )
+
+    customer_name = (order_detail.get("customer") or {}).get("name", "")
+    gc_note = (
+        f"Physischer Gutschein aus Bestellung {order_detail.get('name', order_id)}"
+        + (f" – {customer_name}" if customer_name else "")
+    )
+
+    token = await _get_access_token()
+    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(
+            _shopify_url("gift_cards.json"),
+            headers=headers,
+            json={
+                "gift_card": {
+                    "initial_value": f"{gift_card_value:.2f}",
+                    "note": gc_note,
+                }
+            },
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Shopify gift card creation failed: {resp.text}",
+        )
+
+    gc = resp.json().get("gift_card", {})
+    gc_id = gc.get("id")
+    gc_code = gc.get("code", "")
+    gc_last_chars = gc.get("last_characters", "")
+
+    # Append the GC reference to the order note
+    existing_note = (order_detail.get("note") or "").strip()
+    gc_ref_line = f"[GC-{gc_id}] Gutschein …{gc_last_chars} über {gift_card_value:.2f} € ausgestellt"
+    new_note = f"{existing_note}\n{gc_ref_line}".strip()
+    try:
+        await update_physical_product_order_note(order_id, NoteUpdate(note=new_note))
+    except Exception:
+        logger.warning(
+            "Could not update order note for %s after issuing GC %s", order_id, gc_id
+        )
+
+    return {
+        "gift_card_id": str(gc_id),
+        "code": gc_code,
+        "last_characters": gc_last_chars,
+        "initial_value": gift_card_value,
+        "currency": "EUR",
+    }
+
+
+# ── Gift Card Lookup by Last 4 Characters ────────────────────────────────────
+
+
+@router.get("/api/shopify/gift-cards/lookup")
+async def lookup_gift_cards(last_chars: str):
+    """Find enabled gift cards by the last 4 characters of their code."""
+    if not _is_configured():
+        raise HTTPException(status_code=503, detail="Shopify not configured")
+    if not last_chars or len(last_chars) > 8:
+        raise HTTPException(status_code=400, detail="last_chars must be 1–8 characters")
+
+    token = await _get_access_token()
+    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+    needle = last_chars.upper()
+
+    matched = []
+    url: str | None = _shopify_url("gift_cards.json")
+    params: dict = {"status": "enabled", "limit": 250}
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        while url:
+            resp = await client.get(
+                url,
+                headers=headers,
+                params=params if url == _shopify_url("gift_cards.json") else {},
+            )
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=f"Shopify API error: {resp.text}",
+                )
+            for c in resp.json().get("gift_cards", []):
+                if c.get("last_characters", "").upper() == needle:
+                    matched.append(
+                        {
+                            "id": str(c["id"]),
+                            "last_chars": c.get("last_characters", ""),
+                            "balance": float(c.get("balance", 0)),
+                            "initial_value": float(c.get("initial_value", 0)),
+                            "currency": c.get("currency", "EUR"),
+                        }
+                    )
+            # Paginate via Link header
+            link = resp.headers.get("link", "")
+            url = None
+            if 'rel="next"' in link:
+                import re as _re
+
+                m = _re.search(r'<([^>]+)>;\s*rel="next"', link)
+                if m:
+                    url = m.group(1)
+
+    return matched
 
 
 # ── Summary (must be before {gift_card_id} to avoid route conflict) ──────────

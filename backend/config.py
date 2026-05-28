@@ -181,6 +181,13 @@ SHOPIFY_PHYSICAL_PRODUCT_ID: str = _cfg.get(
     "shopify_physical_product_id",
     os.environ.get("SHOPIFY_PHYSICAL_PRODUCT_ID", ""),
 )
+# Fixed fee (€) charged per physical gift card for card creation; subtracted from line item price
+# to arrive at the actual gift card value when issuing via GroundControl.
+SHOPIFY_GC_CREATION_FEE: float = float(
+    _cfg.get(
+        "shopify_gc_creation_fee", os.environ.get("SHOPIFY_GC_CREATION_FEE", "5.0")
+    )
+)
 
 # Plane issue tracker configuration (for public bug report form)
 PLANE_URL: str = _cfg.get("plane_url", os.environ.get("PLANE_URL", ""))
@@ -207,6 +214,7 @@ BUCHHALTUNG_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/buchhaltung.db"
 def update_config(updates: dict) -> None:
     """Write updates to config/config.json and refresh module-level variables."""
     import sys as _sys
+
     cfg: dict = {}
     if _cfg_path.exists():
         try:
