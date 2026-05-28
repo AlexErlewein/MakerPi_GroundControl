@@ -180,9 +180,9 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 |----------|--------|
 | Hardware (Material) | 421,75 € |
 | Arbeitszeit (272h × 85€/h) | 23.120,00 € |
-| **Gesamt netto** | 23.541,75 € |
-| **+ 19% MwSt** | 4.472,93 € |
-| **Gesamt brutto** | **28.014,68 €** |
+| **Gesamtbetrag (brutto)** | **23.541,75 €** |
+
+**Hinweis:** Alle Preise verstehen sich gemäß Kleinunternehmerregelung (§ 19 UStG) brutto. Eine gesonderte Ausweisung von Umsatzsteuer erfolgt nicht.
 
 ---
 
