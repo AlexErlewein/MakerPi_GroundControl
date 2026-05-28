@@ -162,14 +162,14 @@
 }
 
 .nfc-badge {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 700;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .nfc-ok {
