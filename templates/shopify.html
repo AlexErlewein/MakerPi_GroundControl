@@ -169,11 +169,15 @@
         </div>
     </div>
 
+    <!-- Unified search -->
+    <div style="margin-bottom:20px;">
+        <input type="text" id="shopify-search" placeholder="Suchen in Bestellungen und Gutscheinen…" class="filter-select" style="width:100%;box-sizing:border-box;">
+    </div>
+
     <!-- Physical Gift Card Orders -->
     <div class="section-header">
         <h2>Physische Geschenkgutscheine – Verkäufe</h2>
         <div class="controls">
-            <input type="text" id="orders-search" placeholder="Suchen…" class="filter-select" style="min-width:180px;">
             <button class="btn btn-secondary" id="refresh-orders-btn">↻ Aktualisieren</button>
         </div>
     </div>
@@ -185,7 +189,6 @@
     <div class="section-header" style="margin-top: 32px;">
         <h2>Digitale Gutscheine</h2>
         <div class="controls">
-            <input type="text" id="gc-search" placeholder="Suchen…" class="filter-select" style="min-width:180px;">
             <select class="filter-select" id="status-filter">
                 <option value="enabled">Aktiv</option>
                 <option value="disabled">Deaktiviert</option>
@@ -239,5 +242,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/shopify.js?v=5"></script>
+<script src="/static/js/shopify.js?v=6"></script>
 {% endblock %}

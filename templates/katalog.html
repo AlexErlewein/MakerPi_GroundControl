@@ -11,13 +11,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="section-header" style="margin-bottom: 20px;">
+<div class="section-header" style="margin-bottom: 12px;">
     <h2>Material Katalog</h2>
     <div class="actions">
         <button id="edit-mode-btn" class="btn btn-primary">✎ Bearbeiten</button>
         <button id="bulk-import-btn" class="btn btn-primary hidden">⬆ Bulk Import</button>
         <button id="add-location-btn" class="btn btn-success hidden">+ Standort</button>
     </div>
+</div>
+<div style="margin-bottom:16px;">
+    <input type="text" id="katalog-search" placeholder="Variante, Kategorie oder Standort suchen…"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;">
 </div>
 <div id="katalog-tree" class="katalog-tree">
     <p class="empty">Lade Katalog...</p>
@@ -221,5 +225,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/katalog.js?v=6"></script>
+<script src="/static/js/katalog.js?v=7"></script>
 {% endblock %}

@@ -41,6 +41,48 @@ function renderTree() {
         return;
     }
     tree.innerHTML = katalog.map((loc) => renderLocation(loc)).join("");
+    const searchInput = document.getElementById("katalog-search");
+    if (searchInput && searchInput.value.trim()) filterKatalog();
+}
+
+function filterKatalog() {
+    const input = document.getElementById("katalog-search");
+    if (!input) return;
+    const needle = input.value.trim().toLowerCase();
+
+    if (!needle) {
+        renderTree();
+        return;
+    }
+
+    // Expand all collapsed bodies so filtering can see everything
+    document.querySelectorAll(".location-body, .kategorie-body, .unterkategorie-body").forEach(b => {
+        b.classList.remove("hidden");
+    });
+
+    // Show/hide variant rows
+    document.querySelectorAll("#katalog-tree tbody tr").forEach(tr => {
+        if (tr.querySelector(".empty")) { tr.style.display = "none"; return; }
+        tr.style.display = tr.textContent.toLowerCase().includes(needle) ? "" : "none";
+    });
+
+    // Hide unterkategorie blocks with no visible rows
+    document.querySelectorAll(".unterkategorie-block").forEach(block => {
+        const has = [...block.querySelectorAll("tbody tr")].some(tr => tr.style.display !== "none");
+        block.style.display = has ? "" : "none";
+    });
+
+    // Hide kategorie blocks with no visible unterkategorie blocks
+    document.querySelectorAll(".kategorie-block").forEach(block => {
+        const has = [...block.querySelectorAll(".unterkategorie-block")].some(b => b.style.display !== "none");
+        block.style.display = has ? "" : "none";
+    });
+
+    // Hide location blocks with no visible kategorie blocks
+    document.querySelectorAll(".location-block").forEach(block => {
+        const has = [...block.querySelectorAll(".kategorie-block")].some(b => b.style.display !== "none");
+        block.style.display = has ? "" : "none";
+    });
 }
 
 function renderLocation(loc) {
@@ -439,6 +481,8 @@ document.getElementById("variante-cancel").addEventListener("click", closeVarian
 document.getElementById("variante-overlay").addEventListener("click", closeVarianteModal);
 
 loadKatalog();
+
+document.getElementById("katalog-search").addEventListener("input", filterKatalog);
 
 // ── Bulk Import ─────────────────────────────────────────────────────────────
 

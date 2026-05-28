@@ -30,7 +30,11 @@
 <section class="section">
     <div class="section-header">
         <h2>Tag Registry</h2>
-        <button id="add-tag-btn" class="btn btn-success">+ Add Tag</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="tags-search" placeholder="Search tags…"
+                style="height:34px;padding:0 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;min-width:200px;">
+            <button id="add-tag-btn" class="btn btn-success">+ Add Tag</button>
+        </div>
     </div>
     <div class="table-container">
         <table id="tags-table">
@@ -54,7 +58,11 @@
 
 <!-- Recent Scans -->
 <section class="section">
-    <h2>Recent Scans</h2>
+    <div class="section-header">
+        <h2>Recent Scans</h2>
+        <input type="text" id="scans-search" placeholder="Search scans…"
+            style="height:34px;padding:0 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;min-width:200px;">
+    </div>
     <div class="table-container">
         <table id="scans-table">
             <thead>
@@ -126,5 +134,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/tags.js?v=6"></script>
+<script src="/static/js/tags.js?v=7"></script>
 {% endblock %}

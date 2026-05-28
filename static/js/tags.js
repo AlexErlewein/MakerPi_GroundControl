@@ -18,6 +18,15 @@ async function loadScans() {
     document.getElementById("unknown-count").textContent = unknown;
 }
 
+function filterRows(inputId, tbodyId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const needle = input.value.trim().toLowerCase();
+    document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+        tr.style.display = !needle || tr.textContent.toLowerCase().includes(needle) ? "" : "none";
+    });
+}
+
 function renderTags() {
     const tbody = document.getElementById("tags-body");
     if (allTags.length === 0) {
@@ -49,6 +58,7 @@ function renderTags() {
     `,
         )
         .join("");
+    filterRows("tags-search", "tags-body");
 }
 
 function renderScans() {
@@ -91,6 +101,7 @@ function renderScans() {
         </tr>`;
         })
         .join("");
+    filterRows("scans-search", "scans-body");
 }
 
 function esc(str) {
@@ -191,6 +202,8 @@ document.getElementById("add-tag-btn").addEventListener("click", openAdd);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
+document.getElementById("tags-search").addEventListener("input", () => filterRows("tags-search", "tags-body"));
+document.getElementById("scans-search").addEventListener("input", () => filterRows("scans-search", "scans-body"));
 
 loadTags();
 loadScans();

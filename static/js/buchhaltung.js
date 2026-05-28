@@ -193,5 +193,19 @@ document.getElementById('spende-form').addEventListener('submit', async (e) => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+function filterRows(inputId, tbodyId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const needle = input.value.trim().toLowerCase();
+    document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+        tr.style.display = !needle || tr.textContent.toLowerCase().includes(needle) ? '' : 'none';
+    });
+}
+
+const variantSearch = document.getElementById('variant-search');
+const spendeSearch = document.getElementById('spende-search');
+if (variantSearch) variantSearch.addEventListener('input', () => filterRows('variant-search', 'variant-tbody'));
+if (spendeSearch) spendeSearch.addEventListener('input', () => filterRows('spende-search', 'spende-tbody'));
+
 updatePeriodDropdown();
 loadSummary();
