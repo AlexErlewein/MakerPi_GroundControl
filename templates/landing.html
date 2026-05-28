@@ -432,50 +432,39 @@
         }
     }
 
-    // MQTT connection for RFID scan
+    // RFID login only works via SSE with a valid pairing token.
+    // The old polling fallback (GET /api/scans) has been removed for security —
+    // it allowed any browser to pick up scans from any reader.
+    // Polling is kept as a no-op placeholder to avoid breaking other code paths.
+
     const rfidStatus = document.getElementById('rfid-status');
     const rfidError = document.getElementById('rfid-error');
 
-    // Listen for RFID scans via MQTT (using WebSocket or polling)
+    // Polling is DISABLED for RFID login — only SSE with a valid pairing token
+    // is allowed. This prevents any browser from picking up scans from any reader.
+    // The function is kept as a dead stub in case other code references it.
     async function checkForRFIDScans() {
-        try {
-            // Poll for recent tag scans
-            const res = await fetch('/api/scans?limit=1');
-            if (!res.ok) return;
-
-            const scans = await res.json();
-            if (scans.length === 0) return;
-
-            const latestScan = scans[0];
-            const scanTime = new Date(latestScan.timestamp);
-            const now = new Date();
-
-            // Only process scans from last 5 seconds
-            if ((now - scanTime) > 5000) return;
-
-            // Already processed this scan?
-            if (latestScan.id === window.lastProcessedScan) return;
-            window.lastProcessedScan = latestScan.id;
-
-            // Try to login with this RFID
-            await attemptRFIDLogin(latestScan.uid);
-
-        } catch (e) {
-            console.error('RFID check error:', e);
-        }
+        // No-op: RFID login requires SSE with a pairing token.
     }
 
     async function attemptRFIDLogin(rfidUid) {
-        console.log('[NFC-LOGIN] Attempting login with UID:', rfidUid);
+        console.log('[NFC-LOGIN] Attempting login with UID:', rfidUid, 'paired:', !!pairingToken);
         rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
         rfidError.style.display = 'none';
+
+        if (!pairingToken) {
+            console.error('[NFC-LOGIN] No pairing token — refusing login attempt');
+            rfidError.textContent = 'Gerät nicht gekoppelt. Bitte zuerst verbinden.';
+            rfidError.style.display = 'block';
+            return;
+        }
 
         try {
             const res = await fetch('/api/auth/login-rfid', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 credentials: 'include',
-                body: JSON.stringify({rfid_uid: rfidUid})
+                body: JSON.stringify({rfid_uid: rfidUid, pairing_token: pairingToken})
             });
 
             console.log('[NFC-LOGIN] Response status:', res.status);

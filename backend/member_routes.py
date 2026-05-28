@@ -477,16 +477,109 @@ async def login_via_rfid(
     auth_db: Session = Depends(get_auth_db),
     members_db: Session = Depends(get_members_db),
 ):
-    """Login via RFID card - creates user if not exists"""
+    """Login via RFID card — requires a valid device-pairing token so that only the
+    paired NFC reader + paired browser combination can authenticate."""
     body = await request.json()
     rfid_uid = body.get("rfid_uid", "").strip().upper()
+    pairing_token = body.get("pairing_token", "").strip()
     from datetime import datetime, timezone
 
     logger.info(
-        "[RFID-LOGIN] Attempt with uid=%r, cookie=%r",
+        "[RFID-LOGIN] Attempt with uid=%r, has_pairing_token=%s, cookie=%r",
         rfid_uid,
+        bool(pairing_token),
         request.headers.get("cookie", "")[:100],
     )
+
+    # ── Strict pairing check ───────────────────────────────────────────────
+    if not pairing_token:
+        logger.warning("[RFID-LOGIN] Rejected: no pairing_token provided")
+        return JSONResponse(
+            {"success": False, "error": "Gerät nicht verbunden — bitte zuerst koppeln"},
+            status_code=403,
+        )
+
+    import hashlib
+
+    token_hash = hashlib.sha256(pairing_token.encode()).hexdigest()
+
+    from backend.core.db import get_db as get_core_db
+
+    core_db = next(get_core_db())
+    try:
+        from backend.core.models import DevicePairing
+
+        pairing = (
+            core_db.query(DevicePairing)
+            .filter(DevicePairing.token_hash == token_hash)
+            .first()
+        )
+        if not pairing:
+            logger.warning("[RFID-LOGIN] Rejected: invalid pairing token")
+            return JSONResponse(
+                {"success": False, "error": "Ungültiger Pairing-Token"},
+                status_code=403,
+            )
+        if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+            logger.warning("[RFID-LOGIN] Rejected: expired pairing token")
+            return JSONResponse(
+                {"success": False, "error": "Pairing-Token abgelaufen"},
+                status_code=403,
+            )
+
+        paired_device_id = pairing.device_id
+
+        # Verify that a recent TagScan exists for this (uid, device) pair
+        from backend.core.models import TagScan
+
+        # TagScan timestamps may be naive from SQLite; compare both ways
+        recent_scan = (
+            core_db.query(TagScan)
+            .filter(
+                TagScan.uid == rfid_uid,
+                TagScan.device_id == paired_device_id,
+            )
+            .order_by(TagScan.id.desc())
+            .first()
+        )
+        if not recent_scan:
+            logger.warning(
+                "[RFID-LOGIN] Rejected: no scan record for uid=%r on device=%r",
+                rfid_uid,
+                paired_device_id,
+            )
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Kein Scan vom gekoppelten Leser erkannt — bitte erneut scannen",
+                },
+                status_code=403,
+            )
+        # Check recency ( tolerate up to 60 seconds for clock skew / network lag)
+        scan_ts = recent_scan.timestamp
+        if scan_ts.tzinfo is not None:
+            scan_ts = scan_ts.replace(tzinfo=None)
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        if (now_naive - scan_ts).total_seconds() > 60:
+            logger.warning(
+                "[RFID-LOGIN] Rejected: scan too old (uid=%r, device=%r, age=%.0fs)",
+                rfid_uid,
+                paired_device_id,
+                (now_naive - scan_ts).total_seconds(),
+            )
+            return JSONResponse(
+                {"success": False, "error": "Scan zu alt — bitte erneut scannen"},
+                status_code=403,
+            )
+
+        # Update last_used on the pairing
+        pairing.last_used = datetime.now(timezone.utc)
+        core_db.commit()
+
+    finally:
+        core_db.close()
+
+    logger.info("[RFID-LOGIN] Pairing valid for device=%r", paired_device_id)
 
     # Primary lookup: find member directly by nfc_uid
     mitglied = members_db.query(Mitglied).filter(Mitglied.nfc_uid == rfid_uid).first()
