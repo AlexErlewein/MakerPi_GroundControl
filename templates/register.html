@@ -363,6 +363,7 @@
     }
 
     .btn-back {
+        display: inline-block;
         padding: 10px 20px;
         background: transparent;
         border: 1px solid var(--border-color);
@@ -371,6 +372,8 @@
         font-size: 0.95rem;
         cursor: pointer;
         font-family: inherit;
+        text-decoration: none;
+        text-align: center;
         transition: background 0.2s, color 0.2s;
         white-space: nowrap;
     }
@@ -565,6 +568,7 @@
         </div>
 
         <div class="reg-nav">
+            <a href="/" class="btn-back">← Zurück</a>
             <button type="button" class="btn-next" onclick="nextStep(1)">Weiter →</button>
         </div>
     </div>
