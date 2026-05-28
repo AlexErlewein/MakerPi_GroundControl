@@ -354,7 +354,7 @@
     <div class="qr-scanner-overlay" id="qr-scanner-overlay">
         <div class="qr-scanner-container" id="qr-reader"></div>
         <p class="scanner-text" id="scanner-status">QR-Code vor die Kamera halten...</p>
-        <p class="scanner-hint">💡 Tipp: Halte den QR-Code ca. 10-15cm vor die Kamera</p>
+        <p class="scanner-hint" id="scanner-hint">💡 Tipp: Halte den QR-Code ca. 10-15cm vor die Kamera</p>
         <button class="btn-close-scanner" onclick="stopQRScanner()">Abbrechen</button>
     </div>
 </div>
@@ -630,6 +630,11 @@
         const overlay = document.getElementById('qr-scanner-overlay');
         overlay.classList.add('active');
 
+        // Wait for layout reflow so the container has computed dimensions
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const hintEl = document.getElementById('scanner-hint');
+
         // Check if HTTPS or localhost - required for camera access on iOS Safari
         const isSecureContext = window.isSecureContext;
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -637,7 +642,7 @@
         if (!isSecureContext && !isLocalhost) {
             const statusEl = document.getElementById('scanner-status');
             statusEl.innerHTML = '⚠️ Kamera-Zugriff erfordert HTTPS.<br><small>Bitte Token manuell eingeben oder HTTPS aktivieren.</small>';
-            document.getElementById('scanner-hint').style.display = 'none';
+            if (hintEl) hintEl.style.display = 'none';
             return;
         }
 
@@ -648,7 +653,7 @@
         if (statusEl) {
             statusEl.textContent = '📷 QR-Code vor die Kamera halten...';
         }
-        document.getElementById('scanner-hint').style.display = 'block';
+        if (hintEl) hintEl.style.display = 'block';
 
         html5QrCode = new Html5Qrcode('qr-reader');
 
@@ -750,7 +755,7 @@
             } else {
                 statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
             }
-            document.getElementById('scanner-hint').style.display = 'none';
+            if (hintEl) hintEl.style.display = 'none';
 
             // Safari-iOS fallback: Try simpler config without videoConstraints
             if (isIOS && isSafari) {
@@ -765,7 +770,7 @@
                         onQRCodeSuccess,
                         onQRCodeError
                     );
-                    document.getElementById('scanner-hint').style.display = 'block';
+                    if (hintEl) hintEl.style.display = 'block';
                     console.log('Safari fallback successful');
                     return;
                 } catch (safariErr) {
@@ -773,15 +778,15 @@
                 }
             }
 
-            // Letzter Fallback: irgendeine Kamera
+            // Letzter Fallback: irgendeine Kamera (front camera)
             try {
                 await html5QrCode.start(
-                    { video: true },
+                    { facingMode: 'user' },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
                     onQRCodeSuccess,
                     onQRCodeError
                 );
-                document.getElementById('scanner-hint').style.display = 'block';
+                if (hintEl) hintEl.style.display = 'block';
             } catch (err2) {
                 console.error('All QR scanner fallbacks failed:', err2);
                 statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
