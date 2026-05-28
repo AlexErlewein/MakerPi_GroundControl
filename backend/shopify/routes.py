@@ -693,6 +693,9 @@ async def lookup_gift_cards(last_chars: str):
                             "balance": float(c.get("balance", 0)),
                             "initial_value": float(c.get("initial_value", 0)),
                             "currency": c.get("currency", "EUR"),
+                            "customer_id": c.get("customer_id"),
+                            "customer_name": None,
+                            "note": c.get("note") or "",
                         }
                     )
             # Paginate via Link header
@@ -704,6 +707,24 @@ async def lookup_gift_cards(last_chars: str):
                 m = _re.search(r'<([^>]+)>;\s*rel="next"', link)
                 if m:
                     url = m.group(1)
+
+        # Fetch customer names for matched cards
+        for card in matched:
+            cid = card.get("customer_id")
+            if not cid:
+                continue
+            try:
+                cr = await client.get(
+                    _shopify_url(f"customers/{cid}.json"),
+                    headers=headers,
+                )
+                if cr.status_code == 200:
+                    cust = cr.json().get("customer", {})
+                    first = cust.get("first_name") or ""
+                    last = cust.get("last_name") or ""
+                    card["customer_name"] = f"{first} {last}".strip() or None
+            except Exception:
+                pass
 
     return matched
 

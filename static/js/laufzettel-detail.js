@@ -860,7 +860,10 @@ async function lookupGutschein() {
             const row = document.createElement("div");
             row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--bg);";
             row.dataset.cardId = card.id;
-            row.innerHTML = `<span style="font-family:monospace;font-weight:600;">…${card.last_chars}</span><span style="font-size:0.82rem;color:var(--text-secondary);">ID ${card.id}</span><span style="font-size:0.9rem;">Guthaben: <strong>${fmtEur(card.balance)}</strong></span>`;
+            const _nameTag = card.customer_name
+                ? `<span style="font-size:0.85rem;">${card.customer_name}</span>`
+                : `<span style="font-size:0.82rem;color:var(--text-secondary);">kein Kunde</span>`;
+            row.innerHTML = `<span style="font-family:monospace;font-weight:600;">…${card.last_chars}</span>${_nameTag}<span style="font-size:0.9rem;">Guthaben: <strong>${fmtEur(card.balance)}</strong></span>`;
             row.addEventListener("click", () => _selectGutscheinCard(card, row));
             list.appendChild(row);
         });
