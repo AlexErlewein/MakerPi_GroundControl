@@ -128,8 +128,8 @@ TAILSCALE_NODE=""
 HAS_TAILSCALE_CERTS=false
 
 if command -v tailscale &>/dev/null; then
-    # Get Tailscale node name
-    TAILSCALE_NODE=$(tailscale status --self | head -1 | awk '{print $2}')
+    # Get Tailscale node name (|| true: tailscale may not be running/authenticated)
+    TAILSCALE_NODE=$(tailscale status --self 2>/dev/null | head -1 | awk '{print $2}' || true)
     if [ -n "$TAILSCALE_NODE" ]; then
         echo "  Tailscale node detected: $TAILSCALE_NODE"
 
