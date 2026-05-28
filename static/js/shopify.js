@@ -68,6 +68,7 @@ async function loadCards(status = 'enabled') {
     } catch (e) {
         tbody.innerHTML = `<tr class="empty-row"><td colspan="10" style="color:var(--danger)">Netzwerkfehler: ${e.message}</td></tr>`;
     }
+    applySearch('gc-search', '#cards-tbody tr');
 }
 
 // ── Detail Modal ────────────────────────────────────────────────────────────
@@ -368,6 +369,7 @@ async function loadPhysicalOrders() {
         }
 
         area.innerHTML = html;
+        applySearch('orders-search', '#physical-orders-area tbody tr');
     } catch (e) {
         area.innerHTML = `<p style="color:var(--danger)">Fehler: ${e.message}</p>`;
     }
@@ -532,6 +534,15 @@ function closeTxModal() {
     document.getElementById('tx-modal').classList.remove('open');
 }
 
+function applySearch(inputId, rowsSelector) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const needle = input.value.trim().toLowerCase();
+    document.querySelectorAll(rowsSelector).forEach(row => {
+        row.style.display = !needle || row.textContent.toLowerCase().includes(needle) ? '' : 'none';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const filterSelect = document.getElementById('status-filter');
     const refreshBtn = document.getElementById('refresh-btn');
@@ -540,6 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshOrdersBtn = document.getElementById('refresh-orders-btn');
     const orderClose = document.getElementById('order-close');
     const orderOverlay = document.getElementById('order-modal');
+    const gcSearch = document.getElementById('gc-search');
+    const ordersSearch = document.getElementById('orders-search');
 
     if (!filterSelect) return; // page not configured
 
@@ -551,6 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     filterSelect.addEventListener('change', () => loadCards(filterSelect.value));
     refreshBtn.addEventListener('click', refresh);
+    if (gcSearch) gcSearch.addEventListener('input', () => applySearch('gc-search', '#cards-tbody tr'));
+    if (ordersSearch) ordersSearch.addEventListener('input', () => applySearch('orders-search', '#physical-orders-area tbody tr'));
     if (refreshOrdersBtn) refreshOrdersBtn.addEventListener('click', loadPhysicalOrders);
     txClose.addEventListener('click', closeTxModal);
     txOverlay.addEventListener('click', (e) => { if (e.target === txOverlay) closeTxModal(); });
