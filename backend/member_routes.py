@@ -481,7 +481,7 @@ async def login_via_rfid(
     paired NFC reader + paired browser combination can authenticate."""
     body = await request.json()
     rfid_uid = body.get("rfid_uid", "").strip().upper()
-    pairing_token = body.get("pairing_token", "").strip()
+    pairing_token = (body.get("pairing_token") or "").strip()
     from datetime import datetime, timezone
 
     logger.info(
