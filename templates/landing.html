@@ -827,12 +827,12 @@
     }
 
     function startScanStream() {
-        if (!pairingToken) {
-            console.log('[SSE] No pairing token, skipping SSE connection');
+        if (!pairingToken && !ipPaired) {
+            console.log('[SSE] No pairing (token or IP), skipping SSE connection');
             return;
         }
 
-        console.log('[SSE] Starting SSE connection with token:', pairingToken.substring(0, 8) + '...');
+        console.log('[SSE] Starting SSE connection, token:', !!pairingToken, 'ipPaired:', ipPaired);
         
         // Close existing connection
         if (scanEventSource) {
@@ -859,7 +859,7 @@
             }
         });
 
-        scanEventSource.addEventListener('scan', (e) => {
+        function handleScanEvent(e) {
             try {
                 const data = JSON.parse(e.data);
                 console.log('[SSE] Scan event received:', data);
@@ -870,7 +870,14 @@
             } catch (err) {
                 console.error('[SSE] Parse error:', err);
             }
-        });
+        }
+
+        // Named event (works in Safari, Chrome, etc.)
+        scanEventSource.addEventListener('scan', handleScanEvent);
+
+        // Fallback: generic message event (required for iOS PWA / WKWebView
+        // which often fails to dispatch named SSE custom events)
+        scanEventSource.addEventListener('message', handleScanEvent);
 
         scanEventSource.addEventListener('error', (e) => {
             console.error('[SSE] Connection error:', e);
