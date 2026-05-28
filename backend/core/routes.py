@@ -28,6 +28,7 @@ class DevicePairingCreate(BaseModel):
     device_id: str
     description: Optional[str] = None
     expires_at: Optional[str] = None  # ISO format datetime string
+    client_ip: Optional[str] = None  # Static client IP for IP-based auto-pairing
 
 
 class DevicePairingResponse(BaseModel):
@@ -683,6 +684,23 @@ async def scan_stream(
         allowed_device = pairing.device_id
         logger.info("[SSE] Pairing validated for device_id=%s", allowed_device)
 
+    # ── Fallback: IP-based auto-pairing when no token provided ─────────────
+    if not allowed_device:
+        client_ip = _get_client_ip(request)
+        now = datetime.now(timezone.utc)
+        ip_pairing = (
+            db.query(DevicePairing).filter(DevicePairing.client_ip == client_ip).first()
+        )
+        if ip_pairing and (not ip_pairing.expires_at or ip_pairing.expires_at >= now):
+            allowed_device = ip_pairing.device_id
+            ip_pairing.last_used = now
+            db.commit()
+            logger.info(
+                "[SSE] IP-based auto-pairing for device_id=%s ip=%s",
+                allowed_device,
+                client_ip,
+            )
+
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
     entry = (queue, loop, allowed_device)  # Include allowed_device for filtering
@@ -1055,6 +1073,7 @@ async def create_device_pairing(
         paired_by=get_current_user(request) or "unknown",
         expires_at=expires_at,
         description=data.description,
+        client_ip=data.client_ip,
     )
     db.add(pairing)
     db.commit()
@@ -1085,6 +1104,40 @@ async def delete_device_pairing(
     db.delete(pairing)
     db.commit()
     return {"success": True, "deleted_id": pairing_id}
+
+
+@router.get("/api/device-pairings/auto")
+async def auto_pair_by_ip(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Check if the current client IP matches a device pairing.
+
+    Used by the landing page to auto-detect a paired device without needing a
+    token in localStorage.  Works across browsers and PWA on the same device.
+    """
+    client_ip = _get_client_ip(request)
+    now = datetime.now(timezone.utc)
+
+    pairing = (
+        db.query(DevicePairing).filter(DevicePairing.client_ip == client_ip).first()
+    )
+    if not pairing:
+        return {"paired": False}
+
+    if pairing.expires_at and pairing.expires_at < now:
+        return {"paired": False, "error": "expired"}
+
+    # Update last_used
+    pairing.last_used = now
+    db.commit()
+
+    return {
+        "paired": True,
+        "device_id": pairing.device_id,
+        "description": pairing.description,
+        "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
+    }
 
 
 @router.post("/api/device-pairings/validate")

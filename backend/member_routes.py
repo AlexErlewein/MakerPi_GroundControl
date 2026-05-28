@@ -492,16 +492,7 @@ async def login_via_rfid(
     )
 
     # ── Strict pairing check ───────────────────────────────────────────────
-    if not pairing_token:
-        logger.warning("[RFID-LOGIN] Rejected: no pairing_token provided")
-        return JSONResponse(
-            {"success": False, "error": "Gerät nicht verbunden — bitte zuerst koppeln"},
-            status_code=403,
-        )
-
     import hashlib
-
-    token_hash = hashlib.sha256(pairing_token.encode()).hexdigest()
 
     from backend.core.db import get_db as get_core_db
 
@@ -509,25 +500,68 @@ async def login_via_rfid(
     try:
         from backend.core.models import DevicePairing
 
-        pairing = (
-            core_db.query(DevicePairing)
-            .filter(DevicePairing.token_hash == token_hash)
-            .first()
-        )
-        if not pairing:
-            logger.warning("[RFID-LOGIN] Rejected: invalid pairing token")
-            return JSONResponse(
-                {"success": False, "error": "Ungültiger Pairing-Token"},
-                status_code=403,
-            )
-        if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
-            logger.warning("[RFID-LOGIN] Rejected: expired pairing token")
-            return JSONResponse(
-                {"success": False, "error": "Pairing-Token abgelaufen"},
-                status_code=403,
-            )
+        paired_device_id = None
 
-        paired_device_id = pairing.device_id
+        if pairing_token:
+            # Token-based validation
+            token_hash = hashlib.sha256(pairing_token.encode()).hexdigest()
+
+            pairing = (
+                core_db.query(DevicePairing)
+                .filter(DevicePairing.token_hash == token_hash)
+                .first()
+            )
+            if not pairing:
+                logger.warning("[RFID-LOGIN] Rejected: invalid pairing token")
+                return JSONResponse(
+                    {"success": False, "error": "Ungültiger Pairing-Token"},
+                    status_code=403,
+                )
+            if pairing.expires_at and pairing.expires_at < datetime.now(timezone.utc):
+                logger.warning("[RFID-LOGIN] Rejected: expired pairing token")
+                return JSONResponse(
+                    {"success": False, "error": "Pairing-Token abgelaufen"},
+                    status_code=403,
+                )
+            paired_device_id = pairing.device_id
+        else:
+            # Fallback: IP-based auto-pairing
+            from backend.core.routes import _get_client_ip
+
+            client_ip = _get_client_ip(request)
+            ip_pairing = (
+                core_db.query(DevicePairing)
+                .filter(DevicePairing.client_ip == client_ip)
+                .first()
+            )
+            if not ip_pairing:
+                logger.warning(
+                    "[RFID-LOGIN] Rejected: no token and no IP pairing for ip=%s",
+                    client_ip,
+                )
+                return JSONResponse(
+                    {
+                        "success": False,
+                        "error": "Gerät nicht verbunden — bitte zuerst koppeln",
+                    },
+                    status_code=403,
+                )
+            if ip_pairing.expires_at and ip_pairing.expires_at < datetime.now(
+                timezone.utc
+            ):
+                logger.warning(
+                    "[RFID-LOGIN] Rejected: IP pairing expired for ip=%s", client_ip
+                )
+                return JSONResponse(
+                    {"success": False, "error": "Pairing abgelaufen"},
+                    status_code=403,
+                )
+            paired_device_id = ip_pairing.device_id
+            logger.info(
+                "[RFID-LOGIN] IP-based auto-pairing for device=%s ip=%s",
+                paired_device_id,
+                client_ip,
+            )
 
         # Verify that a recent TagScan exists for this (uid, device) pair
         from backend.core.models import TagScan
@@ -572,8 +606,29 @@ async def login_via_rfid(
                 status_code=403,
             )
 
-        # Update last_used on the pairing
-        pairing.last_used = datetime.now(timezone.utc)
+        # Update last_used on the pairing record
+        now_utc = datetime.now(timezone.utc)
+        if pairing_token:
+            # Re-fetch the pairing we already validated above
+            token_hash = hashlib.sha256(pairing_token.encode()).hexdigest()
+            active_pairing = (
+                core_db.query(DevicePairing)
+                .filter(DevicePairing.token_hash == token_hash)
+                .first()
+            )
+            if active_pairing:
+                active_pairing.last_used = now_utc
+        else:
+            from backend.core.routes import _get_client_ip
+
+            client_ip = _get_client_ip(request)
+            active_pairing = (
+                core_db.query(DevicePairing)
+                .filter(DevicePairing.client_ip == client_ip)
+                .first()
+            )
+            if active_pairing:
+                active_pairing.last_used = now_utc
         core_db.commit()
 
     finally:

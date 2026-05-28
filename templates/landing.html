@@ -452,8 +452,8 @@
         rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
         rfidError.style.display = 'none';
 
-        if (!pairingToken) {
-            console.error('[NFC-LOGIN] No pairing token — refusing login attempt');
+        if (!pairingToken && !ipPaired) {
+            console.error('[NFC-LOGIN] No pairing (token or IP) — refusing login attempt');
             rfidError.textContent = 'Gerät nicht gekoppelt. Bitte zuerst verbinden.';
             rfidError.style.display = 'block';
             return;
@@ -542,19 +542,37 @@
 
     let pairingToken = null;
     let pairedDeviceId = null;
+    let ipPaired = false;  // true when paired by IP (device-level, not browser-level)
     let scanEventSource = null;
 
     // Load stored pairing on page load
-    (function initPairing() {
+    (async function initPairing() {
         const storedToken = localStorage.getItem('landing_pairing_token');
         const storedDevice = localStorage.getItem('landing_paired_device');
         const container = document.getElementById('login-options-top');
 
         if (storedToken && storedDevice) {
+            // Token-based pairing from localStorage (browser-specific)
             pairingToken = storedToken;
             pairedDeviceId = storedDevice;
             container.classList.add('two-columns');
             activateNFCLogin();
+        } else {
+            // No localStorage token — try IP-based auto-pairing (device-level)
+            try {
+                const res = await fetch('/api/device-pairings/auto');
+                const data = await res.json();
+                if (data.paired) {
+                    console.log('[PAIRING] IP-based auto-pairing detected for device:', data.device_id);
+                    ipPaired = true;
+                    pairedDeviceId = data.device_id;
+                    activateNFCLogin();
+                } else {
+                    console.log('[PAIRING] No IP-based pairing found');
+                }
+            } catch (e) {
+                console.error('[PAIRING] IP auto-detect failed:', e);
+            }
         }
     })();
 
@@ -783,6 +801,7 @@
     function clearPairing() {
         pairingToken = null;
         pairedDeviceId = null;
+        ipPaired = false;
         localStorage.removeItem('landing_pairing_token');
         localStorage.removeItem('landing_paired_device');
 
@@ -821,9 +840,11 @@
             scanEventSource.close();
         }
 
-        // Use SSE with token parameter
-        const sseUrl = `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`;
-        console.log('[SSE] Connecting to:', sseUrl);
+        // Use SSE — with token if token-paired, or plain (IP-based) if ip-paired
+        const sseUrl = pairingToken
+            ? `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`
+            : '/api/scans/stream';
+        console.log('[SSE] Connecting to:', sseUrl, 'ipPaired:', ipPaired);
         
         scanEventSource = new EventSource(sseUrl);
 
