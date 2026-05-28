@@ -23,6 +23,29 @@
 
     {% block footer %}{% endblock %}
 
+    <footer class="gc-site-footer">
+        <a href="https://h3cke.de/policies/legal-notice" target="_blank" rel="noopener">Impressum</a>
+        <span class="gc-footer-sep">|</span>
+        <a href="https://h3cke.de/policies/privacy-policy" target="_blank" rel="noopener">Datenschutz</a>
+    </footer>
+
+    <!-- Cookie-Hinweis -->
+    <div id="gc-cookie-banner" class="gc-cookie-banner" style="display:none;">
+        <p>Diese Anwendung verwendet einen technisch notwendigen Session-Cookie, um deine Anmeldung zu verwalten. Weitere Informationen findest du in unserer <a href="https://h3cke.de/policies/privacy-policy" target="_blank" rel="noopener">Datenschutzerkl&auml;rung</a>.</p>
+        <button onclick="dismissCookieBanner()">Verstanden</button>
+    </div>
+    <script>
+    (function(){
+        if(!localStorage.getItem('gc-cookie-ok')){
+            document.getElementById('gc-cookie-banner').style.display='flex';
+        }
+    })();
+    function dismissCookieBanner(){
+        localStorage.setItem('gc-cookie-ok','1');
+        document.getElementById('gc-cookie-banner').style.display='none';
+    }
+    </script>
+
     {% block extra_js %}{% endblock %}
     <a href="/bug-report" class="bug-report-link" title="Bug melden">🐛</a>
     <script src="/static/js/theme.js"></script>
@@ -40,6 +63,72 @@
             transition: opacity 0.2s;
         }
         .bug-report-link:hover { opacity: 1; }
+
+        /* Site footer */
+        .gc-site-footer {
+            text-align: center;
+            padding: 16px 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            margin-top: 40px;
+        }
+        .gc-site-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .gc-site-footer a:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+        .gc-footer-sep {
+            margin: 0 6px;
+            opacity: 0.5;
+        }
+
+        /* Cookie banner */
+        .gc-cookie-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            z-index: 950;
+            flex-wrap: wrap;
+        }
+        .gc-cookie-banner p {
+            margin: 0;
+            max-width: 640px;
+        }
+        .gc-cookie-banner a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .gc-cookie-banner a:hover {
+            text-decoration: underline;
+        }
+        .gc-cookie-banner button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .gc-cookie-banner button:hover {
+            opacity: 0.88;
+        }
     </style>
 </body>
 </html>

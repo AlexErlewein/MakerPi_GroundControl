@@ -73,6 +73,7 @@ def check_database_status() -> dict:
     """Check Google Drive backup availability."""
     try:
         from backend.gdrive import get_drive_service
+
         service = get_drive_service()
         if service:
             return {"status": "ok", "message": "Google Drive backup active"}
@@ -397,7 +398,9 @@ async def get_db_health():
     for name, filename in dbs:
         path = Path(filename)
         if not path.exists():
-            results.append({"name": name, "status": "missing", "message": "not found", "size": "-"})
+            results.append(
+                {"name": name, "status": "missing", "message": "not found", "size": "-"}
+            )
             continue
         try:
             size = _human(path.stat().st_size)
@@ -411,12 +414,18 @@ async def get_db_health():
             finally:
                 con.close()
             if ok:
-                results.append({"name": name, "status": "ok", "message": size, "size": size})
+                results.append(
+                    {"name": name, "status": "ok", "message": size, "size": size}
+                )
             else:
                 issues = "; ".join(r[0] for r in rows)
-                results.append({"name": name, "status": "error", "message": issues, "size": size})
+                results.append(
+                    {"name": name, "status": "error", "message": issues, "size": size}
+                )
         except Exception as e:
-            results.append({"name": name, "status": "error", "message": str(e)[:80], "size": size})
+            results.append(
+                {"name": name, "status": "error", "message": str(e)[:80], "size": size}
+            )
 
     return {"databases": results}
 
@@ -724,7 +733,7 @@ async def scan_stream(
                         event.get("uid"),
                         event.get("device_id"),
                     )
-                    yield f"data: {json.dumps(event)}\n\n"
+                    yield f"event: scan\ndata: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
                     continue
         except Exception as e:
