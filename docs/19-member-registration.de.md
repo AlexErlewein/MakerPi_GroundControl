@@ -2,16 +2,16 @@
 
 ## Übersicht
 
-Das Mitglied-Registrierungssystem ermöglicht es neuen Mitgliedern, sich über ein öffentliches Webformular unter `/register` anzumelden. Diese Funktion integriert sich mit easyVerein (falls konfiguriert), um automatisch Mitglied-Datensätze zu erstellen, mit einem lokalen Fallback für Offline-Szenarien.
+Das Mitglied-Registrierungssystem ermöglicht es neuen Mitgliedern, sich über ein öffentliches Webformular unter `/register` anzumelden. Diese Funktion erstellt einen Mitgliedsantrag in easyVerein (falls konfiguriert), der vom Vorstand bestätigt werden muss, mit einem lokalen Fallback für Offline-Szenarien. Der Beitrag wird stets monatlich per SEPA-Lastschrift eingezogen.
 
 ## Funktionen
 
 - **Öffentliches Registrierungsformular**: Zugänglich unter `/register` ohne Authentifizierung
-- **easyVerein-Integration**: Automatische Mitglied-Erstellung in easyVerein bei API-Konfiguration
+- **easyVerein-Integration**: Erstellt Mitgliedsantrag (`isApplication: true`) in easyVerein — der Vorstand muss den Antrag bestätigen, bevor das Mitglied aktiv wird
 - **Lokaler Fallback**: Erstellt lokale Mitglied-Datensätze auch wenn easyVerein nicht verfügbar ist
 - **E-Mail-Validierung**: Verhindert doppelte Registrierungen mit derselben E-Mail
 - **Datenschutzerklärung**: Erfordert Akzeptanz der Datenschutzrichtlinie vor der Übermittlung
-- **Konfigurierbare Mitgliedschaftsgruppen**: Unterstützung für verschiedene Mitgliedsstufen und Preise
+- **Monatlicher Beitrag**: Fester monatlicher Zahlungsintervall (keine Auswahlmöglichkeit)
 
 ## Konfiguration
 
@@ -69,11 +69,11 @@ flowchart LR
     E -->|Ja| F["Kontakt in easyVerein erstellen"]
     F --> G["Mitglied in easyVerein erstellen"]
     G --> H["Mitgliedsnummer abrufen"]
-    H --> I["Lokalen Mitglied-Datensatz erstellen"]
+    H --> I["Lokalen Mitglied-Datensatz erstellen (Status: inactive)"]
     E -->|Nein| J["Lokale Mitglieds-ID generieren"]
     J --> I
-    I --> K["Bestätigung senden"]
-    K --> L["Registrierung abgeschlossen"]
+    I --> K["Bestätigung anzeigen"]
+    K --> L["Warte auf Vorstands-Bestätigung in easyVerein"]
 ```
 
 ## API-Endpunkte
@@ -140,9 +140,10 @@ Verarbeitet eine neue Mitglied-Registrierungsanmeldung.
 Wenn `easyverein_api_key` konfiguriert ist, führt das Registrierungssystem folgende Schritte aus:
 
 1. Erstellt einen Kontakt-Datensatz in easyVerein mit persönlichen Details
-2. Erstellt einen Mitglied-Datensatz, verknüpft mit dem Kontakt
+2. Erstellt einen **Mitgliedsantrag** (`isApplication: true`) in easyVerein — der Antrag erscheint in easyVerein unter "offene Mitgliedschaftsanträge" und muss vom Vorstand bestätigt werden
 3. Ruft die Mitgliedsnummer von easyVerein ab
 4. Verwendet die Mitgliedsnummer als lokale `member_id`
+5. Setzt den lokalen Status auf "inactive" — wird bei der nächsten Synchronisation auf "active" aktualisiert, sobald der Antrag in easyVerein bestätigt wurde
 
 ### Rate Limiting
 
@@ -186,11 +187,10 @@ Erstellte Mitglied-Datensätze enthalten:
 
 Nach der Registrierung:
 
-1. Neue Registrierungen in der Mitgliederliste überprüfen (Status: "inactive")
-2. Zahlungsdetails im Notizen-Feld überprüfen
-3. Mitglied aktivieren, indem der Status auf "active" geändert wird
-4. RFID-Tag zuweisen, falls erforderlich
-5. joined_date setzen, wenn die Aktivierung abgeschlossen ist
+1. **easyVerein**: Den Mitgliedsantrag in easyVerein überprüfen und bestätigen (unter "offene Mitgliedschaftsanträge")
+2. Bei der nächsten Synchronisation wird der lokale Status automatisch auf "active" gesetzt
+3. RFID-Tag zuweisen, falls erforderlich
+4. joined_date wird bei der Bestätigung automatisch gesetzt
 
 ## Testen
 

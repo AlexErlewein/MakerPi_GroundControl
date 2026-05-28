@@ -182,9 +182,28 @@ def _render_markdown(path: Path):
     return html_content, toc_html
 
 
+def _get_root_path(request: Request) -> str:
+    """Return the root_path (e.g. '/docs') for prefix-aware URL generation.
+
+    Populated by uvicorn --root-path or from the X-Forwarded-Prefix header.
+    Falls back to empty string when running standalone (port 8001).
+    """
+    return request.scope.get("root_path", "")
+
+
 def _docs_base_url(request: Request) -> str:
-    hostname = request.url.hostname or "localhost"
-    return f"{request.url.scheme}://{hostname}:8000"
+    """Return the main app's base URL for the '↩ Main App' link."""
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.url.hostname or "localhost")
+    forwarded_port = request.headers.get("x-forwarded-port")
+    if forwarded_port:
+        port = int(forwarded_port)
+        default = 443 if scheme == "https" else 80
+        authority = f"{host}" if port == default else f"{host}:{port}"
+    else:
+        authority = host
+    # When docs is at /docs, the main app is at /
+    return f"{scheme}://{authority}"
 
 
 @app.get("/health")
@@ -193,10 +212,11 @@ async def health():
 
 
 @app.get("/api/search")
-async def search_docs(q: str = ""):
+async def search_docs(request: Request, q: str = ""):
     q = q.strip().lower()
     if not q or len(q) < 2:
         return {"results": []}
+    root_path = _get_root_path(request)
     results = []
     for doc in _discover_docs():
         text = doc["path"].read_text(encoding="utf-8")
@@ -208,17 +228,23 @@ async def search_docs(q: str = ""):
             if start > 0:
                 excerpt = "…" + excerpt
             results.append(
-                {"slug": doc["slug"], "title": doc["title"], "excerpt": excerpt}
+                {
+                    "slug": doc["slug"],
+                    "title": doc["title"],
+                    "excerpt": excerpt,
+                    "url": f"{root_path}/page/{doc['slug']}",
+                }
             )
     return {"results": results[:12]}
 
 
 @app.get("/", response_class=HTMLResponse)
-async def docs_index():
+async def docs_index(request: Request):
     docs = _discover_docs()
     if not docs:
         raise HTTPException(status_code=404, detail="No documentation pages found")
-    return RedirectResponse(url=f"/page/{docs[0]['slug']}", status_code=307)
+    root_path = _get_root_path(request)
+    return RedirectResponse(url=f"{root_path}/page/{docs[0]['slug']}", status_code=307)
 
 
 @app.get("/page/{slug}", response_class=HTMLResponse)
@@ -257,6 +283,7 @@ async def docs_page(request: Request, slug: str, lang: str = "de"):
             "previous_doc": previous_doc,
             "next_doc": next_doc,
             "main_app_url": _docs_base_url(request),
+            "root_path": _get_root_path(request),
             "current_lang": lang,
             "has_english": current_doc.get("has_english", False),
         },
@@ -266,4 +293,4 @@ async def docs_page(request: Request, slug: str, lang: str = "de"):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001, root_path="/docs")

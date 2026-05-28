@@ -133,7 +133,7 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$PROJECT_DIR/.venv/bin/uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
+ExecStart=$PROJECT_DIR/.venv/bin/uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001 --root-path /docs
 Restart=always
 RestartSec=10
 Environment="PATH=$SERVICE_HOME/.local/bin"

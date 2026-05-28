@@ -107,6 +107,8 @@ if (typeof mermaid !== 'undefined') {
 
 /* ── Search ───────────────────────────────────────────────────────────────── */
 (function () {
+    var rootPath = (window.__DOCS_ROOT__ || '').replace(/\/+$/, '');
+
     const input = document.getElementById('docs-search-input');
     const resultsBox = document.getElementById('docs-search-results');
     const nav = document.getElementById('docs-nav');
@@ -121,7 +123,7 @@ if (typeof mermaid !== 'undefined') {
         } else {
             items.forEach((item) => {
                 const a = document.createElement('a');
-                a.href = `/page/${item.slug}`;
+                a.href = item.url || (rootPath + '/page/' + item.slug);
                 a.className = 'docs-search-result-item';
                 a.innerHTML = `<div class="docs-search-result-title">${escHtml(item.title)}</div>
                                <div class="docs-search-result-excerpt">${escHtml(item.excerpt)}</div>`;
@@ -143,7 +145,7 @@ if (typeof mermaid !== 'undefined') {
         if (!q) { hideResults(); return; }
         debounce = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const res = await fetch(rootPath + '/api/search?q=' + encodeURIComponent(q));
                 const data = await res.json();
                 showResults(data.results || []);
             } catch (_) {

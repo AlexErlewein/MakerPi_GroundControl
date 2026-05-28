@@ -2,16 +2,16 @@
 
 ## Overview
 
-The member registration system allows new members to sign up through a public web form at `/register`. This feature integrates with easyVerein (if configured) to automatically create member records, with a local fallback for offline scenarios.
+The member registration system allows new members to sign up through a public web form at `/register`. This feature creates a membership application in easyVerein (if configured) that must be confirmed by the board, with a local fallback for offline scenarios. The contribution is always collected monthly via SEPA direct debit.
 
 ## Features
 
 - **Public Registration Form**: Accessible at `/register` without authentication
-- **easyVerein Integration**: Automatic member creation in easyVerein when API is configured
+- **easyVerein Integration**: Creates a membership application (`isApplication: true`) in easyVerein — the board must confirm the application before the member becomes active
 - **Local Fallback**: Creates local member records even if easyVerein is unavailable
 - **Email Validation**: Prevents duplicate registrations with the same email
 - **Privacy Policy**: Requires acceptance of privacy policy before submission
-- **Configurable Membership Groups**: Support for different membership tiers and pricing
+- **Monthly Contribution**: Fixed monthly payment interval (no selection dropdown)
 
 ## Configuration
 
@@ -69,11 +69,11 @@ flowchart LR
     E -->|Yes| F["Create contact in easyVerein"]
     F --> G["Create member in easyVerein"]
     G --> H["Get membership number"]
-    H --> I["Create local Mitglied record"]
+    H --> I["Create local Mitglied record (status: inactive)"]
     E -->|No| J["Generate local member ID"]
     J --> I
-    I --> K["Send confirmation"]
-    K --> L["Registration complete"]
+    I --> K["Show confirmation"]
+    K --> L["Await board confirmation in easyVerein"]
 ```
 
 ## API Endpoints
@@ -140,9 +140,10 @@ Processes a new member registration application.
 When `easyverein_api_key` is configured, the registration system:
 
 1. Creates a contact record in easyVerein with personal details
-2. Creates a member record linked to the contact
+2. Creates a **membership application** (`isApplication: true`) in easyVerein — the application appears in easyVerein under "open membership applications" and must be confirmed by the board
 3. Retrieves the membership number from easyVerein
 4. Uses the membership number as the local `member_id`
+5. Sets local status to "inactive" — automatically updated to "active" on next sync once the application is confirmed in easyVerein
 
 ### Rate Limiting
 
@@ -186,11 +187,10 @@ Created member records include:
 
 After registration:
 
-1. Review new registrations in the member list (status: "inactive")
-2. Verify payment details in the notes field
-3. Activate member by changing status to "active"
-4. Assign RFID tag if needed
-5. Set joined_date when activation is complete
+1. **easyVerein**: Review and confirm the membership application in easyVerein (under "open membership applications")
+2. On next sync, the local status is automatically set to "active"
+3. Assign RFID tag if needed
+4. joined_date is set automatically upon confirmation
 
 ## Testing
 

@@ -614,13 +614,7 @@
         </div>
 
         <div class="field-group">
-            <label for="payment_interval">Zahlungsintervall</label>
-            <select id="payment_interval">
-                <option value="1">Monatlich</option>
-                <option value="3">Vierteljährlich</option>
-                <option value="6">Halbjährlich</option>
-                <option value="12">Jährlich</option>
-            </select>
+            <span style="font-size:0.85rem; color:var(--text-secondary);">Der Beitrag wird monatlich per SEPA-Lastschrift eingezogen.</span>
         </div>
 
         {% if not easyverein_configured %}
@@ -689,7 +683,8 @@
         <h2>Antrag eingereicht!</h2>
         <p>
             Vielen Dank für dein Interesse am H3cke MakerSpace.<br>
-            Wir melden uns in Kürze bei dir.
+            Dein Antrag wurde eingereicht und muss vom Vorstand bestätigt werden.<br>
+            Wir melden uns, sobald dein Antrag genehmigt wurde.
         </p>
         <a href="/" class="btn-home">Zur Startseite</a>
     </div>
@@ -880,12 +875,6 @@
         return el ? el.value : '';
     }
 
-    function getSelectText(id) {
-        var el = document.getElementById(id);
-        if (!el || !el.options[el.selectedIndex]) return '';
-        return el.options[el.selectedIndex].text;
-    }
-
     function esc(str) {
         return String(str)
             .replace(/&/g, '&amp;')
@@ -924,8 +913,7 @@
 
         var amtRaw   = getVal('payment_amount_input');
         var amtVal   = parseFloat(amtRaw);
-        var amtLabel = (!isNaN(amtVal)) ? amtVal.toFixed(2) + ' €/Monat' : '—';
-        var interval = getSelectText('payment_interval');
+        var amtLabel = (!isNaN(amtVal)) ? amtVal.toFixed(2) + ' € / Monat' : '—';
 
         var html = '';
         html += summaryBlock('Persönliche Daten', [
@@ -940,7 +928,6 @@
         html += summaryBlock('Adresse', [['Adresse', addressLine]]);
         html += summaryBlock('Mitgliedschaft', [
             ['Monatsbeitrag',    amtLabel],
-            ['Zahlungsintervall', (!isNaN(amtVal) && amtVal > 0) ? interval : '—'],
         ]);
 
         if (!isNaN(amtVal) && amtVal > 0) {
@@ -967,8 +954,6 @@
         var amtRaw  = getVal('payment_amount_input');
         var amount  = amtRaw !== '' ? parseFloat(amtRaw) : null;
         var ibanRaw = document.getElementById('iban').value.replace(/\s/g, '');
-        var intervalEl = document.getElementById('payment_interval');
-        var intervalVal = intervalEl ? parseInt(intervalEl.value, 10) : 1;
 
         var payload = {
             salutation:              getCheckedVal('salutation') || '',
@@ -983,7 +968,7 @@
             city:                    getVal('city') || null,
             country:                 getVal('country') || 'Deutschland',
             payment_amount:          amount,
-            payment_interval_months: (amount !== null && amount > 0) ? intervalVal : null,
+            payment_interval_months: (amount !== null && amount > 0) ? 1 : null,
             method_of_payment:       (amount !== null && amount > 0) ? 1 : null,
             iban:                    (ibanRaw && amount > 0) ? ibanRaw : null,
             privacy_accepted:        document.getElementById('privacy_accepted').checked,
