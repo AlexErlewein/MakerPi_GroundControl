@@ -1,13 +1,13 @@
 standort	kategorie	unterkategorie	preismodell	einheit	steuersatz	variante	Preis
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	10 mm	0.3
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	20 mm	0.4
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	40 mm	0.5
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	60 mm	0.6
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	80 mm	0.7
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	100 mm	0.8
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	120 mm	0.9
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	140 mm	1.1
-Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stueck	19	160 mm	1.5
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	10 mm	0.3
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	20 mm	0.4
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	40 mm	0.5
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	60 mm	0.6
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	80 mm	0.7
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	100 mm	0.8
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	120 mm	0.9
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	140 mm	1.1
+Holzwerkstatt	Verbrauchsmaterial	Holzschraube	per_unit	Stück	19	160 mm	1.5
 Keramikwerkstatt	Verbrauchsmaterial	Ton	per_kilogram	kg	19	Drehton weiss	16
 Keramikwerkstatt	Verbrauchsmaterial	Ton	per_kilogram	kg	19	Drehton rot	16
 Keramikwerkstatt	Verbrauchsmaterial	Ton	per_kilogram	kg	19	Drehton schwarz	16
@@ -38,11 +38,14 @@ Holzwerkstatt	Plattenwerkstoffe	Sperrholz Buche	per_area_m2	m²	19	15 mm	30
 Holzwerkstatt	Plattenwerkstoffe	Sperrholz Buche	per_area_m2	m²	19	18 mm	36
 Holzwerkstatt	Plattenwerkstoffe	Sperrholz Buche	per_area_m2	m²	19	22 mm	44
 Holzwerkstatt	Plattenwerkstoffe	Siebdruckplatte	per_area_m2	m²	19	9 mm	50
-Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stueck	19	Schleifpapier Exzenterschleifer	1.5
-Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stueck	19	Schleifpapier Bandschleifer	1.5
-Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stueck	19	Schleifpapier Delta-Schleifer	1,5
+Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stück	19	Schleifpapier Exzenterschleifer	1.5
+Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stück	19	Schleifpapier Bandschleifer	1.5
+Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_unit	Stück	19	Schleifpapier Delta-Schleifer	1,5
 Holzwerkstatt	Verbrauchsmaterial	Schleifmittel	per_area_dm2	dm²	19	Schleifpapier lose	1
 Holzwerkstatt	Verbrauchsmaterial	Klebstoff	per_volume_l	l	19	Holzleim D3	20
 Holzwerkstatt	Verbrauchsmaterial	Klebstoff	per_volume_l	l	19	Holzleim D4	20
 Holzwerkstatt	Verbrauchsmaterial	Öle	per_volume_l	l	19	Hartwachsöl H3CKE	30
 Holzwerkstatt	Verbrauchsmaterial	Öle	per_volume_l	l	19	Hartwachsöl OSMO	35
+Community Bereich	Getränke	Spendenempfehlung	per_unit	Stück	0	Kaffee	2
+Community Bereich	Getränke	Spendenempfehlung	per_unit	Stück	0	Limo	2
+Community Bereich	Getränke	Spendenempfehlung	per_unit	Stück	0	Bier	2

@@ -847,19 +847,48 @@ async function lookupGutschein() {
             errEl.classList.remove("hidden");
             return;
         }
-        const card = cards[0];
-        _pendingGutschein = card;
-        document.getElementById("gutschein-balance-display").textContent = fmtEur(card.balance);
-        document.getElementById("gutschein-id-display").textContent = `ID: ${card.id}`;
-        const remaining = getRemaining();
-        const suggestedAmount = Math.min(card.balance, remaining);
-        document.getElementById("gutschein-amount-input").value = suggestedAmount.toFixed(2);
-        document.getElementById("gutschein-amount-input").max = Math.min(card.balance, remaining).toFixed(2);
+
+        const list = document.getElementById("gutschein-card-list");
+        list.innerHTML = "";
+        if (cards.length > 1) {
+            const hdr = document.createElement("p");
+            hdr.style.cssText = "font-size:0.82rem;color:var(--text-secondary);margin:0 0 8px 0;";
+            hdr.textContent = `${cards.length} Gutscheine gefunden – bitte den richtigen auswählen:`;
+            list.appendChild(hdr);
+        }
+        cards.forEach(card => {
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--bg);";
+            row.dataset.cardId = card.id;
+            row.innerHTML = `<span style="font-family:monospace;font-weight:600;">…${card.last_chars}</span><span style="font-size:0.82rem;color:var(--text-secondary);">ID ${card.id}</span><span style="font-size:0.9rem;">Guthaben: <strong>${fmtEur(card.balance)}</strong></span>`;
+            row.addEventListener("click", () => _selectGutscheinCard(card, row));
+            list.appendChild(row);
+        });
+        document.getElementById("gutschein-apply-row").classList.add("hidden");
         resultEl.classList.remove("hidden");
+
+        if (cards.length === 1) {
+            _selectGutscheinCard(cards[0], list.querySelector("div[data-card-id]"));
+        }
     } catch (err) {
         errEl.textContent = err.message || "Suche fehlgeschlagen.";
         errEl.classList.remove("hidden");
     }
+}
+
+function _selectGutscheinCard(card, rowEl) {
+    document.querySelectorAll("#gutschein-card-list div[data-card-id]").forEach(el => {
+        el.style.background = "var(--bg)";
+        el.style.borderColor = "var(--border)";
+    });
+    rowEl.style.background = "var(--bg-secondary)";
+    rowEl.style.borderColor = "var(--primary, #4a9eff)";
+    _pendingGutschein = card;
+    const capped = Math.min(card.balance, getRemaining());
+    const amtInput = document.getElementById("gutschein-amount-input");
+    amtInput.value = capped.toFixed(2);
+    amtInput.max = capped.toFixed(2);
+    document.getElementById("gutschein-apply-row").classList.remove("hidden");
 }
 
 async function applyGutschein() {
