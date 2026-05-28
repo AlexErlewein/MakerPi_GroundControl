@@ -64,6 +64,13 @@
         }
         .bug-report-link:hover { opacity: 1; }
 
+        /* Sticky footer layout */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
         /* Site footer */
         .gc-site-footer {
             text-align: center;
@@ -71,7 +78,7 @@
             font-size: 0.8rem;
             color: var(--text-secondary);
             border-top: 1px solid var(--border-color);
-            margin-top: 40px;
+            margin-top: auto;
         }
         .gc-site-footer a {
             color: var(--text-secondary);
