@@ -5,6 +5,7 @@ Mounts all domain modules as separate route collections
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
@@ -104,6 +105,13 @@ app.include_router(buchhaltung_router)
 app.include_router(push_router)
 app.include_router(shopify_router)
 app.include_router(plane_router)
+
+
+@app.get("/sw.js")
+async def service_worker():
+    # Service-Worker-Allowed: / lets the SW control the full origin
+    # even though the file lives under /static/
+    return FileResponse("static/sw.js", headers={"Service-Worker-Allowed": "/"})
 
 
 @app.get("/offline.html")
