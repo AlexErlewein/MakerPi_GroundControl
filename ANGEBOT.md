@@ -31,79 +31,79 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| Repo aufsetzen + Webserver initial einrichten | 12h | Git-Setup, FastAPI-Struktur,Deployment-Scripts, Monitoring |
-| NFC-Hardware + Pico W Integration | 12h | Pico W Firmware, MQTT-Verbindung, NFC-Reader-Treiber |
-| Hardware-Aufbau & Installation | 15h | Kabelverlegung, Montage, Netzwerk, Stromversorgung |
-| Gehäuse-Design | 5h | 3D-Modelle, Druck, Montage |
-| **Subtotal Phase 1** | **44h** | |
+| Repo aufsetzen + Webserver initial einrichten | 8h | Git-Setup, FastAPI-Struktur, Deployment-Scripts |
+| NFC-Hardware + Pico W Integration | 10h | Pico W Firmware, MQTT-Verbindung, NFC-Reader-Treiber |
+| Hardware-Aufbau & Installation | 10h | Kabelverlegung, Montage, Netzwerk, Stromversorgung |
+| Gehäuse-Design | 4h | 3D-Modelle, Druck, Montage |
+| **Subtotal Phase 1** | **32h** | |
 
 ### Phase 2: Backend-Systeme
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| Authentifizierungssystem | 8h | User-Management, bcrypt-Passwords, Sessions, Admin-Escalation |
-| MQTT-Broker Integration | 6h | Mosquitto-Setup, Subscriber, Device-Discovery, Tag-Scan-Handling |
-| Multi-Database Architektur | 8h | 7 SQLite-DBs, WAL-Mode, Integritäts-Monitoring, Backup-Scripts |
-| easyVerein API-Integration | 8h | Member-Sync (täglich 03:00), API-Wrapper, Upsert-Logik |
-| API-Scheduler (APScheduler) | 4h | Background-Jobs, Cron-Trigger, Health-Checks |
-| **Subtotal Phase 2** | **34h** | |
+| Authentifizierungssystem | 6h | User-Management, bcrypt-Passwords, Sessions |
+| MQTT-Broker Integration | 4h | Mosquitto-Setup, Subscriber, Device-Discovery |
+| Multi-Database Architektur | 6h | 7 SQLite-DBs, WAL-Mode, Integritäts-Monitoring |
+| easyVerein API-Integration | 6h | Member-Sync (täglich), API-Wrapper, Upsert-Logik |
+| API-Scheduler (APScheduler) | 3h | Background-Jobs, Cron-Trigger |
+| **Subtotal Phase 2** | **25h** | |
 
 ### Phase 3: Laufzettel-System (Kernfunktionalität)
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| Laufzettel CRUD API | 8h | Erstellen, Lesen, Aktualisieren, JSON-Schema |
-| Auto-Erstellung bei NFC-Scan | 6h | MQTT-Handler, Member-Lookup, Validierung |
-| Material-Tracking pro Laufzettel | 8h | LaufzettelMaterial-Model, Mengenberechnung |
-| Zahlungssystem | 12h | SumUp Solo API, Payment Switch (Deep-Link), Wero, Bar-Zahlung, Mock-Mode |
-| PDF-Generierung & E-Mail | 8h | Receipt-PDF, HTML-to-PDF, Gmail OAuth, E-Mail-Templates |
-| Google Drive Integration | 8h | OAuth-Setup, PDF-Upload, Ordnerstruktur (Jahr/Monat) |
-| Gast-Laufzettel (Public) | 8h | QR-Code, E-Mail-Suche, Captcha-Schutz |
-| **Subtotal Phase 3** | **58h** | |
+| Laufzettel CRUD API | 5h | Erstellen, Lesen, Aktualisieren |
+| Auto-Erstellung bei NFC-Scan | 3h | MQTT-Handler, Member-Lookup |
+| Material-Tracking pro Laufzettel | 4h | LaufzettelMaterial-Model, Mengenberechnung |
+| Zahlungssystem | 6h | SumUp Solo, Payment Switch, Bar-Zahlung |
+| PDF-Generierung & E-Mail | 5h | Receipt-PDF, E-Mail-Templates |
+| Google Drive Integration | 3h | OAuth-Setup, PDF-Upload |
+| Gast-Laufzettel (Public) | 3h | QR-Code, E-Mail-Suche |
+| **Subtotal Phase 3** | **29h** | |
 
 ### Phase 4: Materialkatalog
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| 4-Level Hierarchie | 8h | Location → Kategorie → Unterkategorie → Variante |
-| CSV-Bulk-Import | 4h | Parser, Validation, Batch-Insert |
-| Pricing-Models | 6h | per_unit, per_gram, per_volume_cm3, per_volume_l, per_minute |
-| Frontend-Katalog-UI | 8h | Tree-View, Filter, Search, CRUD-Forms |
-| **Subtotal Phase 4** | **26h** | |
+| 4-Level Hierarchie | 5h | Location → Kategorie → Unterkategorie → Variante |
+| CSV-Bulk-Import | 3h | Parser, Validation, Batch-Insert |
+| Pricing-Models | 4h | per_unit, per_gram, per_volume, per_minute |
+| Frontend-Katalog-UI | 5h | Tree-View, Filter, CRUD-Forms |
+| **Subtotal Phase 4** | **17h** | |
 
 ### Phase 5: Frontend & User Interfaces
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| Admin-Dashboard | 8h | Stats-Overview, Health-Check, Device-Monitoring |
-| Laufzettel-List & Detail | 10h | Table, Filter, Modal-Forms, Live-Updates (SSE) |
-| Member-Portal | 12h | Eigene Laufzettel, Konto-Übersicht, Profil-Edit, Open-LZ-Management |
-| Gast-Landing Page | 4h | Public Form, QR-Scan, Responsive |
-| Responsive Design | 8h | Mobile-First, Touch-Optimized, Dark/Light-Theme |
-| PWA-Service Worker | 6h | Offline-Fallback, Cache-Strategie, Install-Prompt |
-| **Subtotal Phase 5** | **48h** | |
+| Admin-Dashboard | 5h | Stats-Overview, Health-Check |
+| Laufzettel-List & Detail | 6h | Table, Filter, Modal-Forms |
+| Member-Portal | 6h | Eigene Laufzettel, Konto-Übersicht |
+| Gast-Landing Page | 2h | Public Form, QR-Scan |
+| Responsive Design | 4h | Mobile-First, Touch-Optimized |
+| PWA-Service Worker | 3h | Offline-Fallback, Cache-Strategie |
+| **Subtotal Phase 5** | **26h** | |
 
 ### Phase 6: Sicherheit & Features
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| NFC-Signatur-Sicherheit | 8h | HMAC-SHA256, Signatur-Generierung (Card-Writer), Verifikation, Anti-Clone |
-| RFID-Tag-Management | 6h | Tag CRUD, Card-Writer Integration, Permissive/Strict-Mode |
-| Web Push Notifications | 8h | VAPID-Keys, Push-Subscription, Notifications |
-| Shopify Gift Cards | 4h | API-Integration, Balance-Tracking |
-| Buchhaltung (Accounting) | 6h | Spenden, Verkauf, Period-Reports (Woche/Monat/Jahr) |
-| Plane Bug-Report | 4h | Self-hosted Docker, Form-Integration |
-| **Subtotal Phase 6** | **36h** | |
+| NFC-Signatur-Sicherheit | 4h | HMAC-SHA256, Card-Writer, Verifikation |
+| RFID-Tag-Management | 3h | Tag CRUD, Card-Writer Integration |
+| Web Push Notifications | 3h | VAPID-Keys, Push-Subscription |
+| Shopify Gift Cards | 2h | API-Integration, Balance-Tracking |
+| Buchhaltung (Accounting) | 3h | Spenden, Verkauf, Reports |
+| Plane Bug-Report | 2h | Docker, Form-Integration |
+| **Subtotal Phase 6** | **17h** | |
 
 ### Phase 7: Deployment & Dokumentation
 
 | Aufgabe | Zeit | Beschreibung |
 |---------|------|--------------|
-| Pi-Setup-Scripts | 6h | Mosquitto, Docker, systemd, Auto-Deploy-Timer |
-| DB-Integrity Monitoring | 4h | Cron-Job, Auto-Recovery (REINDEX, Dump/Reload) |
-| Deployment-Workflow | 4h | Git-Deploy, Update-Deps, Rollback |
-| Dokumentation-Site | 12h | Markdown-Dokumente, FastAPI-Docs-App, Multilang (DE/EN) |
-| **Subtotal Phase 7** | **26h** |
+| Pi-Setup-Scripts | 3h | Mosquitto, Docker, systemd |
+| DB-Integrity Monitoring | 2h | Cron-Job, Auto-Recovery |
+| Deployment-Workflow | 2h | Git-Deploy, Update-Deps |
+| Dokumentation-Site | 6h | Markdown-Dokumente, FastAPI-Docs-App |
+| **Subtotal Phase 7** | **13h** | |
 
 ---
 
@@ -111,14 +111,14 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 
 | Kategorie | Stunden |
 |-----------|---------|
-| Phase 1: Infrastruktur & Setup | 44h |
-| Phase 2: Backend-Systeme | 34h |
-| Phase 3: Laufzettel-System | 58h |
-| Phase 4: Materialkatalog | 26h |
-| Phase 5: Frontend & UI | 48h |
-| Phase 6: Sicherheit & Features | 36h |
-| Phase 7: Deployment & Docs | 26h |
-| **Gesamtstunden** | **272h** |
+| Phase 1: Infrastruktur & Setup | 32h |
+| Phase 2: Backend-Systeme | 25h |
+| Phase 3: Laufzettel-System | 29h |
+| Phase 4: Materialkatalog | 17h |
+| Phase 5: Frontend & UI | 26h |
+| Phase 6: Sicherheit & Features | 17h |
+| Phase 7: Deployment & Docs | 13h |
+| **Gesamtstunden** | **159h** |
 
 ### Implementierte Features (Lieferscope)
 
@@ -179,8 +179,8 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 | Position | Betrag |
 |----------|--------|
 | Hardware (Material) | 421,75 € |
-| Arbeitszeit (272h × 85€/h) | 23.120,00 € |
-| **Gesamtbetrag (brutto)** | **23.541,75 €** |
+| Arbeitszeit (159h × 85€/h) | 13.515,00 € |
+| **Gesamtbetrag (brutto)** | **13.936,75 €** |
 
 **Hinweis:** Alle Preise verstehen sich gemäß Kleinunternehmerregelung (§ 19 UStG) brutto. Eine gesonderte Ausweisung von Umsatzsteuer erfolgt nicht.
 
