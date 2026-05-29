@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ANGEBOT</title>
+  <style>
+
+html {
+color: #1a1a1a;
+background-color: #fdfdfd;
+}
+body {
+margin: 0 auto;
+max-width: 36em;
+padding-left: 50px;
+padding-right: 50px;
+padding-top: 50px;
+padding-bottom: 50px;
+hyphens: auto;
+overflow-wrap: break-word;
+text-rendering: optimizeLegibility;
+font-kerning: normal;
+}
+@media (max-width: 600px) {
+body {
+font-size: 0.9em;
+padding: 12px;
+}
+h1 {
+font-size: 1.8em;
+}
+}
+@media print {
+html {
+background-color: white;
+}
+body {
+background-color: transparent;
+color: black;
+font-size: 12pt;
+}
+p, h2, h3 {
+orphans: 3;
+widows: 3;
+}
+h2, h3, h4 {
+page-break-after: avoid;
+}
+}
+p {
+margin: 1em 0;
+}
+a {
+color: #1a1a1a;
+}
+a:visited {
+color: #1a1a1a;
+}
+img {
+max-width: 100%;
+}
+svg {
+height: auto;
+max-width: 100%;
+}
+h1, h2, h3, h4, h5, h6 {
+margin-top: 1.4em;
+}
+h5, h6 {
+font-size: 1em;
+font-style: italic;
+}
+h6 {
+font-weight: normal;
+}
+ol, ul {
+padding-left: 1.7em;
+margin-top: 1em;
+}
+li > ol, li > ul {
+margin-top: 0;
+}
+blockquote {
+margin: 1em 0 1em 1.7em;
+padding-left: 1em;
+border-left: 2px solid #e6e6e6;
+color: #606060;
+}
+code {
+white-space: pre-wrap;
+font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+font-size: 85%;
+margin: 0;
+hyphens: manual;
+}
+pre {
+margin: 1em 0;
+overflow: auto;
+}
+pre code {
+padding: 0;
+overflow: visible;
+overflow-wrap: normal;
+}
+.sourceCode {
+background-color: transparent;
+overflow: visible;
+}
+hr {
+border: none;
+border-top: 1px solid #1a1a1a;
+height: 1px;
+margin: 1em 0;
+}
+table {
+margin: 1em 0;
+border-collapse: collapse;
+width: 100%;
+overflow-x: auto;
+display: block;
+font-variant-numeric: lining-nums tabular-nums;
+}
+table caption {
+margin-bottom: 0.75em;
+}
+tbody {
+margin-top: 0.5em;
+border-top: 1px solid #1a1a1a;
+border-bottom: 1px solid #1a1a1a;
+}
+th {
+border-top: 1px solid #1a1a1a;
+padding: 0.25em 0.5em 0.25em 0.5em;
+}
+td {
+padding: 0.125em 0.5em 0.25em 0.5em;
+}
+header {
+margin-bottom: 4em;
+text-align: center;
+}
+#TOC li {
+list-style: none;
+}
+#TOC ul {
+padding-left: 1.3em;
+}
+#TOC > ul {
+padding-left: 0;
+}
+#TOC a:not(:hover) {
+text-decoration: none;
+}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+</head>
+<body>
+<h1 id="angebot-digitalisierung-laufzettel-h3cke-makerspace">Angebot:
+Digitalisierung Laufzettel – H3cke MakerSpace</h1>
+<h2 id="projektübersicht">Projektübersicht</h2>
+<p>Komplettes RFID-basiertes Work-Order-Tracking-System für einen
+Makerspace mit automatischer Laufzettel-Erstellung, Materialkatalog,
+Zahlungsabwicklung, Mitgliederverwaltung und Web-Interface.</p>
+<p><strong>Technologie-Stack:</strong> - Backend: FastAPI (Python) -
+Frontend: HTML/CSS/JavaScript (responsive) - Datenbank: SQLite (7
+modulare DBs) - MQTT: Mosquitto Broker - Hardware: Raspberry Pi Compute
+Module 4 + 15x NFC-Reader + 15x Pico W - PWA-Unterstützung mit
+Offline-Funktionalität</p>
+<hr />
+<h2 id="hardware-kosten">Hardware-Kosten</h2>
+<table>
+<thead>
+<tr>
+<th>Artikel</th>
+<th>Menge</th>
+<th>Preis (brutto)</th>
+<th>Gesamt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raspberry Pi Compute Module 4GB</td>
+<td>1</td>
+<td>196,00 €</td>
+<td>196,00 €</td>
+</tr>
+<tr>
+<td>NFC-Reader (PN532)</td>
+<td>15</td>
+<td>6,55 €</td>
+<td>98,25 €</td>
+</tr>
+<tr>
+<td>Raspberry Pico W</td>
+<td>15</td>
+<td>8,50 €</td>
+<td>127,50 €</td>
+</tr>
+<tr>
+<td><strong>Hardware-Total</strong></td>
+<td></td>
+<td></td>
+<td><strong>421,75 €</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="implementierungszeit-arbeitsstunden">Implementierungszeit
+(Arbeitsstunden)</h2>
+<h3 id="phase-1-infrastruktur-setup">Phase 1: Infrastruktur &amp;
+Setup</h3>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repo aufsetzen + Webserver initial einrichten</td>
+<td>8h</td>
+<td>Git-Setup, FastAPI-Struktur, Deployment-Scripts</td>
+</tr>
+<tr>
+<td>NFC-Hardware + Pico W Integration</td>
+<td>10h</td>
+<td>Pico W Firmware, MQTT-Verbindung, NFC-Reader-Treiber</td>
+</tr>
+<tr>
+<td>Hardware-Aufbau &amp; Installation</td>
+<td>10h</td>
+<td>Kabelverlegung, Montage, Netzwerk, Stromversorgung</td>
+</tr>
+<tr>
+<td>Gehäuse-Design</td>
+<td>4h</td>
+<td>3D-Modelle, Druck, Montage</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 1</strong></td>
+<td><strong>32h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-2-backend-systeme">Phase 2: Backend-Systeme</h3>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Authentifizierungssystem</td>
+<td>6h</td>
+<td>User-Management, bcrypt-Passwords, Sessions</td>
+</tr>
+<tr>
+<td>MQTT-Broker Integration</td>
+<td>4h</td>
+<td>Mosquitto-Setup, Subscriber, Device-Discovery</td>
+</tr>
+<tr>
+<td>Multi-Database Architektur</td>
+<td>6h</td>
+<td>7 SQLite-DBs, WAL-Mode, Integritäts-Monitoring</td>
+</tr>
+<tr>
+<td>easyVerein API-Integration</td>
+<td>6h</td>
+<td>Member-Sync (täglich), API-Wrapper, Upsert-Logik</td>
+</tr>
+<tr>
+<td>API-Scheduler (APScheduler)</td>
+<td>3h</td>
+<td>Background-Jobs, Cron-Trigger</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 2</strong></td>
+<td><strong>25h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-3-laufzettel-system-kernfunktionalität">Phase 3:
+Laufzettel-System (Kernfunktionalität)</h3>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Laufzettel CRUD API</td>
+<td>5h</td>
+<td>Erstellen, Lesen, Aktualisieren</td>
+</tr>
+<tr>
+<td>Auto-Erstellung bei NFC-Scan</td>
+<td>3h</td>
+<td>MQTT-Handler, Member-Lookup</td>
+</tr>
+<tr>
+<td>Material-Tracking pro Laufzettel</td>
+<td>4h</td>
+<td>LaufzettelMaterial-Model, Mengenberechnung</td>
+</tr>
+<tr>
+<td>Zahlungssystem</td>
+<td>6h</td>
+<td>SumUp Solo, Payment Switch, Bar-Zahlung</td>
+</tr>
+<tr>
+<td>PDF-Generierung &amp; E-Mail</td>
+<td>5h</td>
+<td>Receipt-PDF, E-Mail-Templates</td>
+</tr>
+<tr>
+<td>Google Drive Integration</td>
+<td>3h</td>
+<td>OAuth-Setup, PDF-Upload</td>
+</tr>
+<tr>
+<td>Gast-Laufzettel (Public)</td>
+<td>3h</td>
+<td>QR-Code, E-Mail-Suche</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 3</strong></td>
+<td><strong>29h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-4-materialkatalog">Phase 4: Materialkatalog</h3>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4-Level Hierarchie</td>
+<td>5h</td>
+<td>Location → Kategorie → Unterkategorie → Variante</td>
+</tr>
+<tr>
+<td>CSV-Bulk-Import</td>
+<td>3h</td>
+<td>Parser, Validation, Batch-Insert</td>
+</tr>
+<tr>
+<td>Pricing-Models</td>
+<td>4h</td>
+<td>per_unit, per_gram, per_volume, per_minute</td>
+</tr>
+<tr>
+<td>Frontend-Katalog-UI</td>
+<td>5h</td>
+<td>Tree-View, Filter, CRUD-Forms</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 4</strong></td>
+<td><strong>17h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-5-frontend-user-interfaces">Phase 5: Frontend &amp; User
+Interfaces</h3>
+<table>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin-Dashboard</td>
+<td>5h</td>
+<td>Stats-Overview, Health-Check</td>
+</tr>
+<tr>
+<td>Laufzettel-List &amp; Detail</td>
+<td>6h</td>
+<td>Table, Filter, Modal-Forms</td>
+</tr>
+<tr>
+<td>Member-Portal</td>
+<td>6h</td>
+<td>Eigene Laufzettel, Konto-Übersicht</td>
+</tr>
+<tr>
+<td>Gast-Landing Page</td>
+<td>2h</td>
+<td>Public Form, QR-Scan</td>
+</tr>
+<tr>
+<td>Responsive Design</td>
+<td>4h</td>
+<td>Mobile-First, Touch-Optimized</td>
+</tr>
+<tr>
+<td>PWA-Service Worker</td>
+<td>3h</td>
+<td>Offline-Fallback, Cache-Strategie</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 5</strong></td>
+<td><strong>26h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-6-sicherheit-features">Phase 6: Sicherheit &amp;
+Features</h3>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 20%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFC-Signatur-Sicherheit</td>
+<td>4h</td>
+<td>HMAC-SHA256, Card-Writer, Verifikation</td>
+</tr>
+<tr>
+<td>RFID-Tag-Management</td>
+<td>3h</td>
+<td>Tag CRUD, Card-Writer Integration</td>
+</tr>
+<tr>
+<td>Web Push Notifications</td>
+<td>3h</td>
+<td>VAPID-Keys, Push-Subscription</td>
+</tr>
+<tr>
+<td>Shopify Gift Cards</td>
+<td>2h</td>
+<td>API-Integration, Balance-Tracking</td>
+</tr>
+<tr>
+<td>Buchhaltung (Accounting)</td>
+<td>3h</td>
+<td>Spenden, Verkauf, Reports</td>
+</tr>
+<tr>
+<td>Plane Bug-Report</td>
+<td>2h</td>
+<td>Docker, Form-Integration</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 6</strong></td>
+<td><strong>17h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-7-deployment-dokumentation">Phase 7: Deployment &amp;
+Dokumentation</h3>
+<table>
+<thead>
+<tr>
+<th>Aufgabe</th>
+<th>Zeit</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pi-Setup-Scripts</td>
+<td>3h</td>
+<td>Mosquitto, Docker, systemd</td>
+</tr>
+<tr>
+<td>DB-Integrity Monitoring</td>
+<td>2h</td>
+<td>Cron-Job, Auto-Recovery</td>
+</tr>
+<tr>
+<td>Deployment-Workflow</td>
+<td>2h</td>
+<td>Git-Deploy, Update-Deps</td>
+</tr>
+<tr>
+<td>Dokumentation-Site</td>
+<td>6h</td>
+<td>Markdown-Dokumente, FastAPI-Docs-App</td>
+</tr>
+<tr>
+<td><strong>Subtotal Phase 7</strong></td>
+<td><strong>13h</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="zusammenfassung">Zusammenfassung</h2>
+<table>
+<thead>
+<tr>
+<th>Kategorie</th>
+<th>Stunden</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1: Infrastruktur &amp; Setup</td>
+<td>32h</td>
+</tr>
+<tr>
+<td>Phase 2: Backend-Systeme</td>
+<td>25h</td>
+</tr>
+<tr>
+<td>Phase 3: Laufzettel-System</td>
+<td>29h</td>
+</tr>
+<tr>
+<td>Phase 4: Materialkatalog</td>
+<td>17h</td>
+</tr>
+<tr>
+<td>Phase 5: Frontend &amp; UI</td>
+<td>26h</td>
+</tr>
+<tr>
+<td>Phase 6: Sicherheit &amp; Features</td>
+<td>17h</td>
+</tr>
+<tr>
+<td>Phase 7: Deployment &amp; Docs</td>
+<td>13h</td>
+</tr>
+<tr>
+<td><strong>Gesamtstunden</strong></td>
+<td><strong>159h</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="implementierte-features">Implementierte Features</h3>
+<p><strong>Authentifizierung:</strong> - Admin-Login (bcrypt) -
+Member-Login (easyVerein-Sync oder lokal) - RFID-Login (NFC-Tap) -
+Admin-Verifikation (10-min Timeout)</p>
+<p><strong>Laufzettel-System:</strong> - Automatische Erstellung bei
+NFC-Scan - Manuelles Erstellen/Admin-UI - Material-Tracking pro
+Laufzettel - Zahlungssperre nach Bezahlung - PDF-Receipts -
+E-Mail-Versand - Google Drive-Ablage</p>
+<p><strong>Zahlungsintegration:</strong> - SumUp Solo Cloud API
+(Kartenterminal) - Payment Switch (Deep-Link) - Wero - Barzahlung</p>
+<p><strong>Materialkatalog:</strong> - 4-Level Hierarchie - 5
+Pricing-Models - CSV-Bulk-Import</p>
+<p><strong>Mitgliederverwaltung:</strong> - easyVerein API-Sync (täglich
+03:00) - NFC-Tag-Management - HMAC-Signatur-Sicherheit - Card-Writer
+Integration</p>
+<p><strong>Self-Service:</strong> - Member-Portal (eigene Laufzettel,
+Konto) - Gast-Laufzettel (Public + QR-Code)</p>
+<p><strong>Monitoring &amp; DevOps:</strong> - MQTT-Monitoring (Devices,
+Messages) - DB-Integrity-Check (stündlich) - Auto-Deploy-Timer -
+Health-Check-Endpoints</p>
+<p><strong>Extras:</strong> - Shopify Gift Cards - Buchhaltung
+(Spenden/Verkauf) - Web Push Notifications - PWA mit Offline-Mode -
+Dokumentation-Site (DE/EN) - Plane Bug-Report-Integration</p>
+<hr />
+<h2 id="gesamtkosten">Gesamtkosten</h2>
+<table>
+<thead>
+<tr>
+<th>Position</th>
+<th>Betrag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hardware (Material)</td>
+<td>421,75 €</td>
+</tr>
+<tr>
+<td>Arbeitszeit (159h × 85€/h)</td>
+<td>13.515,00 €</td>
+</tr>
+<tr>
+<td><strong>Gesamtbetrag (brutto)</strong></td>
+<td><strong>13.936,75 €</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Hinweis:</strong> Alle Preise verstehen sich gemäß
+Kleinunternehmerregelung (§ 19 UStG) brutto. Eine gesonderte Ausweisung
+von Umsatzsteuer erfolgt nicht.</p>
+<hr />
+<h2 id="laufzeit-meilensteine">Laufzeit &amp; Meilensteine</h2>
+<table>
+<thead>
+<tr>
+<th>Meilenstein</th>
+<th>Dauer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Phase 1-2: Infrastruktur &amp; Backend</td>
+<td>3 Wochen</td>
+</tr>
+<tr>
+<td>Phase 3: Laufzettel-System (Kern)</td>
+<td>2 Wochen</td>
+</tr>
+<tr>
+<td>Phase 4-5: Katalog &amp; Frontend</td>
+<td>2 Wochen</td>
+</tr>
+<tr>
+<td>Phase 6-7: Features &amp; Deployment</td>
+<td>2 Wochen</td>
+</tr>
+<tr>
+<td><strong>Gesamtprojektzeit</strong></td>
+<td><strong>9 Wochen</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="wartung-support-optional">Wartung &amp; Support (Optional)</h2>
+<table>
+<thead>
+<tr>
+<th>Paket</th>
+<th>Inklusiv</th>
+<th>Preis/Monat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic</td>
+<td>Bugfixes, Updates</td>
+<td>200 €</td>
+</tr>
+<tr>
+<td>Premium</td>
+<td>+ Feature-Requests, Priority-Support</td>
+<td>350 €</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</body>
+</html>

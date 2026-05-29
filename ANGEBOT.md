@@ -120,15 +120,15 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 | Phase 7: Deployment & Docs | 13h |
 | **Gesamtstunden** | **159h** |
 
-### Implementierte Features (Lieferscope)
+### Implementierte Features
 
-✅ **Authentifizierung:**
+**Authentifizierung:**
 - Admin-Login (bcrypt)
 - Member-Login (easyVerein-Sync oder lokal)
 - RFID-Login (NFC-Tap)
 - Admin-Verifikation (10-min Timeout)
 
-✅ **Laufzettel-System:**
+**Laufzettel-System:**
 - Automatische Erstellung bei NFC-Scan
 - Manuelles Erstellen/Admin-UI
 - Material-Tracking pro Laufzettel
@@ -137,34 +137,34 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 - E-Mail-Versand
 - Google Drive-Ablage
 
-✅ **Zahlungsintegration:**
+**Zahlungsintegration:**
 - SumUp Solo Cloud API (Kartenterminal)
 - Payment Switch (Deep-Link)
 - Wero
 - Barzahlung
 
-✅ **Materialkatalog:**
+**Materialkatalog:**
 - 4-Level Hierarchie
 - 5 Pricing-Models
 - CSV-Bulk-Import
 
-✅ **Mitgliederverwaltung:**
+**Mitgliederverwaltung:**
 - easyVerein API-Sync (täglich 03:00)
 - NFC-Tag-Management
 - HMAC-Signatur-Sicherheit
 - Card-Writer Integration
 
-✅ **Self-Service:**
+**Self-Service:**
 - Member-Portal (eigene Laufzettel, Konto)
 - Gast-Laufzettel (Public + QR-Code)
 
-✅ **Monitoring & DevOps:**
+**Monitoring & DevOps:**
 - MQTT-Monitoring (Devices, Messages)
 - DB-Integrity-Check (stündlich)
 - Auto-Deploy-Timer
 - Health-Check-Endpoints
 
-✅ **Extras:**
+**Extras:**
 - Shopify Gift Cards
 - Buchhaltung (Spenden/Verkauf)
 - Web Push Notifications
@@ -206,21 +206,3 @@ Komplettes RFID-basiertes Work-Order-Tracking-System für einen Makerspace mit a
 | Premium | + Feature-Requests, Priority-Support | 350 € |
 
 ---
-
-## Projektstatus
-
-**Status:** ✅ Vollständig implementiert und in Betrieb
-
-Das System ist produktiv auf einem Raspberry Pi Compute Module 4 installiert mit:
-- 15x NFC-Readern an verschiedenen Standorten
-- Echtzeit-MQTT-Verbindung zu Pico W-Geräten
-- 7 modularen SQLite-Datenbanken
-- Automated Member-Sync aus easyVerein
-- Web-Interface (http://<pi-ip>:8000)
-- Dokumentation-Site (http://<pi-ip>:8001)
-
----
-
-**Datum:** 28. Mai 2026
-**Projekt:** H3cke MakerSpace – Digitalisierung Laufzettel
-**Anbieter:** MakerPi Solutions
