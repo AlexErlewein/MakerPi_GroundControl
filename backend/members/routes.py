@@ -49,6 +49,7 @@ class MitgliedUpdate(BaseModel):
     nfc_uid: Optional[str] = None
     login_username: Optional[str] = None
     login_password: Optional[str] = None
+    sync_locked: Optional[bool] = None
 
 
 class MemberRegistrationRequest(BaseModel):
@@ -116,6 +117,7 @@ async def mitglieder_page(request: Request):
         return RedirectResponse("/", status_code=302)
     from datetime import date
     import backend.config as _config
+
     expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
     days_left = None
     if expires_str:
@@ -131,7 +133,9 @@ async def mitglieder_page(request: Request):
             "current_user": request.session.get("user"),
             "ev_key_expires_at": expires_str,
             "ev_key_days_left": days_left,
-            "ev_renew_url": f"https://easyverein.com/app/{_config.EASYVEREIN_ORG_ID}/setting/api-key" if _config.EASYVEREIN_ORG_ID else "https://easyverein.com",
+            "ev_renew_url": f"https://easyverein.com/app/{_config.EASYVEREIN_ORG_ID}/setting/api-key"
+            if _config.EASYVEREIN_ORG_ID
+            else "https://easyverein.com",
         },
     )
 
@@ -400,6 +404,12 @@ async def update_mitglied(
         m.login_password_hash = (
             get_password_hash(data.login_password) if data.login_password else None
         )
+    # Any admin edit locks the member out of easyVerein sync to preserve local changes
+    # (unless sync_locked is explicitly being set to False to re-enable sync)
+    if data.sync_locked is None:
+        m.sync_locked = True
+    else:
+        m.sync_locked = data.sync_locked
     db.commit()
     db.refresh(m)
     return m.to_dict()
@@ -435,8 +445,10 @@ async def get_key_status(request: Request):
     from datetime import date as _date
     import backend.config as _config
     from backend.auth.dependencies import check_auth
+
     if not check_auth(request):
         from fastapi.responses import JSONResponse
+
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
     days_left = None
@@ -460,21 +472,29 @@ async def update_api_key(body: ApiKeyUpdate, request: Request):
     import backend.config as _config
     import backend.members.easyverein as _ev
     from backend.auth.dependencies import is_admin_verified
+
     if not is_admin_verified(request):
         raise HTTPException(status_code=403, detail="Admin-Verifizierung erforderlich")
     if not body.api_key.strip():
-        raise HTTPException(status_code=400, detail="API-Schlüssel darf nicht leer sein")
+        raise HTTPException(
+            status_code=400, detail="API-Schlüssel darf nicht leer sein"
+        )
     # Validate date format
     try:
         from datetime import date as _date
+
         _date.fromisoformat(body.expires_at)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültiges Datum (erwartet YYYY-MM-DD)")
+        raise HTTPException(
+            status_code=400, detail="Ungültiges Datum (erwartet YYYY-MM-DD)"
+        )
     # Persist to config.json and update module-level vars
-    _config.update_config({
-        "easyverein_api_key": body.api_key.strip(),
-        "easyverein_key_expires_at": body.expires_at,
-    })
+    _config.update_config(
+        {
+            "easyverein_api_key": body.api_key.strip(),
+            "easyverein_key_expires_at": body.expires_at,
+        }
+    )
     # Also update the easyverein module's own binding (it imported the constant directly)
     _ev.EASYVEREIN_API_KEY = body.api_key.strip()
     return {"ok": True, "expires_at": body.expires_at}

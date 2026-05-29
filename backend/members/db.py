@@ -41,6 +41,10 @@ def _migrate(conn):
             "ALTER TABLE mitglieder ADD COLUMN login_password_hash TEXT",
         ),
         ("nfc_uid", "ALTER TABLE mitglieder ADD COLUMN nfc_uid TEXT"),
+        (
+            "sync_locked",
+            "ALTER TABLE mitglieder ADD COLUMN sync_locked BOOLEAN DEFAULT 0",
+        ),
     ]
     for col, sql in migrations:
         if col not in existing:
@@ -55,6 +59,7 @@ def _migrate(conn):
 
 def init_db():
     from backend.db_utils import check_and_recover_engine
+
     check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:

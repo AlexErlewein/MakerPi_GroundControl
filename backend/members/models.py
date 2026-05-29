@@ -34,6 +34,7 @@ class Mitglied(Base):
     )  # Primary NFC card UID
     login_username = Column(String, unique=True, nullable=True, index=True)
     login_password_hash = Column(String, nullable=True)
+    sync_locked = Column(Boolean, default=False)  # True = skip easyVerein sync
 
     def to_dict(self):
         return {
@@ -48,6 +49,7 @@ class Mitglied(Base):
             "nfc_uid": self.nfc_uid,
             "login_username": self.login_username,
             "has_login": bool(self.login_username and self.login_password_hash),
+            "sync_locked": bool(self.sync_locked),
         }
 
 

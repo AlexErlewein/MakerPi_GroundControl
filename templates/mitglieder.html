@@ -120,7 +120,7 @@
 <!-- Member Details Modal -->
 <div class="modal hidden" id="mitglied-details-modal">
     <div class="modal-overlay" id="details-modal-overlay"></div>
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:560px;">
         <div class="modal-header">
             <h3>Mitglied Details</h3>
             <button class="modal-close" id="details-modal-close">&times;</button>
@@ -160,7 +160,7 @@
 
 {% block extra_js %}
 <script src="/static/js/device-pairing.js"></script>
-<script src="/static/js/mitglieder.js?v=9"></script>
+<script src="/static/js/mitglieder.js?v=10"></script>
 <script>
 function toggleApiKeyForm() {
   const f = document.getElementById('api-key-form');

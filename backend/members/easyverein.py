@@ -469,6 +469,10 @@ async def sync_members_from_easyverein() -> dict:
                         )
 
                         if existing:
+                            if existing.sync_locked:
+                                # Admin has edited this member locally — skip sync
+                                skipped_count += 1
+                                continue
                             existing.name = mapped["name"]
                             if mapped["email"]:
                                 existing.email = mapped["email"]
@@ -493,15 +497,18 @@ async def sync_members_from_easyverein() -> dict:
                                     .first()
                                 )
                                 if dup:
-                                    dup.name = mapped["name"]
-                                    if mapped["email"]:
-                                        dup.email = mapped["email"]
-                                    if mapped["phone"]:
-                                        dup.phone = mapped["phone"]
-                                    dup.status = mapped["status"]
-                                    if mapped["joined_date"]:
-                                        dup.joined_date = mapped["joined_date"]
-                                    updated_count += 1
+                                    if dup.sync_locked:
+                                        skipped_count += 1
+                                    else:
+                                        dup.name = mapped["name"]
+                                        if mapped["email"]:
+                                            dup.email = mapped["email"]
+                                        if mapped["phone"]:
+                                            dup.phone = mapped["phone"]
+                                        dup.status = mapped["status"]
+                                        if mapped["joined_date"]:
+                                            dup.joined_date = mapped["joined_date"]
+                                        updated_count += 1
                                 else:
                                     error_count += 1
 

@@ -248,45 +248,77 @@ async function openDetails(id) {
         const details = await res.json();
         const content = document.getElementById("mitglied-details-content");
         content.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
-                <div>
-                    <strong>Member-ID:</strong><br>
-                    ${esc(details.member_id || "-")}
+            <form id="member-details-form" class="form-grid">
+                <div class="form-group">
+                    <label>Member-ID</label>
+                    <input type="text" value="${esc(details.member_id || '')}" readonly disabled style="background: var(--bg-tertiary); color: var(--text-secondary); cursor: not-allowed;">
                 </div>
-                <div>
-                    <strong>Name:</strong><br>
-                    ${esc(details.name || "-")}
+                <div class="form-group">
+                    <label>Status</label>
+                    <input type="text" value="${esc(details.status || 'Aktiv')}" readonly disabled style="background: var(--bg-tertiary); color: var(--text-secondary); cursor: not-allowed;">
                 </div>
-                <div>
-                    <strong>E-Mail:</strong><br>
-                    ${details.email ? `<a href="mailto:${esc(details.email)}">${esc(details.email)}</a>` : "-"}
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="detail-name" value="${esc(details.name || '')}" required>
                 </div>
-                <div>
-                    <strong>Telefon:</strong><br>
-                    ${esc(details.phone || "-")}
+                <div class="form-group">
+                    <label>E-Mail</label>
+                    <input type="email" id="detail-email" value="${esc(details.email || '')}">
                 </div>
-                <div>
-                    <strong>NFC-UID:</strong><br>
-                    ${details.nfc_uid ? `<code class="uid">${esc(details.nfc_uid)}</code>` : "-"}
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="tel" id="detail-phone" value="${esc(details.phone || '')}">
                 </div>
-                <div>
-                    <strong>Login-Username:</strong><br>
-                    ${esc(details.login_username || "-")}
+                <div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border-color)">
+                    <input type="checkbox" id="detail-sync-locked" ${details.sync_locked ? 'checked' : ''}>
+                    <label for="detail-sync-locked" style="margin:0;cursor:pointer;">Von easyVerein-Sync ausgeschlossen</label>
                 </div>
-            </div>
-            <div style="margin-top: 16px;">
-                <strong>Notizen:</strong><br>
-                ${esc(details.notes || "-")}
-            </div>
-            <div style="margin-top: 20px; padding: 12px; background: var(--bg-tertiary, #161b22); border: 1px solid var(--border, #30363d); border-radius: 6px;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-secondary, #8b949e);">Verfügbare Geräte</h4>
-                <p style="margin: 0; color: var(--text-secondary, #8b949e); font-size: 0.9rem;">Noch nicht implementiert</p>
-            </div>
+                <div class="form-group form-group-full" style="margin-top: 16px;">
+                    <label>Notizen</label>
+                    <textarea id="detail-notes" rows="4">${esc(details.notes || '')}</textarea>
+                </div>
+                <div class="modal-actions" style="margin-top: 20px; grid-column: 1 / -1;">
+                    <button type="button" class="btn btn-secondary" onclick="closeDetailsModal()">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="saveMemberDetails(${id})">Speichern</button>
+                </div>
+            </form>
         `;
         document.getElementById("mitglied-details-modal").classList.remove("hidden");
     } catch (e) {
         console.error("Failed to load member details:", e);
         alert("Fehler beim Laden der Details");
+    }
+}
+
+async function saveMemberDetails(id) {
+    const name = document.getElementById("detail-name").value.trim();
+    const email = document.getElementById("detail-email").value.trim();
+    const phone = document.getElementById("detail-phone").value.trim();
+    const notes = document.getElementById("detail-notes").value.trim();
+    const syncLocked = document.getElementById("detail-sync-locked").checked;
+
+    if (!name) {
+        alert("Name ist erforderlich");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/mitglieder/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, phone, notes, sync_locked: syncLocked }),
+        });
+
+        if (res.ok) {
+            alert("✓ Änderungen gespeichert");
+            await loadMitglieder();
+            setTimeout(() => closeDetailsModal(), 1000);
+        } else {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+        }
+    } catch (e) {
+        alert("Fehler: " + e.message);
     }
 }
 
