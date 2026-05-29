@@ -4,6 +4,51 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="/static/css/laufzettel-detail.css">
+<style>
+.pw-section {
+    margin-top: 20px;
+}
+.pw-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+.pw-hint {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+.pw-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 340px;
+}
+.pw-form input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+.pw-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.pw-form .btn {
+    align-self: flex-start;
+}
+.pw-msg {
+    font-size: 0.9rem;
+    margin-top: 8px;
+    padding: 0;
+}
+.pw-msg.success { color: var(--success); }
+.pw-msg.error { color: #ef4444; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -25,11 +70,53 @@
                 <span class="info-label">NFC-Karten-UID</span>
                 <span class="info-value"><code>{{ mitglied.nfc_uid or "—" }}</code></span>
             </div>
+            <div class="info-item">
+                <span class="info-label">Passwort</span>
+                <span class="info-value {% if has_password %}paid{% else %}open{% endif %}">
+                    {% if has_password %}Vergeben{% else %}Nicht vergeben{% endif %}
+                </span>
+            </div>
         </div>
         {% else %}
         <p class="hint">Keine Mitgliedsdaten verknüpft.</p>
         {% endif %}
     </div>
+
+    {% if mitglied %}
+    <div class="lz-info-card pw-section">
+        <h2>Passwort ändern</h2>
+        {% if not has_password %}
+        <p class="pw-hint">
+            Du hast noch kein eigenes Passwort. Lege jetzt eins an, damit du dich
+            auch ohne NFC-Karte anmelden kannst. Als aktuelles Passwort wird
+            <strong>H3cke</strong> verwendet.
+        </p>
+        {% else %}
+        <p class="pw-hint">
+            Ändere dein Passwort. Du benötigst dein aktuelles Passwort zur Bestätigung.
+        </p>
+        {% endif %}
+
+        <form id="pw-form" class="pw-form" onsubmit="return changePassword(event)">
+            {% if has_password %}
+            <label>
+                <span class="info-label" style="display:block;margin-bottom:4px;">Aktuelles Passwort</span>
+                <input type="password" id="pw-current" autocomplete="current-password" required>
+            </label>
+            {% endif %}
+            <label>
+                <span class="info-label" style="display:block;margin-bottom:4px;">Neues Passwort</span>
+                <input type="password" id="pw-new" autocomplete="new-password" required minlength="4">
+            </label>
+            <label>
+                <span class="info-label" style="display:block;margin-bottom:4px;">Neues Passwort bestätigen</span>
+                <input type="password" id="pw-confirm" autocomplete="new-password" required minlength="4">
+            </label>
+            <button type="submit" class="btn btn-primary" id="pw-btn">Passwort ändern</button>
+            <div id="pw-msg" class="pw-msg"></div>
+        </form>
+    </div>
+    {% endif %}
 
     <div class="lz-info-card" style="margin-top: 20px;">
         <h2 style="font-size: 1.1rem; margin-bottom: 8px;">Deine Daten</h2>
@@ -47,4 +134,61 @@
 
 {% block extra_js %}
 <script src="/static/js/activity-tracker.js"></script>
+<script>
+async function changePassword(e) {
+    e.preventDefault();
+    const btn = document.getElementById('pw-btn');
+    const msg = document.getElementById('pw-msg');
+    msg.className = 'pw-msg';
+    msg.textContent = '';
+
+    const newPw = document.getElementById('pw-new').value;
+    const confirmPw = document.getElementById('pw-confirm').value;
+    if (newPw !== confirmPw) {
+        msg.className = 'pw-msg error';
+        msg.textContent = 'Passwörter stimmen nicht überein';
+        return false;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Wird gespeichert…';
+
+    try {
+        const body = new URLSearchParams();
+        {% if has_password %}
+        const currentPw = document.getElementById('pw-current').value;
+        body.append('current_password', currentPw);
+        {% endif %}
+        body.append('new_password', newPw);
+
+        const res = await fetch('/api/member/password', { method: 'POST', body });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            msg.className = 'pw-msg success';
+            msg.textContent = 'Passwort erfolgreich geändert!';
+            document.getElementById('pw-current').value = '';
+            document.getElementById('pw-new').value = '';
+            document.getElementById('pw-confirm').value = '';
+            // Update the status display
+            const statusEl = document.querySelector('.pw-section .pw-hint');
+            if (statusEl) {
+                statusEl.innerHTML = 'Passwort geändert. Du kannst dich nun auch ohne NFC-Karte anmelden.';
+            }
+            // Refresh page after short delay to update status badge
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            msg.className = 'pw-msg error';
+            msg.textContent = data.error || 'Fehler beim Ändern des Passworts';
+        }
+    } catch (err) {
+        msg.className = 'pw-msg error';
+        msg.textContent = 'Netzwerkfehler — bitte erneut versuchen';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Passwort ändern';
+    }
+    return false;
+}
+</script>
 {% endblock %}

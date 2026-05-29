@@ -1,6 +1,6 @@
 """Member routes - member-only access to own laufzettel"""
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import RedirectResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -386,10 +386,15 @@ async def member_konto(
         return RedirectResponse("/", status_code=302)
 
     mitglied = None
+    has_password = False
     if user.mitglied_id:
         mitglied = (
             members_db.query(Mitglied).filter(Mitglied.id == user.mitglied_id).first()
         )
+        if mitglied:
+            has_password = bool(
+                mitglied.login_username and mitglied.login_password_hash
+            )
 
     return templates.TemplateResponse(
         "member-konto.html",
@@ -398,8 +403,99 @@ async def member_konto(
             "nav_active": "konto",
             "user": user,
             "mitglied": mitglied,
+            "has_password": has_password,
         },
     )
+
+
+@router.post("/api/member/password")
+async def member_change_password(
+    request: Request,
+    current_password: str = Form(None),
+    new_password: str = Form(...),
+    user: User = Depends(require_member),
+    members_db: Session = Depends(get_members_db),
+):
+    """Change member password. Members without a password yet use 'H3cke' as default."""
+    if not user.mitglied_id:
+        raise HTTPException(400, "Kein Mitgliedsprofil verknüpft")
+
+    mitglied = (
+        members_db.query(Mitglied).filter(Mitglied.id == user.mitglied_id).first()
+    )
+    if not mitglied:
+        raise HTTPException(404, "Mitglied nicht gefunden")
+
+    has_existing = bool(mitglied.login_username and mitglied.login_password_hash)
+
+    if has_existing:
+        # User already has a password — verify the current one
+        if not current_password:
+            return JSONResponse(
+                {"success": False, "error": "Bitte aktuelles Passwort eingeben"},
+                status_code=400,
+            )
+        from backend.auth.dependencies import verify_password
+
+        if not verify_password(current_password, mitglied.login_password_hash):
+            return JSONResponse(
+                {"success": False, "error": "Aktuelles Passwort ist falsch"},
+                status_code=403,
+            )
+    else:
+        # No password yet — verify the default "H3cke"
+        from backend.auth.dependencies import verify_password, get_password_hash
+
+        default_hash = get_password_hash("H3cke")
+        if current_password and not verify_password(current_password, default_hash):
+            return JSONResponse(
+                {"success": False, "error": "Aktuelles Passwort ist falsch"},
+                status_code=403,
+            )
+
+    # Validate new password
+    if len(new_password) < 4:
+        return JSONResponse(
+            {"success": False, "error": "Passwort muss mindestens 4 Zeichen haben"},
+            status_code=400,
+        )
+
+    # Set up login_username if not yet set (use their name or member_id)
+    from backend.auth.dependencies import get_password_hash
+
+    if not mitglied.login_username:
+        desired = (mitglied.name or "").strip()
+        if not desired:
+            desired = f"member_{mitglied.member_id or mitglied.id}"
+        # Ensure uniqueness
+        existing = (
+            members_db.query(Mitglied)
+            .filter(Mitglied.login_username == desired, Mitglied.id != mitglied.id)
+            .first()
+        )
+        mitglied.login_username = desired if not existing else f"member_{mitglied.id}"
+
+    mitglied.login_password_hash = get_password_hash(new_password)
+    members_db.commit()
+
+    # Also update the auth.db User record's hashed_password so admin verify works
+    from backend.auth.db import SessionLocal as AuthSessionLocal
+    from backend.auth.models import User as AuthUser
+
+    auth_db_local = AuthSessionLocal()
+    try:
+        auth_user = (
+            auth_db_local.query(AuthUser)
+            .filter(AuthUser.mitglied_id == mitglied.id)
+            .first()
+        )
+        if auth_user:
+            auth_user.hashed_password = mitglied.login_password_hash
+            auth_db_local.commit()
+    finally:
+        auth_db_local.close()
+
+    return {"success": True, "has_password": True}
 
 
 @router.post("/api/member/laufzettel/{laufzettel_id}/material")
@@ -460,6 +556,9 @@ async def get_current_member_info(
             "role": user.role,
             "mitglied_id": user.mitglied_id,
             "mitglied": mitglied.to_dict() if mitglied else None,
+            "has_password": bool(
+                mitglied and mitglied.login_username and mitglied.login_password_hash
+            ),
         }
 
     return {
