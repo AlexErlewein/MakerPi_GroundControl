@@ -114,6 +114,10 @@
                     <option value="0">0 % (steuerfrei)</option>
                 </select>
             </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="field-ukat-is-spende" style="width:auto;">
+                <label for="field-ukat-is-spende" style="margin:0;">Als Spende zählen (nicht als Materialverkauf)</label>
+            </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="unterkategorie-cancel">Abbrechen</button>
                 <button type="submit" class="btn btn-success">Speichern</button>
@@ -190,9 +194,11 @@
         <div id="bulk-tab-csv" class="bulk-tab-panel hidden">
             <div class="bulk-csv-info">
                 <p>Erwartet wird eine CSV- oder TSV-Datei (Komma oder Tab als Trennzeichen) mit folgenden Spalten (erste Zeile = Header):</p>
-                <code>standort	kategorie	unterkategorie	preismodell	einheit	steuersatz	variante	preis</code>
+                <code>standort	kategorie	unterkategorie	preismodell	einheit	steuersatz	variante	preis	spende</code>
                 <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
-                    Die Spalte <em>unterkategorie</em> ist optional — wird sie weggelassen, landen alle Varianten in einer "Standard"-Unterkategorie.<br>
+                    Die Spalten <em>unterkategorie</em> und <em>spende</em> sind optional.<br>
+                    <em>unterkategorie</em>: Wird sie weggelassen, landen alle Varianten in einer "Standard"-Unterkategorie.<br>
+                    <em>spende</em>: <code>1</code>, <code>true</code> oder <code>ja</code> markiert die Unterkategorie als Spende (zählt nicht als Materialverkauf).<br>
                     <strong>Preismodell-Werte:</strong><br>
                     &nbsp;&nbsp;<em>per_unit</em> — pro Einheit (Menge × Preis)<br>
                     &nbsp;&nbsp;<em>per_gram</em> — pro Gramm<br>

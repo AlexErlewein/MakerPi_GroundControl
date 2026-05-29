@@ -75,6 +75,7 @@ async def get_summary(
         key = v.variante_name
         if key not in by_variant:
             tax = v.tax_rate if v.tax_rate is not None else 19.0
+            is_spende = bool(v.is_spende) if v.is_spende is not None else False
             by_variant[key] = {
                 "name": key,
                 "variante_id": v.variante_id,
@@ -83,16 +84,21 @@ async def get_summary(
                 "pricing_model": v.pricing_model,
                 "unit": v.unit,
                 "tax_rate": tax,
+                "is_spende": is_spende,
             }
         by_variant[key]["units"] += v.menge or 1.0
         by_variant[key]["revenue"] += v.calculated_price
 
-    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: []}
-    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0}
+    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: [], "spende": []}
+    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0, "spende": 0.0}
     for variant in by_variant.values():
-        bucket = variant["tax_rate"] if variant["tax_rate"] in tax_buckets else 19.0
-        tax_buckets[bucket].append(variant)
-        tax_totals[bucket] += variant["revenue"]
+        if variant["is_spende"]:
+            tax_buckets["spende"].append(variant)
+            tax_totals["spende"] += variant["revenue"]
+        else:
+            bucket = variant["tax_rate"] if variant["tax_rate"] in tax_buckets else 19.0
+            tax_buckets[bucket].append(variant)
+            tax_totals[bucket] += variant["revenue"]
 
     return {
         "period": period,
@@ -108,11 +114,13 @@ async def get_summary(
             "19": sorted(tax_buckets[19.0], key=lambda x: x["revenue"], reverse=True),
             "7": sorted(tax_buckets[7.0], key=lambda x: x["revenue"], reverse=True),
             "0": sorted(tax_buckets[0.0], key=lambda x: x["revenue"], reverse=True),
+            "spende": sorted(tax_buckets["spende"], key=lambda x: x["revenue"], reverse=True),
         },
         "tax_totals": {
             "19": round(tax_totals[19.0], 2),
             "7": round(tax_totals[7.0], 2),
             "0": round(tax_totals[0.0], 2),
+            "spende": round(tax_totals["spende"], 2),
         },
         "spenden": [
             s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)

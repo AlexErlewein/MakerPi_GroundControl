@@ -146,6 +146,7 @@ function renderUnterkategorie(ukat, kat, loc) {
                 <span class="pricing-badge">${esc(pricingLabel)}</span>
                 ${unit ? `<span class="unit-label">[${esc(unit)}]</span>` : ""}
                 <span class="pricing-badge">${taxRate} % MwSt.</span>
+                ${ukat.is_spende ? `<span class="pricing-badge" style="background:var(--accent);color:#fff;">Spende</span>` : ""}
             </div>
             <div class="unterkategorie-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
@@ -345,6 +346,7 @@ function openAddUnterkategorie(kategorieId) {
     document.getElementById("edit-unterkategorie-id").value = "";
     document.getElementById("edit-unterkategorie-kategorie-id").value = kategorieId;
     document.getElementById("field-ukat-tax-rate").value = "19";
+    document.getElementById("field-ukat-is-spende").checked = false;
     document.getElementById("unterkategorie-modal").classList.remove("hidden");
     document.getElementById("field-ukat-name").focus();
 }
@@ -371,6 +373,7 @@ function openEditUnterkategorie(ukatId, katId) {
     document.getElementById("field-ukat-pricing").value = ukat.pricing_model;
     document.getElementById("field-ukat-unit").value = ukat.unit || "";
     document.getElementById("field-ukat-tax-rate").value = String(ukat.tax_rate != null ? ukat.tax_rate : 19);
+    document.getElementById("field-ukat-is-spende").checked = !!ukat.is_spende;
     document.getElementById("unterkategorie-modal").classList.remove("hidden");
 }
 
@@ -388,6 +391,7 @@ document.getElementById("unterkategorie-form").addEventListener("submit", async 
         pricing_model: document.getElementById("field-ukat-pricing").value,
         unit: document.getElementById("field-ukat-unit").value.trim() || null,
         tax_rate: parseFloat(document.getElementById("field-ukat-tax-rate").value),
+        is_spende: document.getElementById("field-ukat-is-spende").checked,
     };
     const url = id ? `/api/katalog/unterkategorien/${id}` : "/api/katalog/unterkategorien";
     const method = id ? "PUT" : "POST";
@@ -800,6 +804,7 @@ function processCsvText(text) {
         return;
     }
     const hasUnterkategorie = header.includes("unterkategorie");
+    const hasSpende = header.includes("spende");
 
     const col = (row, name) => {
         const idx = header.indexOf(name);
@@ -818,6 +823,7 @@ function processCsvText(text) {
         const preismodell    = normalizePricingModel(col(row, "preismodell") || "per_unit");
         const einheit        = col(row, "einheit") || null;
         const steuersatzStr  = col(row, "steuersatz");
+        const spendeStr      = hasSpende ? col(row, "spende") : "";
         const variante       = col(row, "variante");
         const preisStr       = col(row, "preis");
 
@@ -831,6 +837,7 @@ function processCsvText(text) {
         }
 
         const steuersatz = steuersatzStr !== "" ? parseFloat(steuersatzStr) : 19;
+        const isSpende = spendeStr === "1" || spendeStr.toLowerCase() === "true" || spendeStr.toLowerCase() === "ja";
         const preis = parseFloat(preisStr.replace(",", "."));
         if (isNaN(preis)) {
             errors.push(`Zeile ${i + 2}: Ungültiger Preis "${preisStr}".`);
@@ -842,9 +849,9 @@ function processCsvText(text) {
         if (!katMap.has(kategorie)) katMap.set(kategorie, new Map());
         const ukatMap = katMap.get(kategorie);
 
-        const ukatKey = `${unterkategorie}|${preismodell}|${einheit}|${steuersatz}`;
+        const ukatKey = `${unterkategorie}|${preismodell}|${einheit}|${steuersatz}|${isSpende}`;
         if (!ukatMap.has(ukatKey)) {
-            ukatMap.set(ukatKey, { name: unterkategorie, preismodell, einheit, steuersatz, varianten: [] });
+            ukatMap.set(ukatKey, { name: unterkategorie, preismodell, einheit, steuersatz, isSpende, varianten: [] });
         }
         ukatMap.get(ukatKey).varianten.push({ name: variante, price: preis });
     });
@@ -865,6 +872,7 @@ function processCsvText(text) {
                     pricing_model: ukatData.preismodell,
                     unit: ukatData.einheit,
                     tax_rate: ukatData.steuersatz,
+                    is_spende: ukatData.isSpende || false,
                     varianten: ukatData.varianten,
                 });
             }

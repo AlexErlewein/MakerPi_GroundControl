@@ -111,6 +111,10 @@
             <div class="amount" id="tax-revenue-0">–</div>
         </div>
         <div class="summary-card">
+            <h4>Spende (Katalog)</h4>
+            <div class="amount" id="tax-revenue-spende">–</div>
+        </div>
+        <div class="summary-card">
             <h4>Spenden</h4>
             <div class="amount" id="spende-revenue">–</div>
         </div>
@@ -154,6 +158,18 @@
             <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
         </thead>
         <tbody id="variant-tbody-0">
+            <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h3 style="font-size:0.95rem;color:var(--text-secondary);margin:20px 0 6px;">Spende (Katalog)</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
+        </thead>
+        <tbody id="variant-tbody-spende">
             <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
         </tbody>
     </table>
@@ -215,5 +231,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/buchhaltung.js?v=3"></script>
+<script src="/static/js/buchhaltung.js?v=4"></script>
 {% endblock %}

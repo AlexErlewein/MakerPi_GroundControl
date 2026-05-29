@@ -46,6 +46,7 @@ class UnterkategorieCreate(BaseModel):
     pricing_model: str = "per_unit"
     unit: Optional[str] = None
     tax_rate: float = 19.0
+    is_spende: bool = False
 
 
 class UnterkategorieUpdate(BaseModel):
@@ -53,6 +54,7 @@ class UnterkategorieUpdate(BaseModel):
     pricing_model: Optional[str] = None
     unit: Optional[str] = None
     tax_rate: Optional[float] = None
+    is_spende: Optional[bool] = None
 
 
 class VarianteCreate(BaseModel):
@@ -77,6 +79,7 @@ class BulkUnterkategorieIn(BaseModel):
     pricing_model: str = "per_unit"
     unit: Optional[str] = None
     tax_rate: float = 19.0
+    is_spende: bool = False
     varianten: list[BulkVarianteIn] = []
 
 
@@ -351,6 +354,7 @@ async def create_unterkategorie(
         pricing_model=data.pricing_model,
         unit=data.unit,
         tax_rate=data.tax_rate,
+        is_spende=data.is_spende,
     )
     db.add(u)
     db.commit()
@@ -388,6 +392,8 @@ async def update_unterkategorie(
                 detail=f"Ungültiger Steuersatz: {data.tax_rate}. Erlaubt: 0, 7, 19",
             )
         u.tax_rate = data.tax_rate
+    if data.is_spende is not None:
+        u.is_spende = data.is_spende
     db.commit()
     db.refresh(u)
     return u.to_dict()
@@ -560,7 +566,8 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         return kat, False
 
     def upsert_unterkategorie(
-        kategorie_id: int, name: str, pricing_model: str, unit, tax_rate: float
+        kategorie_id: int, name: str, pricing_model: str, unit, tax_rate: float,
+        is_spende: bool = False,
     ):
         ukat = (
             db.query(MaterialUnterkategorie)
@@ -577,6 +584,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                 pricing_model=pricing_model,
                 unit=unit,
                 tax_rate=tax_rate,
+                is_spende=is_spende,
             )
             db.add(ukat)
             db.flush()
@@ -585,6 +593,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         ukat.pricing_model = pricing_model
         ukat.unit = unit
         ukat.tax_rate = tax_rate
+        ukat.is_spende = is_spende
         db.flush()
         return ukat, False
 
@@ -644,6 +653,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                         ukat_data.pricing_model,
                         ukat_data.unit,
                         ukat_data.tax_rate,
+                        ukat_data.is_spende,
                     )
                     if ukat_created:
                         created_unterkategorien += 1

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from .models import Base
 
@@ -31,3 +31,11 @@ def init_db():
     from backend.db_utils import check_and_recover_engine
     check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        try:
+            conn.execute(
+                text("ALTER TABLE verkauf ADD COLUMN is_spende INTEGER DEFAULT 0")
+            )
+            conn.commit()
+        except Exception:
+            pass

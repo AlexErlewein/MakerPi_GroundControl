@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Text
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, Date, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -85,6 +85,7 @@ class LaufzettelMaterial(Base):
     tax_rate = Column(
         Float, nullable=True
     )  # snapshotted from MaterialKategorie; None treated as 19.0
+    is_spende = Column(Boolean, default=False)
 
     def to_dict(self):
         return {
@@ -101,6 +102,7 @@ class LaufzettelMaterial(Base):
             "tax_rate": 0.0
             if self.tax_rate is not None and self.tax_rate == 0
             else self.tax_rate,
+            "is_spende": bool(self.is_spende) if self.is_spende is not None else False,
         }
 
 

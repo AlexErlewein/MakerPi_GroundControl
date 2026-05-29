@@ -55,6 +55,16 @@ def init_db():
         except Exception:
             pass
 
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE material_unterkategorie ADD COLUMN is_spende INTEGER DEFAULT 0"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass
+
         # Auto-migrate: create "Standard" Unterkategorie for each Kategorie that has
         # Varianten without unterkategorie_id
         try:

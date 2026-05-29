@@ -54,6 +54,8 @@ def _migrate(conn):
     existing_mat = {row[1] for row in cur.fetchall()}
     if "tax_rate" not in existing_mat:
         cur.execute("ALTER TABLE laufzettel_material ADD COLUMN tax_rate REAL")
+    if "is_spende" not in existing_mat:
+        cur.execute("ALTER TABLE laufzettel_material ADD COLUMN is_spende INTEGER DEFAULT 0")
 
     # ── 2. Drop UNIQUE(uid, date) constraint if present ────────────────────────
     # SQLite doesn't support DROP CONSTRAINT – requires table recreation.

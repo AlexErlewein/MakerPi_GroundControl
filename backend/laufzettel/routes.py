@@ -163,6 +163,7 @@ class MaterialCreate(BaseModel):
     hoehe_cm: Optional[float] = None
     calculated_price: Optional[float] = None
     tax_rate: Optional[float] = None
+    is_spende: Optional[bool] = None
 
 
 class MaterialUpdate(BaseModel):
@@ -175,6 +176,7 @@ class MaterialUpdate(BaseModel):
     hoehe_cm: Optional[float] = None
     calculated_price: Optional[float] = None
     tax_rate: Optional[float] = None
+    is_spende: Optional[bool] = None
 
 
 @router.on_event("startup")
@@ -517,6 +519,7 @@ async def add_material(
         hoehe_cm=mat.hoehe_cm,
         calculated_price=mat.calculated_price,
         tax_rate=mat.tax_rate if mat.tax_rate is not None else None,
+        is_spende=bool(mat.is_spende) if mat.is_spende is not None else False,
     )
     db.add(new_mat)
     db.commit()
@@ -572,6 +575,8 @@ async def update_material(
         existing.calculated_price = mat.calculated_price
     if mat.tax_rate is not None:
         existing.tax_rate = mat.tax_rate
+    if mat.is_spende is not None:
+        existing.is_spende = mat.is_spende
     db.commit()
     db.refresh(existing)
     return existing.to_dict()

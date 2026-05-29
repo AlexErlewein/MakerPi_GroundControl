@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
 
@@ -23,6 +23,7 @@ class Verkauf(Base):
     unit = Column(String, nullable=True)
     calculated_price = Column(Float, nullable=False)
     tax_rate = Column(Float, nullable=True)
+    is_spende = Column(Boolean, default=False)
     member_id = Column(String, nullable=True)
     owner_name = Column(String, nullable=True)
 
@@ -40,6 +41,7 @@ class Verkauf(Base):
             "unit": self.unit,
             "calculated_price": self.calculated_price,
             "tax_rate": self.tax_rate,
+            "is_spende": bool(self.is_spende) if self.is_spende is not None else False,
             "member_id": self.member_id,
             "owner_name": self.owner_name,
         }
