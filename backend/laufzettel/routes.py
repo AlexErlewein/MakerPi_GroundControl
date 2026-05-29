@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 import json
 
 from backend.config import (
+    PUBLIC_BASE_URL,
     SUMUP_API_KEY,
     SUMUP_MERCHANT_CODE,
     SUMUP_READER_ID,
@@ -118,7 +119,9 @@ def _schedule_receipt_email(
             return
 
         # Construct view URL for the Laufzettel
-        if request:
+        if PUBLIC_BASE_URL:
+            base_url = PUBLIC_BASE_URL
+        elif request:
             base_url = f"{request.url.scheme}://{request.url.netloc}"
         else:
             base_url = "https://h3cke.de"
