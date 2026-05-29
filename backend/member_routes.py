@@ -808,6 +808,7 @@ async def login_via_rfid(
     request.session["user"] = user.username
     request.session["mitglied_id"] = user.mitglied_id
     request.session["is_admin_capable"] = user.role == "admin" or is_admin_card
+    request.session["login_method"] = "rfid"
     request.session["admin_verified"] = False  # Always start unverified
     request.session["admin_verified_at"] = None
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
@@ -993,6 +994,7 @@ async def kasse_verify_admin_card(
         request.session["mitglied_id"] = None
 
     request.session["is_admin_capable"] = True
+    request.session["login_method"] = "rfid"
     request.session["admin_verified"] = True
     request.session["admin_verified_at"] = datetime.now(timezone.utc).isoformat()
     request.session["last_activity"] = datetime.now(timezone.utc).isoformat()

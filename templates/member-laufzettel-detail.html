@@ -217,6 +217,15 @@
     const _adminUnlockBtn = document.getElementById('admin-unlock-btn');
     if (_adminUnlockBtn) {
         _adminUnlockBtn.addEventListener('click', async () => {
+            // If logged in via password, auto-verify without password prompt
+            try {
+                const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+                const session = await sessionRes.json();
+                if (session.login_method === 'password') {
+                    const autoRes = await fetch('/api/auth/verify-admin-auto', { method: 'POST', credentials: 'include' });
+                    if (autoRes.ok) { window.location.href = '/dashboard'; return; }
+                }
+            } catch (err) { /* fall through to password prompt */ }
             const password = prompt('Admin-Passwort eingeben:');
             if (!password) return;
             const formData = new FormData(); formData.append('password', password);

@@ -718,7 +718,16 @@
 
     const adminUnlockBtn = document.getElementById('admin-unlock-btn');
     if (adminUnlockBtn) {
-        adminUnlockBtn.addEventListener('click', () => {
+        adminUnlockBtn.addEventListener('click', async () => {
+            // If logged in via password, auto-verify without password prompt
+            try {
+                const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+                const session = await sessionRes.json();
+                if (session.login_method === 'password') {
+                    const autoRes = await fetch('/api/auth/verify-admin-auto', { method: 'POST', credentials: 'include' });
+                    if (autoRes.ok) { window.location.reload(); return; }
+                }
+            } catch (err) { /* fall through to password prompt */ }
             const adminPwModal = document.getElementById('admin-pw-modal');
             const adminPwInput = document.getElementById('admin-pw-input');
             const adminPwError = document.getElementById('admin-pw-error');

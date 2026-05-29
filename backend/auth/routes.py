@@ -76,6 +76,7 @@ async def unified_login(
         request.session["user"] = user.username
         request.session["mitglied_id"] = user.mitglied_id
         request.session["is_admin_capable"] = user.role == "admin"
+        request.session["login_method"] = "password"
         request.session["admin_verified"] = False
         request.session["admin_verified_at"] = None
         request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
@@ -144,6 +145,7 @@ async def unified_login(
                 request.session["user"] = mitglied.login_username
                 request.session["mitglied_id"] = mitglied.id
                 request.session["is_admin_capable"] = has_admin
+                request.session["login_method"] = "password"
                 request.session["admin_verified"] = False
                 request.session["admin_verified_at"] = None
                 request.session["last_activity"] = datetime.now(
@@ -206,6 +208,24 @@ async def verify_admin(
     return JSONResponse(
         {"success": False, "error": "Invalid password or not admin"}, status_code=403
     )
+
+
+@router.post("/api/auth/verify-admin-auto")
+async def verify_admin_auto(request: Request):
+    """Auto-verify admin mode without password (only if login_method is 'password')."""
+    if not request.session.get("is_admin_capable"):
+        return JSONResponse(
+            {"success": False, "error": "Not admin capable"}, status_code=403
+        )
+    if request.session.get("login_method") != "password":
+        return JSONResponse(
+            {"success": False, "error": "requires_password"}, status_code=403
+        )
+    now = datetime.now(timezone.utc)
+    request.session["admin_verified"] = True
+    request.session["admin_verified_at"] = now.isoformat()
+    request.session["last_activity"] = now.isoformat()
+    return {"success": True}
 
 
 @router.get("/admin/users")

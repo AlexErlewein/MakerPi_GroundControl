@@ -155,6 +155,7 @@ def get_session_info(request: Request) -> dict:
         "is_admin_capable": session.get("is_admin_capable", False),
         "admin_verified": is_admin_verified(request),
         "can_access_admin": is_admin_verified(request),
+        "login_method": session.get("login_method"),
     }
 
 
