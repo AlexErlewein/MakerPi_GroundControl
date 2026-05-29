@@ -73,24 +73,22 @@ async def unified_login(
         and user.hashed_password
         and verify_password(password, user.hashed_password)
     ):
-        # Admin user found - auto-verify since password was just entered
         request.session["user"] = user.username
         request.session["mitglied_id"] = user.mitglied_id
         request.session["is_admin_capable"] = user.role == "admin"
+        request.session["admin_verified"] = False
+        request.session["admin_verified_at"] = None
+        request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
-        if user.role == "admin":
-            # Direct admin access - password already verified
+        if user.role == "admin" and not user.mitglied_id:
+            # Admin-only user — auto-verify (password just entered), go to dashboard
             request.session["admin_verified"] = True
             request.session["admin_verified_at"] = datetime.now(
                 timezone.utc
             ).isoformat()
-            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
             return RedirectResponse("/dashboard", status_code=302)
         else:
-            # Regular member user
-            request.session["admin_verified"] = False
-            request.session["admin_verified_at"] = None
-            request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+            # Member (or hybrid member+admin) — land on member view
             return RedirectResponse("/member", status_code=302)
 
     # Check member login via mitglieder table
