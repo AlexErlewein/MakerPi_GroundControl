@@ -30,7 +30,7 @@ def _build_service():
 
     creds = Credentials.from_authorized_user_file(
         str(token_path),
-        scopes=["https://www.googleapis.com/auth/drive.file"],
+        scopes=["https://www.googleapis.com/auth/drive"],
     )
 
     if creds.expired and creds.refresh_token:

@@ -20,7 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.config import GOOGLE_DRIVE_CLIENT_SECRETS_FILE, GOOGLE_DRIVE_TOKEN_FILE  # noqa: E402
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def main() -> None:
