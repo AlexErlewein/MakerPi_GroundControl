@@ -586,10 +586,11 @@ let bulkUkatCounters = {};
 function addUnterkategorieRow(katIndex, prefill = {}) {
     if (!bulkUkatCounters[katIndex]) bulkUkatCounters[katIndex] = 0;
     const ukatIdx  = bulkUkatCounters[katIndex]++;
-    const name     = prefill.name          || "";
-    const pricing  = prefill.pricing_model || "per_unit";
-    const unit     = prefill.unit          || "";
-    const tax      = prefill.tax_rate      != null ? prefill.tax_rate : 19;
+    const name      = prefill.name          || "";
+    const pricing   = prefill.pricing_model || "per_unit";
+    const unit      = prefill.unit          || "";
+    const tax       = prefill.tax_rate      != null ? prefill.tax_rate : 19;
+    const isSpende  = !!prefill.is_spende;
 
     const html = `
     <div class="bulk-ukat-block" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}">
@@ -617,6 +618,10 @@ function addUnterkategorieRow(katIndex, prefill = {}) {
                     <option value="7"${tax == 7  ? " selected" : ""}>7 % (ermäßigt)</option>
                     <option value="0"${tax == 0  ? " selected" : ""}>0 % (steuerfrei)</option>
                 </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" class="ukat-is-spende"${isSpende ? " checked" : ""} style="width:auto;">
+                <label style="margin:0;">Als Spende zählen</label>
             </div>
         </div>
         <div class="bulk-var-list" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}"></div>
@@ -704,6 +709,7 @@ function collectBulkFormData() {
                 pricing_model: ukatBlock.querySelector(".ukat-pricing").value,
                 unit: ukatBlock.querySelector(".ukat-unit").value.trim() || null,
                 tax_rate: parseFloat(ukatBlock.querySelector(".ukat-tax").value),
+                is_spende: ukatBlock.querySelector(".ukat-is-spende").checked,
                 varianten,
             });
         });
