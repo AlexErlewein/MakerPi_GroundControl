@@ -98,8 +98,8 @@ if [ "$UPDATE_DEPS" = "1" ]; then
 fi
 
 # ── 6. Stop service, checkpoint WAL files, then start ────────────────────
-echo "⏹️  Stopping GroundControl service..."
-ssh "$PI_USER@$PI_HOST" "sudo systemctl stop groundcontrol"
+echo "⏹️  Stopping GroundControl services..."
+ssh "$PI_USER@$PI_HOST" "sudo systemctl stop groundcontrol groundcontrol-docs"
 
 echo "💾 Checkpointing WAL files..."
 ssh "$PI_USER@$PI_HOST" "
@@ -111,10 +111,10 @@ ssh "$PI_USER@$PI_HOST" "
     done
 "
 
-echo "▶️  Starting GroundControl service..."
+echo "▶️  Starting GroundControl services..."
 ssh -t "$PI_USER@$PI_HOST" "
-    sudo systemctl start groundcontrol && sleep 2 && \
-    sudo systemctl status groundcontrol --no-pager -l | grep -E '(Active:|Main PID)'
+    sudo systemctl start groundcontrol groundcontrol-docs && sleep 2 && \
+    sudo systemctl status groundcontrol groundcontrol-docs --no-pager -l | grep -E '(Active:|Main PID)'
 "
 
 echo ""
