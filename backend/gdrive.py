@@ -63,7 +63,10 @@ def find_or_create_folder(service, name: str, parent_id: str) -> str:
         f"name = '{name}' and mimeType = 'application/vnd.google-apps.folder' "
         f"and '{parent_id}' in parents and trashed = false"
     )
-    result = service.files().list(q=query, fields="files(id)", pageSize=1).execute()
+    result = service.files().list(
+        q=query, fields="files(id)", pageSize=1,
+        supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute()
     files = result.get("files", [])
     if files:
         return files[0]["id"]
@@ -73,7 +76,7 @@ def find_or_create_folder(service, name: str, parent_id: str) -> str:
         "mimeType": "application/vnd.google-apps.folder",
         "parents": [parent_id],
     }
-    folder = service.files().create(body=metadata, fields="id").execute()
+    folder = service.files().create(body=metadata, fields="id", supportsAllDrives=True).execute()
     return folder["id"]
 
 
@@ -120,7 +123,7 @@ def upload_pdf(
         file_metadata = {"name": filename, "parents": [month_folder_id]}
         f = (
             service.files()
-            .create(body=file_metadata, media_body=media, fields="id")
+            .create(body=file_metadata, media_body=media, fields="id", supportsAllDrives=True)
             .execute()
         )
         file_id = f.get("id")
