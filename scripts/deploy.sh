@@ -99,7 +99,7 @@ fi
 
 # ── 6. Stop service, checkpoint WAL files, then start ────────────────────
 echo "⏹️  Stopping GroundControl services..."
-ssh "$PI_USER@$PI_HOST" "sudo systemctl stop groundcontrol groundcontrol-docs"
+ssh "$PI_USER@$PI_HOST" "sudo systemctl stop groundcontrol && sudo systemctl stop groundcontrol-docs"
 
 echo "💾 Checkpointing WAL files..."
 ssh "$PI_USER@$PI_HOST" "
@@ -113,7 +113,7 @@ ssh "$PI_USER@$PI_HOST" "
 
 echo "▶️  Starting GroundControl services..."
 ssh -t "$PI_USER@$PI_HOST" "
-    sudo systemctl start groundcontrol groundcontrol-docs && sleep 2 && \
+    sudo systemctl start groundcontrol && sudo systemctl start groundcontrol-docs && sleep 2 && \
     sudo systemctl status groundcontrol groundcontrol-docs --no-pager -l | grep -E '(Active:|Main PID)'
 "
 
