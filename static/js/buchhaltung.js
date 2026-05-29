@@ -93,17 +93,25 @@ async function loadSummary() {
         document.getElementById('material-revenue').textContent = formatEuro(data.material_total);
         document.getElementById('spende-revenue').textContent = formatEuro(data.spende_total);
 
-        renderVariantTable(data.by_variant || []);
+        const tt = data.tax_totals || {};
+        document.getElementById('tax-revenue-19').textContent = formatEuro(tt['19'] || 0);
+        document.getElementById('tax-revenue-7').textContent  = formatEuro(tt['7']  || 0);
+        document.getElementById('tax-revenue-0').textContent  = formatEuro(tt['0']  || 0);
+
+        const tg = data.tax_groups || {};
+        renderVariantTable(tg['19'] || [], 'variant-tbody-19');
+        renderVariantTable(tg['7']  || [], 'variant-tbody-7');
+        renderVariantTable(tg['0']  || [], 'variant-tbody-0');
         renderSpendeTable(data.spenden || []);
     } catch (e) {
         console.error('Error loading summary:', e);
     }
 }
 
-function renderVariantTable(variants) {
-    const tbody = document.getElementById('variant-tbody');
+function renderVariantTable(variants, tbodyId) {
+    const tbody = document.getElementById(tbodyId);
     if (!variants.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="3">Keine Materialverkäufe im gewählten Zeitraum.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="3">Keine Einträge im gewählten Zeitraum.</td></tr>';
         return;
     }
     tbody.innerHTML = variants.map(v => {
@@ -204,7 +212,14 @@ function filterRows(inputId, tbodyId) {
 
 const variantSearch = document.getElementById('variant-search');
 const spendeSearch = document.getElementById('spende-search');
-if (variantSearch) variantSearch.addEventListener('input', () => filterRows('variant-search', 'variant-tbody'));
+if (variantSearch) variantSearch.addEventListener('input', () => {
+    ['variant-tbody-19', 'variant-tbody-7', 'variant-tbody-0'].forEach(id => {
+        const needle = variantSearch.value.trim().toLowerCase();
+        document.querySelectorAll(`#${id} tr`).forEach(tr => {
+            tr.style.display = !needle || tr.textContent.toLowerCase().includes(needle) ? '' : 'none';
+        });
+    });
+});
 if (spendeSearch) spendeSearch.addEventListener('input', () => filterRows('spende-search', 'spende-tbody'));
 
 updatePeriodDropdown();

@@ -99,6 +99,18 @@
             <div class="amount" id="material-revenue">–</div>
         </div>
         <div class="summary-card">
+            <h4>19 % MwSt</h4>
+            <div class="amount" id="tax-revenue-19">–</div>
+        </div>
+        <div class="summary-card">
+            <h4>7 % MwSt</h4>
+            <div class="amount" id="tax-revenue-7">–</div>
+        </div>
+        <div class="summary-card">
+            <h4>0 % MwSt</h4>
+            <div class="amount" id="tax-revenue-0">–</div>
+        </div>
+        <div class="summary-card">
             <h4>Spenden</h4>
             <div class="amount" id="spende-revenue">–</div>
         </div>
@@ -110,16 +122,38 @@
     <input type="text" id="variant-search" placeholder="Suchen…"
         style="height:34px;padding:0 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;min-width:180px;">
 </div>
+
+<h3 style="font-size:0.95rem;color:var(--text-secondary);margin:16px 0 6px;">19 % Mehrwertsteuer</h3>
 <div class="table-wrap">
     <table>
         <thead>
-            <tr>
-                <th>Artikel</th>
-                <th>Menge</th>
-                <th>Umsatz</th>
-            </tr>
+            <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
         </thead>
-        <tbody id="variant-tbody">
+        <tbody id="variant-tbody-19">
+            <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h3 style="font-size:0.95rem;color:var(--text-secondary);margin:20px 0 6px;">7 % Mehrwertsteuer</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
+        </thead>
+        <tbody id="variant-tbody-7">
+            <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h3 style="font-size:0.95rem;color:var(--text-secondary);margin:20px 0 6px;">0 % Mehrwertsteuer</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
+        </thead>
+        <tbody id="variant-tbody-0">
             <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
         </tbody>
     </table>
@@ -181,5 +215,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/buchhaltung.js?v=2"></script>
+<script src="/static/js/buchhaltung.js?v=3"></script>
 {% endblock %}

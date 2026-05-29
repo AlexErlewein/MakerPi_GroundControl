@@ -74,6 +74,7 @@ async def get_summary(
     for v in verkaufe:
         key = v.variante_name
         if key not in by_variant:
+            tax = v.tax_rate if v.tax_rate is not None else 19.0
             by_variant[key] = {
                 "name": key,
                 "variante_id": v.variante_id,
@@ -81,9 +82,17 @@ async def get_summary(
                 "revenue": 0.0,
                 "pricing_model": v.pricing_model,
                 "unit": v.unit,
+                "tax_rate": tax,
             }
         by_variant[key]["units"] += v.menge or 1.0
         by_variant[key]["revenue"] += v.calculated_price
+
+    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: []}
+    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0}
+    for variant in by_variant.values():
+        bucket = variant["tax_rate"] if variant["tax_rate"] in tax_buckets else 19.0
+        tax_buckets[bucket].append(variant)
+        tax_totals[bucket] += variant["revenue"]
 
     return {
         "period": period,
@@ -95,6 +104,16 @@ async def get_summary(
         "by_variant": sorted(
             by_variant.values(), key=lambda x: x["revenue"], reverse=True
         ),
+        "tax_groups": {
+            "19": sorted(tax_buckets[19.0], key=lambda x: x["revenue"], reverse=True),
+            "7": sorted(tax_buckets[7.0], key=lambda x: x["revenue"], reverse=True),
+            "0": sorted(tax_buckets[0.0], key=lambda x: x["revenue"], reverse=True),
+        },
+        "tax_totals": {
+            "19": round(tax_totals[19.0], 2),
+            "7": round(tax_totals[7.0], 2),
+            "0": round(tax_totals[0.0], 2),
+        },
         "spenden": [
             s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)
         ],
