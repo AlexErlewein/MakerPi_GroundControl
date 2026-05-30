@@ -243,11 +243,26 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/member?admin_required=1", status_code=302)
 
     users = db.query(User).order_by(User.created_at).all()
+
+    from backend.members.db import SessionLocal as MembersSession
+    from backend.members.models import Mitglied
+    members_db = MembersSession()
+    try:
+        members_with_login = (
+            members_db.query(Mitglied)
+            .filter(Mitglied.login_username.isnot(None))
+            .order_by(Mitglied.name)
+            .all()
+        )
+    finally:
+        members_db.close()
+
     return templates.TemplateResponse(
         "admin-users.html",
         {
             "request": request,
             "users": users,
+            "members_with_login": members_with_login,
             "current_user": request.session.get("user"),
             "nav_active": "users",
             "success": None,
@@ -475,3 +490,29 @@ async def delete_user(
             "error": None,
         },
     )
+
+
+@router.post("/admin/users/revoke-member-login")
+async def revoke_member_login(
+    request: Request,
+    mitglied_id: int = Form(...),
+):
+    """Remove login credentials from a member (members.db)."""
+    from fastapi.templating import Jinja2Templates
+    from backend.members.db import SessionLocal as MembersSession
+    from backend.members.models import Mitglied
+
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+
+    members_db = MembersSession()
+    try:
+        m = members_db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+        if m:
+            m.login_username = None
+            m.login_password_hash = None
+            members_db.commit()
+    finally:
+        members_db.close()
+
+    return RedirectResponse("/admin/users", status_code=303)

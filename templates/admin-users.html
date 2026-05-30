@@ -73,6 +73,48 @@
 
 <section class="section">
     <div class="section-header">
+        <h2>Member-Logins</h2>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">
+        Mitglieder mit aktivierten Zugriffsrechten (login via Mitglieder-Konto, Passwort: H3cke sofern nicht geändert).
+    </p>
+    {% set members_with_login = members_with_login | default([]) %}
+    {% if members_with_login %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Benutzername</th>
+                    <th>Member-ID</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members_with_login %}
+                <tr>
+                    <td>{{ m.name }}</td>
+                    <td><code>{{ m.login_username }}</code></td>
+                    <td>{{ m.member_id or '—' }}</td>
+                    <td>
+                        <form method="post" action="/admin/users/revoke-member-login" style="display:inline;"
+                              onsubmit="return confirm('Login für {{ m.name }} wirklich entfernen?');">
+                            <input type="hidden" name="mitglied_id" value="{{ m.id }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Login entfernen</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">Noch keine Member-Logins eingerichtet.</p>
+    {% endif %}
+</section>
+
+<section class="section">
+    <div class="section-header">
         <h2>Neuen Benutzer anlegen</h2>
     </div>
     <form method="post" action="/admin/users/add" style="max-width:400px;display:flex;flex-direction:column;gap:14px;">
