@@ -80,6 +80,7 @@ function renderInfo() {
     document.getElementById("edit-info-btn").style.display = locked ? "none" : "";
     document.getElementById("delete-lz-btn").style.display = locked ? "none" : "";
     document.getElementById("add-spende-btn").style.display = locked ? "none" : "";
+    document.getElementById("add-aufrunden-btn").style.display = locked ? "none" : "";
     document.getElementById("add-material-btn").style.display = locked ? "none" : "";
 }
 
@@ -753,6 +754,7 @@ document.getElementById("field-mat-unit-price").addEventListener("input", recalc
 document.getElementById("field-mat-total-price").addEventListener("input", recalcFreitextUnitPrice);
 
 document.getElementById("add-material-btn").addEventListener("click", openAddMaterial);
+document.getElementById("add-aufrunden-btn").addEventListener("click", openAufrundenModal);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("cancel-mat-btn").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
@@ -762,31 +764,29 @@ document.getElementById("modal-overlay").addEventListener("click", closeModal);
 function openSpendeModal() {
     document.getElementById("field-spende-name").value = "Spende";
     document.getElementById("field-spende-amount").value = "";
-    document.getElementById("field-spende-aufrunden").checked = false;
-    document.getElementById("field-spende-aufrunden-amount").value = "";
     document.getElementById("aufrunden-group").style.display = "none";
     document.getElementById("direct-amount-group").style.display = "block";
     document.getElementById("spende-modal").classList.remove("hidden");
     document.getElementById("field-spende-amount").focus();
 }
+
+function openAufrundenModal() {
+    document.getElementById("field-spende-name").value = "Spende";
+    document.getElementById("field-spende-amount").value = "";
+    document.getElementById("aufrunden-group").style.display = "block";
+    document.getElementById("direct-amount-group").style.display = "none";
+    document.getElementById("spende-modal").classList.remove("hidden");
+    const currentTotal = getTotal();
+    document.getElementById("current-total").textContent = currentTotal.toFixed(2);
+    const nextRound = Math.ceil(currentTotal);
+    document.getElementById("field-spende-aufrunden-amount").value = nextRound.toFixed(2);
+    updateAufrundenDiff();
+    document.getElementById("field-spende-aufrunden-amount").focus();
+}
+
 function closeSpendeModal() {
     document.getElementById("spende-modal").classList.add("hidden");
 }
-
-// Aufrunden toggle
-document.getElementById("field-spende-aufrunden").addEventListener("change", (e) => {
-    const isAufrunden = e.target.checked;
-    document.getElementById("aufrunden-group").style.display = isAufrunden ? "block" : "none";
-    document.getElementById("direct-amount-group").style.display = isAufrunden ? "none" : "block";
-    if (isAufrunden) {
-        const currentTotal = getTotal();
-        document.getElementById("current-total").textContent = currentTotal.toFixed(2);
-        // Auto-suggest next round number
-        const nextRound = Math.ceil(currentTotal);
-        document.getElementById("field-spende-aufrunden-amount").value = nextRound.toFixed(2);
-        updateAufrundenDiff();
-    }
-});
 
 document.getElementById("field-spende-aufrunden-amount").addEventListener("input", updateAufrundenDiff);
 
@@ -804,10 +804,10 @@ function updateAufrundenDiff() {
 document.getElementById("spende-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("field-spende-name").value.trim() || "Spende";
-    const isAufrunden = document.getElementById("field-spende-aufrunden").checked;
+    const isAufrundenMode = document.getElementById("aufrunden-group").style.display !== "none";
     let amount;
 
-    if (isAufrunden) {
+    if (isAufrundenMode) {
         const target = parseFloat(document.getElementById("field-spende-aufrunden-amount").value);
         const currentTotal = getTotal();
         if (isNaN(target) || target <= currentTotal) {

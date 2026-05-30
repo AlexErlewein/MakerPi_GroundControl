@@ -85,7 +85,8 @@
         <div style="display:flex;gap:8px;">
             <a href="/api/laufzettel/{{ laufzettel_id }}/pdf" download class="btn btn-secondary btn-sm">⬇ PDF</a>
             <button id="add-spende-btn" class="btn btn-secondary btn-sm" onclick="openSpendeModal()">♥ Spende</button>
-            <button id="add-material-btn" class="btn btn-success btn-sm">+ Add Material</button>
+            <button id="add-aufrunden-btn" class="btn btn-secondary btn-sm" onclick="openAufrundenModal()">⬆ Aufrunden</button>
+            <button id="add-material-btn" class="btn btn-success btn-sm">+ Material hinzufügen</button>
         </div>
     </div>
 
@@ -350,11 +351,6 @@
                 <label for="field-spende-name">Bezeichnung</label>
                 <input type="text" id="field-spende-name" value="Spende" placeholder="z.B. Spende, Trinkgeld">
             </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="field-spende-aufrunden"> Aufrunden
-                </label>
-            </div>
             <div class="form-group" id="aufrunden-group" style="display:none;">
                 <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 8px;">
                     Aktuelle Summe: <strong><span id="current-total">–</span> €</strong>
@@ -367,7 +363,7 @@
             </div>
             <div class="form-group" id="direct-amount-group">
                 <label for="field-spende-amount">Betrag (€)</label>
-                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01">
             </div>
             <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
             <div class="modal-actions">

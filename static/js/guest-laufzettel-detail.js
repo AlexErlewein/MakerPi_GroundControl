@@ -632,11 +632,22 @@ function recalcPrice() {
 // Spende modal
 function openSpendeModal() {
     document.getElementById('spende-form').reset();
-    document.getElementById('field-spende-aufrunden').checked = false;
-    document.getElementById('field-spende-aufrunden-amount').value = '';
     document.getElementById('aufrunden-group').style.display = 'none';
     document.getElementById('direct-amount-group').style.display = 'block';
     document.getElementById('spende-modal').classList.remove('hidden');
+}
+
+function openAufrundenModal() {
+    document.getElementById('spende-form').reset();
+    document.getElementById('aufrunden-group').style.display = 'block';
+    document.getElementById('direct-amount-group').style.display = 'none';
+    document.getElementById('spende-modal').classList.remove('hidden');
+    const currentTotal = getCurrentTotal();
+    document.getElementById('current-total').textContent = currentTotal.toFixed(2);
+    const nextRound = Math.ceil(currentTotal);
+    document.getElementById('field-spende-aufrunden-amount').value = nextRound.toFixed(2);
+    updateAufrundenDiff();
+    document.getElementById('field-spende-aufrunden-amount').focus();
 }
 
 function closeSpendeModal() {
@@ -663,10 +674,10 @@ async function submitSpendeForm(e) {
     e.preventDefault();
 
     const name = document.getElementById('field-spende-name').value || 'Spende';
-    const isAufrunden = document.getElementById('field-spende-aufrunden').checked;
+    const isAufrundenMode = document.getElementById('aufrunden-group').style.display !== 'none';
     let amount;
 
-    if (isAufrunden) {
+    if (isAufrundenMode) {
         const target = parseFloat(document.getElementById('field-spende-aufrunden-amount').value);
         const currentTotal = getCurrentTotal();
         if (isNaN(target) || target <= currentTotal) {
@@ -715,22 +726,11 @@ document.getElementById('modal-overlay').addEventListener('click', closeMaterial
 document.getElementById('cancel-mat-btn').addEventListener('click', closeMaterialModal);
 
 document.getElementById('add-spende-btn').addEventListener('click', openSpendeModal);
+document.getElementById('add-aufrunden-btn').addEventListener('click', openAufrundenModal);
 document.getElementById('spende-modal-close').addEventListener('click', closeSpendeModal);
 document.getElementById('spende-overlay').addEventListener('click', closeSpendeModal);
 document.getElementById('spende-cancel').addEventListener('click', closeSpendeModal);
 document.getElementById('spende-form').addEventListener('submit', submitSpendeForm);
-document.getElementById('field-spende-aufrunden').addEventListener('change', (e) => {
-    const isAufrunden = e.target.checked;
-    document.getElementById('aufrunden-group').style.display = isAufrunden ? 'block' : 'none';
-    document.getElementById('direct-amount-group').style.display = isAufrunden ? 'none' : 'block';
-    if (isAufrunden) {
-        const currentTotal = getCurrentTotal();
-        document.getElementById('current-total').textContent = currentTotal.toFixed(2);
-        const nextRound = Math.ceil(currentTotal);
-        document.getElementById('field-spende-aufrunden-amount').value = nextRound.toFixed(2);
-        updateAufrundenDiff();
-    }
-});
 document.getElementById('field-spende-aufrunden-amount').addEventListener('input', updateAufrundenDiff);
 
 // Initialize

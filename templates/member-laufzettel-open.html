@@ -36,7 +36,8 @@
             <h2>Material</h2>
             <div style="display:flex;gap:8px;">
                 <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()">♥ Spende</button>
-                <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">+ Material</button>
+                <button id="add-aufrunden-btn" class="btn btn-secondary" onclick="openAufrundenModal()">⬆ Aufrunden</button>
+                <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">+ Material hinzufügen</button>
             </div>
         </div>
 
@@ -184,11 +185,6 @@
                 <label for="field-spende-name">Bezeichnung (optional)</label>
                 <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
             </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="field-spende-aufrunden"> Aufrunden
-                </label>
-            </div>
             <div class="form-group" id="aufrunden-group" style="display:none;">
                 <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 8px;">
                     Aktuelle Summe: <strong><span id="current-total">–</span> €</strong>
@@ -201,7 +197,7 @@
             </div>
             <div class="form-group" id="direct-amount-group">
                 <label for="field-spende-amount">Betrag (€)</label>
-                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01">
             </div>
             <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
             <div class="modal-actions">
@@ -548,31 +544,28 @@
 
     function openSpendeModal() {
         document.getElementById('spende-form').reset();
-        document.getElementById('field-spende-aufrunden').checked = false;
-        document.getElementById('field-spende-aufrunden-amount').value = '';
         document.getElementById('aufrunden-group').style.display = 'none';
         document.getElementById('direct-amount-group').style.display = 'block';
         document.getElementById('spende-modal').classList.remove('hidden');
+    }
+
+    function openAufrundenModal() {
+        document.getElementById('spende-form').reset();
+        document.getElementById('aufrunden-group').style.display = 'block';
+        document.getElementById('direct-amount-group').style.display = 'none';
+        document.getElementById('spende-modal').classList.remove('hidden');
+        const currentTotal = getCurrentTotal();
+        document.getElementById('current-total').textContent = currentTotal.toFixed(2);
+        const nextRound = Math.ceil(currentTotal);
+        document.getElementById('field-spende-aufrunden-amount').value = nextRound.toFixed(2);
+        updateAufrundenDiff();
+        document.getElementById('field-spende-aufrunden-amount').focus();
     }
 
     function closeSpendeModal() {
         document.getElementById('spende-modal').classList.add('hidden');
         document.getElementById('spende-form').reset();
     }
-
-    // Aufrunden toggle
-    document.getElementById('field-spende-aufrunden').addEventListener('change', (e) => {
-        const isAufrunden = e.target.checked;
-        document.getElementById('aufrunden-group').style.display = isAufrunden ? 'block' : 'none';
-        document.getElementById('direct-amount-group').style.display = isAufrunden ? 'none' : 'block';
-        if (isAufrunden) {
-            const currentTotal = getCurrentTotal();
-            document.getElementById('current-total').textContent = currentTotal.toFixed(2);
-            const nextRound = Math.ceil(currentTotal);
-            document.getElementById('field-spende-aufrunden-amount').value = nextRound.toFixed(2);
-            updateAufrundenDiff();
-        }
-    });
 
     document.getElementById('field-spende-aufrunden-amount').addEventListener('input', updateAufrundenDiff);
 
@@ -711,10 +704,10 @@
         spendeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
-        const isAufrunden = document.getElementById('field-spende-aufrunden').checked;
+        const isAufrundenMode = document.getElementById('aufrunden-group').style.display !== 'none';
         let amount;
 
-        if (isAufrunden) {
+        if (isAufrundenMode) {
             const target = parseFloat(document.getElementById('field-spende-aufrunden-amount').value);
             const currentTotal = getCurrentTotal();
             if (isNaN(target) || target <= currentTotal) {
