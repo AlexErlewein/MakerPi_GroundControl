@@ -16,6 +16,9 @@
         </div>
         <div class="header-actions">
             <span style="color:var(--text-secondary);font-size:0.85rem;padding-right:4px;">{{ current_user }}</span>
+            {% if request.session.get('mitglied_id') %}
+            <a href="/member" class="btn btn-secondary">&#128100; Member-Ansicht</a>
+            {% endif %}
             <a href="/logout" class="btn btn-secondary">Abmelden</a>
         </div>
     </header>
