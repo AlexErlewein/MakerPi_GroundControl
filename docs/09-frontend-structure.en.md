@@ -119,6 +119,43 @@ Modals are built with plain HTML `<dialog>` or overlay divs — no external libr
 | Add a new column to a table | HTML template + JS render function + API endpoint |
 | Add a new field to a modal form | HTML template + JS form reader + API Pydantic model |
 
+## Best practices
+
+**Do:**
+
+- **Progressive enhancement** — pages work without JS, are better with it
+- **Debounce** search inputs (`setTimeout` + `clearTimeout`)
+- **XSS-escape all dynamic content** — use an `esc()` helper in every render function:
+  ```javascript
+  function esc(str) {
+      return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+  }
+  ```
+- **Always `try/catch` fetch calls** and show user-visible feedback on failure
+
+**Don't:**
+
+- Don't introduce frameworks without a strong reason — the codebase is intentionally framework-free
+- Don't add client-side routing
+- Don't use complex state management libraries
+- Don't use inline styles (except for dynamic positioning)
+
+## Browser support
+
+- Chrome/Edge (last 2 releases)
+- Firefox (last 2 releases)
+- Safari (last 2 releases)
+- IE11 is explicitly **not** supported
+
+## Performance notes
+
+- CSS/JS are served as static files and cached by the browser
+- No build step required
+- Large tables use server-side pagination to avoid rendering thousands of rows
+
 ## CSS variables (from `style.css`)
 
 | Variable | Value | Used for |

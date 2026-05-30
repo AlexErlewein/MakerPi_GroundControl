@@ -68,7 +68,7 @@ Die Geräte-ID ist das erste Segment eines MQTT-Topics, das der PicoW veröffent
 uv run python scripts/migrate_nfc_security.py
 ```
 
-Siehe [NFC-Tag-Sicherheit](./16-nfc-tag-sicherheit.de.md) für das vollständige Bedrohungsmodell und das Kartendaten-Layout.
+Siehe [NFC-Tag-Sicherheit](./16-nfc-tag-security.de.md) für das vollständige Bedrohungsmodell und das Kartendaten-Layout.
 
 ---
 

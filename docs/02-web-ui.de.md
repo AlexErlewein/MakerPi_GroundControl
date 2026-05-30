@@ -108,6 +108,50 @@ Für jede Variante definieren Sie:
 - Variantenname
 - Einheitspreis
 
+## Mitglieder-Seite (`/mitglieder`)
+
+Verwaltung der Mitgliederdatenbank.
+
+Sie können:
+
+- alle Mitglieder anzeigen (aus easyVerein synchronisiert oder manuell angelegt)
+- den NFC-Karten-Einschreibungsstatus jedes Mitglieds einsehen
+- eine NFC-Karte für ein Mitglied einschreiben (sendet einen Schreibbefehl an das Kartenlesegerät)
+- Mitgliedsdaten manuell anlegen oder bearbeiten
+
+## Kasse-Seite (`/kasse`)
+
+Schnellzugriff-Zahlungsbildschirm. Ermöglicht das Auslösen von Kartenzahlungen aus einer dedizierten Kassiereransicht, ohne die vollständige Laufzettel-Detailseite zu öffnen.
+
+## Geräte-Detail (`/devices/{device_id}`)
+
+Detailansicht eines einzelnen MQTT-Geräts.
+
+Zeigt:
+
+- Zeitstempel der letzten Aktivität
+- NFC-Status (OK / Fehler)
+- Aktuelle Nachrichten vom Gerät
+
+## Mitgliederbereich (`/member`)
+
+Self-Service-Bereich für Mitglieder mit einem Benutzerkonto mit `role="member"`.
+
+Mitglieder können:
+
+- ihre eigenen offenen und vergangenen Laufzettel einsehen
+- Materialien zu ihrem offenen Laufzettel hinzufügen
+
+Mitglieder können **keine** Zahlungen auslösen, Einträge löschen oder Daten anderer Mitglieder einsehen.
+
+## Fehlerbericht-Formular (`/bug-report`)
+
+Öffentliches Formular, das mit dem Plane-Issue-Tracker verknüpft ist. Jeder im lokalen Netzwerk kann einen Fehlerbericht einreichen. Erfordert die Konfiguration von `plane_url` und `plane_api_token`.
+
+## Shopify-Seite (`/shopify`)
+
+Integrationsseite für Shopify-Bestandsabfragen. Erfordert die Konfiguration von `shopify_store` und `shopify_access_token`.
+
 ## Docs-Site
 
 Die Docs-Site ist getrennt von der Haupt-UI und sollte auf Port `8001` laufen.

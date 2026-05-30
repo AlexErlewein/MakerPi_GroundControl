@@ -160,3 +160,82 @@ Docs are plain Markdown files. Edit them directly in `docs/`. Changes are live o
 | Startup / deploy | `10-operations-and-deploy.md` |
 | Pricing model | `04-material-katalog.md` |
 | Architecture change | `05-system-architecture.md` |
+
+---
+
+## Reset the admin password
+
+**Option 1: Via web UI (when logged in as admin)**
+
+Go to `/admin/users` → "Change password".
+
+**Option 2: Via config reset**
+
+Edit `config/config.json` and set `admin_password` to a temporary value, then restart the service. The app re-seeds the admin user on startup when the hashed password doesn't match.
+
+```bash
+sudo systemctl restart makerpi-groundcontrol
+```
+
+**Option 3: Direct database edit**
+
+```bash
+sqlite3 backend/auth.db
+# Set a bcrypt hash for the new password (generate with passlib):
+UPDATE users SET hashed_password = '$2b$12$...' WHERE username = 'admin';
+```
+
+---
+
+## Common errors
+
+### "Template not found"
+
+- Check that the template file exists in `templates/`
+- Look for typos in the filename
+- Restart the app (templates are cached on startup in production mode)
+
+### 404 on an API route
+
+- Is the router registered in `main.py`?
+- Are URL parameters spelled correctly?
+- Does the HTTP method match (GET vs POST)?
+
+### Database error after a schema change
+
+```bash
+# Check current schema
+sqlite3 backend/laufzettel.db ".schema laufzettel"
+
+# Apply manual migration
+sqlite3 backend/laufzettel.db "ALTER TABLE laufzettel ADD COLUMN new_field TEXT;"
+```
+
+---
+
+## Development workflow
+
+### Test changes locally
+
+```bash
+# The server auto-reloads on file save
+uv run uvicorn backend.main:app --reload --port 8000
+```
+
+### Add debug logging
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+# In a route handler
+logger.info(f"Laufzettel {id} loaded")
+logger.error(f"Unexpected error: {e}")
+```
+
+### Generate test data
+
+```bash
+python scripts/generate_demo_data.py
+# Creates: ~50 members, ~100 Laufzettel, ~500 material entries
+```
