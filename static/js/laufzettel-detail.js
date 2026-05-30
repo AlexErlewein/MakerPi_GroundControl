@@ -762,6 +762,10 @@ document.getElementById("modal-overlay").addEventListener("click", closeModal);
 function openSpendeModal() {
     document.getElementById("field-spende-name").value = "Spende";
     document.getElementById("field-spende-amount").value = "";
+    document.getElementById("field-spende-aufrunden").checked = false;
+    document.getElementById("field-spende-aufrunden-amount").value = "";
+    document.getElementById("aufrunden-group").style.display = "none";
+    document.getElementById("direct-amount-group").style.display = "block";
     document.getElementById("spende-modal").classList.remove("hidden");
     document.getElementById("field-spende-amount").focus();
 }
@@ -769,11 +773,53 @@ function closeSpendeModal() {
     document.getElementById("spende-modal").classList.add("hidden");
 }
 
+// Aufrunden toggle
+document.getElementById("field-spende-aufrunden").addEventListener("change", (e) => {
+    const isAufrunden = e.target.checked;
+    document.getElementById("aufrunden-group").style.display = isAufrunden ? "block" : "none";
+    document.getElementById("direct-amount-group").style.display = isAufrunden ? "none" : "block";
+    if (isAufrunden) {
+        const currentTotal = getTotal();
+        document.getElementById("current-total").textContent = currentTotal.toFixed(2);
+        // Auto-suggest next round number
+        const nextRound = Math.ceil(currentTotal);
+        document.getElementById("field-spende-aufrunden-amount").value = nextRound.toFixed(2);
+        updateAufrundenDiff();
+    }
+});
+
+document.getElementById("field-spende-aufrunden-amount").addEventListener("input", updateAufrundenDiff);
+
+function updateAufrundenDiff() {
+    const target = parseFloat(document.getElementById("field-spende-aufrunden-amount").value);
+    const currentTotal = getTotal();
+    if (!isNaN(target) && target > currentTotal) {
+        const diff = target - currentTotal;
+        document.getElementById("aufrunden-diff").textContent = diff.toFixed(2);
+    } else {
+        document.getElementById("aufrunden-diff").textContent = "–";
+    }
+}
+
 document.getElementById("spende-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("field-spende-name").value.trim() || "Spende";
-    const amount = parseFloat(document.getElementById("field-spende-amount").value);
-    if (isNaN(amount) || amount <= 0) { alert("Bitte gültigen Betrag eingeben."); return; }
+    const isAufrunden = document.getElementById("field-spende-aufrunden").checked;
+    let amount;
+
+    if (isAufrunden) {
+        const target = parseFloat(document.getElementById("field-spende-aufrunden-amount").value);
+        const currentTotal = getTotal();
+        if (isNaN(target) || target <= currentTotal) {
+            alert("Bitte einen Betrag eingeben, der höher als die aktuelle Summe ist.");
+            return;
+        }
+        amount = target - currentTotal;
+    } else {
+        amount = parseFloat(document.getElementById("field-spende-amount").value);
+        if (isNaN(amount) || amount <= 0) { alert("Bitte gültigen Betrag eingeben."); return; }
+    }
+
     const body = { name, calculated_price: parseFloat(amount.toFixed(2)), tax_rate: 0, is_spende: true };
     const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
         method: "POST",

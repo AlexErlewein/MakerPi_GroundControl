@@ -94,16 +94,18 @@ async function loadSummary() {
         document.getElementById('spende-revenue').textContent = formatEuro(data.spende_total);
 
         const tt = data.tax_totals || {};
-        document.getElementById('tax-revenue-19').textContent    = formatEuro(tt['19']     || 0);
-        document.getElementById('tax-revenue-7').textContent     = formatEuro(tt['7']      || 0);
-        document.getElementById('tax-revenue-0').textContent     = formatEuro(tt['0']      || 0);
-        document.getElementById('tax-revenue-spende').textContent = formatEuro(tt['spende'] || 0);
+        document.getElementById('tax-revenue-19').textContent                = formatEuro(tt['19']               || 0);
+        document.getElementById('tax-revenue-7').textContent                 = formatEuro(tt['7']                || 0);
+        document.getElementById('tax-revenue-0').textContent                 = formatEuro(tt['0']                || 0);
+        document.getElementById('tax-revenue-spende-katalog').textContent    = formatEuro(tt['spende_katalog']   || 0);
+        document.getElementById('tax-revenue-spende-laufzettel').textContent = formatEuro(tt['spende_laufzettel'] || 0);
 
         const tg = data.tax_groups || {};
-        renderVariantTable(tg['19']     || [], 'variant-tbody-19');
-        renderVariantTable(tg['7']      || [], 'variant-tbody-7');
-        renderVariantTable(tg['0']      || [], 'variant-tbody-0');
-        renderVariantTable(tg['spende'] || [], 'variant-tbody-spende');
+        renderVariantTable(tg['19']               || [], 'variant-tbody-19');
+        renderVariantTable(tg['7']                || [], 'variant-tbody-7');
+        renderVariantTable(tg['0']                || [], 'variant-tbody-0');
+        renderVariantTable(tg['spende_katalog']   || [], 'variant-tbody-spende-katalog');
+        renderVariantTable(tg['spende_laufzettel'] || [], 'variant-tbody-spende-laufzettel');
         renderSpendeTable(data.spenden || []);
     } catch (e) {
         console.error('Error loading summary:', e);
@@ -215,7 +217,7 @@ function filterRows(inputId, tbodyId) {
 const variantSearch = document.getElementById('variant-search');
 const spendeSearch = document.getElementById('spende-search');
 if (variantSearch) variantSearch.addEventListener('input', () => {
-    ['variant-tbody-19', 'variant-tbody-7', 'variant-tbody-0', 'variant-tbody-spende'].forEach(id => {
+    ['variant-tbody-19', 'variant-tbody-7', 'variant-tbody-0', 'variant-tbody-spende-katalog', 'variant-tbody-spende-laufzettel'].forEach(id => {
         const needle = variantSearch.value.trim().toLowerCase();
         document.querySelectorAll(`#${id} tr`).forEach(tr => {
             tr.style.display = !needle || tr.textContent.toLowerCase().includes(needle) ? '' : 'none';

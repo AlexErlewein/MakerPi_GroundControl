@@ -471,11 +471,47 @@
     function openSpendeModal() {
         document.getElementById('spende-form').reset();
         document.getElementById('field-spende-name').value = 'Spende';
+        document.getElementById('field-spende-aufrunden').checked = false;
+        document.getElementById('field-spende-aufrunden-amount').value = '';
+        document.getElementById('aufrunden-group').style.display = 'none';
+        document.getElementById('direct-amount-group').style.display = 'block';
         document.getElementById('spende-modal').classList.remove('hidden');
     }
 
     function closeSpendeModal() {
         document.getElementById('spende-modal').classList.add('hidden');
+    }
+
+    // Aufrunden toggle
+    document.getElementById('field-spende-aufrunden').addEventListener('change', (e) => {
+        const isAufrunden = e.target.checked;
+        document.getElementById('aufrunden-group').style.display = isAufrunden ? 'block' : 'none';
+        document.getElementById('direct-amount-group').style.display = isAufrunden ? 'none' : 'block';
+        if (isAufrunden) {
+            const currentTotal = getCurrentTotal();
+            document.getElementById('current-total').textContent = currentTotal.toFixed(2);
+            const nextRound = Math.ceil(currentTotal);
+            document.getElementById('field-spende-aufrunden-amount').value = nextRound.toFixed(2);
+            updateAufrundenDiff();
+        }
+    });
+
+    document.getElementById('field-spende-aufrunden-amount').addEventListener('input', updateAufrundenDiff);
+
+    function getCurrentTotal() {
+        const materials = {{ materials|tojson }};
+        return materials.reduce((sum, m) => sum + (m.calculated_price || 0), 0);
+    }
+
+    function updateAufrundenDiff() {
+        const target = parseFloat(document.getElementById('field-spende-aufrunden-amount').value);
+        const currentTotal = getCurrentTotal();
+        if (!isNaN(target) && target > currentTotal) {
+            const diff = target - currentTotal;
+            document.getElementById('aufrunden-diff').textContent = diff.toFixed(2);
+        } else {
+            document.getElementById('aufrunden-diff').textContent = '–';
+        }
     }
 
     document.getElementById('add-material-btn').addEventListener('click', openAddMaterial);
@@ -575,11 +611,23 @@
     document.getElementById('spende-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
-        const amount = parseFloat(document.getElementById('field-spende-amount').value);
+        const isAufrunden = document.getElementById('field-spende-aufrunden').checked;
+        let amount;
 
-        if (isNaN(amount) || amount <= 0) {
-            alert('Bitte einen gültigen Betrag eingeben.');
-            return;
+        if (isAufrunden) {
+            const target = parseFloat(document.getElementById('field-spende-aufrunden-amount').value);
+            const currentTotal = getCurrentTotal();
+            if (isNaN(target) || target <= currentTotal) {
+                alert('Bitte einen Betrag eingeben, der höher als die aktuelle Summe ist.');
+                return;
+            }
+            amount = target - currentTotal;
+        } else {
+            amount = parseFloat(document.getElementById('field-spende-amount').value);
+            if (isNaN(amount) || amount <= 0) {
+                alert('Bitte einen gültigen Betrag eingeben.');
+                return;
+            }
         }
 
         const body = {
@@ -782,6 +830,18 @@
                 <input type="text" id="field-spende-name" value="Spende" placeholder="z.B. Spende, Trinkgeld">
             </div>
             <div class="form-group">
+                <label>
+                    <input type="checkbox" id="field-spende-aufrunden"> Aufrunden
+                </label>
+            </div>
+            <div class="form-group" id="aufrunden-group" style="display:none;">
+                <label for="field-spende-aufrunden-amount">Aufrunden auf (€)</label>
+                <input type="number" id="field-spende-aufrunden-amount" placeholder="z.B. 10.00" step="0.01" min="0.01">
+                <p style="color:var(--text-secondary);font-size:0.8rem;margin:4px 0 0;">
+                    Aktuelle Summe: <span id="current-total">–</span> € → Spende: <span id="aufrunden-diff">–</span> €
+                </p>
+            </div>
+            <div class="form-group" id="direct-amount-group">
                 <label for="field-spende-amount">Betrag (€)</label>
                 <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" required>
             </div>

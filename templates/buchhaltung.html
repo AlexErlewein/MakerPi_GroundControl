@@ -112,7 +112,11 @@
         </div>
         <div class="summary-card">
             <h4>Spende (Katalog)</h4>
-            <div class="amount" id="tax-revenue-spende">–</div>
+            <div class="amount" id="tax-revenue-spende-katalog">–</div>
+        </div>
+        <div class="summary-card">
+            <h4>Spende (Laufzettel)</h4>
+            <div class="amount" id="tax-revenue-spende-laufzettel">–</div>
         </div>
         <div class="summary-card">
             <h4>Spenden</h4>
@@ -169,7 +173,19 @@
         <thead>
             <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
         </thead>
-        <tbody id="variant-tbody-spende">
+        <tbody id="variant-tbody-spende-katalog">
+            <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h3 style="font-size:0.95rem;color:var(--text-secondary);margin:20px 0 6px;">Spende (Laufzettel)</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr>
+        </thead>
+        <tbody id="variant-tbody-spende-laufzettel">
             <tr class="empty-row"><td colspan="3">Lade Daten...</td></tr>
         </tbody>
     </table>

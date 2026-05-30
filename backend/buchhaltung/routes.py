@@ -89,12 +89,17 @@ async def get_summary(
         by_variant[key]["units"] += v.menge or 1.0
         by_variant[key]["revenue"] += v.calculated_price
 
-    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: [], "spende": []}
-    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0, "spende": 0.0}
+    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: [], "spende_katalog": [], "spende_laufzettel": []}
+    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0, "spende_katalog": 0.0, "spende_laufzettel": 0.0}
     for variant in by_variant.values():
         if variant["is_spende"]:
-            tax_buckets["spende"].append(variant)
-            tax_totals["spende"] += variant["revenue"]
+            # Split: catalog items have variante_id, hardcoded Laufzettel Spenden don't
+            if variant["variante_id"] is not None:
+                tax_buckets["spende_katalog"].append(variant)
+                tax_totals["spende_katalog"] += variant["revenue"]
+            else:
+                tax_buckets["spende_laufzettel"].append(variant)
+                tax_totals["spende_laufzettel"] += variant["revenue"]
         else:
             bucket = variant["tax_rate"] if variant["tax_rate"] in tax_buckets else 19.0
             tax_buckets[bucket].append(variant)
@@ -114,13 +119,15 @@ async def get_summary(
             "19": sorted(tax_buckets[19.0], key=lambda x: x["revenue"], reverse=True),
             "7": sorted(tax_buckets[7.0], key=lambda x: x["revenue"], reverse=True),
             "0": sorted(tax_buckets[0.0], key=lambda x: x["revenue"], reverse=True),
-            "spende": sorted(tax_buckets["spende"], key=lambda x: x["revenue"], reverse=True),
+            "spende_katalog": sorted(tax_buckets["spende_katalog"], key=lambda x: x["revenue"], reverse=True),
+            "spende_laufzettel": sorted(tax_buckets["spende_laufzettel"], key=lambda x: x["revenue"], reverse=True),
         },
         "tax_totals": {
             "19": round(tax_totals[19.0], 2),
             "7": round(tax_totals[7.0], 2),
             "0": round(tax_totals[0.0], 2),
-            "spende": round(tax_totals["spende"], 2),
+            "spende_katalog": round(tax_totals["spende_katalog"], 2),
+            "spende_laufzettel": round(tax_totals["spende_laufzettel"], 2),
         },
         "spenden": [
             s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)
