@@ -91,14 +91,13 @@ async function loadSummary() {
 
         document.getElementById('total-revenue').textContent = formatEuro(data.total);
         document.getElementById('material-revenue').textContent = formatEuro(data.material_total);
-        document.getElementById('spende-revenue').textContent = formatEuro(data.spende_total);
-
         const tt = data.tax_totals || {};
+        const totalSpenden = (tt['spende_katalog'] || 0) + (tt['spende_laufzettel'] || 0) + (data.spende_total || 0);
+        document.getElementById('spende-revenue').textContent = formatEuro(totalSpenden);
+
         document.getElementById('tax-revenue-19').textContent                = formatEuro(tt['19']               || 0);
         document.getElementById('tax-revenue-7').textContent                 = formatEuro(tt['7']                || 0);
         document.getElementById('tax-revenue-0').textContent                 = formatEuro(tt['0']                || 0);
-        document.getElementById('tax-revenue-spende-katalog').textContent    = formatEuro(tt['spende_katalog']   || 0);
-        document.getElementById('tax-revenue-spende-laufzettel').textContent = formatEuro(tt['spende_laufzettel'] || 0);
 
         const tg = data.tax_groups || {};
         renderVariantTable(tg['19']               || [], 'variant-tbody-19');
