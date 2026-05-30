@@ -492,6 +492,36 @@ async def delete_user(
     )
 
 
+@router.post("/admin/users/promote-member-to-admin")
+async def promote_member_to_admin(
+    request: Request,
+    mitglied_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Create an admin User in auth.db from a member's login credentials."""
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+
+    from backend.members.db import SessionLocal as MembersSession
+    from backend.members.models import Mitglied
+
+    members_db = MembersSession()
+    try:
+        m = members_db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+        if not m or not m.login_username or not m.login_password_hash:
+            return RedirectResponse("/admin/users", status_code=303)
+        username = m.login_username
+        password_hash = m.login_password_hash
+    finally:
+        members_db.close()
+
+    if not db.query(User).filter(User.username == username).first():
+        db.add(User(username=username, hashed_password=password_hash, role="admin", mitglied_id=mitglied_id))
+        db.commit()
+
+    return RedirectResponse("/admin/users", status_code=303)
+
+
 @router.post("/admin/users/revoke-member-login")
 async def revoke_member_login(
     request: Request,

@@ -97,6 +97,11 @@
                     <td><code>{{ m.login_username }}</code></td>
                     <td>{{ m.member_id or '—' }}</td>
                     <td>
+                        <form method="post" action="/admin/users/promote-member-to-admin" style="display:inline;"
+                              onsubmit="return confirm('{{ m.name }} als Admin hinzufügen?');">
+                            <input type="hidden" name="mitglied_id" value="{{ m.id }}">
+                            <button type="submit" class="btn btn-sm btn-primary">Zu Admin machen</button>
+                        </form>
                         <form method="post" action="/admin/users/revoke-member-login" style="display:inline;"
                               onsubmit="return confirm('Login für {{ m.name }} wirklich entfernen?');">
                             <input type="hidden" name="mitglied_id" value="{{ m.id }}">
