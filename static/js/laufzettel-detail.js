@@ -94,6 +94,18 @@ function renderNodes() {
     container.innerHTML = nodes.map((n) => `<span class="node-chip">${esc(n)}</span>`).join("");
 }
 
+function toggleNodes() {
+    const container = document.getElementById("nodes-container");
+    const btn = document.getElementById("toggle-nodes-btn");
+    if (container.style.display === "none") {
+        container.style.display = "block";
+        btn.textContent = "▲";
+    } else {
+        container.style.display = "none";
+        btn.textContent = "▼";
+    }
+}
+
 // Groups: Spende items go to "Spenden" (rendered last); others group by location.
 function getMatGroupKey(m) {
     if (m.is_spende) return "__spenden__";

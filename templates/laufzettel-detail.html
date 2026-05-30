@@ -72,8 +72,11 @@
 
 <!-- Nodes Section -->
 <section class="section">
-    <h2>MQTT Nodes Used</h2>
-    <div id="nodes-container" class="nodes-list nodes-large">
+    <div class="section-header">
+        <h2>MQTT Nodes Used</h2>
+        <button id="toggle-nodes-btn" class="btn btn-secondary btn-sm" onclick="toggleNodes()">▼</button>
+    </div>
+    <div id="nodes-container" class="nodes-list nodes-large" style="display:none;">
         <span class="empty">No nodes recorded.</span>
     </div>
 </section>
