@@ -155,7 +155,7 @@ async function startNfcScan() {
         setScanStatus("Timeout – kein Scan empfangen. Bitte erneut versuchen.", "error");
     });
 
-    evtSource.onmessage = (e) => {
+    evtSource.addEventListener("scan", (e) => {
         console.log("[NFC] scan event received:", e.data);
         const data = JSON.parse(e.data);
         // With token, we only get events from our paired device, so no need to filter
@@ -166,7 +166,7 @@ async function startNfcScan() {
         document.getElementById("nfc-scan-uid").value = uid;
         setScanStatus(`✓ UID gescannt: ${uid} — sende Schreibbefehl…`, "info");
         enrollCard(uid);
-    };
+    });
 
     evtSource.onerror = (e) => {
         console.error("[NFC] SSE error:", e);
