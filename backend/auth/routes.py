@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
+from backend.config import ADMIN_USERNAME
 from .db import get_db, init_db
 from .models import User
 from .dependencies import (
@@ -264,6 +265,7 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
             "users": users,
             "members_with_login": members_with_login,
             "current_user": request.session.get("user"),
+            "admin_username": ADMIN_USERNAME,
             "nav_active": "users",
             "success": None,
             "error": None,
@@ -437,6 +439,7 @@ async def delete_user(
                 "request": request,
                 "users": users,
                 "current_user": current_user,
+                "admin_username": ADMIN_USERNAME,
                 "nav_active": "users",
                 "success": None,
                 "error": "Cannot delete yourself",
@@ -444,7 +447,7 @@ async def delete_user(
             status_code=400,
         )
 
-    if target.username == current_user:
+    if target.username == ADMIN_USERNAME:
         users = db.query(User).order_by(User.created_at).all()
         return templates.TemplateResponse(
             "admin-users.html",
@@ -452,9 +455,10 @@ async def delete_user(
                 "request": request,
                 "users": users,
                 "current_user": current_user,
+                "admin_username": ADMIN_USERNAME,
                 "nav_active": "users",
                 "success": None,
-                "error": "Cannot delete yourself",
+                "error": f"Cannot delete the primary admin user '{ADMIN_USERNAME}'",
             },
             status_code=400,
         )
@@ -546,3 +550,24 @@ async def revoke_member_login(
         members_db.close()
 
     return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/admin/users/change-password")
+async def change_admin_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Allow the logged-in admin to change their own password."""
+    if not is_admin_verified(request):
+        return RedirectResponse("/member?admin_required=1", status_code=302)
+
+    username = request.session.get("user")
+    user = get_user(db, username)
+    if not user or not verify_password(current_password, user.hashed_password):
+        return RedirectResponse("/admin/users?pw_error=1", status_code=303)
+
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+    return RedirectResponse("/admin/users?pw_success=1", status_code=303)
