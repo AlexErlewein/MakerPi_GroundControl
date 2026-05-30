@@ -646,6 +646,7 @@ async function submitSpendeForm(e) {
         name: document.getElementById('field-spende-name').value,
         calculated_price: parseFloat(document.getElementById('field-spende-amount').value),
         tax_rate: 0, // Spende is tax-free
+        is_spende: true,
     };
 
     try {

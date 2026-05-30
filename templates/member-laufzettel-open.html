@@ -265,18 +265,18 @@
     }
 
     function getMatGroupKey(m) {
-        if (m.tax_rate === 0) return '__spenden__';
+        if (m.is_spende) return '__spenden__';
         return getLocationForVariante(m.variante_id);
     }
 
     function getMatGroupLabel(m) {
-        if (m.tax_rate === 0) return 'Spenden';
+        if (m.is_spende) return 'Spenden';
         return getLocationForVariante(m.variante_id) || 'Freitext';
     }
 
     function sortMats(mats) {
         return [...mats].sort((a, b) => {
-            const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+            const sA = !!a.is_spende, sB = !!b.is_spende;
             if (sA !== sB) return sA ? 1 : -1;
             const locA = getLocationForVariante(a.variante_id) || '\uffff';
             const locB = getLocationForVariante(b.variante_id) || '\uffff';
@@ -661,7 +661,7 @@
         const name = document.getElementById('field-spende-name').value.trim() || 'Spende';
         const amount = parseFloat(document.getElementById('field-spende-amount').value);
         if (isNaN(amount) || amount <= 0) { alert('Bitte einen gültigen Betrag eingeben.'); return; }
-        const body = { name: name, menge: 1, unit: 'Stk', calculated_price: amount, tax_rate: 0 };
+        const body = { name: name, menge: 1, unit: 'Stk', calculated_price: amount, tax_rate: 0, is_spende: true };
         const res = await fetch(`/api/member/laufzettel/${LAUFZETTEL_ID}/material`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

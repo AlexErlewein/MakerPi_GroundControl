@@ -530,6 +530,7 @@ async def member_add_material(
         hoehe_cm=mat.hoehe_cm,
         calculated_price=mat.calculated_price,
         tax_rate=mat.tax_rate if mat.tax_rate is not None else None,
+        is_spende=bool(mat.is_spende) if mat.is_spende is not None else False,
     )
 
     laufzettel_db.add(new_mat)

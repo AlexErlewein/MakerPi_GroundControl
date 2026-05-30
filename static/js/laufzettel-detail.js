@@ -93,18 +93,18 @@ function renderNodes() {
     container.innerHTML = nodes.map((n) => `<span class="node-chip">${esc(n)}</span>`).join("");
 }
 
-// Groups: 0% tax items go to "Spenden" (rendered last); others group by location.
+// Groups: Spende items go to "Spenden" (rendered last); others group by location.
 function getMatGroupKey(m) {
-    if (m.tax_rate === 0) return "__spenden__";
+    if (m.is_spende) return "__spenden__";
     return getLocationForVariante(m.variante_id); // null = Freitext
 }
 function getMatGroupLabel(m) {
-    if (m.tax_rate === 0) return "Spenden";
+    if (m.is_spende) return "Spenden";
     return getLocationForVariante(m.variante_id) || "Freitext";
 }
 function sortMats(mats) {
     return [...mats].sort((a, b) => {
-        const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+        const sA = !!a.is_spende, sB = !!b.is_spende;
         if (sA !== sB) return sA ? 1 : -1;
         const locA = getLocationForVariante(a.variante_id) || "￿";
         const locB = getLocationForVariante(b.variante_id) || "￿";
@@ -774,7 +774,7 @@ document.getElementById("spende-form").addEventListener("submit", async (e) => {
     const name = document.getElementById("field-spende-name").value.trim() || "Spende";
     const amount = parseFloat(document.getElementById("field-spende-amount").value);
     if (isNaN(amount) || amount <= 0) { alert("Bitte gültigen Betrag eingeben."); return; }
-    const body = { name, calculated_price: parseFloat(amount.toFixed(2)), tax_rate: 0 };
+    const body = { name, calculated_price: parseFloat(amount.toFixed(2)), tax_rate: 0, is_spende: true };
     const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/material`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

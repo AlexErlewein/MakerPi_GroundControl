@@ -115,7 +115,7 @@
     }
 
     function getGroupLabel(m) {
-        if (m.tax_rate === 0) return 'Spenden';
+        if (m.is_spende) return 'Spenden';
         return m.location || 'Freitext';
     }
 
@@ -130,7 +130,7 @@
 
         // Sort: Spenden last, then by location, then by name
         const sorted = [...MATERIALS_DATA].sort((a, b) => {
-            const sA = a.tax_rate === 0, sB = b.tax_rate === 0;
+            const sA = !!a.is_spende, sB = !!b.is_spende;
             if (sA !== sB) return sA ? 1 : -1;
             const locA = a.location || '￿';
             const locB = b.location || '￿';
