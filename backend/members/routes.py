@@ -680,3 +680,43 @@ async def enroll_card(
         "member_id": m.member_id,
         "uid": req.uid,
     }
+
+
+@router.post("/api/mitglieder/{mitglied_id}/provision-login")
+async def provision_login(
+    mitglied_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Set login credentials for a member if they don't have them yet.
+
+    Username is derived from the member's email address. Password defaults to
+    the makerspace standard ("H3cke"). Idempotent — returns current state if
+    credentials already exist.
+    """
+    from backend.auth.dependencies import check_auth, get_password_hash
+
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    if m.login_username:
+        return {"success": True, "login_username": m.login_username, "provisioned": False}
+
+    # Derive username: use email if available, else member_id-based fallback
+    base = (m.email or f"mitglied_{m.member_id}").lower().strip()
+    username = base
+    # Ensure uniqueness
+    suffix = 1
+    while db.query(Mitglied).filter(Mitglied.login_username == username, Mitglied.id != mitglied_id).first():
+        username = f"{base}_{suffix}"
+        suffix += 1
+
+    m.login_username = username
+    m.login_password_hash = get_password_hash("H3cke")
+    db.commit()
+    logger.info("Provisioned login for member id=%s username=%r", mitglied_id, username)
+    return {"success": True, "login_username": username, "provisioned": True}

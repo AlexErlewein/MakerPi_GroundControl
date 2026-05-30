@@ -208,7 +208,8 @@ async function pollWriteResult(deviceId, requestId, attempts = 0) {
         const data = await res.json();
         if (data.found) {
             if (data.success) {
-                setScanStatus(`✓ Karte erfolgreich beschrieben! Jetzt Speichern klicken.`, "ok");
+                setScanStatus(`✓ Karte erfolgreich beschrieben! Zugriffsrechte werden eingerichtet…`, "ok");
+                await provisionLogin(nfcScanningMitgliedId);
             } else {
                 setScanStatus(`Fehler beim Beschreiben: ${data.error || "Unbekannter Fehler"}`, "error");
             }
@@ -218,6 +219,38 @@ async function pollWriteResult(deviceId, requestId, attempts = 0) {
         // ignore poll errors, keep retrying
     }
     setTimeout(() => pollWriteResult(deviceId, requestId, attempts + 1), 1000);
+}
+
+async function manualProvisionLogin(mitgliedId) {
+    try {
+        const res = await fetch(`/api/mitglieder/${mitgliedId}/provision-login`, { method: "POST" });
+        if (!res.ok) { alert("Fehler beim Einrichten des Logins"); return; }
+        const data = await res.json();
+        await loadMitglieder();
+        await openDetails(mitgliedId); // refresh modal to show new login status
+        if (data.provisioned) {
+            alert(`✓ Login eingerichtet!\nBenutzername: ${data.login_username}\nPasswort: H3cke`);
+        }
+    } catch (e) {
+        alert("Fehler: " + e.message);
+    }
+}
+
+async function provisionLogin(mitgliedId) {
+    if (!mitgliedId) return;
+    try {
+        const res = await fetch(`/api/mitglieder/${mitgliedId}/provision-login`, { method: "POST" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.provisioned) {
+            setScanStatus(`✓ Karte beschrieben. Login eingerichtet: ${data.login_username} / H3cke`, "ok");
+        } else {
+            setScanStatus(`✓ Karte erfolgreich beschrieben! (Login war bereits eingerichtet)`, "ok");
+        }
+        await loadMitglieder();
+    } catch (e) {
+        console.warn("[NFC] provisionLogin failed:", e);
+    }
 }
 
 async function loadEnrollmentReader() {
@@ -276,6 +309,20 @@ async function openDetails(id) {
                 <div class="form-group form-group-full" style="margin-top: 16px;">
                     <label>Notizen</label>
                     <textarea id="detail-notes" rows="4">${esc(details.notes || '')}</textarea>
+                </div>
+                <div class="form-group form-group-full" style="margin-top: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border-color);">
+                    <label style="margin-bottom: 8px; display: block;">Zugriffsrechte (Member-Login)</label>
+                    ${details.has_login
+                        ? `<div style="display:flex;align-items:center;gap:10px;">
+                               <span style="color: var(--success, #4caf50);">&#10003; Login aktiv</span>
+                               <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem;">${esc(details.login_username)}</code>
+                               <span style="color: var(--text-secondary); font-size: 0.8rem;">Passwort: H3cke (falls nicht geändert)</span>
+                           </div>`
+                        : `<div style="display:flex;align-items:center;gap:10px;">
+                               <span style="color: var(--text-secondary);">Kein Login eingerichtet</span>
+                               <button type="button" class="btn btn-sm btn-success" onclick="manualProvisionLogin(${id})">&#43; Zugriffsrechte einrichten</button>
+                           </div>`
+                    }
                 </div>
                 <div class="modal-actions" style="margin-top: 20px; grid-column: 1 / -1;">
                     <button type="button" class="btn btn-secondary" onclick="closeDetailsModal()">Abbrechen</button>
