@@ -102,6 +102,16 @@
     margin-bottom: 20px;
 }
 
+.lz-detail-main {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .header-actions {
     display: flex;
     gap: 10px;
@@ -415,11 +425,9 @@
         grid-template-columns: 1fr;
     }
 
-    /* Material table: hide less-critical columns (Einheit, Preis/Einheit) */
+    /* Material table: hide Einheit on mobile, keep Preis visible */
     #material-table th:nth-child(4),
-    #material-table td:nth-child(4),
-    #material-table th:nth-child(5),
-    #material-table td:nth-child(5) {
+    #material-table td:nth-child(4) {
         display: none;
     }
 
@@ -470,5 +478,16 @@
     #material-table th:nth-child(1),
     #material-table td:nth-child(1) {
         display: none;
+    }
+
+    /* Tighten up table cells on small phones */
+    #material-table th,
+    #material-table td {
+        padding: 8px 8px;
+        font-size: 0.88rem;
+    }
+
+    .price-col {
+        font-size: 0.9rem;
     }
 }
