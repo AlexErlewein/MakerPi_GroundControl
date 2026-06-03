@@ -152,6 +152,14 @@ Public form linked to the Plane issue tracker. Anyone on the local network can s
 
 Integration page for Shopify inventory lookups. Requires `shopify_store` and `shopify_access_token` to be configured.
 
+## Accounting (`/buchhaltung`)
+
+Revenue overview for accounting purposes.
+
+Shows: revenue split by tax rate (0%, 7%, 19%), donations (is_spende materials and manual entries), filtering by period (week/month/year).
+
+See [Accounting](./22-accounting.md) for full documentation.
+
 ## Docs site
 
 The docs site is separate from the main UI and should run on port `8001`.

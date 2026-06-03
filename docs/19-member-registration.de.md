@@ -192,6 +192,206 @@ Nach der Registrierung:
 3. RFID-Tag zuweisen, falls erforderlich
 4. joined_date wird bei der Bestätigung automatisch gesetzt
 
+---
+
+## easyVerein-Sync-Verwaltung
+
+### Übersicht
+
+Die tägliche Synchronisation läuft automatisch um **03:00 Uhr UTC** via APScheduler. Admins können den Sync jederzeit manuell auslösen und den aktuellen Status über die folgenden Endpunkte überwachen.
+
+### Sync-Endpunkte
+
+#### `GET /api/mitglieder/sync-status`
+
+Gibt den Status des letzten Sync-Laufs zurück. Erfordert eingeloggte Sitzung (kein Admin erforderlich).
+
+**Beispielantwort** (nach erfolgreichem Sync):
+```json
+{
+  "last_sync": "2026-06-03T03:00:42.123456+00:00",
+  "success": true,
+  "message": "Synced 2 new, 14 updated, 1 skipped, 0 errors",
+  "created": 2,
+  "updated": 14,
+  "skipped": 1,
+  "errors": 0
+}
+```
+
+**Beispielantwort** (noch kein Sync gelaufen — nach Neustart):
+```json
+{
+  "last_sync": null,
+  "success": null,
+  "message": "No sync performed yet",
+  "created": 0,
+  "updated": 0,
+  "errors": 0
+}
+```
+
+**Hinweis**: Der Sync-Status wird im Arbeitsspeicher gehalten und nach einem Neustart des Servers zurückgesetzt.
+
+#### `POST /api/mitglieder/sync`
+
+Löst sofort einen manuellen Sync aus. Erfordert **Admin-Verifizierung** (`session["admin_verified"]` aktiv).
+
+**Antwort**: Identisches Format wie `sync-status` — liefert das Ergebnis des soeben abgeschlossenen Syncs.
+
+**Fehlerantworten**:
+- `403` - Admin-Verifizierung erforderlich
+
+#### `GET /api/mitglieder/key-status`
+
+Gibt den Ablaufstatus des aktuell konfigurierten easyVerein-API-Schlüssels zurück. Erfordert eingeloggte Sitzung.
+
+**Beispielantwort**:
+```json
+{
+  "expires_at": "2026-12-31",
+  "days_left": 211,
+  "renew_url": "https://easyverein.com/app/IHRE_ORG_ID/setting/api-key"
+}
+```
+
+- `expires_at`: ISO-Datum (YYYY-MM-DD) aus `config.json`, oder `null` wenn nicht gesetzt
+- `days_left`: Verbleibende Tage bis zum Ablauf; `null` wenn `expires_at` nicht gesetzt oder ungültig
+- `renew_url`: Direktlink zur API-Schlüssel-Seite in easyVerein (erfordert `easyverein_org_id` in der Konfiguration)
+
+#### `POST /api/mitglieder/update-api-key`
+
+Aktualisiert den easyVerein-API-Schlüssel und das Ablaufdatum — sowohl in `config/config.json` als auch im laufenden Prozess. Erfordert **Admin-Verifizierung**.
+
+**Anfragekörper**:
+```json
+{
+  "api_key": "NEUER_API_SCHLUESSEL",
+  "expires_at": "2027-06-30"
+}
+```
+
+**Antwort**:
+```json
+{
+  "ok": true,
+  "expires_at": "2027-06-30"
+}
+```
+
+**Fehlerantworten**:
+- `400` - API-Schlüssel leer oder Datum im falschen Format (erwartet YYYY-MM-DD)
+- `403` - Admin-Verifizierung erforderlich
+
+---
+
+## Was der Sync synchronisiert — und was nicht
+
+### Felder, die immer aus easyVerein übernommen werden
+
+Bei jedem Sync-Lauf werden folgende Felder aus easyVerein geschrieben (sofern der Datensatz nicht gesperrt ist):
+
+| Feld | Quelle in easyVerein |
+|---|---|
+| `name` | `firstName` + `familyName` aus contactDetails |
+| `email` | `privateEmail` / `email` aus contactDetails |
+| `phone` | `mobilePhone` / `phone` aus contactDetails |
+| `status` | Abgeleitet aus `_isApplication`, `resignationDate`, `_isBlocked` |
+| `joined_date` | `joinDate` aus easyVerein (nur gesetzt, wenn vorhanden) |
+
+### Felder, die der Sync **niemals** überschreibt
+
+Folgende Felder werden vom Sync grundsätzlich nicht angefasst, auch wenn easyVerein andere Werte liefert:
+
+| Feld | Grund |
+|---|---|
+| `nfc_uid` | Lokal vergeben; easyVerein kennt keine RFID-UIDs |
+| `login_username` | Lokale Anmeldedaten; werden manuell gesetzt |
+| `login_password_hash` | Lokale Anmeldedaten; werden manuell gesetzt |
+| `notes` | Freies Notizfeld; wird lokal gepflegt |
+
+### Das `sync_locked`-Feld
+
+Sobald ein Admin einen Mitglied-Datensatz über `PUT /api/mitglieder/{id}` bearbeitet, setzt das System automatisch `sync_locked = true`. Datensätze mit `sync_locked = true` werden beim Sync **vollständig übersprungen** — es werden weder Felder aktualisiert noch der Datensatz gelöscht.
+
+Um einen gesperrten Datensatz wieder für den Sync freizugeben, muss `sync_locked` explizit auf `false` gesetzt werden:
+
+```json
+PUT /api/mitglieder/{id}
+{ "sync_locked": false }
+```
+
+Der Sync zählt übersprungene Datensätze im `skipped`-Feld der Sync-Status-Antwort.
+
+---
+
+## Statusübergänge
+
+### inactive → active
+
+Ein Mitglied wechselt von `inactive` auf `active`, wenn easyVerein den Mitgliedsantrag bestätigt. Das erkennt der Sync daran, dass `_isApplication` nicht mehr gesetzt ist und kein `resignationDate` vorliegt. Bei diesem Übergang setzt der Sync auch `joined_date`, sofern easyVerein ein `joinDate` meldet.
+
+**Aus Adminsicht**: Nach dem nächsten Sync (03:00 Uhr oder manuell ausgelöst) erscheint das Mitglied in der Mitgliederliste mit Status "aktiv" und einem gesetzten Beitrittsdatum.
+
+### active → inactive
+
+Ein Mitglied wechselt zurück auf `inactive`, wenn easyVerein eines der folgenden Signale meldet:
+
+| Signal in easyVerein | Bedeutung |
+|---|---|
+| `resignationDate` gesetzt | Mitglied hat gekündigt |
+| `_isBlocked: true` | Mitglied wurde gesperrt |
+| `_isApplication: true` | Antrag nicht bestätigt (erneut als Antrag markiert) |
+
+**Aus Adminsicht**: Das Mitglied verschwindet nach dem nächsten Sync aus der aktiven Mitgliederliste. RFID-Tags bleiben erhalten und müssen bei Bedarf manuell deaktiviert werden.
+
+### Statusanzeige im Admin-UI
+
+Die Mitgliederseite (`/mitglieder`) zeigt den aktuellen Sync-Status als Banner oberhalb der Tabelle:
+- Letzter Sync-Zeitpunkt und Ergebnis (neue, aktualisierte, übersprungene, fehlerhafte Datensätze)
+- Verbleibende Tage bis zum API-Schlüssel-Ablauf mit Direktlink zur Erneuerung in easyVerein
+- Schaltfläche "Jetzt synchronisieren" zum manuellen Auslösen (erfordert Admin-Verifizierung)
+
+---
+
+## Admin-Monitoring
+
+### Prüfen ob ein Sync erfolgreich war
+
+Rufen Sie `GET /api/mitglieder/sync-status` auf oder sehen Sie den Banner auf `/mitglieder`:
+
+- `"success": true` + `"errors": 0` — alles in Ordnung
+- `"success": true` + `"errors": N` — Sync lief durch, aber einzelne Datensätze konnten nicht verarbeitet werden (Details in den Server-Logs)
+- `"success": false` — Sync ist komplett fehlgeschlagen; `message` enthält den Grund
+
+### Was tun wenn der Sync fehlschlägt
+
+**1. API-Schlüssel abgelaufen**
+
+`GET /api/mitglieder/key-status` prüfen. Wenn `days_left <= 0`:
+1. Neuen Schlüssel in easyVerein unter `Einstellungen → API-Schlüssel` generieren
+2. `POST /api/mitglieder/update-api-key` mit neuem Schlüssel und Ablaufdatum aufrufen
+3. Manuellen Sync via `POST /api/mitglieder/sync` auslösen
+
+Das System sendet ab **7 Tagen vor Ablauf** automatisch eine Warn-E-Mail an die konfigurierte `smtp_from_email`-Adresse.
+
+**2. Netzwerk-/Verbindungsfehler**
+
+Der Sync wiederholt fehlgeschlagene Anfragen bis zu 3 Mal mit exponentiellem Backoff (15 s, 30 s, 45 s). Bleibt der Fehler bestehen:
+- Internetkonnektivität des Servers prüfen
+- easyVerein-Dienststatus prüfen (https://status.easyverein.com)
+- Server-Logs auf genaue Fehlermeldung prüfen: `sudo journalctl -u groundcontrol -f`
+
+**3. HTTP 429 (Rate Limit)**
+
+Der Sync verwendet bereits konservatives Rate Limiting (5 s zwischen Anfragen, Seitengröße 10). Bei anhaltenden 429-Fehlern den nächsten automatischen Sync-Lauf (03:00 Uhr) abwarten oder die Seiten-Größe in `backend/members/easyverein.py` reduzieren.
+
+**4. Einzelne Datensätze mit Fehler**
+
+`"errors": N > 0` bedeutet, dass N Datensätze nicht verarbeitet werden konnten (z. B. fehlende Pflichtfelder in easyVerein). Details stehen in den Server-Logs mit Mitglieds-ID. Diese Mitglieder müssen ggf. manuell angelegt werden.
+
+---
+
 ## Testen
 
 Um die Registrierung ohne easyVerein zu testen:

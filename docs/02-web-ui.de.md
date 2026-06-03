@@ -152,6 +152,14 @@ Mitglieder können **keine** Zahlungen auslösen, Einträge löschen oder Daten 
 
 Integrationsseite für Shopify-Bestandsabfragen. Erfordert die Konfiguration von `shopify_store` und `shopify_access_token`.
 
+## Buchhaltung (`/buchhaltung`)
+
+Umsatz-Übersicht für Buchhaltungszwecke.
+
+Zeigt: Umsatz aufgeschlüsselt nach Steuersatz (0 %, 7 %, 19 %), Spenden (is_spende-Materialien und manuelle Einträge), Filterung nach Zeitraum (Woche / Monat / Jahr).
+
+Siehe [Buchhaltung](./22-accounting.md) für vollständige Dokumentation.
+
 ## Docs-Site
 
 Die Docs-Site ist getrennt von der Haupt-UI und sollte auf Port `8001` laufen.

@@ -113,6 +113,9 @@ flowchart LR
 | `/katalog` | Material catalog management |
 | `/register` | Public member registration form |
 | `/guest/laufzettel` | Guest entry form for non-members (QR code) |
+| `/buchhaltung` | Revenue overview by tax rate and donations |
+| `/kasse` | Payment kiosk with RFID login |
+| `/admin/device-pairings` | Manage device pairings |
 
 ## Ports at a glance
 
@@ -131,4 +134,8 @@ flowchart LR
 - [Guest Laufzettel](./17-guest-laufzettel.md) — non-member usage via QR code
 - [Member Registration](./19-member-registration.en.md) — public signup form and easyVerein integration
 - [Configuration Reference](./18-configuration-reference.en.md) — all config keys, where to get API keys
+- [Device Pairing](./20-device-pairing.md) — pair NFC readers and assign roles
+- [Shopify Gift Cards](./21-shopify-gift-cards.md) — gift card management and Laufzettel payment
+- [Accounting](./22-accounting.md) — revenue by tax rate, donations
+- [Kasse & RFID Login](./24-kasse.md) — payment kiosk and card-based login
 - [Changelog](./CHANGELOG.md) — recent changes and new features

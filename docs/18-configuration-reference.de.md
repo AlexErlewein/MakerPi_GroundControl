@@ -40,11 +40,11 @@ sudo systemctl enable mosquitto
 
 ## NFC-Lesegeräte
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `enrollment_reader_id` | `""` | MQTT-Geräte-ID des Lesers für die Kartenenrollierung |
-| `payment_reader_id` | `""` | MQTT-Geräte-ID des Lesers an der Zahlungskasse |
-| `card_writer_id` | `""` | MQTT-Geräte-ID des PicoW, der Karten physisch beschreibt |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `enrollment_reader_id` | `ENROLLMENT_READER_ID` | `""` | MQTT-Geräte-ID des Lesers für die Kartenenrollierung |
+| `payment_reader_id` | `PAYMENT_READER_ID` | `""` | MQTT-Geräte-ID des Lesers an der Zahlungskasse |
+| `card_writer_id` | `CARD_WRITER_ID` | `""` | MQTT-Geräte-ID des PicoW, der Karten physisch beschreibt |
 
 Die Geräte-ID ist das erste Segment eines MQTT-Topics, das der PicoW veröffentlicht. Publiziert der PicoW z. B. auf `Terminal-Reader/scan`, lautet die Geräte-ID `Terminal-Reader`. Sie wird in der Firmware-Konfiguration des PicoW (`config.json` auf dem Gerät) festgelegt.
 
@@ -52,10 +52,10 @@ Die Geräte-ID ist das erste Segment eines MQTT-Topics, das der PicoW veröffent
 
 ## NFC-Tag-Sicherheit
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `nfc_signature_mode` | `"permissive"` | `"permissive"`: Legacy-Karten ohne Signatur funktionieren weiterhin. `"strict"`: Nur HMAC-verifizierte Karten werden akzeptiert. |
-| `mifare_sector_key` | `""` | Optionaler 12-Zeichen-Hex-Override für den Mifare-Classic-Sektorschlüssel. Leer lassen, um automatisch aus dem `secret_key` abzuleiten (empfohlen). |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `nfc_signature_mode` | `NFC_SIGNATURE_MODE` | `"permissive"` | `"permissive"`: Legacy-Karten ohne Signatur funktionieren weiterhin. `"strict"`: Nur HMAC-verifizierte Karten werden akzeptiert. |
+| `mifare_sector_key` | `MIFARE_SECTOR_KEY` | `""` | Optionaler 12-Zeichen-Hex-Override für den Mifare-Classic-Sektorschlüssel. Leer lassen, um automatisch aus dem `secret_key` abzuleiten (empfohlen). |
 
 **Rollout-Reihenfolge:**
 1. Mit `"permissive"` deployen — bestehende, nicht eingeschriebene Karten funktionieren weiter
@@ -74,11 +74,15 @@ Siehe [NFC-Tag-Sicherheit](./16-nfc-tag-security.de.md) für das vollständige B
 
 ## EasyVerein
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `easyverein_api_key` | `""` | EasyVerein REST-API-Schlüssel |
-| `easyverein_org_id` | `""` | Numerische ID deiner Organisation in EasyVerein |
-| `easyverein_signup_url` | `""` | Öffentlicher Mitgliedschafts-Anmeldelink — wird per E-Mail an Gäste nach dem Erstellen eines Laufzettels gesendet |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `easyverein_api_key` | `EASYVEREIN_API_KEY` | `""` | EasyVerein REST-API-Schlüssel |
+| `easyverein_org_id` | `EASYVEREIN_ORG_ID` | `""` | Numerische ID deiner Organisation in EasyVerein |
+| `easyverein_signup_url` | `EASYVEREIN_SIGNUP_URL` | `""` | Öffentlicher Mitgliedschafts-Anmeldelink — wird per E-Mail an Gäste nach dem Erstellen eines Laufzettels gesendet |
+| `easyverein_signup_redirect_url` | `EASYVEREIN_SIGNUP_REDIRECT_URL` | `""` | URL, auf die nach dem Absenden des Gast-Laufzettel-Formulars weitergeleitet wird (z. B. die EasyVerein-Beitrittseite) |
+| `easyverein_key_expires_at` | — | `""` | Ablaufdatum des EasyVerein-API-Schlüssels (ISO-8601). Nur informativ — wird im Admin-Dashboard angezeigt. |
+| `easyverein_registration_mock` | `EASYVEREIN_REGISTRATION_MOCK` | `false` | Auf `true` setzen, um den EasyVerein-Registrierungsaufruf zu simulieren (ohne echte API-Anfrage). |
+| `membership_groups` | — | `[]` | Liste von EasyVerein-Gruppenbezeichnungen, die für den Mitgliedsstatus relevant sind. Leer lassen, um alle Gruppen zu akzeptieren. |
 
 **API-Schlüssel beschaffen:**
 1. Als Admin bei [easyverein.com](https://easyverein.com) einloggen
@@ -95,13 +99,13 @@ In EasyVerein unter **Mitglieder → Mitglied werden** den öffentlichen Link ko
 
 ## Zahlungen — SumUp
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `sumup_api_key` | `""` | SumUp-API-Schlüssel (`sup_sk_…`) |
-| `sumup_merchant_code` | `""` | Dein SumUp-Händlercode (z. B. `M1KJN6HM`) |
-| `sumup_reader_id` | `""` | SumUp-Kartenlesegerät-ID (optional — leer lassen, wenn nur QR/Wero verwendet wird) |
-| `sumup_affiliate_key` | `""` | SumUp-Affiliate-Schlüssel für Deeplink-QR-Codes (`sup_afk_…`) |
-| `sumup_mock` | `true` | Auf `false` setzen im Produktivbetrieb für echte Zahlungsanfragen |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `sumup_api_key` | `SUMUP_API_KEY` | `""` | SumUp-API-Schlüssel (`sup_sk_…`) |
+| `sumup_merchant_code` | `SUMUP_MERCHANT_CODE` | `""` | Dein SumUp-Händlercode (z. B. `M1KJN6HM`) |
+| `sumup_reader_id` | `SUMUP_READER_ID` | `""` | SumUp-Kartenlesegerät-ID (optional — leer lassen, wenn nur QR/Wero verwendet wird) |
+| `sumup_affiliate_key` | `SUMUP_AFFILIATE_KEY` | `""` | SumUp-Affiliate-Schlüssel für Deeplink-QR-Codes (`sup_afk_…`) |
+| `sumup_mock` | `SUMUP_MOCK` | `true` | Auf `false` setzen im Produktivbetrieb für echte Zahlungsanfragen |
 
 **SumUp-Schlüssel beschaffen:**
 1. Bei [me.sumup.com](https://me.sumup.com) einloggen
@@ -113,12 +117,12 @@ In EasyVerein unter **Mitglieder → Mitglied werden** den öffentlichen Link ko
 
 ## Zahlungen — Wero
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `wero_enabled` | `false` | Auf `true` setzen, um die Wero-QR-Zahlungsoption anzuzeigen |
-| `wero_mock` | `true` | Auf `false` setzen im Produktivbetrieb |
-| `wero_merchant_id` | `""` | Wero-Händler-ID |
-| `wero_api_key` | `""` | Wero-API-Schlüssel |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `wero_enabled` | `WERO_ENABLED` | `false` | Auf `true` setzen, um die Wero-QR-Zahlungsoption anzuzeigen |
+| `wero_mock` | `WERO_MOCK` | `true` | Auf `false` setzen im Produktivbetrieb |
+| `wero_merchant_id` | `WERO_MERCHANT_ID` | `""` | Wero-Händler-ID |
+| `wero_api_key` | `WERO_API_KEY` | `""` | Wero-API-Schlüssel |
 
 Für das Händler-Onboarding und die Zugangsdaten Wero/La Banque Postale kontaktieren.
 
@@ -128,25 +132,26 @@ Für das Händler-Onboarding und die Zugangsdaten Wero/La Banque Postale kontakt
 
 E-Mail ist vollständig optional. Wenn `smtp_host` leer ist, wird der E-Mail-Versand stillschweigend übersprungen.
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `smtp_host` | `""` | SMTP-Server-Hostname, z. B. `smtp.gmail.com` |
-| `smtp_port` | `587` | SMTP-Port — `587` für STARTTLS (die meisten Anbieter), `465` für SSL |
-| `smtp_username` | `""` | SMTP-Benutzername (in der Regel die Absender-E-Mail-Adresse) |
-| `smtp_password` | `""` | SMTP-Passwort oder App-Passwort |
-| `smtp_from_email` | `""` | Die `From:`-Adresse für ausgehende E-Mails |
-| `smtp_starttls` | `true` | STARTTLS auf Port 587 verwenden. Auf `false` setzen, wenn `smtp_tls: true` verwendet wird |
-| `smtp_tls` | `false` | Direkte TLS-Verbindung auf Port 465. Bei Verwendung `smtp_starttls: false` setzen |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `smtp_host` | `SMTP_HOST` | `""` | SMTP-Server-Hostname, z. B. `smtp.gmail.com` |
+| `smtp_port` | `SMTP_PORT` | `587` | SMTP-Port — `587` für STARTTLS (die meisten Anbieter), `465` für SSL |
+| `smtp_username` | `SMTP_USERNAME` | `""` | SMTP-Benutzername (in der Regel die Absender-E-Mail-Adresse) |
+| `smtp_password` | `SMTP_PASSWORD` | `""` | SMTP-Passwort oder App-Passwort |
+| `smtp_from_email` | `SMTP_FROM_EMAIL` | `""` | Die `From:`-Adresse für ausgehende E-Mails |
+| `smtp_starttls` | `SMTP_STARTTLS` | `true` | STARTTLS auf Port 587 verwenden. Auf `false` setzen, wenn `smtp_tls: true` verwendet wird |
+| `smtp_tls` | `SMTP_TLS` | `false` | Direkte TLS-Verbindung auf Port 465. Bei Verwendung `smtp_starttls: false` setzen |
+| `public_base_url` | `PUBLIC_BASE_URL` | `""` | Öffentliche Basis-URL des Servers, z. B. `https://gc.example.com`. Wird für Links in E-Mails verwendet, wenn der Server hinter einem Reverse-Proxy betrieben wird und `request.url` die interne Adresse auflöst. Abschließenden Schrägstrich weglassen. |
 
 ### Gmail OAuth2 (Empfohlen für Gmail)
 
 Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Passwort-Authentifizierung empfohlen.
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `gmail_oauth_enabled` | `false` | OAuth2-Authentifizierung für Gmail aktivieren |
-| `gmail_oauth_token_file` | `"config/gmail_oauth_token.json"` | Pfad zur OAuth-Token-Datei |
-| `gmail_oauth_username` | `""` | Gmail-Benutzername (für Alias-Unterstützung wie `noreply@domain.com`) |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `gmail_oauth_enabled` | `GMAIL_OAUTH_ENABLED` | `false` | OAuth2-Authentifizierung für Gmail aktivieren |
+| `gmail_oauth_token_file` | `GMAIL_OAUTH_TOKEN_FILE` | `"config/gmail_oauth_token.json"` | Pfad zur OAuth-Token-Datei |
+| `gmail_oauth_username` | `GMAIL_OAUTH_USERNAME` | `""` | Gmail-Benutzername (für Alias-Unterstützung wie `noreply@domain.com`) |
 
 **Einrichtung:** Siehe [Gmail OAuth2 Setup Guide](./GMAIL_OAUTH_SETUP.md) für detaillierte Anweisungen.
 
@@ -171,12 +176,12 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
 
 ## Google Drive (PDF-Backup)
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `google_drive_enabled` | `false` | Auf `true` setzen, um generierte Laufzettel-PDFs in Google Drive hochzuladen |
-| `google_drive_client_secrets_file` | `"config/gdrive_client_secrets.json"` | Pfad zur OAuth2-Client-Secrets-JSON aus der Google Cloud Console |
-| `google_drive_token_file` | `"config/gdrive_token.json"` | Pfad, unter dem das OAuth2-Access-Token nach der ersten Autorisierung gespeichert wird |
-| `google_drive_root_folder_id` | `""` | Google-Drive-Ordner-ID, in die PDFs hochgeladen werden |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `google_drive_enabled` | `GOOGLE_DRIVE_ENABLED` | `false` | Auf `true` setzen, um generierte Laufzettel-PDFs in Google Drive hochzuladen |
+| `google_drive_client_secrets_file` | `GOOGLE_DRIVE_CLIENT_SECRETS_FILE` | `"config/gdrive_client_secrets.json"` | Pfad zur OAuth2-Client-Secrets-JSON aus der Google Cloud Console |
+| `google_drive_token_file` | `GOOGLE_DRIVE_TOKEN_FILE` | `"config/gdrive_token.json"` | Pfad, unter dem das OAuth2-Access-Token nach der ersten Autorisierung gespeichert wird |
+| `google_drive_root_folder_id` | `GOOGLE_DRIVE_ROOT_FOLDER_ID` | `""` | Google-Drive-Ordner-ID, in die PDFs hochgeladen werden |
 
 **Einrichtung:**
 1. Auf [console.cloud.google.com](https://console.cloud.google.com) gehen
@@ -215,12 +220,12 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
 
 ## Plane (Bug-Tracker)
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `plane_url` | `""` | URL deiner Plane-Instanz, z. B. `http://192.168.3.228:3001` |
-| `plane_api_token` | `""` | Persönliches Plane-API-Token |
-| `plane_workspace_slug` | `""` | Slug des Workspace, in der Plane-URL sichtbar |
-| `plane_project_id` | `""` | UUID des Projekts, in dem Bug-Reports erstellt werden |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `plane_url` | `PLANE_URL` | `""` | URL deiner Plane-Instanz, z. B. `http://192.168.3.228:3001` |
+| `plane_api_token` | `PLANE_API_TOKEN` | `""` | Persönliches Plane-API-Token |
+| `plane_workspace_slug` | `PLANE_WORKSPACE_SLUG` | `""` | Slug des Workspace, in der Plane-URL sichtbar |
+| `plane_project_id` | `PLANE_PROJECT_ID` | `""` | UUID des Projekts, in dem Bug-Reports erstellt werden |
 
 **Plane-Zugangsdaten beschaffen:**
 1. In die Plane-Instanz einloggen
@@ -232,10 +237,17 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
 
 ## Shopify
 
-| Schlüssel | Standard | Beschreibung |
-|---|---|---|
-| `shopify_store` | `""` | Deine Shop-Domain, z. B. `your-store.myshopify.com` |
-| `shopify_access_token` | `""` | Shopify-Admin-API-Access-Token (`shpat_…`) |
+| Schlüssel | Env-Variable | Standard | Beschreibung |
+|---|---|---|---|
+| `shopify_store` | `SHOPIFY_STORE` | `""` | Deine Shop-Domain, z. B. `your-store.myshopify.com` |
+| `shopify_access_token` | `SHOPIFY_ACCESS_TOKEN` | `""` | Shopify-Admin-API-Access-Token (`shpat_…`) — für statisch erstellte Custom-Apps |
+| `shopify_client_id` | `SHOPIFY_CLIENT_ID` | `""` | OAuth-Client-ID für Dev-Dashboard-Apps (verwendet `client_credentials`-Grant zur Token-Erneuerung) |
+| `shopify_client_secret` | `SHOPIFY_CLIENT_SECRET` | `""` | OAuth-Client-Secret für Dev-Dashboard-Apps |
+| `shopify_physical_product_id` | `SHOPIFY_PHYSICAL_PRODUCT_ID` | `""` | Shopify-Produkt-ID (GID) der physischen Gutscheinkarte, z. B. `gid://shopify/Product/15398922584395` |
+| `shopify_gc_creation_fee` | `SHOPIFY_GC_CREATION_FEE` | `5.0` | Fester Aufschlag (€) pro physischer Gutscheinkarte für die Kartenerstellung. Wird vom Verkaufspreis abgezogen, um den tatsächlichen Guthabenwert zu ermitteln. |
+
+> **Hinweis zu `shopify_access_token` vs. `shopify_client_id`/`shopify_client_secret`:**
+> Setze entweder `shopify_access_token` (statisches Token einer Admin-erstellten Custom-App) **oder** `shopify_client_id` + `shopify_client_secret` (Dev-Dashboard-App mit automatischer Token-Erneuerung via `client_credentials`-Grant). Beide Felder gleichzeitig zu setzen ist nicht notwendig.
 
 **Shopify-Zugangsdaten beschaffen:**
 1. Im Shopify-Admin unter **Apps → Apps entwickeln → App erstellen**
@@ -264,11 +276,18 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
     "easyverein_api_key": "dein-easyverein-api-schluessel",
     "easyverein_org_id": "12345",
     "easyverein_signup_url": "https://easyverein.com/public/...",
+    "easyverein_signup_redirect_url": "",
+    "membership_groups": [],
 
     "sumup_api_key": "sup_sk_...",
     "sumup_merchant_code": "XXXXXXXX",
     "sumup_affiliate_key": "sup_afk_...",
     "sumup_mock": false,
+
+    "wero_enabled": false,
+    "wero_mock": true,
+    "wero_merchant_id": "",
+    "wero_api_key": "",
 
     "smtp_host": "smtp.gmail.com",
     "smtp_port": 587,
@@ -277,6 +296,7 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
     "smtp_from_email": "noreply@deinedomaene.de",
     "smtp_starttls": true,
     "smtp_tls": false,
+    "public_base_url": "https://gc.deinedomaene.de",
 
     "google_drive_enabled": false,
     "google_drive_client_secrets_file": "config/gdrive_client_secrets.json",
@@ -287,6 +307,16 @@ Für Gmail-Konten wird OAuth2-Authentifizierung gegenüber der herkömmlichen Pa
     "backblaze_endpoint": "s3.eu-central-003.backblazeb2.com",
     "backblaze_bucket": "dein-bucket-name",
     "backblaze_key_id": "deine-key-id",
-    "backblaze_application_key": "dein-app-key"
+    "backblaze_application_key": "dein-app-key",
+
+    "plane_url": "http://192.168.3.228:3001",
+    "plane_api_token": "dein-plane-token",
+    "plane_workspace_slug": "h3cke-groundcontrol",
+    "plane_project_id": "uuid-des-projekts",
+
+    "shopify_store": "your-store.myshopify.com",
+    "shopify_access_token": "shpat_...",
+    "shopify_physical_product_id": "gid://shopify/Product/...",
+    "shopify_gc_creation_fee": 5.0
 }
 ```

@@ -113,6 +113,9 @@ flowchart LR
 | `/katalog` | Materialkatalog-Verwaltung |
 | `/register` | Öffentliches Mitglied-Registrierungsformular |
 | `/guest/laufzettel` | Gast-Eingabeformular für Nicht-Mitglieder (QR-Code) |
+| `/buchhaltung` | Umsatz-Übersicht nach Steuersatz und Spenden |
+| `/kasse` | Kassenseite für Kartenzahlung und RFID-Login |
+| `/admin/device-pairings` | Gerätekopplungen verwalten |
 
 ## Ports auf einen Blick
 
@@ -131,4 +134,8 @@ flowchart LR
 - [Gast-Laufzettel](./17-guest-laufzettel.md) — Nicht-Mitglied-Nutzung über QR-Code
 - [Mitglied-Registrierung](./19-member-registration.de.md) — Öffentliche Mitglied-Anmeldung und easyVerein-Integration
 - [Konfigurationsreferenz](./18-configuration-reference.de.md) — Alle Konfigurationsschlüssel, wo man API-Zugangsdaten bekommt
+- [Gerätekopplung](./20-device-pairing.md) — NFC-Lesegeräte koppeln und Rollen zuweisen
+- [Shopify-Gutscheine](./21-shopify-gift-cards.md) — Gutschein-Verwaltung und Laufzettel-Zahlung
+- [Buchhaltung](./22-accounting.md) — Umsatz nach Steuersatz, Spenden
+- [Kasse & RFID-Login](./24-kasse.md) — Kassenseite und kartenbasierter Login
 - [Changelog](./CHANGELOG.md) — Änderungen und neue Funktionen

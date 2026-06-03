@@ -192,6 +192,206 @@ After registration:
 3. Assign an RFID card if required
 4. `joined_date` is set automatically on confirmation
 
+---
+
+## easyVerein sync management
+
+### Overview
+
+The daily sync runs automatically at **03:00 UTC** via APScheduler. Admins can trigger a sync at any time and monitor its status via the following endpoints.
+
+### Sync endpoints
+
+#### `GET /api/mitglieder/sync-status`
+
+Returns the status of the last sync run. Requires an authenticated session (admin not required).
+
+**Example response** (after a successful sync):
+```json
+{
+  "last_sync": "2026-06-03T03:00:42.123456+00:00",
+  "success": true,
+  "message": "Synced 2 new, 14 updated, 1 skipped, 0 errors",
+  "created": 2,
+  "updated": 14,
+  "skipped": 1,
+  "errors": 0
+}
+```
+
+**Example response** (no sync has run yet — after a server restart):
+```json
+{
+  "last_sync": null,
+  "success": null,
+  "message": "No sync performed yet",
+  "created": 0,
+  "updated": 0,
+  "errors": 0
+}
+```
+
+**Note**: Sync status is held in memory and resets after a server restart.
+
+#### `POST /api/mitglieder/sync`
+
+Triggers an immediate manual sync. Requires **admin verification** (`session["admin_verified"]` active).
+
+**Response**: Same format as `sync-status` — returns the result of the sync that was just completed.
+
+**Error responses**:
+- `403` - Admin verification required
+
+#### `GET /api/mitglieder/key-status`
+
+Returns the expiry status of the currently configured easyVerein API key. Requires an authenticated session.
+
+**Example response**:
+```json
+{
+  "expires_at": "2026-12-31",
+  "days_left": 211,
+  "renew_url": "https://easyverein.com/app/YOUR_ORG_ID/setting/api-key"
+}
+```
+
+- `expires_at`: ISO date (YYYY-MM-DD) from `config.json`, or `null` if not set
+- `days_left`: Days remaining until expiry; `null` if `expires_at` is not set or invalid
+- `renew_url`: Direct link to the API key page in easyVerein (requires `easyverein_org_id` in config)
+
+#### `POST /api/mitglieder/update-api-key`
+
+Updates the easyVerein API key and expiry date — both in `config/config.json` and in the running process. Requires **admin verification**.
+
+**Request body**:
+```json
+{
+  "api_key": "NEW_API_KEY_HERE",
+  "expires_at": "2027-06-30"
+}
+```
+
+**Response**:
+```json
+{
+  "ok": true,
+  "expires_at": "2027-06-30"
+}
+```
+
+**Error responses**:
+- `400` - API key is empty or date is in the wrong format (expected YYYY-MM-DD)
+- `403` - Admin verification required
+
+---
+
+## What the sync does and does NOT overwrite
+
+### Fields always synced from easyVerein
+
+On every sync run the following fields are written from easyVerein (unless the record is locked):
+
+| Field | Source in easyVerein |
+|---|---|
+| `name` | `firstName` + `familyName` from contactDetails |
+| `email` | `privateEmail` / `email` from contactDetails |
+| `phone` | `mobilePhone` / `phone` from contactDetails |
+| `status` | Derived from `_isApplication`, `resignationDate`, `_isBlocked` |
+| `joined_date` | `joinDate` from easyVerein (only set when present) |
+
+### Fields the sync **never** overwrites
+
+The following fields are never touched by the sync, even if easyVerein returns different values:
+
+| Field | Reason |
+|---|---|
+| `nfc_uid` | Assigned locally; easyVerein has no knowledge of RFID UIDs |
+| `login_username` | Local login credentials; set manually |
+| `login_password_hash` | Local login credentials; set manually |
+| `notes` | Free-text field; maintained locally |
+
+### The `sync_locked` field
+
+Whenever an admin edits a member record via `PUT /api/mitglieder/{id}`, the system automatically sets `sync_locked = true`. Records with `sync_locked = true` are **skipped entirely** during the sync — no fields are updated and the record is not deleted.
+
+To re-enable sync for a locked record, set `sync_locked` explicitly to `false`:
+
+```json
+PUT /api/mitglieder/{id}
+{ "sync_locked": false }
+```
+
+The sync counts skipped records in the `skipped` field of the sync-status response.
+
+---
+
+## Status transitions
+
+### inactive → active
+
+A member transitions from `inactive` to `active` when easyVerein confirms the membership application. The sync detects this because `_isApplication` is no longer set and no `resignationDate` is present. At this transition the sync also sets `joined_date` if easyVerein reports a `joinDate`.
+
+**From the admin's perspective**: After the next sync (03:00 UTC or triggered manually), the member appears in the member list with status "active" and a populated join date.
+
+### active → inactive
+
+A member transitions back to `inactive` when easyVerein reports one of the following:
+
+| Signal in easyVerein | Meaning |
+|---|---|
+| `resignationDate` set | Member has cancelled their membership |
+| `_isBlocked: true` | Member has been blocked |
+| `_isApplication: true` | Application was not confirmed (re-marked as application) |
+
+**From the admin's perspective**: The member disappears from the active member list after the next sync. RFID tags are preserved and must be deactivated manually if required.
+
+### Status display in the admin UI
+
+The members page (`/mitglieder`) shows the current sync status as a banner above the table:
+- Timestamp of the last sync and its result (created, updated, skipped, error counts)
+- Days remaining until the API key expires, with a direct renewal link in easyVerein
+- A "Sync now" button to trigger a manual sync (requires admin verification)
+
+---
+
+## Admin monitoring
+
+### How to tell if a sync succeeded
+
+Call `GET /api/mitglieder/sync-status` or check the banner on `/mitglieder`:
+
+- `"success": true` + `"errors": 0` — everything is fine
+- `"success": true` + `"errors": N` — sync completed but N individual records could not be processed (details in the server logs)
+- `"success": false` — sync failed entirely; `message` contains the reason
+
+### What to check if sync fails
+
+**1. API key expired**
+
+Check `GET /api/mitglieder/key-status`. If `days_left <= 0`:
+1. Generate a new key in easyVerein under Settings → API key
+2. Call `POST /api/mitglieder/update-api-key` with the new key and expiry date
+3. Trigger a manual sync via `POST /api/mitglieder/sync`
+
+The system sends an automatic warning email to the configured `smtp_from_email` address starting **7 days before expiry**.
+
+**2. Network / connectivity errors**
+
+The sync retries failed requests up to 3 times with exponential backoff (15 s, 30 s, 45 s). If the error persists:
+- Check the server's internet connectivity
+- Check the easyVerein service status (https://status.easyverein.com)
+- Check the server logs for the exact error: `sudo journalctl -u groundcontrol -f`
+
+**3. HTTP 429 (rate limited)**
+
+The sync already uses conservative rate limiting (5 s between requests, page size 10). For persistent 429 errors, wait for the next scheduled sync at 03:00 UTC or reduce the page size in `backend/members/easyverein.py`.
+
+**4. Individual records with errors**
+
+`"errors": N > 0` means N records could not be processed (e.g. missing required fields in easyVerein). Details are in the server logs with the member ID. These members may need to be created manually.
+
+---
+
 ## Testing
 
 To test registration without easyVerein:
