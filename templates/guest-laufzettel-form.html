@@ -43,7 +43,8 @@
         font-weight: 500;
         color: var(--text-primary);
     }
-    .form-group input {
+    .form-group input,
+    .form-group textarea {
         width: 100%;
         padding: 0.75rem;
         border: 1px solid var(--border-color);
@@ -52,8 +53,11 @@
         color: var(--text-primary);
         font-size: 1rem;
         box-sizing: border-box;
+        font-family: inherit;
+        resize: vertical;
     }
-    .form-group input:focus {
+    .form-group input:focus,
+    .form-group textarea:focus {
         outline: none;
         border-color: var(--accent);
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
@@ -174,8 +178,13 @@
 
     <form id="guest-form">
         <div class="form-group">
-            <label for="guest-name">Name <span style="color: var(--danger)">*</span></label>
-            <input type="text" id="guest-name" placeholder="Dein Name" required autocomplete="name">
+            <label for="guest-name">Vollständiger Name <span style="color: var(--danger)">*</span></label>
+            <input type="text" id="guest-name" placeholder="Vor- und Nachname" required autocomplete="name">
+        </div>
+
+        <div class="form-group">
+            <label for="guest-address">Adresse <span style="color: var(--danger)">*</span></label>
+            <textarea id="guest-address" placeholder="Straße, PLZ, Ort" required autocomplete="street-address" rows="3"></textarea>
         </div>
 
         <div class="form-group">

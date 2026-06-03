@@ -123,6 +123,9 @@ def generate_pdf(
         pdf.cell(0, 6, _safe(value), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     info_row("Name:", lz.owner_name or "-")
+    if lz.guest_id and getattr(lz, "guest_address", None):
+        for line in (lz.guest_address or "").splitlines():
+            info_row("Adresse:", line.strip())
     info_row("Member-ID:", lz.member_id or "-")
     info_row("Datum:", _fmt_date(lz.date))
     info_row("Start:", _fmt_dt(lz.start) if lz.start else "-")

@@ -1213,6 +1213,7 @@ def _enrich_with_gutschein(d: dict, db: Session, materials: list) -> dict:
 
 class GuestLaufzettelCreate(BaseModel):
     name: str
+    address: str
     email: Optional[str] = None
     date: Optional[str] = None  # ISO date string
     start: Optional[str] = None  # ISO datetime
@@ -1303,6 +1304,7 @@ async def create_guest_laufzettel(
         owner_name=data.name,
         guest_id=guest_id,
         guest_email=data.email,
+        guest_address=data.address,
         nodes=json.dumps([]),
     )
     db.add(lz)

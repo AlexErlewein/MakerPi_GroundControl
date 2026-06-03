@@ -136,12 +136,14 @@ async function submitForm(e) {
     errorContainer.classList.add('hidden');
     
     const name = document.getElementById('guest-name').value.trim();
+    const address = document.getElementById('guest-address').value.trim();
     const email = document.getElementById('guest-email').value.trim();
     const date = document.getElementById('guest-date').value;
     const start = document.getElementById('guest-start').value;
     
     const body = {
         name: name,
+        address: address,
         email: email || null,
         date: date,
         start: new Date(start).toISOString()
