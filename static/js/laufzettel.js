@@ -68,6 +68,9 @@ function renderStats() {
     const unique = new Set(allEntries.map((e) => e.uid)).size;
     document.getElementById("cardholder-count").textContent = unique;
 
+    const open = allEntries.filter((e) => !e.payment_method).length;
+    document.getElementById("open-count").textContent = open;
+
     const paid = allEntries.filter((e) => e.payment_method).length;
     document.getElementById("paid-count").textContent = paid;
 }
