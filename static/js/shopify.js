@@ -34,10 +34,16 @@ async function loadCards(status = 'enabled') {
             tbody.innerHTML = `<tr class="empty-row"><td colspan="10" style="color:var(--danger)">Fehler: ${err.detail || res.statusText}</td></tr>`;
             return;
         }
-        const { gift_cards: cards } = await res.json();
+        let { gift_cards: cards } = await res.json();
+
+        const showExhausted = document.getElementById('show-exhausted')?.checked ?? false;
+        if (!showExhausted) {
+            cards = cards.filter(c => c.balance > 0);
+        }
 
         if (!cards.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Keine Gutscheine gefunden.</td></tr>';
+            const hint = showExhausted ? '' : ' (aufgebrauchte ausgeblendet)';
+            tbody.innerHTML = `<tr class="empty-row"><td colspan="10">Keine Gutscheine gefunden${hint}.</td></tr>`;
             return;
         }
 
@@ -564,6 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     filterSelect.addEventListener('change', () => loadCards(filterSelect.value));
+    const exhaustedToggle = document.getElementById('show-exhausted');
+    if (exhaustedToggle) exhaustedToggle.addEventListener('change', () => loadCards(filterSelect.value));
     refreshBtn.addEventListener('click', refresh);
     if (shopifySearch) shopifySearch.addEventListener('input', () => applySearch('shopify-search', '#cards-tbody tr', '#physical-orders-area tbody tr'));
     if (refreshOrdersBtn) refreshOrdersBtn.addEventListener('click', loadPhysicalOrders);
