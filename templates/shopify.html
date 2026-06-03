@@ -174,19 +174,8 @@
         <input type="text" id="shopify-search" placeholder="Suchen in Bestellungen und Gutscheinen…" class="filter-select" style="width:100%;box-sizing:border-box;">
     </div>
 
-    <!-- Physical Gift Card Orders -->
-    <div class="section-header">
-        <h2>Physische Geschenkgutscheine – Verkäufe</h2>
-        <div class="controls">
-            <button class="btn btn-secondary" id="refresh-orders-btn">↻ Aktualisieren</button>
-        </div>
-    </div>
-    <div id="physical-orders-area">
-        <p style="color:var(--text-secondary)">Lade...</p>
-    </div>
-
     <!-- Gift Card Table -->
-    <div class="section-header" style="margin-top: 32px;">
+    <div class="section-header">
         <h2>Digitale Gutscheine</h2>
         <div class="controls">
             <select class="filter-select" id="status-filter">
@@ -221,6 +210,17 @@
                 <tr class="empty-row"><td colspan="10">Lade Daten...</td></tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- Physical Gift Card Orders -->
+    <div class="section-header" style="margin-top: 32px;">
+        <h2>Physische Geschenkgutscheine – Verkäufe</h2>
+        <div class="controls">
+            <button class="btn btn-secondary" id="refresh-orders-btn">↻ Aktualisieren</button>
+        </div>
+    </div>
+    <div id="physical-orders-area">
+        <p style="color:var(--text-secondary)">Lade...</p>
     </div>
 
     {% endif %}
