@@ -136,7 +136,10 @@ async function submitForm(e) {
     errorContainer.classList.add('hidden');
     
     const name = document.getElementById('guest-name').value.trim();
-    const address = document.getElementById('guest-address').value.trim();
+    const street = document.getElementById('guest-street').value.trim();
+    const zip = document.getElementById('guest-zip').value.trim();
+    const city = document.getElementById('guest-city').value.trim();
+    const address = [street, `${zip} ${city}`.trim()].filter(Boolean).join('\n');
     const email = document.getElementById('guest-email').value.trim();
     const date = document.getElementById('guest-date').value;
     const start = document.getElementById('guest-start').value;

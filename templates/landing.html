@@ -301,7 +301,11 @@
                 <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
                 <div id="guest-inline-fields" style="width:100%;">
                     <input type="text" id="gi-name" placeholder="Vollständiger Name *" autocomplete="name" autocorrect="off" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
-                    <textarea id="gi-address" placeholder="Adresse * (Straße, PLZ, Ort)" autocomplete="street-address" rows="3" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box; font-family:inherit; resize:vertical;"></textarea>
+                    <input type="text" id="gi-street" placeholder="Straße und Hausnummer *" autocomplete="address-line1" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    <div style="display:flex; gap:8px; margin-bottom:10px;">
+                        <input type="text" id="gi-zip" placeholder="PLZ *" autocomplete="postal-code" style="width:90px; flex-shrink:0; padding:10px 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                        <input type="text" id="gi-city" placeholder="Ort *" autocomplete="address-level2" style="flex:1; padding:10px 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    </div>
                     <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="width:100%; padding:10px 12px; margin-bottom:14px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
                     <button type="button" class="btn btn-guest btn-full" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
                 </div>
@@ -380,7 +384,9 @@
             document.getElementById('guest-inline-error').classList.add('hidden');
             document.getElementById('guest-inline-error').textContent = '';
             document.getElementById('gi-name').value = '';
-            document.getElementById('gi-address').value = '';
+            document.getElementById('gi-street').value = '';
+            document.getElementById('gi-zip').value = '';
+            document.getElementById('gi-city').value = '';
             document.getElementById('gi-email').value = '';
             document.getElementById('gi-submit-btn').disabled = false;
             setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
@@ -389,7 +395,10 @@
 
     async function submitGuestInline() {
         var name     = document.getElementById('gi-name').value.trim();
-        var address  = document.getElementById('gi-address').value.trim();
+        var street   = document.getElementById('gi-street').value.trim();
+        var zip      = document.getElementById('gi-zip').value.trim();
+        var city     = document.getElementById('gi-city').value.trim();
+        var address  = [street, (zip + ' ' + city).trim()].filter(Boolean).join('\n');
         var email    = document.getElementById('gi-email').value.trim();
         var errorBox = document.getElementById('guest-inline-error');
         var submitBtn = document.getElementById('gi-submit-btn');
@@ -405,10 +414,16 @@
             return;
         }
 
-        if (!address) {
-            errorBox.textContent = 'Bitte gib deine Adresse ein.';
+        if (!street) {
+            errorBox.textContent = 'Bitte gib deine Straße und Hausnummer ein.';
             errorBox.classList.remove('hidden');
-            document.getElementById('gi-address').focus();
+            document.getElementById('gi-street').focus();
+            return;
+        }
+        if (!zip || !city) {
+            errorBox.textContent = 'Bitte gib PLZ und Ort ein.';
+            errorBox.classList.remove('hidden');
+            document.getElementById(!zip ? 'gi-zip' : 'gi-city').focus();
             return;
         }
 
