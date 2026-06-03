@@ -300,7 +300,8 @@
                 <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px;"></div>
                 <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
                 <div id="guest-inline-fields" style="width:100%;">
-                    <input type="text" id="gi-name" placeholder="Name *" autocomplete="name" autocorrect="off" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    <input type="text" id="gi-name" placeholder="Vollständiger Name *" autocomplete="name" autocorrect="off" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                    <textarea id="gi-address" placeholder="Adresse * (Straße, PLZ, Ort)" autocomplete="street-address" rows="3" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box; font-family:inherit; resize:vertical;"></textarea>
                     <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="width:100%; padding:10px 12px; margin-bottom:14px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
                     <button type="button" class="btn btn-guest btn-full" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
                 </div>
@@ -379,6 +380,7 @@
             document.getElementById('guest-inline-error').classList.add('hidden');
             document.getElementById('guest-inline-error').textContent = '';
             document.getElementById('gi-name').value = '';
+            document.getElementById('gi-address').value = '';
             document.getElementById('gi-email').value = '';
             document.getElementById('gi-submit-btn').disabled = false;
             setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
@@ -387,6 +389,7 @@
 
     async function submitGuestInline() {
         var name     = document.getElementById('gi-name').value.trim();
+        var address  = document.getElementById('gi-address').value.trim();
         var email    = document.getElementById('gi-email').value.trim();
         var errorBox = document.getElementById('guest-inline-error');
         var submitBtn = document.getElementById('gi-submit-btn');
@@ -396,9 +399,16 @@
         errorBox.classList.add('hidden');
 
         if (!name) {
-            errorBox.textContent = 'Bitte gib deinen Namen ein.';
+            errorBox.textContent = 'Bitte gib deinen vollständigen Namen ein.';
             errorBox.classList.remove('hidden');
             document.getElementById('gi-name').focus();
+            return;
+        }
+
+        if (!address) {
+            errorBox.textContent = 'Bitte gib deine Adresse ein.';
+            errorBox.classList.remove('hidden');
+            document.getElementById('gi-address').focus();
             return;
         }
 
@@ -411,7 +421,7 @@
             var res = await fetch('/api/guest/laufzettel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, email: email || null, date: date, start: start })
+                body: JSON.stringify({ name: name, address: address, email: email || null, date: date, start: start })
             });
             if (res.ok) {
                 var lz = await res.json();
