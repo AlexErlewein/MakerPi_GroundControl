@@ -9,6 +9,7 @@
     letter-spacing: 0.02em;
 }
 .pay-none   { background: var(--bg-tertiary, #eee); color: var(--text-secondary, #888); }
+.pay-open   { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
 .pay-bar    { background: #d1fae5; color: #065f46; }
 .pay-paypal { background: #dbeafe; color: #1e40af; }
 .pay-karte  { background: #ede9fe; color: #5b21b6; }

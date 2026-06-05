@@ -108,8 +108,8 @@ function renderTable() {
 }
 
 function paymentBadge(lz) {
-    if (!lz.payment_method) return '<span class="pay-badge pay-none">–</span>';
-    const labels = { bar: 'Bar', paypal: 'PayPal', karte: 'Karte' };
+    if (!lz.payment_method) return '<span class="pay-badge pay-open">Offen</span>';
+    const labels = { bar: 'Bar', paypal: 'PayPal', karte: 'Karte', wero: 'Wero', closed: 'Übertragen' };
     const label = labels[lz.payment_method] || lz.payment_method;
     return `<span class="pay-badge pay-${esc(lz.payment_method)}">${label}</span>`;
 }
