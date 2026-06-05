@@ -131,8 +131,62 @@
         </form>
     </div>
 </div>
+
+<!-- NFC Enrollment Modal (for member-based tag registration) -->
+<div id="nfc-enroll-modal" class="modal hidden" style="display: none;">
+    <div class="modal-overlay" id="nfc-enroll-overlay"></div>
+    <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="nfc-enroll-title">Tag registrieren</h3>
+            <button class="modal-close" id="nfc-enroll-close">✕</button>
+        </div>
+        <div style="padding: 20px;">
+            <!-- Member Search -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Mitglied auswählen</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="member-search-input" placeholder="Mitglied suchen..." 
+                           style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); 
+                                  background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
+                    <button type="button" id="member-search-btn" class="btn btn-secondary btn-sm">Suchen</button>
+                </div>
+                <div id="member-search-results" style="margin-top: 8px; max-height: 150px; overflow-y: auto; 
+                     border: 1px solid var(--border, #30363d); border-radius: 6px; display: none;">
+                    <!-- Search results will be populated here -->
+                </div>
+                <div id="selected-member-info" style="margin-top: 10px; padding: 10px; background: var(--card-bg, #161b22); 
+                     border: 1px solid var(--border, #30363d); border-radius: 6px; display: none;">
+                    <strong>Ausgewählt:</strong> <span id="selected-member-name"></span>
+                    <input type="hidden" id="selected-member-id">
+                </div>
+            </div>
+
+            <!-- NFC Scan Section -->
+            <div class="form-group">
+                <label>NFC-Karten-UID</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="nfc-enroll-uid" placeholder="z.B. 9CF22507" readonly
+                           style="font-family: monospace; text-transform: uppercase; flex: 1; 
+                                  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); 
+                                  background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
+                    <button type="button" id="btn-enroll-scan" class="btn btn-primary btn-sm" style="white-space: nowrap;">🔑 Jetzt Scannen</button>
+                </div>
+                <div id="nfc-enroll-status" style="display: none; margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
+                <p class="hint" style="color: #6e7681; font-size: 0.85rem; margin-top: 4px;">
+                    Halten Sie die NFC-Karte an den Reader und klicken Sie auf "Jetzt Scannen".
+                </p>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="nfc-enroll-cancel">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="nfc-enroll-save" disabled>Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/tags.js?v=7"></script>
+<script src="/static/js/device-pairing.js"></script>
+<script src="/static/js/tags.js?v=8"></script>
 {% endblock %}
