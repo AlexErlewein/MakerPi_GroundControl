@@ -159,6 +159,23 @@ async def tags_page(request: Request):
     )
 
 
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """Public member registration form"""
+    from fastapi.templating import Jinja2Templates
+    from backend.config import EASYVEREIN_API_KEY, MEMBERSHIP_GROUPS
+
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+            "membership_groups": MEMBERSHIP_GROUPS,
+            "easyverein_configured": bool(EASYVEREIN_API_KEY),
+        },
+    )
+
+
 @router.post("/api/register")
 async def register_member(
     data: MemberRegistrationRequest, db: Session = Depends(get_db)
