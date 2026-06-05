@@ -64,7 +64,7 @@ Definiert das Preismodell, die Eingabeeinheit und den Steuersatz für eine Grupp
 
 ### Variante
 
-Eine konkrete auswählbare Option mit einem Einheitspreis.
+Eine konkrete auswählbare Option mit einem Einheitspreis. Jede Variante kann ihr eigenes Preismodell, Einheit, Steuersatz und Spende-Status haben – oder die Werte der übergeordneten Unterkategorie erben.
 
 | Feld | Typ | Beschreibung |
 |---|---|---|
@@ -73,17 +73,23 @@ Eine konkrete auswählbare Option mit einem Einheitspreis.
 | `unterkategorie_id` | int | FK → Unterkategorie |
 | `name` | string | Variantenname, z.B. `fein` |
 | `price` | float | Preis pro Einheit (€) |
+| `pricing_model` | string | Optional: `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` (überschreibt Unterkategorie) |
+| `unit` | string | Optional: Anzeigeeinheit (überschreibt Unterkategorie) |
+| `tax_rate` | float | Optional: Steuersatz 0/7/19 (überschreibt Unterkategorie) |
+| `is_spende` | bool | Optional: Als Spende zählen (überschreibt Unterkategorie) |
 
 ## Preismodelle
 
 ```mermaid
 flowchart LR
-    VAR["Ausgewählte Variante\n(price)"] --> PM{"Unterkategorie\npricing_model"}
+    VAR["Ausgewählte Variante\nprice + pricing_model?"] --> PM{"Preismodell\nVariante → Unterkategorie"}
 
     PM -->|"per_gram"| PG["Eingabe: Menge in g\n────────────────\nprice = menge × price"]
     PM -->|"per_volume_cm3"| PV["Eingabe: L × B × H in cm\n────────────────────────\nvolumen = l × b × h\nprice = volumne × price"]
     PM -->|"per_unit"| PU["Eingabe: Menge (Stk)\n────────────────\nprice = menge × price"]
 ```
+
+> **Hinweis:** Hat eine Variante kein eigenes `pricing_model`, wird das der Unterkategorie verwendet. Das gleiche gilt für `unit`, `tax_rate` und `is_spende`.
 
 ### Modell-Vergleichstabelle
 
@@ -193,10 +199,16 @@ Der **„⬆ Bulk Import"**-Button (oben rechts auf der Katalog-Seite) erlaubt e
 
 #### CSV-Format
 
-Die Datei muss eine Kopfzeile mit genau diesen Spaltennamen haben (Reihenfolge fest):
+Die Datei muss eine Kopfzeile mit diesen Spaltennamen haben (Reihenfolge fest):
 
 ```
 standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+```
+
+Optional können pro Variante eigene Werte angegeben werden (überschreiben die Unterkategorie-Werte):
+
+```
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis,varianten_preismodell,varianten_einheit,varianten_steuersatz,varianten_spende
 ```
 
 | Spalte | Pflicht | Werte / Hinweise |
@@ -204,13 +216,17 @@ standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
 | `standort` | ja | Name des Standorts |
 | `kategorie` | ja | Name der Kategorie |
 | `unterkategorie` | ja | Name der Unterkategorie |
-| `preismodell` | ja | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
+| `preismodell` | ja | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` (Unterkategorie-Standard) |
 | `einheit` | nein | Anzeige-Einheit, z.B. `g`, `cm³` – leer lassen wenn nicht benötigt |
-| `steuersatz` | ja | `0`, `7` oder `19` |
+| `steuersatz` | ja | `0`, `7` oder `19` (Unterkategorie-Standard) |
 | `variante` | ja | Name der Variante |
 | `preis` | ja | Preis pro Einheit, Dezimalpunkt (kein Komma), z.B. `0.05` |
+| `varianten_preismodell` | nein | Pro-Variante Preismodell (überschreibt Unterkategorie) |
+| `varianten_einheit` | nein | Pro-Variante Einheit (überschreibt Unterkategorie) |
+| `varianten_steuersatz` | nein | Pro-Variante Steuersatz (überschreibt Unterkategorie) |
+| `varianten_spende` | nein | `1`/`true`/`ja` für Pro-Variante Spende-Status (überschreibt Unterkategorie) |
 
-Mehrere Zeilen mit demselben `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` werden zu einer Unterkategorie mit mehreren Varianten zusammengefasst.
+Mehrere Zeilen mit demselben `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` werden zu einer Unterkategorie mit mehreren Varianten zusammengefasst. Wenn eine Variante eigene Werte hat (`varianten_*` Spalten), werden diese verwendet statt der Unterkategorie-Werte.
 
 #### Beispiel
 
@@ -234,6 +250,19 @@ Dieses Beispiel erstellt:
 - **FabLab** → Filament → PLA (per_gram, 2 Varianten) + Filament → PETG → Standard (per_gram, 1 Variante)
 
 Eine größere, direkt einsatzbare Beispieldatei liegt im Repository unter `examples/katalog-bulk-import.csv`.
+
+#### Beispiel mit pro-Variante Preismodell
+
+Im selben Unterkategorie können verschiedene Varianten unterschiedliche Preismodelle haben:
+
+```csv
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis,varianten_preismodell,varianten_einheit
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton weiss,16,per_kilogram,kg
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton rot,16,per_kilogram,kg
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Gießton recycling,10,per_volume_l,l
+```
+
+Dies erstellt eine Unterkategorie "Ton" mit drei Varianten. Die ersten beiden verwenden `per_kilogram`, die dritte (`Gießton recycling`) überschreibt mit `per_volume_l` und Einheit `l`.
 
 ## API-Endpunkte
 

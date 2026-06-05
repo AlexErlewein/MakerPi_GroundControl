@@ -63,11 +63,25 @@ erDiagram
         string preismodell
         string einheit
     }
-    MaterialVariante {
+    MaterialUnterkategorie {
         int id PK
         int kategorie_id FK
         string name
-        float preis_pro_einheit
+        string pricing_model
+        string unit
+        float tax_rate
+        bool is_spende
+    }
+    MaterialVariante {
+        int id PK
+        int kategorie_id FK
+        int unterkategorie_id FK
+        string name
+        float price
+        string pricing_model
+        string unit
+        float tax_rate
+        bool is_spende
     }
     MQTTMessage {
         int id PK
@@ -94,7 +108,8 @@ erDiagram
     RFIDTag ||--o{ Laufzettel : "uid (app-level)"
     Laufzettel ||--o{ LaufzettelMaterial : "laufzettel_id"
     Location ||--o{ MaterialKategorie : "location_id"
-    MaterialKategorie ||--o{ MaterialVariante : "kategorie_id"
+    MaterialKategorie ||--o{ MaterialUnterkategorie : "kategorie_id"
+    MaterialUnterkategorie ||--o{ MaterialVariante : "unterkategorie_id"
     MaterialVariante ||--o{ LaufzettelMaterial : "variante_id (optional)"
 ```
 

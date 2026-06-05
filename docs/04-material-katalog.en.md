@@ -64,7 +64,7 @@ Defines the pricing model, input unit, and tax rate for a group of materials. Th
 
 ### Variante
 
-A concrete selectable option with a unit price.
+A concrete selectable option with a unit price. Each variant can have its own pricing model, unit, tax rate, and donation flag — or inherit values from its parent subcategory.
 
 | Field | Type | Description |
 |---|---|---|
@@ -73,17 +73,23 @@ A concrete selectable option with a unit price.
 | `unterkategorie_id` | int | FK → Unterkategorie |
 | `name` | string | Variant name, e.g. `fein` |
 | `price` | float | Price per unit (€) |
+| `pricing_model` | string | Optional: `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` (overrides subcategory) |
+| `unit` | string | Optional: Display unit (overrides subcategory) |
+| `tax_rate` | float | Optional: Tax rate 0/7/19 (overrides subcategory) |
+| `is_spende` | bool | Optional: Count as donation (overrides subcategory) |
 
 ## Pricing models
 
 ```mermaid
 flowchart LR
-    VAR["Selected Variante\n(price)"] --> PM{"Unterkategorie\npricing_model"}
+    VAR["Selected Variante\nprice + pricing_model?"] --> PM{"Pricing model\nVariant → Subcategory"}
 
-    PM -->|"per_gram"| PG["Input: Menge in g\n────────────────\nprice = menge × price"]
-    PM -->|"per_volume_cm3"| PV["Input: L × B × H in cm\n────────────────────────\nvolume = l × b × h\nprice = volume × price"]
-    PM -->|"per_unit"| PU["Input: Menge (Stk)\n────────────────\nprice = menge × price"]
+    PM -->|"per_gram"| PG["Input: Amount in g\n────────────────\nprice = amount × price"]
+    PM -->|"per_volume_cm3"| PV["Input: L × W × H in cm\n────────────────────────\nvolume = l × w × h\nprice = volume × price"]
+    PM -->|"per_unit"| PU["Input: Count (pcs)\n────────────────\nprice = count × price"]
 ```
+
+> **Note:** If a variant has no own `pricing_model`, the subcategory's value is used. The same applies to `unit`, `tax_rate`, and `is_spende`.
 
 ### Model comparison table
 
@@ -191,10 +197,16 @@ The **"⬆ Bulk Import"** button (top-right of the Katalog page) lets you add ma
 
 #### CSV format
 
-The file must have a header row with exactly these column names (order is fixed):
+The file must have a header row with these column names (order is fixed):
 
 ```
 standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+```
+
+Optionally, per-variant values can be specified (override subcategory values):
+
+```
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis,varianten_preismodell,varianten_einheit,varianten_steuersatz,varianten_spende
 ```
 
 | Column | Required | Values / notes |
@@ -202,13 +214,17 @@ standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
 | `standort` | yes | Location name |
 | `kategorie` | yes | Category name |
 | `unterkategorie` | yes | Subcategory name |
-| `preismodell` | yes | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` |
+| `preismodell` | yes | `per_unit` · `per_gram` · `per_volume_cm3` · `per_volume_l` · `per_minute` (subcategory default) |
 | `einheit` | no | Display unit, e.g. `g`, `cm³` — leave empty if not needed |
-| `steuersatz` | yes | `0`, `7`, or `19` |
+| `steuersatz` | yes | `0`, `7`, or `19` (subcategory default) |
 | `variante` | yes | Variant name |
 | `preis` | yes | Price per unit, decimal point (not comma), e.g. `0.05` |
+| `varianten_preismodell` | no | Per-variant pricing model (overrides subcategory) |
+| `varianten_einheit` | no | Per-variant unit (overrides subcategory) |
+| `varianten_steuersatz` | no | Per-variant tax rate (overrides subcategory) |
+| `varianten_spende` | no | `1`/`true`/`yes` for per-variant donation flag (overrides subcategory) |
 
-Multiple rows with the same `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` are grouped into one subcategory with multiple variants.
+Multiple rows with the same `standort + kategorie + unterkategorie + preismodell + einheit + steuersatz` are grouped into one subcategory with multiple variants. If a variant has its own values (`varianten_*` columns), those are used instead of the subcategory values.
 
 #### Example
 
@@ -232,6 +248,19 @@ This creates:
 - **FabLab** → Filament → PLA (per_gram, 2 variants) + Filament → PETG → Standard (per_gram, 1 variant)
 
 A larger ready-to-use example file is included in the repository at `examples/katalog-bulk-import.csv`.
+
+#### Example with per-variant pricing model
+
+Different variants within the same subcategory can have different pricing models:
+
+```csv
+standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis,varianten_preismodell,varianten_einheit
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton weiss,16,per_kilogram,kg
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton rot,16,per_kilogram,kg
+Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Gießton recycling,10,per_volume_l,l
+```
+
+This creates a subcategory "Ton" with three variants. The first two use `per_kilogram`, the third (`Gießton recycling`) overrides with `per_volume_l` and unit `l`.
 
 #### Bulk import API endpoint
 

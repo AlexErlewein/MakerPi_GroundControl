@@ -9,7 +9,7 @@ This page describes every table, its fields, and the relationships between them.
 | `auth.db` | `backend/auth/` | `users` |
 | `members.db` | `backend/members/` | `mitglieder`, `rfid_tags` |
 | `laufzettel.db` | `backend/laufzettel/` | `laufzettel`, `laufzettel_material` |
-| `catalog.db` | `backend/catalog/` | `locations`, `material_kategorie`, `material_variante` |
+| `catalog.db` | `backend/catalog/` | `locations`, `material_kategorie`, `material_unterkategorie`, `material_variante` |
 | `core.db` | `backend/core/` | `mqtt_messages`, `devices`, `tag_scans` |
 
 ## Entity tables
@@ -88,11 +88,25 @@ erDiagram
         string einheit
         float tax_rate
     }
-    MaterialVariante {
+    MaterialUnterkategorie {
         int id PK
         int kategorie_id FK
         string name
-        float preis_pro_einheit
+        string pricing_model
+        string unit
+        float tax_rate
+        bool is_spende
+    }
+    MaterialVariante {
+        int id PK
+        int kategorie_id FK
+        int unterkategorie_id FK
+        string name
+        float price
+        string pricing_model
+        string unit
+        float tax_rate
+        bool is_spende
     }
     MQTTMessage {
         int id PK
