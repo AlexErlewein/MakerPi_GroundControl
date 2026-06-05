@@ -34,6 +34,10 @@
 
 .hidden { display: none !important; }
 
+html {
+    overflow-x: hidden;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
     background: var(--bg-primary);
@@ -440,7 +444,8 @@ footer {
 @media (max-width: 768px) {
     .container {
         padding: 12px;
-        overflow-x: hidden;
+        max-width: 100vw;
+        box-sizing: border-box;
     }
 
     header {
@@ -693,6 +698,12 @@ footer {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+    .system-status-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .status-item {
