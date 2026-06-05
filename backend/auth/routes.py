@@ -42,16 +42,13 @@ async def landing_page(request: Request):
 
 @router.get("/login")
 async def login_page(request: Request, error: str = None):
-    """Show login page (redirects if already logged in)"""
-    from fastapi.templating import Jinja2Templates
-
-    templates = Jinja2Templates(directory="templates")
-
+    """Redirect to modern landing page (old login.html deprecated)"""
     if request.session.get("user"):
         return RedirectResponse("/member", status_code=302)
-    return templates.TemplateResponse(
-        "login.html", {"request": request, "error": error}
-    )
+    url = "/"
+    if error:
+        url += f"?error={error}"
+    return RedirectResponse(url, status_code=302)
 
 
 @router.post("/api/auth/login")
