@@ -191,11 +191,11 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
         return;
     }
 
-    const pm = selectedKategorie.pricing_model;
+    const pm = selectedVariante.pricing_model || 'per_unit';
     let body = {};
 
     body.variante_id = selectedVariante.id;
-    body.unit = selectedKategorie.unit || null;
+    body.unit = selectedVariante.unit || null;
     body.name = `${selectedKategorie.name} – ${selectedVariante.name}`;
     body.tax_rate = selectedKategorie.tax_rate != null ? selectedKategorie.tax_rate : 19;
 
@@ -450,7 +450,8 @@ function onKatUnterkategorieChange() {
     varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
         (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €${suffix})</option>`).join('');
     varSel.disabled = false;
-    showKatInputFields(ukat.pricing_model, ukat.unit);
+    // Don't show input fields until a variant is selected, since pricing models are now on variants
+    hideKatInputFields();
 }
 
 function onKatVarianteChange() {
@@ -458,6 +459,9 @@ function onKatVarianteChange() {
     hidePricePreview();
     if (!varId || !selectedKategorie) { selectedVariante = null; return; }
     selectedVariante = (selectedKategorie.varianten ? selectedKategorie.varianten.find((v) => v.id === varId) : null) || null;
+    if (selectedVariante) {
+        showKatInputFields(selectedVariante.pricing_model || 'per_unit', selectedVariante.unit);
+    }
     recalcPrice();
 }
 
@@ -560,7 +564,7 @@ function showPricePreview(price) {
 
 function recalcPrice() {
     if (!selectedVariante || !selectedKategorie) { hidePricePreview(); return; }
-    const pm = selectedKategorie.pricing_model;
+    const pm = selectedVariante.pricing_model || 'per_unit';
     let price = null;
 
     if (pm === "per_gram") {
@@ -617,7 +621,7 @@ function recalcPrice() {
     } else if (pm === "per_minute") {
         const menge = parseFloat(document.getElementById("kat-menge-minute").value);
         if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
-    } else {
+    } else if (pm === "per_unit") {
         const menge = parseFloat(document.getElementById("kat-menge-unit").value);
         if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
     }
