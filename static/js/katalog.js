@@ -150,7 +150,7 @@ function renderUnterkategorie(ukat, kat, loc) {
             </div>
             <div class="unterkategorie-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
-                <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(unit)}')">+ Variante</button>
+                <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(unit)}', ${taxRate}, ${ukat.is_spende ? 'true' : 'false'})">+ Variante</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteUnterkategorie(${ukat.id})">Löschen</button>
             </div>
         </div>
@@ -173,13 +173,27 @@ function renderUnterkategorie(ukat, kat, loc) {
 }
 
 function renderVariante(v, ukat) {
-    const pricingLabel = PRICING_LABELS[ukat.pricing_model] || ukat.pricing_model;
+    // Use variant's own pricing model if set, otherwise fall back to unterkategorie default
+    const pricingModel = v.pricing_model || ukat.pricing_model || 'per_unit';
+    const unit = v.unit || ukat.unit || '';
+    const taxRate = v.tax_rate != null ? v.tax_rate : (ukat.tax_rate != null ? ukat.tax_rate : 19);
+    const isSpende = v.is_spende != null ? v.is_spende : (ukat.is_spende || false);
+
+    const pricingLabel = PRICING_LABELS[pricingModel] || pricingModel;
+    const unitDisplay = unit ? `[${esc(unit)}]` : '';
     const actionsClass = editMode ? '' : 'hidden';
+
+    // Build badges
+    let badges = `<span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)} ${esc(unitDisplay)}</span>`;
+    if (isSpende) {
+        badges += ` <span style="background:var(--accent);color:#fff;font-size:0.75rem;padding:2px 6px;border-radius:4px;">Spende</span>`;
+    }
+
     return `
     <tr id="var-${v.id}">
         <td>${esc(v.name)}</td>
-        <td class="price-cell ${editMode ? 'hidden' : ''}">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
-        <td class="price-cell ${editMode ? '' : 'hidden'}">${v.price.toFixed(4)} € <span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)}</span></td>
+        <td class="price-cell ${editMode ? 'hidden' : ''}">${v.price.toFixed(4)} € ${badges}</td>
+        <td class="price-cell ${editMode ? '' : 'hidden'}">${v.price.toFixed(4)} € ${badges}</td>
         <td class="actions ${actionsClass}">
             <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, '${esc(ukat.pricing_model)}', '${esc(ukat.unit || "")}')">Bearbeiten</button>
             <button class="btn btn-sm btn-danger" onclick="deleteVariante(${v.id})">Löschen</button>
@@ -416,30 +430,47 @@ document.getElementById("unterkategorie-overlay").addEventListener("click", clos
 let currentVariantePricingModel = "per_unit";
 let currentVarianteUnit = "";
 
-function openAddVariante(unterkategorieId, pricingModel, unit) {
+function openAddVariante(unterkategorieId, pricingModel, unit, taxRate = 19, isSpende = false) {
     currentVariantePricingModel = pricingModel;
     currentVarianteUnit = unit;
     document.getElementById("variante-modal-title").textContent = "Neue Variante";
     document.getElementById("variante-form").reset();
     document.getElementById("edit-variante-id").value = "";
     document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
+    // Pre-fill with unterkategorie defaults
+    document.getElementById("field-var-pricing").value = pricingModel || "per_unit";
+    document.getElementById("field-var-unit").value = unit || "";
+    document.getElementById("field-var-tax-rate").value = String(taxRate != null ? taxRate : 19);
+    document.getElementById("field-var-is-spende").checked = !!isSpende;
     document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
     document.getElementById("variante-modal").classList.remove("hidden");
     document.getElementById("field-var-name").focus();
 }
 
-function openEditVariante(varId, unterkategorieId, pricingModel, unit) {
-    currentVariantePricingModel = pricingModel;
-    currentVarianteUnit = unit;
+function openEditVariante(varId, unterkategorieId, ukatPricingModel, ukatUnit) {
     const found = findUnterkategorie(unterkategorieId);
     const ukat = found ? found.ukat : null;
     const v = (ukat && ukat.varianten) ? ukat.varianten.find((v) => v.id === varId) : undefined;
     if (!v) return;
+
+    // Use variant's own values, fall back to unterkategorie defaults if not set
+    const pricingModel = v.pricing_model || ukatPricingModel || "per_unit";
+    const unit = v.unit || ukatUnit || "";
+    const taxRate = v.tax_rate != null ? v.tax_rate : (ukat && ukat.tax_rate != null ? ukat.tax_rate : 19);
+    const isSpende = v.is_spende != null ? v.is_spende : (ukat && ukat.is_spende) || false;
+
+    currentVariantePricingModel = pricingModel;
+    currentVarianteUnit = unit;
+
     document.getElementById("variante-modal-title").textContent = "Variante bearbeiten";
     document.getElementById("edit-variante-id").value = varId;
     document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
     document.getElementById("field-var-name").value = v.name;
     document.getElementById("field-var-price").value = v.price;
+    document.getElementById("field-var-pricing").value = pricingModel;
+    document.getElementById("field-var-unit").value = unit;
+    document.getElementById("field-var-tax-rate").value = String(taxRate);
+    document.getElementById("field-var-is-spende").checked = !!isSpende;
     document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
     document.getElementById("variante-modal").classList.remove("hidden");
 }
@@ -465,6 +496,10 @@ document.getElementById("variante-form").addEventListener("submit", async (e) =>
         unterkategorie_id: parseInt(unterkategorieId),
         name: document.getElementById("field-var-name").value.trim(),
         price: parseFloat(document.getElementById("field-var-price").value),
+        pricing_model: document.getElementById("field-var-pricing").value,
+        unit: document.getElementById("field-var-unit").value.trim() || null,
+        tax_rate: parseFloat(document.getElementById("field-var-tax-rate").value),
+        is_spende: document.getElementById("field-var-is-spende").checked,
     };
     const url = id ? `/api/katalog/varianten/${id}` : "/api/katalog/varianten";
     const method = id ? "PUT" : "POST";
@@ -811,6 +846,11 @@ function processCsvText(text) {
     }
     const hasUnterkategorie = header.includes("unterkategorie");
     const hasSpende = header.includes("spende");
+    // Optional per-variant columns (override unterkategorie values)
+    const hasVariantPreismodell = header.includes("varianten_preismodell");
+    const hasVariantEinheit = header.includes("varianten_einheit");
+    const hasVariantSteuersatz = header.includes("varianten_steuersatz");
+    const hasVariantSpende = header.includes("varianten_spende");
 
     const col = (row, name) => {
         const idx = header.indexOf(name);
@@ -855,11 +895,25 @@ function processCsvText(text) {
         if (!katMap.has(kategorie)) katMap.set(kategorie, new Map());
         const ukatMap = katMap.get(kategorie);
 
+        // Check for per-variant overrides
+        const varPreismodell = hasVariantPreismodell ? normalizePricingModel(col(row, "varianten_preismodell") || preismodell) : preismodell;
+        const varEinheit = hasVariantEinheit ? (col(row, "varianten_einheit") || einheit) : einheit;
+        const varSteuersatz = hasVariantSteuersatz ? (parseFloat(col(row, "varianten_steuersatz")) || steuersatz) : steuersatz;
+        const varSpendeStr = hasVariantSpende ? col(row, "varianten_spende") : "";
+        const varIsSpende = varSpendeStr ? (varSpendeStr === "1" || varSpendeStr.toLowerCase() === "true" || varSpendeStr.toLowerCase() === "ja") : isSpende;
+
         const ukatKey = `${unterkategorie}|${preismodell}|${einheit}|${steuersatz}|${isSpende}`;
         if (!ukatMap.has(ukatKey)) {
             ukatMap.set(ukatKey, { name: unterkategorie, preismodell, einheit, steuersatz, isSpende, varianten: [] });
         }
-        ukatMap.get(ukatKey).varianten.push({ name: variante, price: preis });
+        ukatMap.get(ukatKey).varianten.push({
+            name: variante,
+            price: preis,
+            pricing_model: varPreismodell,
+            unit: varEinheit,
+            tax_rate: varSteuersatz,
+            is_spende: varIsSpende,
+        });
     });
 
     if (errors.length > 0) {
@@ -930,6 +984,23 @@ function renderCsvPreview(payloads) {
                     </tr>`;
                 } else {
                     ukat.varianten.forEach((v, vi) => {
+                        // Check if variant has custom pricing (different from unterkategorie)
+                        const hasCustomPricing = v.pricing_model && v.pricing_model !== ukat.pricing_model;
+                        const hasCustomUnit = v.unit && v.unit !== ukat.unit;
+                        const hasCustomTax = v.tax_rate != null && v.tax_rate !== ukat.tax_rate;
+                        const hasCustomSpende = v.is_spende != null && v.is_spende !== (ukat.is_spende || false);
+
+                        // Build variant info with custom pricing indicators
+                        let variantInfo = esc(v.name);
+                        if (hasCustomPricing || hasCustomUnit || hasCustomTax || hasCustomSpende) {
+                            const customParts = [];
+                            if (hasCustomPricing) customParts.push(v.pricing_model);
+                            if (hasCustomUnit) customParts.push(`[${v.unit}]`);
+                            if (hasCustomTax) customParts.push(`${v.tax_rate}%`);
+                            if (hasCustomSpende) customParts.push("Spende");
+                            variantInfo += ` <span style="color:var(--accent);font-size:0.8rem;">(${customParts.join(", ")})</span>`;
+                        }
+
                         if (vi === 0) {
                             html += `<tr>
                                 <td rowspan="${ukat.varianten.length}">${esc(kat.name)}</td>
@@ -937,10 +1008,10 @@ function renderCsvPreview(payloads) {
                                 <td rowspan="${ukat.varianten.length}">${esc(ukat.pricing_model)}</td>
                                 <td rowspan="${ukat.varianten.length}">${esc(ukat.unit || "—")}</td>
                                 <td rowspan="${ukat.varianten.length}">${ukat.tax_rate} %</td>
-                                <td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td>
+                                <td>${variantInfo}</td><td>${v.price.toFixed(4)} €</td>
                             </tr>`;
                         } else {
-                            html += `<tr><td>${esc(v.name)}</td><td>${v.price.toFixed(4)} €</td></tr>`;
+                            html += `<tr><td>${variantInfo}</td><td>${v.price.toFixed(4)} €</td></tr>`;
                         }
                     });
                 }

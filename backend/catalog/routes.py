@@ -62,16 +62,28 @@ class VarianteCreate(BaseModel):
     kategorie_id: Optional[int] = None  # kept for backward compat
     name: str
     price: float
+    pricing_model: str = "per_unit"
+    unit: Optional[str] = None
+    tax_rate: float = 19.0
+    is_spende: bool = False
 
 
 class VarianteUpdate(BaseModel):
     name: Optional[str] = None
     price: Optional[float] = None
+    pricing_model: Optional[str] = None
+    unit: Optional[str] = None
+    tax_rate: Optional[float] = None
+    is_spende: Optional[bool] = None
 
 
 class BulkVarianteIn(BaseModel):
     name: str
     price: float
+    pricing_model: str = "per_unit"
+    unit: Optional[str] = None
+    tax_rate: float = 19.0
+    is_spende: bool = False
 
 
 class BulkUnterkategorieIn(BaseModel):
@@ -449,11 +461,27 @@ async def create_variante(data: VarianteCreate, db: Session = Depends(get_db)):
         if ukat:
             kategorie_id = ukat.kategorie_id
 
+    # Validate pricing model and tax rate
+    if data.pricing_model not in _VALID_PRICING_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ungültiges Preismodell: '{data.pricing_model}'",
+        )
+    if data.tax_rate not in _VALID_TAX_RATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ungültiger Steuersatz: {data.tax_rate}. Erlaubt: 0, 7, 19",
+        )
+
     v = MaterialVariante(
         unterkategorie_id=data.unterkategorie_id,
         kategorie_id=kategorie_id,
         name=data.name,
         price=data.price,
+        pricing_model=data.pricing_model,
+        unit=data.unit,
+        tax_rate=data.tax_rate,
+        is_spende=data.is_spende,
     )
     db.add(v)
     db.commit()
@@ -473,6 +501,24 @@ async def update_variante(
         v.name = data.name
     if data.price is not None:
         v.price = data.price
+    if data.pricing_model is not None:
+        if data.pricing_model not in _VALID_PRICING_MODELS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ungültiges Preismodell: '{data.pricing_model}'",
+            )
+        v.pricing_model = data.pricing_model
+    if data.unit is not None:
+        v.unit = data.unit
+    if data.tax_rate is not None:
+        if data.tax_rate not in _VALID_TAX_RATES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ungültiger Steuersatz: {data.tax_rate}. Erlaubt: 0, 7, 19",
+            )
+        v.tax_rate = data.tax_rate
+    if data.is_spende is not None:
+        v.is_spende = data.is_spende
     db.commit()
     db.refresh(v)
     return v.to_dict()
@@ -540,6 +586,17 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                     status_code=400,
                     detail=f"Ungültiger Steuersatz: {ukat.tax_rate}. Erlaubt: 0, 7, 19",
                 )
+            for var in ukat.varianten:
+                if var.pricing_model not in _VALID_PRICING_MODELS:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Ungültiges Preismodell für Variante '{var.name}': '{var.pricing_model}'",
+                    )
+                if var.tax_rate not in _VALID_TAX_RATES:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Ungültiger Steuersatz für Variante '{var.name}': {var.tax_rate}. Erlaubt: 0, 7, 19",
+                    )
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
@@ -598,13 +655,13 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         return ukat, False
 
     def upsert_variante(
-        kategorie_id: int, unterkategorie_id: int, name: str, price: float
+        kategorie_id: int, unterkategorie_id: int, var_data: BulkVarianteIn
     ):
         var = (
             db.query(MaterialVariante)
             .filter(
                 MaterialVariante.unterkategorie_id == unterkategorie_id,
-                MaterialVariante.name == name,
+                MaterialVariante.name == var_data.name,
             )
             .first()
         )
@@ -613,13 +670,21 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                 MaterialVariante(
                     kategorie_id=kategorie_id,
                     unterkategorie_id=unterkategorie_id,
-                    name=name,
-                    price=price,
+                    name=var_data.name,
+                    price=var_data.price,
+                    pricing_model=var_data.pricing_model,
+                    unit=var_data.unit,
+                    tax_rate=var_data.tax_rate,
+                    is_spende=var_data.is_spende,
                 )
             )
             return True
-        # Update price on existing record
-        var.price = price
+        # Update mutable fields on existing record
+        var.price = var_data.price
+        var.pricing_model = var_data.pricing_model
+        var.unit = var_data.unit
+        var.tax_rate = var_data.tax_rate
+        var.is_spende = var_data.is_spende
         return False
 
     # ── upsert location ───────────────────────────────────────────────────────
@@ -658,9 +723,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                     if ukat_created:
                         created_unterkategorien += 1
                     for var_data in ukat_data.varianten:
-                        if upsert_variante(
-                            kat.id, ukat.id, var_data.name, var_data.price
-                        ):
+                        if upsert_variante(kat.id, ukat.id, var_data):
                             created_varianten += 1
                         else:
                             updated_varianten += 1
@@ -676,7 +739,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                 if ukat_created:
                     created_unterkategorien += 1
                 for var_data in kat_data.varianten:
-                    if upsert_variante(kat.id, ukat.id, var_data.name, var_data.price):
+                    if upsert_variante(kat.id, ukat.id, var_data):
                         created_varianten += 1
                     else:
                         updated_varianten += 1

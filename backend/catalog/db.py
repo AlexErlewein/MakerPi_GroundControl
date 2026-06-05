@@ -94,3 +94,44 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+        # Add per-variant pricing_model, unit, tax_rate, is_spende columns
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE material_variante ADD COLUMN pricing_model TEXT DEFAULT 'per_unit'"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE material_variante ADD COLUMN unit TEXT"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE material_variante ADD COLUMN tax_rate REAL DEFAULT 19.0"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE material_variante ADD COLUMN is_spende INTEGER DEFAULT 0"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass
