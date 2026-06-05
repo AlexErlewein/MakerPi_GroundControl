@@ -88,25 +88,6 @@
                 <input type="text" id="field-ukat-name" placeholder="z.B. Standard, Fein, Grob" required>
             </div>
             <div class="form-group">
-                <label for="field-ukat-pricing">Preismodell</label>
-                <select id="field-ukat-pricing">
-                    <option value="per_unit">pro Einheit (Menge × Preis)</option>
-                    <option value="per_gram">pro Gramm (Gewicht × Preis)</option>
-                    <option value="per_kilogram">pro Kilogramm (Gewicht × Preis)</option>
-                    <option value="per_volume_cm3">pro Volumen cm³ (L × B × H × Preis)</option>
-                    <option value="per_volume_l">pro Liter (L × B × H / 1000 × Preis)</option>
-                    <option value="per_cubic_meter">pro Kubikmeter m³ (L × B × H / 1.000.000 × Preis)</option>
-                    <option value="per_cubic_deci_meter">pro Dezimeter dm³ (L × B × H / 1.000 × Preis)</option>
-                    <option value="per_area_m2">pro Quadratmeter m² (L × B / 10.000 × Preis)</option>
-                    <option value="per_area_dm2">pro Quadratdezimeter dm² (L × B / 100 × Preis)</option>
-                    <option value="per_minute">pro Minute (Dauer × Preis)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="field-ukat-unit">Einheit <span class="optional">(Anzeige, z.B. g, cm³, Stück)</span></label>
-                <input type="text" id="field-ukat-unit" placeholder="z.B. g">
-            </div>
-            <div class="form-group">
                 <label for="field-ukat-tax-rate">Steuersatz (MwSt.)</label>
                 <select id="field-ukat-tax-rate">
                     <option value="19">19 % (Regelsteuersatz)</option>
@@ -225,14 +206,19 @@
         <div id="bulk-tab-csv" class="bulk-tab-panel hidden">
             <div class="bulk-csv-info">
                 <p>Erwartet wird eine CSV- oder TSV-Datei (Komma oder Tab als Trennzeichen) mit folgenden Spalten (erste Zeile = Header):</p>
-                <code>standort	kategorie	unterkategorie	preismodell	einheit	steuersatz	variante	preis	spende</code>
+                <code>standort	kategorie	unterkategorie	steuersatz	variante	preis	varianten_preismodell	varianten_einheit	varianten_steuersatz	varianten_spende	spende</code>
                 <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
+                    <strong>Pflichtspalten:</strong> standort, kategorie, variante, preis<br>
                     <strong>Optionale Spalten:</strong><br>
                     <em>unterkategorie</em>: Wird sie weggelassen, landen alle Varianten in einer "Standard"-Unterkategorie.<br>
+                    <em>steuersatz</em>: Steuersatz für die Unterkategorie (0, 7, 19). Standard: 19%.<br>
                     <em>spende</em>: <code>1</code>, <code>true</code> oder <code>ja</code> markiert die Unterkategorie als Spende.<br>
-                    <strong>Pro-Variante Spalten (überschreiben Unterkategorie-Werte):</strong><br>
-                    <em>varianten_preismodell</em>, <em>varianten_einheit</em>, <em>varianten_steuersatz</em>, <em>varianten_spende</em><br>
-                    Damit kann jede Variante ihr eigenes Preismodell/Einheit haben.<br>
+                    <strong>Pro-Variante Spalten (empfohlen):</strong><br>
+                    <em>varianten_preismodell</em>: Preismodell für die Variante (per_unit, per_gram, etc.).<br>
+                    <em>varianten_einheit</em>: Anzeigeeinheit für die Variante (g, cm³, Stück, etc.).<br>
+                    <em>varianten_steuersatz</em>: Steuersatz für die Variante (überschreibt Unterkategorie).<br>
+                    <em>varianten_spende</em>: <code>1</code>, <code>true</code> oder <code>ja</code> markiert die Variante als Spende.<br>
+                    <strong>Hinweis:</strong> Preismodelle und Einheiten gehören zu den Varianten, nicht zu den Unterkategorien!<br>
                     <strong>Preismodell-Werte:</strong><br>
                     &nbsp;&nbsp;<em>per_unit</em> — pro Einheit (Menge × Preis)<br>
                     &nbsp;&nbsp;<em>per_gram</em> — pro Gramm<br>

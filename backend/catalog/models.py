@@ -45,10 +45,6 @@ class MaterialUnterkategorie(Base):
     id = Column(Integer, primary_key=True, index=True)
     kategorie_id = Column(Integer, index=True)
     name = Column(String)
-    pricing_model = Column(
-        String, default="per_unit"
-    )  # per_unit | per_gram | per_kilogram | per_volume_cm3 | per_volume_l | per_minute
-    unit = Column(String, nullable=True)  # display unit
     tax_rate = Column(Float, default=19.0)  # 0 | 7 | 19
     is_spende = Column(Boolean, default=False)
 
@@ -57,8 +53,6 @@ class MaterialUnterkategorie(Base):
             "id": self.id,
             "kategorie_id": self.kategorie_id,
             "name": self.name,
-            "pricing_model": self.pricing_model,
-            "unit": self.unit,
             "tax_rate": self.tax_rate if self.tax_rate is not None else 19.0,
             "is_spende": bool(self.is_spende) if self.is_spende is not None else False,
         }

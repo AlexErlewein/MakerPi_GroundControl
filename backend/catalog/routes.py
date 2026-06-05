@@ -43,16 +43,12 @@ class KategorieUpdate(BaseModel):
 class UnterkategorieCreate(BaseModel):
     kategorie_id: int
     name: str
-    pricing_model: str = "per_unit"
-    unit: Optional[str] = None
     tax_rate: float = 19.0
     is_spende: bool = False
 
 
 class UnterkategorieUpdate(BaseModel):
     name: Optional[str] = None
-    pricing_model: Optional[str] = None
-    unit: Optional[str] = None
     tax_rate: Optional[float] = None
     is_spende: Optional[bool] = None
 
@@ -88,8 +84,6 @@ class BulkVarianteIn(BaseModel):
 
 class BulkUnterkategorieIn(BaseModel):
     name: str
-    pricing_model: str = "per_unit"
-    unit: Optional[str] = None
     tax_rate: float = 19.0
     is_spende: bool = False
     varianten: list[BulkVarianteIn] = []
@@ -350,11 +344,6 @@ async def create_unterkategorie(
     data: UnterkategorieCreate, db: Session = Depends(get_db)
 ):
     """Create a new material subcategory"""
-    if data.pricing_model not in _VALID_PRICING_MODELS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Ungültiges Preismodell: '{data.pricing_model}'",
-        )
     if data.tax_rate not in _VALID_TAX_RATES:
         raise HTTPException(
             status_code=400,
@@ -363,8 +352,6 @@ async def create_unterkategorie(
     u = MaterialUnterkategorie(
         kategorie_id=data.kategorie_id,
         name=data.name,
-        pricing_model=data.pricing_model,
-        unit=data.unit,
         tax_rate=data.tax_rate,
         is_spende=data.is_spende,
     )
@@ -388,15 +375,6 @@ async def update_unterkategorie(
         raise HTTPException(status_code=404, detail="Unterkategorie not found")
     if data.name is not None:
         u.name = data.name
-    if data.pricing_model is not None:
-        if data.pricing_model not in _VALID_PRICING_MODELS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Ungültiges Preismodell: '{data.pricing_model}'",
-            )
-        u.pricing_model = data.pricing_model
-    if data.unit is not None:
-        u.unit = data.unit
     if data.tax_rate is not None:
         if data.tax_rate not in _VALID_TAX_RATES:
             raise HTTPException(
@@ -576,11 +554,6 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                 detail=f"Ungültiger Steuersatz: {kat.tax_rate}. Erlaubt: 0, 7, 19",
             )
         for ukat in kat.unterkategorien:
-            if ukat.pricing_model not in _VALID_PRICING_MODELS:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Ungültiges Preismodell: '{ukat.pricing_model}'",
-                )
             if ukat.tax_rate not in _VALID_TAX_RATES:
                 raise HTTPException(
                     status_code=400,
@@ -623,7 +596,7 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
         return kat, False
 
     def upsert_unterkategorie(
-        kategorie_id: int, name: str, pricing_model: str, unit, tax_rate: float,
+        kategorie_id: int, name: str, tax_rate: float,
         is_spende: bool = False,
     ):
         ukat = (
@@ -638,8 +611,6 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
             ukat = MaterialUnterkategorie(
                 kategorie_id=kategorie_id,
                 name=name,
-                pricing_model=pricing_model,
-                unit=unit,
                 tax_rate=tax_rate,
                 is_spende=is_spende,
             )
@@ -647,8 +618,6 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
             db.flush()
             return ukat, True
         # Update mutable fields on existing record
-        ukat.pricing_model = pricing_model
-        ukat.unit = unit
         ukat.tax_rate = tax_rate
         ukat.is_spende = is_spende
         db.flush()
@@ -715,8 +684,6 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                     ukat, ukat_created = upsert_unterkategorie(
                         kat.id,
                         ukat_data.name,
-                        ukat_data.pricing_model,
-                        ukat_data.unit,
                         ukat_data.tax_rate,
                         ukat_data.is_spende,
                     )
@@ -732,8 +699,6 @@ async def bulk_import(data: BulkImportIn, db: Session = Depends(get_db)):
                 ukat, ukat_created = upsert_unterkategorie(
                     kat.id,
                     "Standard",
-                    kat_data.pricing_model,
-                    kat_data.unit,
                     kat_data.tax_rate,
                 )
                 if ukat_created:
