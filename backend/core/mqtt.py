@@ -494,6 +494,21 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                     lauf_db = LaufzettelSession()
                     try:
                         today = dt_date.today()
+
+                        # Handle stale open laufzettel from previous days before
+                        # deciding whether to create a new one for today.
+                        # Empty stale ones are deleted; non-empty ones are
+                        # carried over into a today-dated laufzettel.
+                        if mitglied_db_id:
+                            try:
+                                from backend.laufzettel.utils import handle_stale_laufzettel
+                                handle_stale_laufzettel(mitglied_db_id, lauf_db, today)
+                            except Exception:
+                                logger.exception(
+                                    "[SCAN] handle_stale_laufzettel failed for mitglied_id=%s",
+                                    mitglied_db_id,
+                                )
+
                         today_lz = (
                             lauf_db.query(Laufzettel)
                             .filter(

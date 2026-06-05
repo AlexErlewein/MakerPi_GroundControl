@@ -24,6 +24,8 @@ from backend.plane.routes import router as plane_router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from backend.members.easyverein import sync_members_from_easyverein, check_easyverein_key_expiry
+from backend.laufzettel.db import SessionLocal as LaufzettelSession
+from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,8 +52,47 @@ async def start_scheduler():
         id="easyverein_key_expiry_check",
         replace_existing=True,
     )
+    scheduler.add_job(
+        cleanup_empty_laufzettel,
+        CronTrigger(hour=4, minute=0),
+        id="cleanup_empty_laufzettel",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info("APScheduler started with daily easyVerein sync at 03:00")
+
+
+async def cleanup_empty_laufzettel():
+    """Nightly job: delete open laufzettel from previous days that have no materials."""
+    from datetime import date
+    today = date.today()
+    db = LaufzettelSession()
+    try:
+        stale_empty = (
+            db.query(Laufzettel)
+            .filter(
+                Laufzettel.payment_method.is_(None),
+                Laufzettel.date < today,
+            )
+            .all()
+        )
+        deleted = 0
+        for lz in stale_empty:
+            has_materials = (
+                db.query(LaufzettelMaterial)
+                .filter(LaufzettelMaterial.laufzettel_id == lz.id)
+                .first()
+            )
+            if not has_materials:
+                db.delete(lz)
+                deleted += 1
+        db.commit()
+        logger.info("[cleanup_empty_laufzettel] Deleted %d empty stale laufzettel", deleted)
+    except Exception:
+        logger.exception("[cleanup_empty_laufzettel] Failed")
+        db.rollback()
+    finally:
+        db.close()
 
 
 @app.on_event("shutdown")
