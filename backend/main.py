@@ -21,6 +21,7 @@ from backend.member_routes import router as member_router
 from backend.push.routes import router as push_router
 from backend.shopify.routes import router as shopify_router
 from backend.plane.routes import router as plane_router
+from backend.docs_app import app as docs_app
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from backend.members.easyverein import sync_members_from_easyverein, check_easyverein_key_expiry
@@ -146,6 +147,9 @@ app.include_router(buchhaltung_router)
 app.include_router(push_router)
 app.include_router(shopify_router)
 app.include_router(plane_router)
+
+# Mount docs app at /docs (runs on same port, separate uvicorn instance on 8001 for nginx compatibility)
+app.mount("/docs", docs_app)
 
 
 @app.get("/sw.js")
