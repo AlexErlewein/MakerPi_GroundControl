@@ -2,8 +2,7 @@
 # Deploy script – git-based: commit & push locally, then git pull on server.
 # Usage:
 #   ./scripts/deploy.sh                  – deploy (prompts for commit message if needed)
-#   ./scripts/deploy.sh --migrate        – deploy + run DB migration on server
-#   ./scripts/deploy.sh --update-deps    – deploy + pip install on server
+#   ./scripts/deploy.sh --update-deps    – deploy + update Python deps on server
 
 set -e
 
@@ -23,11 +22,9 @@ else
     PROJECT_DIR="/home/alex/MakerPi_GroundControl"
 fi
 
-RUN_MIGRATE=0
 UPDATE_DEPS=0
 for arg in "$@"; do
-    [ "$arg" = "--migrate" ]      && RUN_MIGRATE=1
-    [ "$arg" = "--update-deps" ]  && UPDATE_DEPS=1
+    [ "$arg" = "--update-deps" ] && UPDATE_DEPS=1
 done
 
 # ── 1. Commit & push locally ───────────────────────────────────────────────
@@ -72,13 +69,7 @@ ssh "$PI_USER@$PI_HOST" "
     echo '✅ Server is at:' \$(git log -1 --oneline)
 "
 
-# ── 4. Optional: DB migration ─────────────────────────────────────────────
-if [ "$RUN_MIGRATE" = "1" ]; then
-    echo "🗄️  Running DB migration..."
-    ssh "$PI_USER@$PI_HOST" "cd $PROJECT_DIR && .venv/bin/python scripts/migrate_payment_fields.py"
-fi
-
-# ── 5. Optional: update Python deps ───────────────────────────────────────
+# ── 4. Optional: update Python deps ───────────────────────────────────────
 if [ "$UPDATE_DEPS" = "1" ]; then
     echo "📦 Updating Python dependencies..."
     ssh "$PI_USER@$PI_HOST" "

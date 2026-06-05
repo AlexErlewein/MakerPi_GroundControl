@@ -98,39 +98,24 @@
     <h2>Einstellungen</h2>
     <div style="display: flex; flex-direction: column; gap: 16px; max-width: 560px;">
 
-        <!-- Enrollment Reader -->
+        <!-- NFC Reader/Writer (combined) -->
         <div style="background: var(--card-bg, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 20px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC Enrollment Reader</h3>
+            <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC Leser/Schreiber</h3>
             <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: #8b949e;">
-                Das Gerät, das beim Klick auf „Jetzt Scannen" im Mitglieder-Dialog verwendet wird, um NFC-Karten-UIDs zuzuweisen.
+                Das Gerät, das zum Einlesen und Beschreiben von NFC-Karten verwendet wird (Mitgliedsdaten lesen/schreiben).
             </p>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <select id="enrollment-reader-select" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
-                    <option value="">— Keinen Reader auswählen —</option>
+                <select id="nfc-reader-writer-select" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
+                    <option value="">— Kein Gerät auswählen —</option>
                 </select>
-                <button id="save-enrollment-reader" class="btn btn-primary" style="white-space: nowrap;">Speichern</button>
+                <button id="save-nfc-reader-writer" class="btn btn-primary" style="white-space: nowrap;">Speichern</button>
             </div>
-            <div id="enrollment-reader-status" style="display: none; margin-top: 10px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
-        </div>
-
-        <!-- Card Writer -->
-        <div style="background: var(--card-bg, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 20px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC Card Writer</h3>
-            <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: #8b949e;">
-                Das Gerät, das zum Beschreiben von NFC-Karten verwendet wird (Mitgliedsdaten auf Karte schreiben).
-            </p>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <select id="card-writer-select" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text, #e6edf3); font-size: 0.9rem;">
-                    <option value="">— Kein Writer auswählen —</option>
-                </select>
-                <button id="save-card-writer" class="btn btn-primary" style="white-space: nowrap;">Speichern</button>
-            </div>
-            <div id="card-writer-status" style="display: none; margin-top: 10px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
+            <div id="nfc-reader-writer-status" style="display: none; margin-top: 10px; font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;"></div>
         </div>
 
         <!-- Payment Reader -->
         <div style="background: var(--card-bg, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 20px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC Payment Reader</h3>
+            <h3 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--text, #e6edf3);">NFC-Reader für Zahlungsbestätigung</h3>
             <p style="margin: 0 0 14px 0; font-size: 0.85rem; color: #8b949e;">
                 Das Gerät, das an der Kasse zum Einlesen von NFC-Karten für die Zahlung verwendet wird.
             </p>

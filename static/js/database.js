@@ -16,8 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
     setupEventListeners();
     startAutoRefresh();
-    loadEnrollmentReaderSettings();
-    loadCardWriterSettings();
+    loadNfcReaderWriterSettings();
     loadPaymentReaderSettings();
 });
 
@@ -199,10 +198,10 @@ function exportData(type) {
     window.open(`${API_BASE}/api/export/${type}`, '_blank');
 }
 
-// ── Enrollment Reader Settings ────────────────────────────────────────────────
+// ── NFC Reader/Writer Settings (combined) ───────────────────────────────────
 
-function setEnrollmentStatus(msg, type) {
-    const el = document.getElementById('enrollment-reader-status');
+function setNfcReaderWriterStatus(msg, type) {
+    const el = document.getElementById('nfc-reader-writer-status');
     if (!el) return;
     if (!msg) { el.style.display = 'none'; return; }
     el.style.display = 'block';
@@ -212,17 +211,25 @@ function setEnrollmentStatus(msg, type) {
     el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
 }
 
-async function loadEnrollmentReaderSettings() {
+async function loadNfcReaderWriterSettings() {
     try {
-        const res = await fetch('/api/settings/enrollment-reader');
-        if (!res.ok) return;
-        const data = await res.json();
-        const select = document.getElementById('enrollment-reader-select');
+        // Fetch both settings in parallel
+        const [enrollmentRes, writerRes] = await Promise.all([
+            fetch('/api/settings/enrollment-reader'),
+            fetch('/api/settings/card-writer')
+        ]);
+        if (!enrollmentRes.ok || !writerRes.ok) return;
+
+        const enrollmentData = await enrollmentRes.json();
+        const writerData = await writerRes.json();
+
+        const select = document.getElementById('nfc-reader-writer-select');
         if (!select) return;
 
-        const current = data.enrollment_reader_id || '';
-        select.innerHTML = '<option value="">— Keinen Reader auswählen —</option>';
-        (data.devices || []).forEach(dev => {
+        // Use enrollment reader as the primary value (they should be the same)
+        const current = enrollmentData.enrollment_reader_id || '';
+        select.innerHTML = '<option value="">— Kein Gerät auswählen —</option>';
+        (enrollmentData.devices || []).forEach(dev => {
             const id = typeof dev === 'object' ? dev.id : dev;
             const label = typeof dev === 'object' && dev.name !== dev.id ? `${dev.name} (${dev.id})` : id;
             const opt = document.createElement('option');
@@ -232,104 +239,45 @@ async function loadEnrollmentReaderSettings() {
             select.appendChild(opt);
         });
 
-        const saveBtn = document.getElementById('save-enrollment-reader');
+        const saveBtn = document.getElementById('save-nfc-reader-writer');
         if (saveBtn && !saveBtn._listenerAttached) {
             saveBtn._listenerAttached = true;
-            saveBtn.addEventListener('click', saveEnrollmentReader);
+            saveBtn.addEventListener('click', saveNfcReaderWriter);
         }
     } catch (e) {
-        console.error('Failed to load enrollment reader settings:', e);
+        console.error('Failed to load NFC reader/writer settings:', e);
     }
 }
 
-async function saveEnrollmentReader() {
-    const select = document.getElementById('enrollment-reader-select');
-    const saveBtn = document.getElementById('save-enrollment-reader');
+async function saveNfcReaderWriter() {
+    const select = document.getElementById('nfc-reader-writer-select');
+    const saveBtn = document.getElementById('save-nfc-reader-writer');
     if (!select) return;
     const newId = select.value;
     saveBtn.disabled = true;
     try {
-        const res = await fetch('/api/settings/enrollment-reader', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enrollment_reader_id: newId }),
-        });
-        if (res.ok) {
-            setEnrollmentStatus(newId ? `✓ Reader: ${newId}` : '✓ Kein Reader konfiguriert', 'ok');
+        // Save both settings to the same device
+        const [enrollmentRes, writerRes] = await Promise.all([
+            fetch('/api/settings/enrollment-reader', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enrollment_reader_id: newId }),
+            }),
+            fetch('/api/settings/card-writer', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_writer_id: newId }),
+            })
+        ]);
+
+        if (enrollmentRes.ok && writerRes.ok) {
+            setNfcReaderWriterStatus(newId ? `✓ Gerät: ${newId}` : '✓ Kein Gerät konfiguriert', 'ok');
         } else {
-            const err = await res.json();
-            setEnrollmentStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
+            const err = await enrollmentRes.json().catch(() => ({ detail: 'Speichern fehlgeschlagen' }));
+            setNfcReaderWriterStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
         }
     } catch (e) {
-        setEnrollmentStatus('Verbindungsfehler', 'error');
-    } finally {
-        saveBtn.disabled = false;
-    }
-}
-
-// ── Card Writer Settings ──────────────────────────────────────────────────────
-
-function setCardWriterStatus(msg, type) {
-    const el = document.getElementById('card-writer-status');
-    if (!el) return;
-    if (!msg) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    el.textContent = msg;
-    el.style.background = type === 'ok' ? '#1a3a1a' : type === 'error' ? '#3a1a1a' : '#1a2a3a';
-    el.style.color = type === 'ok' ? '#3fb950' : type === 'error' ? '#f85149' : '#79c0ff';
-    el.style.border = `1px solid ${type === 'ok' ? '#238636' : type === 'error' ? '#da3633' : '#1f6feb'}`;
-}
-
-async function loadCardWriterSettings() {
-    try {
-        const res = await fetch('/api/settings/card-writer');
-        if (!res.ok) return;
-        const data = await res.json();
-        const select = document.getElementById('card-writer-select');
-        if (!select) return;
-
-        const current = data.card_writer_id || '';
-        select.innerHTML = '<option value="">— Kein Writer auswählen —</option>';
-        (data.devices || []).forEach(dev => {
-            const id = typeof dev === 'object' ? dev.id : dev;
-            const label = typeof dev === 'object' && dev.name !== dev.id ? `${dev.name} (${dev.id})` : id;
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.textContent = label;
-            if (id === current) opt.selected = true;
-            select.appendChild(opt);
-        });
-
-        const saveBtn = document.getElementById('save-card-writer');
-        if (saveBtn && !saveBtn._listenerAttached) {
-            saveBtn._listenerAttached = true;
-            saveBtn.addEventListener('click', saveCardWriter);
-        }
-    } catch (e) {
-        console.error('Failed to load card writer settings:', e);
-    }
-}
-
-async function saveCardWriter() {
-    const select = document.getElementById('card-writer-select');
-    const saveBtn = document.getElementById('save-card-writer');
-    if (!select) return;
-    const newId = select.value;
-    saveBtn.disabled = true;
-    try {
-        const res = await fetch('/api/settings/card-writer', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ card_writer_id: newId }),
-        });
-        if (res.ok) {
-            setCardWriterStatus(newId ? `✓ Writer: ${newId}` : '✓ Kein Writer konfiguriert', 'ok');
-        } else {
-            const err = await res.json();
-            setCardWriterStatus('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'), 'error');
-        }
-    } catch (e) {
-        setCardWriterStatus('Verbindungsfehler', 'error');
+        setNfcReaderWriterStatus('Verbindungsfehler', 'error');
     } finally {
         saveBtn.disabled = false;
     }
