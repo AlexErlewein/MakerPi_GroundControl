@@ -4,11 +4,13 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+
 import paho.mqtt.client as mqtt
 
 from backend.config import MQTT_BROKER, MQTT_PORT
+
 from .db import SessionLocal
-from .models import MQTTMessage, Device, TagScan
+from .models import Device, MQTTMessage, TagScan
 
 # Push notification support (import at module level, calls wrapped in try/except)
 try:
@@ -167,6 +169,52 @@ def send_card_write_command(
         return False
 
 
+def send_device_activation_command(
+    device_id: str, member_id: int, member_name: str, allowed: bool
+) -> bool:
+    """Send an activation command to a device indicating whether a member is allowed.
+
+    Args:
+        device_id: The device ID (e.g., "picow_nfc_01")
+        member_id: The member's database ID
+        member_name: The member's name
+        allowed: Whether the member has permission to use this device
+
+    Returns:
+        True if command was sent successfully
+    """
+    global mqtt_client
+    if not mqtt_client:
+        logger.error("MQTT client not initialized")
+        return False
+
+    topic = f"{device_id}/command"
+    payload = json.dumps(
+        {
+            "action": "activate",
+            "member_id": member_id,
+            "member_name": member_name,
+            "allowed": allowed,
+        }
+    )
+
+    try:
+        result = mqtt_client.publish(topic, payload, qos=1)
+        if result.rc == 0:
+            logger.info(
+                f"Sent activation command to {device_id}: member={member_id} allowed={allowed}"
+            )
+            return True
+        else:
+            logger.error(
+                f"Failed to send activation command to {device_id}: {result.rc}"
+            )
+            return False
+    except Exception as e:
+        logger.error(f"Error sending activation command: {e}")
+        return False
+
+
 def _publish_nfc_config() -> None:
     """Broadcast sector key to all PicoW devices as a retained MQTT message.
 
@@ -315,7 +363,7 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                 member_id_str = None
                 mitglied = None
                 try:
-                    from backend.members.models import RFIDTag, Mitglied
+                    from backend.members.models import Mitglied, RFIDTag
 
                     # Primary: check Mitglied.nfc_uid (the card enrolled via Mitglieder UI)
                     mitglied = (
@@ -371,6 +419,34 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             )
                 finally:
                     members_db.close()
+
+                # Device permission check: member must have permission for this device
+                if validated and mitglied_db_id:
+                    from backend.members.db import SessionLocal as MembersSession
+                    from backend.members.models import DevicePermission
+
+                    perm_db = MembersSession()
+                    try:
+                        # Check for specific device permission or wildcard ("*")
+                        has_permission = (
+                            perm_db.query(DevicePermission)
+                            .filter(
+                                DevicePermission.member_id == mitglied_db_id,
+                                DevicePermission.device_id.in_([device_id, "*"]),
+                            )
+                            .first()
+                        )
+
+                        if not has_permission:
+                            validated = 0
+                            logger.warning(
+                                "[SCAN] uid=%r denied: member %s has no permission for device %s",
+                                uid,
+                                mitglied_db_id,
+                                device_id,
+                            )
+                    finally:
+                        perm_db.close()
 
                 # 3VL signature verification (runs after DB lookup so mitglied.name
                 # is available as fallback when firmware omits name from payload)
@@ -484,10 +560,17 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                 if validated:
                     from datetime import (
                         date as dt_date,
+                    )
+                    from datetime import (
                         datetime as dt_datetime,
-                        timezone as dt_timezone,
+                    )
+                    from datetime import (
                         timedelta,
                     )
+                    from datetime import (
+                        timezone as dt_timezone,
+                    )
+
                     from backend.laufzettel.db import SessionLocal as LaufzettelSession
                     from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 
@@ -501,7 +584,10 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         # carried over into a today-dated laufzettel.
                         if mitglied_db_id:
                             try:
-                                from backend.laufzettel.utils import handle_stale_laufzettel
+                                from backend.laufzettel.utils import (
+                                    handle_stale_laufzettel,
+                                )
+
                                 handle_stale_laufzettel(mitglied_db_id, lauf_db, today)
                             except Exception:
                                 logger.exception(

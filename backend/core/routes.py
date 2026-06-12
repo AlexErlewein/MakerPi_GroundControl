@@ -1,22 +1,24 @@
 """Core routes - devices, messages, status, dashboard"""
 
 import asyncio
+import hashlib
 import json
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .db import get_db, init_db
-from .models import MQTTMessage, Device, TagScan, DevicePairing
-from .mqtt import init_mqtt, shutdown_mqtt, scan_subscribers
 import backend.config as _app_config
-import hashlib
-import uuid
+
+from .db import get_db, init_db
+from .models import Device, DevicePairing, MQTTMessage, TagScan
+from .mqtt import init_mqtt, scan_subscribers, shutdown_mqtt
 
 router = APIRouter()
 
@@ -87,8 +89,8 @@ def check_database_status() -> dict:
 def check_gdrive_status() -> dict:
     """Check if Google Drive authentication is working."""
     try:
-        from backend.gdrive import get_drive_service
         from backend.config import GOOGLE_DRIVE_ROOT_FOLDER_ID
+        from backend.gdrive import get_drive_service
 
         service = get_drive_service()
         if service:
@@ -139,6 +141,7 @@ async def root(request: Request):
 async def dashboard(request: Request):
     """Render main dashboard - requires admin verification"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import is_admin_verified
 
     templates = Jinja2Templates(directory="templates")
@@ -165,6 +168,7 @@ async def dashboard(request: Request):
 async def database_page(request: Request):
     """Render database info page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
@@ -184,6 +188,7 @@ async def database_page(request: Request):
 async def device_pairings_page(request: Request):
     """Render device pairing management page (admin only)"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import is_admin_verified
 
     templates = Jinja2Templates(directory="templates")
@@ -203,6 +208,7 @@ async def device_pairings_page(request: Request):
 async def device_detail_page(device_id: str, request: Request):
     """Render device detail page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
@@ -305,10 +311,10 @@ async def get_status(db: Session = Depends(get_db)):
 async def get_dashboard_stats(db: Session = Depends(get_db)):
     """Get dashboard statistics for tiles"""
     # Count open Laufzettel (payment_method is None)
-    from backend.laufzettel.db import get_db as get_laufzettel_db
-    from backend.laufzettel.models import Laufzettel
     from backend.buchhaltung.db import SessionLocal as BuchhaltungSession
     from backend.buchhaltung.models import Spende
+    from backend.laufzettel.db import get_db as get_laufzettel_db
+    from backend.laufzettel.models import Laufzettel
 
     laufzettel_db = next(get_laufzettel_db())
     try:
@@ -495,6 +501,34 @@ async def get_device(device_id: str, db: Session = Depends(get_db)):
     }
 
 
+class DeviceActivationRequest(BaseModel):
+    member_id: int
+    member_name: str
+    allowed: bool
+
+
+@router.post("/api/devices/{device_id}/activate")
+async def activate_device(
+    device_id: str, data: DeviceActivationRequest, request: Request
+):
+    """Send an activation command to a device (admin only)"""
+    from backend.auth.dependencies import is_admin_verified
+
+    from .mqtt import send_device_activation_command
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    success = send_device_activation_command(
+        device_id, data.member_id, data.member_name, data.allowed
+    )
+
+    if success:
+        return {"success": True}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send activation command")
+
+
 @router.delete("/api/devices/{device_id}")
 async def delete_device(
     device_id: str, request: Request, db: Session = Depends(get_db)
@@ -565,7 +599,8 @@ async def get_scans(
     if uids:
         try:
             from backend.members.db import SessionLocal as MembersSession
-            from backend.members.models import Mitglied, RFIDTag as MRFIDTag
+            from backend.members.models import Mitglied
+            from backend.members.models import RFIDTag as MRFIDTag
 
             members_db = MembersSession()
             try:
@@ -1044,7 +1079,7 @@ async def create_device_pairing(
 
     Returns the pairing token - this is the ONLY time the token is visible!
     """
-    from backend.auth.dependencies import is_admin_verified, get_current_user
+    from backend.auth.dependencies import get_current_user, is_admin_verified
 
     if not is_admin_verified(request):
         raise HTTPException(status_code=403, detail="Admin verification required")

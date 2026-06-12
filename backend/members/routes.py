@@ -1,16 +1,18 @@
 """Members routes - API and pages for Mitglied and RFIDTag"""
 
 import logging
-from datetime import datetime as dt_datetime, timezone as dt_timezone
+from datetime import datetime as dt_datetime
+from datetime import timezone as dt_timezone
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .db import get_db, init_db
-from .models import Mitglied, RFIDTag
-from .easyverein import sync_members_from_easyverein, get_sync_status
+from .easyverein import get_sync_status, sync_members_from_easyverein
+from .models import DevicePermission, Mitglied, RFIDTag
 from .signature import generate_card_signature
 
 
@@ -98,6 +100,10 @@ class ApiKeyUpdate(BaseModel):
     expires_at: str  # YYYY-MM-DD
 
 
+class DevicePermissionCreate(BaseModel):
+    device_id: str  # device_id from core.db, or "*" for all devices
+
+
 @router.on_event("startup")
 async def startup():
     init_db()
@@ -110,12 +116,14 @@ async def startup():
 async def mitglieder_page(request: Request):
     """Render member database page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
     if not check_auth(request):
         return RedirectResponse("/", status_code=302)
     from datetime import date
+
     import backend.config as _config
 
     expires_str = _config.EASYVEREIN_KEY_EXPIRES_AT
@@ -144,6 +152,7 @@ async def mitglieder_page(request: Request):
 async def tags_page(request: Request):
     """Render RFID tag management page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
@@ -163,6 +172,7 @@ async def tags_page(request: Request):
 async def register_page(request: Request):
     """Public member registration form"""
     from fastapi.templating import Jinja2Templates
+
     from backend.config import EASYVEREIN_API_KEY, MEMBERSHIP_GROUPS
 
     templates = Jinja2Templates(directory="templates")
@@ -184,8 +194,8 @@ async def register_member(
 
     Creates an application in easyVerein (if configured) and a local inactive Mitglied.
     """
-    from backend.members.easyverein import create_member_application
     from backend.config import EASYVEREIN_API_KEY
+    from backend.members.easyverein import create_member_application
 
     if not data.privacy_accepted:
         raise HTTPException(
@@ -311,6 +321,7 @@ async def create_mitglied(data: MitgliedCreate, db: Session = Depends(get_db)):
                 status_code=400, detail="nfc_uid already assigned to another member"
             )
     from datetime import date as dt_date
+
     from backend.auth.dependencies import get_password_hash
 
     m = Mitglied(
@@ -443,6 +454,7 @@ async def trigger_easyverein_sync(request: Request):
 async def get_key_status(request: Request):
     """Return current easyVerein API key expiry info."""
     from datetime import date as _date
+
     import backend.config as _config
     from backend.auth.dependencies import check_auth
 
@@ -516,6 +528,92 @@ async def delete_mitglied(mitglied_id: int, db: Session = Depends(get_db)):
     if not m:
         raise HTTPException(status_code=404, detail="Member not found")
     db.delete(m)
+    db.commit()
+    return {"success": True}
+
+
+# ── Device Permission API ───────────────────────────────────────────────────────
+
+
+@router.get("/api/mitglieder/{mitglied_id}/permissions")
+async def get_member_permissions(mitglied_id: int, db: Session = Depends(get_db)):
+    """Get all device permissions for a member"""
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    permissions = (
+        db.query(DevicePermission)
+        .filter(DevicePermission.member_id == mitglied_id)
+        .all()
+    )
+
+    return [
+        {
+            "id": p.id,
+            "device_id": p.device_id,
+            "granted_at": p.granted_at.isoformat() if p.granted_at else None,
+        }
+        for p in permissions
+    ]
+
+
+@router.post("/api/mitglieder/{mitglied_id}/permissions")
+async def add_member_permission(
+    mitglied_id: int, permission: DevicePermissionCreate, db: Session = Depends(get_db)
+):
+    """Add a device permission for a member"""
+    m = db.query(Mitglied).filter(Mitglied.id == mitglied_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # Check if permission already exists
+    existing = (
+        db.query(DevicePermission)
+        .filter(
+            DevicePermission.member_id == mitglied_id,
+            DevicePermission.device_id == permission.device_id,
+        )
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Permission already exists")
+
+    new_permission = DevicePermission(
+        member_id=mitglied_id,
+        device_id=permission.device_id,
+        granted_at=dt_datetime.now(dt_timezone.utc),
+    )
+    db.add(new_permission)
+    db.commit()
+    db.refresh(new_permission)
+
+    return {
+        "id": new_permission.id,
+        "device_id": new_permission.device_id,
+        "granted_at": new_permission.granted_at.isoformat(),
+    }
+
+
+@router.delete("/api/mitglieder/{mitglied_id}/permissions/{permission_id}")
+async def delete_member_permission(
+    mitglied_id: int, permission_id: int, db: Session = Depends(get_db)
+):
+    """Delete a device permission for a member"""
+    permission = (
+        db.query(DevicePermission)
+        .filter(
+            DevicePermission.id == permission_id,
+            DevicePermission.member_id == mitglied_id,
+        )
+        .first()
+    )
+
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permission not found")
+
+    db.delete(permission)
     db.commit()
     return {"success": True}
 
@@ -646,10 +744,11 @@ async def enroll_card(
     signature = generate_card_signature(m.member_id, uid, m.name)
 
     # Send write command to PicoW
-    from backend.core.mqtt import send_card_write_command
-    from backend import config as _cfg
-    from backend.members.signature import get_mifare_sector_key
     import uuid
+
+    from backend import config as _cfg
+    from backend.core.mqtt import send_card_write_command
+    from backend.members.signature import get_mifare_sector_key
 
     device_id = req.device_id or _cfg.CARD_WRITER_ID
     if not device_id:
@@ -704,14 +803,22 @@ async def provision_login(
         raise HTTPException(status_code=404, detail="Member not found")
 
     if m.login_username:
-        return {"success": True, "login_username": m.login_username, "provisioned": False}
+        return {
+            "success": True,
+            "login_username": m.login_username,
+            "provisioned": False,
+        }
 
     # Derive username: use email if available, else member_id-based fallback
     base = (m.email or f"mitglied_{m.member_id}").lower().strip()
     username = base
     # Ensure uniqueness
     suffix = 1
-    while db.query(Mitglied).filter(Mitglied.login_username == username, Mitglied.id != mitglied_id).first():
+    while (
+        db.query(Mitglied)
+        .filter(Mitglied.login_username == username, Mitglied.id != mitglied_id)
+        .first()
+    ):
         username = f"{base}_{suffix}"
         suffix += 1
 

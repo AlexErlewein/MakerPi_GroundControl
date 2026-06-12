@@ -2,7 +2,9 @@
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+
 from backend.config import MEMBERS_DB_URL
+
 from .models import Base
 
 engine = create_engine(MEMBERS_DB_URL, connect_args={"check_same_thread": False})
@@ -53,6 +55,12 @@ def _migrate(conn):
     cur.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_mitglieder_nfc_uid "
         "ON mitglieder (nfc_uid) WHERE nfc_uid IS NOT NULL"
+    )
+    # Composite index for the per-scan permission lookup (member_id + device_id).
+    # The table itself is created by Base.metadata.create_all().
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS ix_device_permissions_member_device "
+        "ON device_permissions (member_id, device_id)"
     )
     conn.commit()
 

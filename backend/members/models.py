@@ -1,7 +1,8 @@
-"""Members models - Mitglied and RFIDTag tables"""
+"""Members models - Mitglied, RFIDTag and DevicePermission tables"""
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Date, Text, Boolean
+
+from sqlalchemy import Boolean, Column, Date, DateTime, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -78,4 +79,32 @@ class RFIDTag(Base):
             "active": bool(self.active),
             "is_admin": bool(self.is_admin),
             "created_at": ts.isoformat() if ts else None,
+        }
+
+
+class DevicePermission(Base):
+    """Grants a member access to a specific device (e.g. laser cutter).
+
+    Permissions are checked on every RFID scan: a member may only trigger a
+    device (and have a Laufzettel created) if a matching DevicePermission row
+    exists. The special device_id "*" grants access to all devices.
+    """
+
+    __tablename__ = "device_permissions"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id = Column(Integer, primary_key=True, index=True)
+    member_id = Column(String, index=True, nullable=False)  # soft ref to Mitglied
+    device_id = Column(String, index=True, nullable=False)  # "*" = all devices
+    granted_at = Column(DateTime(timezone=True), default=_utcnow)
+    granted_by = Column(String, nullable=True)  # admin username
+
+    def to_dict(self):
+        ts = _naive_to_utc(self.granted_at) if self.granted_at else None
+        return {
+            "id": self.id,
+            "member_id": self.member_id,
+            "device_id": self.device_id,
+            "granted_at": ts.isoformat() if ts else None,
+            "granted_by": self.granted_by,
         }
