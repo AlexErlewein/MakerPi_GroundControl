@@ -103,6 +103,7 @@ Der Parameter `reference_date` (ISO-8601-String) verschiebt das Betrachtungsfens
 |---|---|---|
 | `GET` | `/buchhaltung` | HTML-Seite (Login erforderlich) |
 | `GET` | `/api/buchhaltung/summary` | Aggregierte Auswertung für einen Zeitraum |
+| `GET` | `/api/buchhaltung/spenden-total` | Leichter Spenden-Endpunkt (öffentlich) |
 | `POST` | `/api/buchhaltung/spende` | Manuelle Spende erfassen |
 | `DELETE` | `/api/buchhaltung/spende/{id}` | Manuelle Spende löschen |
 
@@ -147,6 +148,44 @@ Der Parameter `reference_date` (ISO-8601-String) verschiebt das Betrachtungsfens
   "spende_count": 1
 }
 ```
+
+### `GET /api/buchhaltung/spenden-total`
+
+Ein leichtgewichtiger öffentlicher Endpunkt, der nur die Spenden-Summen für einen Zeitraum zurückgibt. Nützlich für Dashboards, externe Integrationen oder wenn Sie die vollständige Buchhaltungsübersicht nicht benötigen.
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Werte |
+|---|---|---|---|
+| `period` | string | `month` | `week`, `month`, `year` |
+| `reference_date` | string (ISO-8601) | jetzt | z.B. `2026-04-15` |
+
+**Beispielantwort:**
+
+```json
+{
+  "spende_total": 789.00,
+  "spende_count": 5,
+  "period": "month",
+  "cutoff": "2026-06-01T00:00:00+00:00",
+  "end": "2026-07-01T00:00:00+00:00"
+}
+```
+
+**Beispielverwendung:**
+
+```bash
+# Spenden dieses Monats abrufen
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month"
+
+# Spenden dieser Woche abrufen
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=week"
+
+# Spenden für einen bestimmten Monat abrufen
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month&reference_date=2024-05-15"
+```
+
+> **Hinweis:** Dieser Endpunkt ist öffentlich zugänglich und erfordert keine Authentifizierung.
 
 ### `POST /api/buchhaltung/spende`
 

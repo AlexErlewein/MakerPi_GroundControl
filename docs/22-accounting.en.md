@@ -103,6 +103,7 @@ The `reference_date` parameter (ISO 8601 string) shifts the window into the past
 |---|---|---|
 | `GET` | `/buchhaltung` | HTML page (login required) |
 | `GET` | `/api/buchhaltung/summary` | Aggregated report for a time window |
+| `GET` | `/api/buchhaltung/spenden-total` | Lightweight donations-only endpoint (public) |
 | `POST` | `/api/buchhaltung/spende` | Record a manual donation |
 | `DELETE` | `/api/buchhaltung/spende/{id}` | Delete a manual donation |
 
@@ -147,6 +148,44 @@ The `reference_date` parameter (ISO 8601 string) shifts the window into the past
   "spende_count": 1
 }
 ```
+
+### `GET /api/buchhaltung/spenden-total`
+
+A lightweight public endpoint that returns only the donation totals for a period. Useful for dashboards, external integrations, or when you don't need the full accounting breakdown.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Values |
+|---|---|---|---|
+| `period` | string | `month` | `week`, `month`, `year` |
+| `reference_date` | string (ISO 8601) | now | e.g. `2026-04-15` |
+
+**Example response:**
+
+```json
+{
+  "spende_total": 789.00,
+  "spende_count": 5,
+  "period": "month",
+  "cutoff": "2026-06-01T00:00:00+00:00",
+  "end": "2026-07-01T00:00:00+00:00"
+}
+```
+
+**Example usage:**
+
+```bash
+# Get this month's donations
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month"
+
+# Get this week's donations
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=week"
+
+# Get donations for a specific month
+curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month&reference_date=2024-05-15"
+```
+
+> **Note:** This endpoint is publicly accessible and does not require authentication.
 
 ### `POST /api/buchhaltung/spende`
 

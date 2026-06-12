@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from .db import get_db, init_db
-from .models import Verkauf, Spende
+
 from backend.auth.dependencies import check_auth
+
+from .db import get_db, init_db
+from .models import Spende, Verkauf
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -89,8 +92,20 @@ async def get_summary(
         by_variant[key]["units"] += v.menge or 1.0
         by_variant[key]["revenue"] += v.calculated_price
 
-    tax_buckets: dict = {19.0: [], 7.0: [], 0.0: [], "spende_katalog": [], "spende_laufzettel": []}
-    tax_totals: dict = {19.0: 0.0, 7.0: 0.0, 0.0: 0.0, "spende_katalog": 0.0, "spende_laufzettel": 0.0}
+    tax_buckets: dict = {
+        19.0: [],
+        7.0: [],
+        0.0: [],
+        "spende_katalog": [],
+        "spende_laufzettel": [],
+    }
+    tax_totals: dict = {
+        19.0: 0.0,
+        7.0: 0.0,
+        0.0: 0.0,
+        "spende_katalog": 0.0,
+        "spende_laufzettel": 0.0,
+    }
     for variant in by_variant.values():
         if variant["is_spende"]:
             # Split: catalog items have variante_id, hardcoded Laufzettel Spenden don't
@@ -119,8 +134,14 @@ async def get_summary(
             "19": sorted(tax_buckets[19.0], key=lambda x: x["revenue"], reverse=True),
             "7": sorted(tax_buckets[7.0], key=lambda x: x["revenue"], reverse=True),
             "0": sorted(tax_buckets[0.0], key=lambda x: x["revenue"], reverse=True),
-            "spende_katalog": sorted(tax_buckets["spende_katalog"], key=lambda x: x["revenue"], reverse=True),
-            "spende_laufzettel": sorted(tax_buckets["spende_laufzettel"], key=lambda x: x["revenue"], reverse=True),
+            "spende_katalog": sorted(
+                tax_buckets["spende_katalog"], key=lambda x: x["revenue"], reverse=True
+            ),
+            "spende_laufzettel": sorted(
+                tax_buckets["spende_laufzettel"],
+                key=lambda x: x["revenue"],
+                reverse=True,
+            ),
         },
         "tax_totals": {
             "19": round(tax_totals[19.0], 2),
@@ -134,6 +155,49 @@ async def get_summary(
         ],
         "verkauf_count": len(verkaufe),
         "spende_count": len(spenden),
+    }
+
+
+@router.get("/api/buchhaltung/spenden-total")
+async def get_spenden_total(
+    period: str = Query("month", pattern="^(week|month|year)$"),
+    reference_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Get total donations for a period (public endpoint)."""
+    now = datetime.now(timezone.utc)
+    if reference_date:
+        try:
+            ref = datetime.fromisoformat(reference_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            ref = now
+    else:
+        ref = now
+
+    if period == "week":
+        # Monday of the week containing ref
+        monday = ref - timedelta(days=ref.weekday())
+        cutoff = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = cutoff + timedelta(days=7)
+    elif period == "year":
+        cutoff = ref.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = cutoff.replace(year=cutoff.year + 1)
+    else:  # month
+        cutoff = ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if cutoff.month == 12:
+            end = cutoff.replace(year=cutoff.year + 1, month=1)
+        else:
+            end = cutoff.replace(month=cutoff.month + 1)
+
+    spenden = db.query(Spende).filter(Spende.date >= cutoff, Spende.date < end).all()
+    spende_total = sum(s.amount for s in spenden)
+
+    return {
+        "spende_total": round(spende_total, 2),
+        "spende_count": len(spenden),
+        "period": period,
+        "cutoff": cutoff.isoformat(),
+        "end": end.isoformat(),
     }
 
 
