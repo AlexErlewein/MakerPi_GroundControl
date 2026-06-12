@@ -49,6 +49,12 @@
     "plane_workspace_slug": "your-workspace",
     "plane_project_id": "your-project-uuid",
 
+    "_comment_oauth": "Google OAuth login: create OAuth 2.0 Client ID in Google Cloud Console (Web application). Redirect URI must match your domain.",
+    "oauth_enabled": false,
+    "oauth_google_client_id": "",
+    "oauth_google_client_secret": "",
+    "oauth_google_redirect_uri": "https://your-pi-ip:8443/auth/google/callback",
+
     "_comment_email": "SMTP email sending. STARTTLS on port 587 (most providers). Use smtp_tls: true + port 465 for SSL.",
     "smtp_host": "",
     "smtp_port": 587,

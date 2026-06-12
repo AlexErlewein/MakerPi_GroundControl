@@ -18,6 +18,7 @@ Dieses Dokument bietet einen umfassenden technischen Deep-Dive in das MakerPi Gr
 10. [Code-Deep-Dive](#code-deep-dive)
 11. [Sicherheits-Best-Practices](#sicherheits-best-practices)
 12. [Systemerweiterung](#systemerweiterung)
+13. [OAuth-Integration](#oauth-integration)
 
 ---
 
@@ -486,6 +487,68 @@ if mitglied:
 ```
 
 **Wichtig:** RFID-Login **kann** nicht Auto-Verify verwenden. Muss für Admin-Zugriff manuell mit Passwort verifizieren.
+
+### OAuth Login Flow
+
+**Endpoint:** `GET /auth/google` → `GET /auth/google/callback`
+
+**Zweck:** Benutzer können sich mit ihrem Google-Konto anmelden
+
+**Prozess:**
+```python
+# 1. Redirect zu Google OAuth
+GET /auth/google
+→ Redirect zu https://accounts.google.com/o/oauth2/v2/auth
+
+# 2. Benutzer genehmigt Zugriff
+→ Google redirect zu /auth/google/callback mit Authorization Code
+
+# 3. Code gegen Token tauschen
+GET /auth/google/callback?code=...
+→ Tauscht Code gegen Access Token
+→ Parst ID Token um User Info zu erhalten (email, name)
+
+# 4. User in auth.db abrufen oder erstellen
+user = auth_db.query(User).filter(User.username == email).first()
+
+if user:
+    # Existierender User - verwende seine Rolle
+    is_admin = user.role == "admin"
+else:
+    # Neuen User erstellen
+    user = User(
+        username=email,
+        hashed_password="",  # Kein Passwort für OAuth-User
+        role="member",
+        mitglied_id=None,
+    )
+    auth_db.add(user)
+    auth_db.commit()
+    is_admin = False
+
+# 5. Session erstellen
+request.session["user"] = email
+request.session["mitglied_id"] = user.mitglied_id
+request.session["is_admin_capable"] = is_admin
+request.session["login_method"] = "oauth"
+request.session["admin_verified"] = is_admin  # Auto-Verify für OAuth-Admins
+request.session["admin_verified_at"] = datetime.now(timezone.utc).isoformat() if is_admin else None
+request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+```
+
+**Wichtig:** OAuth-User mit `role='admin'` werden automatisch verifiziert (kein Passwort-Wiedereingabe erforderlich). Dies ist ein Sicherheits-Kompromiss für bessere UX. Um zu deaktivieren, ändere `backend/auth/oauth.py`.
+
+**Konfiguration:**
+```json
+{
+    "oauth_enabled": true,
+    "oauth_google_client_id": "deine-client-id.apps.googleusercontent.com",
+    "oauth_google_client_secret": "dein-client-secret",
+    "oauth_google_redirect_uri": "https://deine-pi-ip:8443/auth/google/callback"
+}
+```
+
+**Setup:** Siehe [OAuth Setup-Anleitung](/docs/28-oauth-setup.de.md) für detaillierte Anweisungen.
 
 ---
 
@@ -1274,6 +1337,131 @@ def record_failed_attempt(username: str, ip: str):
     key = f"{username}:{ip}"
     failed_attempts[key].append(time.time())
 ```
+
+---
+
+## OAuth-Integration
+
+### Übersicht
+
+Das System unterstützt Google OAuth 2.0 als Alternative zur passwortbasierten Authentifizierung. OAuth ermöglicht es Benutzern, sich mit ihrem Google-Konto anzumelden, ohne Passwörter mit der Anwendung zu teilen.
+
+### OAuth-Architektur
+
+```
+┌─────────────┐
+│  Benutzer   │  "Mit Google anmelden"
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Web UI     │  Redirect zu /auth/google
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Google     │  Benutzer genehmigt Zugriff
+│  OAuth      │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Web UI     │  Callback mit Code
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Backend    │  Code gegen Token tauschen
+│  OAuth      │  User Info abrufen
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  auth.db    │  User abrufen oder erstellen
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Session    │  Session erstellen
+└─────────────┘
+```
+
+### OAuth-User-Mapping
+
+OAuth-User werden auf das existierende `auth.db` User-Modell gemappt:
+
+| Feld | OAuth-Wert | Hinweise |
+|---|---|---|
+| `username` | Google-E-Mail | Wird als eindeutiger Identifikator verwendet |
+| `hashed_password` | Leer | OAuth-User haben keine Passwörter |
+| `role` | `member` (Standard) | Kann manuell auf `admin` gesetzt werden |
+| `mitglied_id` | `None` (Standard) | Kann mit Mitglied-Datensatz verknüpft werden |
+
+### OAuth vs Passwort-Login
+
+| Feature | Passwort-Login | OAuth-Login |
+|---|---|---|
+| User-Erstellung | Manuell | Automatisch |
+| Passwort-Speicherung | Gehasht in DB | Keiner (nur Tokens) |
+| Session-Erstellung | Gleich | Gleich |
+| Admin-Verifizierung | Passwort erforderlich | Auto-verifiziert (konfigurierbar) |
+| Sicherheit | Passwort-basiert | Token-basiert |
+| UX | Passworteingabe | Ein-Klick |
+
+### OAuth-Sicherheitsüberlegungen
+
+1. **HTTPS erforderlich:** OAuth 2.0 erfordert HTTPS für alle Kommunikationen
+2. **State Parameter:** Validiert OAuth-Callbacks um CSRF-Angriffe zu verhindern
+3. **Token-Speicherung:** Tokens werden nicht dauerhaft gespeichert, nur Session-Daten
+4. **Scope-Begrenzung:** Fordert nur minimale Scopes (openid, email, profile)
+5. **Auto-Verify-Kompromiss:** OAuth-Admins werden für UX auto-verifiziert (kann deaktiviert werden)
+
+### Zusätzliche OAuth-Provider Hinzufügen
+
+Um zusätzliche OAuth-Provider hinzuzufügen (z.B. GitHub, Facebook):
+
+1. Provider-Konfiguration zu `backend/config.py` hinzufügen
+2. Provider in `backend/auth/oauth.py` registrieren
+3. Providerspezifische Routes hinzufügen
+4. Landing-Page mit Provider-Buttons aktualisieren
+5. Redirect-URIs in Provider-Developer-Konsole konfigurieren
+
+Beispiel für GitHub:
+```python
+# backend/config.py
+OAUTH_GITHUB_CLIENT_ID: str = _cfg.get("oauth_github_client_id", "")
+OAUTH_GITHUB_CLIENT_SECRET: str = _cfg.get("oauth_github_client_secret", "")
+
+# backend/auth/oauth.py
+oauth.register(
+    "github",
+    client_id=OAUTH_GITHUB_CLIENT_ID,
+    client_secret=OAUTH_GITHUB_CLIENT_SECRET,
+    authorize_url="https://github.com/login/oauth/authorize",
+    authorize_params={"scope": "user:email"},
+    access_token_url="https://github.com/login/oauth/access_token",
+)
+```
+
+### OAuth-Konfiguration
+
+OAuth in `config/config.json` aktivieren:
+```json
+{
+    "oauth_enabled": true,
+    "oauth_google_client_id": "deine-client-id.apps.googleusercontent.com",
+    "oauth_google_client_secret": "dein-client-secret",
+    "oauth_google_redirect_uri": "https://deine-pi-ip:8443/auth/google/callback"
+}
+```
+
+### OAuth-Setup
+
+Siehe [OAuth Setup-Anleitung](/docs/28-oauth-setup.de.md) für detaillierte Setup-Anweisungen inklusive:
+- Google Cloud Console Konfiguration
+- Redirect URI Setup
+- Testen und Fehlerbehebung
+- Sicherheits-Best-Practices
 
 ---
 

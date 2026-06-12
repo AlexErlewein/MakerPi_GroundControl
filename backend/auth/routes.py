@@ -1,25 +1,31 @@
 """Auth routes - login, logout, admin users"""
 
 from datetime import datetime, timezone
-from fastapi import APIRouter, Request, Form, Depends
-from fastapi.responses import RedirectResponse, JSONResponse
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from backend.config import ADMIN_USERNAME
+
 from .db import get_db, init_db
-from .models import User
 from .dependencies import (
-    verify_password,
     get_password_hash,
-    get_user,
-    seed_admin_user,
-    is_admin_verified,
-    verify_admin_password,
     get_session_info,
+    get_user,
+    is_admin_verified,
     is_member_session_valid,
+    seed_admin_user,
+    verify_admin_password,
+    verify_password,
 )
+from .models import User
+from .oauth import router as oauth_router
 
 router = APIRouter()
+
+# Include OAuth router
+router.include_router(oauth_router)
 
 
 @router.on_event("startup")
@@ -244,6 +250,7 @@ async def admin_users_page(request: Request, db: Session = Depends(get_db)):
 
     from backend.members.db import SessionLocal as MembersSession
     from backend.members.models import Mitglied
+
     members_db = MembersSession()
     try:
         members_with_login = (
@@ -517,7 +524,14 @@ async def promote_member_to_admin(
         members_db.close()
 
     if not db.query(User).filter(User.username == username).first():
-        db.add(User(username=username, hashed_password=password_hash, role="admin", mitglied_id=mitglied_id))
+        db.add(
+            User(
+                username=username,
+                hashed_password=password_hash,
+                role="admin",
+                mitglied_id=mitglied_id,
+            )
+        )
         db.commit()
 
     return RedirectResponse("/admin/users", status_code=303)
@@ -529,7 +543,7 @@ async def revoke_member_login(
     mitglied_id: int = Form(...),
 ):
     """Remove login credentials from a member (members.db)."""
-    from fastapi.templating import Jinja2Templates
+
     from backend.members.db import SessionLocal as MembersSession
     from backend.members.models import Mitglied
 

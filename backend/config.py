@@ -201,6 +201,23 @@ PLANE_PROJECT_ID: str = _cfg.get(
     "plane_project_id", os.environ.get("PLANE_PROJECT_ID", "")
 )
 
+# OAuth configuration (for Google OAuth login)
+OAUTH_ENABLED: bool = _cfg.get(
+    "oauth_enabled", os.environ.get("OAUTH_ENABLED", "false").lower() == "true"
+)
+OAUTH_GOOGLE_CLIENT_ID: str = _cfg.get(
+    "oauth_google_client_id", os.environ.get("OAUTH_GOOGLE_CLIENT_ID", "")
+)
+OAUTH_GOOGLE_CLIENT_SECRET: str = _cfg.get(
+    "oauth_google_client_secret", os.environ.get("OAUTH_GOOGLE_CLIENT_SECRET", "")
+)
+OAUTH_GOOGLE_REDIRECT_URI: str = _cfg.get(
+    "oauth_google_redirect_uri",
+    os.environ.get(
+        "OAUTH_GOOGLE_REDIRECT_URI", "https://localhost:8443/auth/google/callback"
+    ),
+)
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 AUTH_DB_URL: str = f"sqlite:///{PROJECT_ROOT}/auth.db"

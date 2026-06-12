@@ -1,9 +1,5 @@
-{% extends "base.html" %}
-
-{% block title %}H3cke MakerSpace - Anmeldung{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/landing.css">
+{% extends "base.html" %} {% block title %}H3cke MakerSpace - Anmeldung{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="/static/css/landing.css" />
 <style>
     /* Pairing States */
     .rfid-card {
@@ -237,7 +233,7 @@
 
     .divider::before,
     .divider::after {
-        content: '';
+        content: "";
         position: absolute;
         top: 50%;
         width: 40%;
@@ -245,17 +241,17 @@
         background: var(--border-color);
     }
 
-    .divider::before { left: 0; }
-    .divider::after { right: 0; }
+    .divider::before {
+        left: 0;
+    }
+    .divider::after {
+        right: 0;
+    }
 </style>
-{% endblock %}
-
-{% block body_attrs %} class="landing-page"{% endblock %}
-
-{% block content %}
+{% endblock %} {% block body_attrs %} class="landing-page"{% endblock %} {% block content %}
 <div class="landing-container">
     <div class="landing-header">
-        <img src="/graphics/H3ckeLogo.svg" class="landing-logo" alt="H3cke MakerSpace">
+        <img src="/graphics/H3ckeLogo.svg" class="landing-logo" alt="H3cke MakerSpace" />
         <h1>MakerSpace GroundControl</h1>
         <p class="subtitle">H3cke gGmbH - Willkommen im MakerSpace</p>
     </div>
@@ -263,9 +259,9 @@
     <!-- Top row: RFID (only when paired) + Guest tile -->
     <div class="login-options-top" id="login-options-top">
         <!-- RFID Login Section (only visible when paired) -->
-        <div class="login-card rfid-card" id="rfid-card" style="display: none;">
+        <div class="login-card rfid-card" id="rfid-card" style="display: none">
             <div class="rfid-connected-status" id="rfid-connected-status">
-                <span style="font-size: 0.8rem; color: var(--text-secondary);">Verbunden mit:</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary)">Verbunden mit:</span>
                 <div class="device-name" id="connected-device-id">-</div>
             </div>
 
@@ -282,7 +278,7 @@
                 <span class="status-text">Warte auf Karte...</span>
             </div>
 
-            <div class="rfid-error" id="rfid-error" style="display: none;"></div>
+            <div class="rfid-error" id="rfid-error" style="display: none"></div>
         </div>
 
         <!-- Guest Tile -->
@@ -291,35 +287,137 @@
                 <div class="card-icon">👋</div>
                 <h2>Neu hier?</h2>
                 <p>Kein Mitglied? Erstelle einen Gäste-Laufzettel und zahle am Ende deines Besuchs.</p>
-                <button type="button" class="btn btn-guest btn-full" onclick="toggleGuestForm()">Gäste-Laufzettel</button>
+                <button type="button" class="btn btn-guest btn-full" onclick="toggleGuestForm()">
+                    Gäste-Laufzettel
+                </button>
             </div>
 
             <div id="guest-inline-form" class="hidden">
                 <div class="card-icon">👋</div>
                 <h2>Gäste-Laufzettel</h2>
-                <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px;"></div>
-                <div id="guest-inline-success" class="hidden" style="text-align:center; padding: 10px 0;"></div>
-                <div id="guest-inline-fields" style="width:100%;">
-                    <input type="text" id="gi-name" placeholder="Vollständiger Name *" autocomplete="name" autocorrect="off" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
-                    <input type="text" id="gi-street" placeholder="Straße und Hausnummer *" autocomplete="address-line1" style="width:100%; padding:10px 12px; margin-bottom:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
-                    <div style="display:flex; gap:8px; margin-bottom:10px;">
-                        <input type="text" id="gi-zip" placeholder="PLZ *" autocomplete="postal-code" style="width:90px; flex-shrink:0; padding:10px 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
-                        <input type="text" id="gi-city" placeholder="Ort *" autocomplete="address-level2" style="flex:1; padding:10px 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
+                <div id="guest-inline-error" class="error-message hidden" style="margin-bottom: 10px"></div>
+                <div id="guest-inline-success" class="hidden" style="text-align: center; padding: 10px 0"></div>
+                <div id="guest-inline-fields" style="width: 100%">
+                    <input
+                        type="text"
+                        id="gi-name"
+                        placeholder="Vollständiger Name *"
+                        autocomplete="name"
+                        autocorrect="off"
+                        style="
+                            width: 100%;
+                            padding: 10px 12px;
+                            margin-bottom: 10px;
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            border-radius: 8px;
+                            color: var(--text-primary);
+                            font-size: 1rem;
+                            box-sizing: border-box;
+                        "
+                    />
+                    <input
+                        type="text"
+                        id="gi-street"
+                        placeholder="Straße und Hausnummer *"
+                        autocomplete="address-line1"
+                        style="
+                            width: 100%;
+                            padding: 10px 12px;
+                            margin-bottom: 10px;
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            border-radius: 8px;
+                            color: var(--text-primary);
+                            font-size: 1rem;
+                            box-sizing: border-box;
+                        "
+                    />
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px">
+                        <input
+                            type="text"
+                            id="gi-zip"
+                            placeholder="PLZ *"
+                            autocomplete="postal-code"
+                            style="
+                                width: 90px;
+                                flex-shrink: 0;
+                                padding: 10px 12px;
+                                background: var(--bg-primary);
+                                border: 1px solid var(--border-color);
+                                border-radius: 8px;
+                                color: var(--text-primary);
+                                font-size: 1rem;
+                                box-sizing: border-box;
+                            "
+                        />
+                        <input
+                            type="text"
+                            id="gi-city"
+                            placeholder="Ort *"
+                            autocomplete="address-level2"
+                            style="
+                                flex: 1;
+                                padding: 10px 12px;
+                                background: var(--bg-primary);
+                                border: 1px solid var(--border-color);
+                                border-radius: 8px;
+                                color: var(--text-primary);
+                                font-size: 1rem;
+                                box-sizing: border-box;
+                            "
+                        />
                     </div>
-                    <input type="email" id="gi-email" placeholder="E-Mail (optional)" autocomplete="email" inputmode="email" style="width:100%; padding:10px 12px; margin-bottom:14px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:1rem; box-sizing:border-box;">
-                    <button type="button" class="btn btn-guest btn-full" id="gi-submit-btn" onclick="submitGuestInline()">Laufzettel erstellen ✓</button>
+                    <input
+                        type="email"
+                        id="gi-email"
+                        placeholder="E-Mail (optional)"
+                        autocomplete="email"
+                        inputmode="email"
+                        style="
+                            width: 100%;
+                            padding: 10px 12px;
+                            margin-bottom: 14px;
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            border-radius: 8px;
+                            color: var(--text-primary);
+                            font-size: 1rem;
+                            box-sizing: border-box;
+                        "
+                    />
+                    <button
+                        type="button"
+                        class="btn btn-guest btn-full"
+                        id="gi-submit-btn"
+                        onclick="submitGuestInline()"
+                    >
+                        Laufzettel erstellen ✓
+                    </button>
                 </div>
-                <button type="button" class="toggle-login-btn" onclick="toggleGuestForm()" style="margin-top:12px; width:100%;">✕ Abbrechen</button>
+                <button
+                    type="button"
+                    class="toggle-login-btn"
+                    onclick="toggleGuestForm()"
+                    style="margin-top: 12px; width: 100%"
+                >
+                    ✕ Abbrechen
+                </button>
             </div>
         </div>
     </div>
 
     <!-- Password login strip -->
     <div class="password-strip">
-        <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">🔐 Mit Passwort anmelden</button>
+        <button id="toggle-login-btn" class="toggle-login-btn" onclick="toggleLoginForm()">
+            🔐 Mit Passwort anmelden
+        </button>
+        <a href="/auth/google" class="toggle-login-btn" id="btn-google-login" style="display: none"
+            >🔑 Mit Google anmelden</a
+        >
         <form id="login-form" action="/api/auth/login" method="POST" class="login-form-inline hidden">
-            <input type="text" name="username" placeholder="Benutzername" required autocomplete="username">
-            <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password">
+            <input type="text" name="username" placeholder="Benutzername" required autocomplete="username" />
+            <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password" />
             {% if error %}
             <div class="error-message">{{ error }}</div>
             {% endif %}
@@ -330,7 +428,13 @@
     <div class="landing-footer">
         <div class="footer-actions">
             <a href="https://h3cke.de/" target="_blank" rel="noopener noreferrer">H3cke gGmbH MakerSpace</a>
-            <a href="https://h3cke.de/pages/jetzt-mitglied-werden" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-weight: 600;">Mitglied werden →</a>
+            <a
+                href="https://h3cke.de/pages/jetzt-mitglied-werden"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="color: var(--accent); font-weight: 600"
+                >Mitglied werden →</a
+            >
             <button id="btn-pair-device" class="btn-pair-device" onclick="openPairingModal()">
                 <span>🔗</span> Gerät verbinden
             </button>
@@ -344,11 +448,9 @@
         <div class="pairing-modal">
             <h3>📱 Gerät verbinden</h3>
             <p>Scane den QR-Code mit der Kamera oder gib den Token manuell ein.</p>
-            <button class="btn-scan-qr" onclick="startQRScanner()">
-                <span>📷</span> QR-Code scannen
-            </button>
+            <button class="btn-scan-qr" onclick="startQRScanner()"><span>📷</span> QR-Code scannen</button>
             <div class="divider">oder</div>
-            <input type="text" id="token-input" class="token-input" placeholder="Token eingeben..." maxlength="32">
+            <input type="text" id="token-input" class="token-input" placeholder="Token eingeben..." maxlength="32" />
             <button class="btn-connect" onclick="submitPairing()">Verbinden</button>
             <button class="btn-cancel" onclick="closePairingModal()">Abbrechen</button>
             <div class="pairing-error" id="pairing-error"></div>
@@ -364,94 +466,115 @@
     </div>
 </div>
 
-{% endblock %}
-
-{% block footer %}{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block footer %}{% endblock %} {% block extra_js %}
 <script src="/static/js/html5-qrcode.min.js"></script>
 <script>
+    // Check if OAuth is enabled and show Google login button
+    async function checkOAuthStatus() {
+        try {
+            const res = await fetch("/auth/oauth/status");
+            const data = await res.json();
+            if (data.enabled && data.google_configured) {
+                document.getElementById("btn-google-login").style.display = "inline-block";
+            }
+        } catch (e) {
+            console.log("OAuth status check failed:", e);
+        }
+    }
+
+    // Check OAuth status on page load
+    document.addEventListener("DOMContentLoaded", checkOAuthStatus);
+
     function toggleGuestForm() {
-        var intro   = document.getElementById('guest-card-intro');
-        var form    = document.getElementById('guest-inline-form');
-        var showForm = intro && !intro.classList.contains('hidden');
-        if (intro) intro.classList.toggle('hidden', showForm);
-        form.classList.toggle('hidden', !showForm);
+        var intro = document.getElementById("guest-card-intro");
+        var form = document.getElementById("guest-inline-form");
+        var showForm = intro && !intro.classList.contains("hidden");
+        if (intro) intro.classList.toggle("hidden", showForm);
+        form.classList.toggle("hidden", !showForm);
         if (showForm) {
             // Reset state every time the form is opened
-            document.getElementById('guest-inline-fields').classList.remove('hidden');
-            document.getElementById('guest-inline-success').classList.add('hidden');
-            document.getElementById('guest-inline-error').classList.add('hidden');
-            document.getElementById('guest-inline-error').textContent = '';
-            document.getElementById('gi-name').value = '';
-            document.getElementById('gi-street').value = '';
-            document.getElementById('gi-zip').value = '';
-            document.getElementById('gi-city').value = '';
-            document.getElementById('gi-email').value = '';
-            document.getElementById('gi-submit-btn').disabled = false;
-            setTimeout(function () { document.getElementById('gi-name').focus(); }, 50);
+            document.getElementById("guest-inline-fields").classList.remove("hidden");
+            document.getElementById("guest-inline-success").classList.add("hidden");
+            document.getElementById("guest-inline-error").classList.add("hidden");
+            document.getElementById("guest-inline-error").textContent = "";
+            document.getElementById("gi-name").value = "";
+            document.getElementById("gi-street").value = "";
+            document.getElementById("gi-zip").value = "";
+            document.getElementById("gi-city").value = "";
+            document.getElementById("gi-email").value = "";
+            document.getElementById("gi-submit-btn").disabled = false;
+            setTimeout(function () {
+                document.getElementById("gi-name").focus();
+            }, 50);
         }
     }
 
     async function submitGuestInline() {
-        var name     = document.getElementById('gi-name').value.trim();
-        var street   = document.getElementById('gi-street').value.trim();
-        var zip      = document.getElementById('gi-zip').value.trim();
-        var city     = document.getElementById('gi-city').value.trim();
-        var address  = [street, (zip + ' ' + city).trim()].filter(Boolean).join('\n');
-        var email    = document.getElementById('gi-email').value.trim();
-        var errorBox = document.getElementById('guest-inline-error');
-        var submitBtn = document.getElementById('gi-submit-btn');
-        var fields   = document.getElementById('guest-inline-fields');
-        var success  = document.getElementById('guest-inline-success');
+        var name = document.getElementById("gi-name").value.trim();
+        var street = document.getElementById("gi-street").value.trim();
+        var zip = document.getElementById("gi-zip").value.trim();
+        var city = document.getElementById("gi-city").value.trim();
+        var address = [street, (zip + " " + city).trim()].filter(Boolean).join("\n");
+        var email = document.getElementById("gi-email").value.trim();
+        var errorBox = document.getElementById("guest-inline-error");
+        var submitBtn = document.getElementById("gi-submit-btn");
+        var fields = document.getElementById("guest-inline-fields");
+        var success = document.getElementById("guest-inline-success");
 
-        errorBox.classList.add('hidden');
+        errorBox.classList.add("hidden");
 
         if (!name) {
-            errorBox.textContent = 'Bitte gib deinen vollständigen Namen ein.';
-            errorBox.classList.remove('hidden');
-            document.getElementById('gi-name').focus();
+            errorBox.textContent = "Bitte gib deinen vollständigen Namen ein.";
+            errorBox.classList.remove("hidden");
+            document.getElementById("gi-name").focus();
             return;
         }
 
         if (!street) {
-            errorBox.textContent = 'Bitte gib deine Straße und Hausnummer ein.';
-            errorBox.classList.remove('hidden');
-            document.getElementById('gi-street').focus();
+            errorBox.textContent = "Bitte gib deine Straße und Hausnummer ein.";
+            errorBox.classList.remove("hidden");
+            document.getElementById("gi-street").focus();
             return;
         }
         if (!zip || !city) {
-            errorBox.textContent = 'Bitte gib PLZ und Ort ein.';
-            errorBox.classList.remove('hidden');
-            document.getElementById(!zip ? 'gi-zip' : 'gi-city').focus();
+            errorBox.textContent = "Bitte gib PLZ und Ort ein.";
+            errorBox.classList.remove("hidden");
+            document.getElementById(!zip ? "gi-zip" : "gi-city").focus();
             return;
         }
 
         submitBtn.disabled = true;
-        var now   = new Date();
-        var date  = now.toISOString().slice(0, 10);
+        var now = new Date();
+        var date = now.toISOString().slice(0, 10);
         var start = now.toISOString();
 
         try {
-            var res = await fetch('/api/guest/laufzettel', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, address: address, email: email || null, date: date, start: start })
+            var res = await fetch("/api/guest/laufzettel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name, address: address, email: email || null, date: date, start: start }),
             });
             if (res.ok) {
                 var lz = await res.json();
-                fields.classList.add('hidden');
-                errorBox.classList.add('hidden');
-                success.innerHTML = '\u2705 Vielen Dank, <strong>' + name.replace(/</g,'&lt;') + '</strong>!<br>Laufzettel Nr. <strong>' + lz.id + '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>';
-                success.classList.remove('hidden');
+                fields.classList.add("hidden");
+                errorBox.classList.add("hidden");
+                success.innerHTML =
+                    "\u2705 Vielen Dank, <strong>" +
+                    name.replace(/</g, "&lt;") +
+                    "</strong>!<br>Laufzettel Nr. <strong>" +
+                    lz.id +
+                    '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>';
+                success.classList.remove("hidden");
             } else {
-                var err = await res.json().catch(function(){ return {}; });
-                errorBox.textContent = err.detail || 'Fehler beim Erstellen.';
-                errorBox.classList.remove('hidden');
+                var err = await res.json().catch(function () {
+                    return {};
+                });
+                errorBox.textContent = err.detail || "Fehler beim Erstellen.";
+                errorBox.classList.remove("hidden");
             }
         } catch (_) {
-            errorBox.textContent = 'Netzwerkfehler. Bitte versuche es erneut.';
-            errorBox.classList.remove('hidden');
+            errorBox.textContent = "Netzwerkfehler. Bitte versuche es erneut.";
+            errorBox.classList.remove("hidden");
         } finally {
             submitBtn.disabled = false;
         }
@@ -462,8 +585,8 @@
     // it allowed any browser to pick up scans from any reader.
     // Polling is kept as a no-op placeholder to avoid breaking other code paths.
 
-    const rfidStatus = document.getElementById('rfid-status');
-    const rfidError = document.getElementById('rfid-error');
+    const rfidStatus = document.getElementById("rfid-status");
+    const rfidError = document.getElementById("rfid-error");
 
     // Polling is DISABLED for RFID login — only SSE with a valid pairing token
     // is allowed. This prevents any browser from picking up scans from any reader.
@@ -473,55 +596,55 @@
     }
 
     async function attemptRFIDLogin(rfidUid) {
-        console.log('[NFC-LOGIN] Attempting login with UID:', rfidUid, 'paired:', !!pairingToken);
+        console.log("[NFC-LOGIN] Attempting login with UID:", rfidUid, "paired:", !!pairingToken);
         rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
-        rfidError.style.display = 'none';
+        rfidError.style.display = "none";
 
         if (!pairingToken && !ipPaired) {
-            console.error('[NFC-LOGIN] No pairing (token or IP) — refusing login attempt');
-            rfidError.textContent = 'Gerät nicht gekoppelt. Bitte zuerst verbinden.';
-            rfidError.style.display = 'block';
+            console.error("[NFC-LOGIN] No pairing (token or IP) — refusing login attempt");
+            rfidError.textContent = "Gerät nicht gekoppelt. Bitte zuerst verbinden.";
+            rfidError.style.display = "block";
             return;
         }
 
         try {
-            const payload = {rfid_uid: rfidUid};
+            const payload = { rfid_uid: rfidUid };
             if (pairingToken) payload.pairing_token = pairingToken;
-            const res = await fetch('/api/auth/login-rfid', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                credentials: 'include',
-                body: JSON.stringify(payload)
+            const res = await fetch("/api/auth/login-rfid", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(payload),
             });
 
-            console.log('[NFC-LOGIN] Response status:', res.status);
+            console.log("[NFC-LOGIN] Response status:", res.status);
             const data = await res.json();
-            console.log('[NFC-LOGIN] Response data:', data);
+            console.log("[NFC-LOGIN] Response data:", data);
 
             if (data.success) {
                 rfidStatus.innerHTML = '<span class="status-text success">✓ Angemeldet!</span>';
-                console.log('[NFC-LOGIN] Login successful, redirecting to:', data.redirect || '/member');
-                
+                console.log("[NFC-LOGIN] Login successful, redirecting to:", data.redirect || "/member");
+
                 // Store the redirect URL in case reload is needed
                 if (data.redirect) {
-                    sessionStorage.setItem('nfc_login_redirect', data.redirect);
+                    sessionStorage.setItem("nfc_login_redirect", data.redirect);
                 }
-                
+
                 // Use a small delay to ensure session is set
                 setTimeout(() => {
                     // Try to redirect
-                    window.location.href = data.redirect || '/member';
-                    
+                    window.location.href = data.redirect || "/member";
+
                     // Fallback: if not redirected after 2s, reload
                     setTimeout(() => {
                         if (!data.redirect.includes(window.location.pathname)) {
-                            console.log('[NFC-LOGIN] Redirect not triggered, reloading page');
+                            console.log("[NFC-LOGIN] Redirect not triggered, reloading page");
                             window.location.reload();
                         }
                     }, 2000);
                 }, 500);
             } else {
-                console.error('[NFC-LOGIN] Login failed:', data.error);
+                console.error("[NFC-LOGIN] Login failed:", data.error);
                 rfidStatus.innerHTML = `
                     <div class="scanning-animation">
                         <span class="pulse"></span>
@@ -530,14 +653,14 @@
                     </div>
                     <span class="status-text">Warte auf Karte...</span>
                 `;
-                rfidError.textContent = data.error || 'Anmeldung fehlgeschlagen';
-                rfidError.style.display = 'block';
+                rfidError.textContent = data.error || "Anmeldung fehlgeschlagen";
+                rfidError.style.display = "block";
                 setTimeout(() => {
-                    rfidError.style.display = 'none';
+                    rfidError.style.display = "none";
                 }, 5000);
             }
         } catch (e) {
-            console.error('[NFC-LOGIN] Network error:', e);
+            console.error("[NFC-LOGIN] Network error:", e);
             rfidStatus.innerHTML = `
                 <div class="scanning-animation">
                     <span class="pulse"></span>
@@ -546,10 +669,10 @@
                 </div>
                 <span class="status-text">Warte auf Karte...</span>
             `;
-            rfidError.textContent = 'Verbindungsfehler. Bitte erneut versuchen.';
-            rfidError.style.display = 'block';
+            rfidError.textContent = "Verbindungsfehler. Bitte erneut versuchen.";
+            rfidError.style.display = "block";
             setTimeout(() => {
-                rfidError.style.display = 'none';
+                rfidError.style.display = "none";
             }, 3000);
         }
     }
@@ -558,10 +681,10 @@
     setInterval(checkForRFIDScans, 2000);
 
     function toggleLoginForm() {
-        const form = document.getElementById('login-form');
-        const btn = document.getElementById('toggle-login-btn');
-        const isHidden = form.classList.toggle('hidden');
-        btn.textContent = isHidden ? '🔐 Mit Passwort anmelden' : '✕ Abbrechen';
+        const form = document.getElementById("login-form");
+        const btn = document.getElementById("toggle-login-btn");
+        const isHidden = form.classList.toggle("hidden");
+        btn.textContent = isHidden ? "🔐 Mit Passwort anmelden" : "✕ Abbrechen";
         if (!isHidden) form.querySelector('input[name="username"]').focus();
     }
 
@@ -569,90 +692,89 @@
 
     let pairingToken = null;
     let pairedDeviceId = null;
-    let ipPaired = false;  // true when paired by IP (device-level, not browser-level)
+    let ipPaired = false; // true when paired by IP (device-level, not browser-level)
     let scanEventSource = null;
 
     // Load stored pairing on page load
     (async function initPairing() {
-        const storedToken = localStorage.getItem('landing_pairing_token');
-        const storedDevice = localStorage.getItem('landing_paired_device');
-        const container = document.getElementById('login-options-top');
+        const storedToken = localStorage.getItem("landing_pairing_token");
+        const storedDevice = localStorage.getItem("landing_paired_device");
+        const container = document.getElementById("login-options-top");
 
         if (storedToken && storedDevice) {
             // Token-based pairing from localStorage (browser-specific)
             pairingToken = storedToken;
             pairedDeviceId = storedDevice;
-            container.classList.add('two-columns');
+            container.classList.add("two-columns");
             activateNFCLogin();
         } else {
             // No localStorage token — try IP-based auto-pairing (device-level)
             try {
-                const res = await fetch('/api/device-pairings/auto');
+                const res = await fetch("/api/device-pairings/auto");
                 const data = await res.json();
                 if (data.paired) {
-                    console.log('[PAIRING] IP-based auto-pairing detected for device:', data.device_id);
+                    console.log("[PAIRING] IP-based auto-pairing detected for device:", data.device_id);
                     ipPaired = true;
                     pairedDeviceId = data.device_id;
                     activateNFCLogin();
                 } else {
-                    console.log('[PAIRING] No IP-based pairing found');
+                    console.log("[PAIRING] No IP-based pairing found");
                 }
             } catch (e) {
-                console.error('[PAIRING] IP auto-detect failed:', e);
+                console.error("[PAIRING] IP auto-detect failed:", e);
             }
         }
     })();
 
     function openPairingModal() {
-        document.getElementById('pairing-modal').classList.add('active');
-        document.getElementById('token-input').focus();
-        document.getElementById('pairing-error').style.display = 'none';
+        document.getElementById("pairing-modal").classList.add("active");
+        document.getElementById("token-input").focus();
+        document.getElementById("pairing-error").style.display = "none";
     }
 
     function closePairingModal() {
-        document.getElementById('pairing-modal').classList.remove('active');
-        document.getElementById('token-input').value = '';
-        document.getElementById('pairing-error').style.display = 'none';
+        document.getElementById("pairing-modal").classList.remove("active");
+        document.getElementById("token-input").value = "";
+        document.getElementById("pairing-error").style.display = "none";
     }
 
     async function submitPairing() {
-        const token = document.getElementById('token-input').value.trim();
-        const errorBox = document.getElementById('pairing-error');
+        const token = document.getElementById("token-input").value.trim();
+        const errorBox = document.getElementById("pairing-error");
 
         if (!token) {
-            errorBox.textContent = 'Bitte einen Token eingeben';
-            errorBox.style.display = 'block';
+            errorBox.textContent = "Bitte einen Token eingeben";
+            errorBox.style.display = "block";
             return;
         }
 
         try {
-            const res = await fetch('/api/device-pairings/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pairing_token: token })
+            const res = await fetch("/api/device-pairings/validate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pairing_token: token }),
             });
 
             const data = await res.json();
 
             if (!res.ok || !data.valid) {
-                errorBox.textContent = data.detail || 'Ungültiger oder abgelaufener Token';
-                errorBox.style.display = 'block';
+                errorBox.textContent = data.detail || "Ungültiger oder abgelaufener Token";
+                errorBox.style.display = "block";
                 return;
             }
 
             // Store pairing
             pairingToken = token;
             pairedDeviceId = data.device_id;
-            localStorage.setItem('landing_pairing_token', token);
-            localStorage.setItem('landing_paired_device', data.device_id);
+            localStorage.setItem("landing_pairing_token", token);
+            localStorage.setItem("landing_paired_device", data.device_id);
 
             closePairingModal();
             activateNFCLogin();
-
         } catch (e) {
-            console.error('Pairing error:', e);
-            errorBox.textContent = 'Fehler bei der Verbindung. Bitte erneut versuchen.';
-            errorBox.style.display = 'block';
+            console.error("Pairing error:", e);
+            errorBox.textContent = "Fehler bei der Verbindung. Bitte erneut versuchen.";
+            errorBox.style.display = "block";
         }
     }
 
@@ -661,35 +783,36 @@
     let html5QrCode = null;
 
     async function startQRScanner() {
-        const overlay = document.getElementById('qr-scanner-overlay');
-        overlay.classList.add('active');
+        const overlay = document.getElementById("qr-scanner-overlay");
+        overlay.classList.add("active");
 
         // Wait for layout reflow so the container has computed dimensions
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        const hintEl = document.getElementById('scanner-hint');
+        const hintEl = document.getElementById("scanner-hint");
 
         // Check if HTTPS or localhost - required for camera access on iOS Safari
         const isSecureContext = window.isSecureContext;
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
         if (!isSecureContext && !isLocalhost) {
-            const statusEl = document.getElementById('scanner-status');
-            statusEl.innerHTML = '⚠️ Kamera-Zugriff erfordert HTTPS.<br><small>Bitte Token manuell eingeben oder HTTPS aktivieren.</small>';
-            if (hintEl) hintEl.style.display = 'none';
+            const statusEl = document.getElementById("scanner-status");
+            statusEl.innerHTML =
+                "⚠️ Kamera-Zugriff erfordert HTTPS.<br><small>Bitte Token manuell eingeben oder HTTPS aktivieren.</small>";
+            if (hintEl) hintEl.style.display = "none";
             return;
         }
 
         // Zähler zurücksetzen
         scanAttemptCount = 0;
         lastStatusUpdate = 0;
-        const statusEl = document.getElementById('scanner-status');
+        const statusEl = document.getElementById("scanner-status");
         if (statusEl) {
-            statusEl.textContent = '📷 QR-Code vor die Kamera halten...';
+            statusEl.textContent = "📷 QR-Code vor die Kamera halten...";
         }
-        if (hintEl) hintEl.style.display = 'block';
+        if (hintEl) hintEl.style.display = "block";
 
-        html5QrCode = new Html5Qrcode('qr-reader');
+        html5QrCode = new Html5Qrcode("qr-reader");
 
         // Adaptive scan box: 70% of the smaller viewfinder dimension
         function qrboxFunction(viewfinderWidth, viewfinderHeight) {
@@ -702,68 +825,61 @@
             fps: 10,
             qrbox: qrboxFunction,
             experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true
-            }
+                useBarCodeDetectorIfSupported: true,
+            },
         };
 
         try {
             // Try back camera first via facingMode (most reliable cross-platform)
-            await html5QrCode.start(
-                { facingMode: 'environment' },
-                config,
-                onQRCodeSuccess,
-                onQRCodeError
-            );
-            console.log('QR scanner started successfully');
+            await html5QrCode.start({ facingMode: "environment" }, config, onQRCodeSuccess, onQRCodeError);
+            console.log("QR scanner started successfully");
         } catch (err) {
-            console.error('Failed to start QR scanner:', err);
-            const statusEl = document.getElementById('scanner-status');
+            console.error("Failed to start QR scanner:", err);
+            const statusEl = document.getElementById("scanner-status");
 
             // Provide helpful error messages based on error type
-            if (err.name === 'NotAllowedError') {
-                statusEl.innerHTML = '⚠️ Kamera-Zugriff verweigert.<br><small>Bitte Kamera-Berechtigung in den Browser-Einstellungen erteilen.</small>';
-            } else if (err.name === 'NotFoundError') {
-                statusEl.innerHTML = '⚠️ Keine Kamera gefunden.<br><small>Bitte Token manuell eingeben.</small>';
-            } else if (err.name === 'NotReadableError') {
-                statusEl.innerHTML = '⚠️ Kamera wird bereits verwendet.<br><small>Bitte andere App schließen.</small>';
+            if (err.name === "NotAllowedError") {
+                statusEl.innerHTML =
+                    "⚠️ Kamera-Zugriff verweigert.<br><small>Bitte Kamera-Berechtigung in den Browser-Einstellungen erteilen.</small>";
+            } else if (err.name === "NotFoundError") {
+                statusEl.innerHTML = "⚠️ Keine Kamera gefunden.<br><small>Bitte Token manuell eingeben.</small>";
+            } else if (err.name === "NotReadableError") {
+                statusEl.innerHTML = "⚠️ Kamera wird bereits verwendet.<br><small>Bitte andere App schließen.</small>";
             } else {
-                statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
+                statusEl.innerHTML =
+                    "⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>";
             }
-            if (hintEl) hintEl.style.display = 'none';
+            if (hintEl) hintEl.style.display = "none";
 
             // Fallback: try front camera
             try {
-                await html5QrCode.start(
-                    { facingMode: 'user' },
-                    config,
-                    onQRCodeSuccess,
-                    onQRCodeError
-                );
-                if (hintEl) hintEl.style.display = 'block';
-                console.log('Fallback to front camera successful');
+                await html5QrCode.start({ facingMode: "user" }, config, onQRCodeSuccess, onQRCodeError);
+                if (hintEl) hintEl.style.display = "block";
+                console.log("Fallback to front camera successful");
             } catch (err2) {
-                console.error('All QR scanner fallbacks failed:', err2);
-                statusEl.innerHTML = '⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>';
+                console.error("All QR scanner fallbacks failed:", err2);
+                statusEl.innerHTML =
+                    "⚠️ Kamera konnte nicht gestartet werden.<br><small>Bitte Token manuell eingeben.</small>";
                 stopQRScanner();
             }
         }
     }
 
     function onQRCodeSuccess(decodedText, decodedResult) {
-        console.log('QR Code detected:', decodedText);
+        console.log("QR Code detected:", decodedText);
         stopQRScanner();
 
         // Token aus QR Code extrahieren (kann URL oder direkt Token sein)
         let token = decodedText.trim();
 
         // Falls URL, extrahiere Token aus Query Param
-        if (token.includes('?token=')) {
+        if (token.includes("?token=")) {
             const url = new URL(token);
-            token = url.searchParams.get('token') || token;
+            token = url.searchParams.get("token") || token;
         }
 
         // Token in Input Feld setzen und validieren
-        document.getElementById('token-input').value = token;
+        document.getElementById("token-input").value = token;
         submitPairing();
     }
 
@@ -776,25 +892,25 @@
         scanAttemptCount++;
         const now = Date.now();
         if (now - lastStatusUpdate > 2000) {
-            const statusEl = document.getElementById('scanner-status');
+            const statusEl = document.getElementById("scanner-status");
             if (statusEl) {
-                statusEl.textContent = '🔍 Suche nach QR-Code...';
+                statusEl.textContent = "🔍 Suche nach QR-Code...";
             }
             lastStatusUpdate = now;
-            console.log('Scan attempts:', scanAttemptCount);
+            console.log("Scan attempts:", scanAttemptCount);
         }
     }
 
     async function stopQRScanner() {
-        const overlay = document.getElementById('qr-scanner-overlay');
-        overlay.classList.remove('active');
+        const overlay = document.getElementById("qr-scanner-overlay");
+        overlay.classList.remove("active");
 
         if (html5QrCode) {
             try {
                 await html5QrCode.stop();
                 await html5QrCode.clear();
             } catch (e) {
-                console.error('Error stopping QR scanner:', e);
+                console.error("Error stopping QR scanner:", e);
             }
             html5QrCode = null;
         }
@@ -802,21 +918,21 @@
 
     function activateNFCLogin() {
         // Show RFID card and enable two-column layout
-        const container = document.getElementById('login-options-top');
-        const rfidCard = document.getElementById('rfid-card');
-        rfidCard.style.display = '';
-        rfidCard.classList.add('paired');
-        container.classList.add('two-columns');
+        const container = document.getElementById("login-options-top");
+        const rfidCard = document.getElementById("rfid-card");
+        rfidCard.style.display = "";
+        rfidCard.classList.add("paired");
+        container.classList.add("two-columns");
 
-        document.getElementById('rfid-connected-status').style.display = 'block';
-        document.getElementById('connected-device-id').textContent = pairedDeviceId;
+        document.getElementById("rfid-connected-status").style.display = "block";
+        document.getElementById("connected-device-id").textContent = pairedDeviceId;
 
         // Update footer button
-        const btn = document.getElementById('btn-pair-device');
-        btn.innerHTML = '<span>✓</span> Verbunden';
-        btn.classList.add('connected');
-        btn.onclick = function() {
-            if (confirm('Verbindung zu diesem Gerät trennen?')) {
+        const btn = document.getElementById("btn-pair-device");
+        btn.innerHTML = "<span>✓</span> Verbunden";
+        btn.classList.add("connected");
+        btn.onclick = function () {
+            if (confirm("Verbindung zu diesem Gerät trennen?")) {
                 clearPairing();
             }
         };
@@ -829,8 +945,8 @@
         pairingToken = null;
         pairedDeviceId = null;
         ipPaired = false;
-        localStorage.removeItem('landing_pairing_token');
-        localStorage.removeItem('landing_paired_device');
+        localStorage.removeItem("landing_pairing_token");
+        localStorage.removeItem("landing_paired_device");
 
         if (scanEventSource) {
             scanEventSource.close();
@@ -838,15 +954,15 @@
         }
 
         // Hide RFID card, reset layout
-        const container = document.getElementById('login-options-top');
-        document.getElementById('rfid-card').style.display = 'none';
-        document.getElementById('rfid-card').classList.remove('paired');
-        document.getElementById('rfid-connected-status').style.display = 'none';
-        container.classList.remove('two-columns');
+        const container = document.getElementById("login-options-top");
+        document.getElementById("rfid-card").style.display = "none";
+        document.getElementById("rfid-card").classList.remove("paired");
+        document.getElementById("rfid-connected-status").style.display = "none";
+        container.classList.remove("two-columns");
 
-        const btn = document.getElementById('btn-pair-device');
-        btn.innerHTML = '<span>🔗</span> Gerät verbinden';
-        btn.classList.remove('connected');
+        const btn = document.getElementById("btn-pair-device");
+        btn.innerHTML = "<span>🔗</span> Gerät verbinden";
+        btn.classList.remove("connected");
         btn.onclick = openPairingModal;
 
         // Reload to fully reset state
@@ -855,80 +971,80 @@
 
     function startScanStream() {
         if (!pairingToken && !ipPaired) {
-            console.log('[SSE] No pairing (token or IP), skipping SSE connection');
+            console.log("[SSE] No pairing (token or IP), skipping SSE connection");
             return;
         }
 
-        console.log('[SSE] Starting SSE connection, token:', !!pairingToken, 'ipPaired:', ipPaired);
-        
+        console.log("[SSE] Starting SSE connection, token:", !!pairingToken, "ipPaired:", ipPaired);
+
         // Close existing connection
         if (scanEventSource) {
-            console.log('[SSE] Closing existing SSE connection');
+            console.log("[SSE] Closing existing SSE connection");
             scanEventSource.close();
         }
 
         // Use SSE — with token if token-paired, or plain (IP-based) if ip-paired
         const sseUrl = pairingToken
             ? `/api/scans/stream?token=${encodeURIComponent(pairingToken)}`
-            : '/api/scans/stream';
-        console.log('[SSE] Connecting to:', sseUrl, 'ipPaired:', ipPaired);
-        
+            : "/api/scans/stream";
+        console.log("[SSE] Connecting to:", sseUrl, "ipPaired:", ipPaired);
+
         scanEventSource = new EventSource(sseUrl);
 
-        scanEventSource.addEventListener('config', (e) => {
+        scanEventSource.addEventListener("config", (e) => {
             try {
                 const data = JSON.parse(e.data);
-                console.log('[SSE] Config received:', data);
+                console.log("[SSE] Config received:", data);
                 pairedDeviceId = data.enrollment_reader_id;
-                document.getElementById('connected-device-id').textContent = pairedDeviceId;
+                document.getElementById("connected-device-id").textContent = pairedDeviceId;
             } catch (err) {
-                console.error('[SSE] Config parse error:', err);
+                console.error("[SSE] Config parse error:", err);
             }
         });
 
         function handleScanEvent(e) {
             try {
                 const data = JSON.parse(e.data);
-                console.log('[SSE] Scan event received:', data);
+                console.log("[SSE] Scan event received:", data);
                 if (data.uid) {
-                    console.log('[SSE] Calling attemptRFIDLogin with UID:', data.uid);
+                    console.log("[SSE] Calling attemptRFIDLogin with UID:", data.uid);
                     attemptRFIDLogin(data.uid);
                 }
             } catch (err) {
-                console.error('[SSE] Parse error:', err);
+                console.error("[SSE] Parse error:", err);
             }
         }
 
         // Named event (works in Safari, Chrome, etc.)
-        scanEventSource.addEventListener('scan', handleScanEvent);
+        scanEventSource.addEventListener("scan", handleScanEvent);
 
         // Fallback: generic message event (required for iOS PWA / WKWebView
         // which often fails to dispatch named SSE custom events)
-        scanEventSource.addEventListener('message', handleScanEvent);
+        scanEventSource.addEventListener("message", handleScanEvent);
 
-        scanEventSource.addEventListener('error', (e) => {
-            console.error('[SSE] Connection error:', e);
+        scanEventSource.addEventListener("error", (e) => {
+            console.error("[SSE] Connection error:", e);
             // Token might be invalid - clear and reload
-            if (e.data && (e.data.includes('Invalid') || e.data.includes('expired'))) {
-                console.log('[SSE] Token invalid or expired, clearing pairing');
-                alert('Pairing-Token ungültig oder abgelaufen. Bitte erneut verbinden.');
+            if (e.data && (e.data.includes("Invalid") || e.data.includes("expired"))) {
+                console.log("[SSE] Token invalid or expired, clearing pairing");
+                alert("Pairing-Token ungültig oder abgelaufen. Bitte erneut verbinden.");
                 clearPairing();
             }
         });
 
-        scanEventSource.addEventListener('open', () => {
-            console.log('[SSE] Connection established for device:', pairedDeviceId);
+        scanEventSource.addEventListener("open", () => {
+            console.log("[SSE] Connection established for device:", pairedDeviceId);
         });
     }
 
     // Enter key in token input
-    document.getElementById('token-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') submitPairing();
+    document.getElementById("token-input").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") submitPairing();
     });
 
     // Close modal on overlay click
-    document.getElementById('pairing-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'pairing-modal') closePairingModal();
+    document.getElementById("pairing-modal").addEventListener("click", (e) => {
+        if (e.target.id === "pairing-modal") closePairingModal();
     });
 </script>
 {% endblock %}

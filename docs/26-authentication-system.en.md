@@ -18,6 +18,7 @@ This document provides a comprehensive technical deep-dive into the MakerPi Grou
 10. [Code Deep Dive](#code-deep-dive)
 11. [Security Best Practices](#security-best-practices)
 12. [Extending the System](#extending-the-system)
+13. [OAuth Integration](#oauth-integration)
 
 ---
 
@@ -486,6 +487,68 @@ if mitglied:
 ```
 
 **Important:** RFID login **cannot** use auto-verification. Must manually verify with password for admin access.
+
+### OAuth Login Flow
+
+**Endpoint:** `GET /auth/google` → `GET /auth/google/callback`
+
+**Purpose:** Allow users to log in using their Google account
+
+**Process:**
+```python
+# 1. Redirect to Google OAuth
+GET /auth/google
+→ Redirects to https://accounts.google.com/o/oauth2/v2/auth
+
+# 2. User approves access
+→ Google redirects to /auth/google/callback with authorization code
+
+# 3. Exchange code for token
+GET /auth/google/callback?code=...
+→ Exchanges code for access token
+→ Parses ID token to get user info (email, name)
+
+# 4. Get or create user in auth.db
+user = auth_db.query(User).filter(User.username == email).first()
+
+if user:
+    # Existing user - use their role
+    is_admin = user.role == "admin"
+else:
+    # Create new user
+    user = User(
+        username=email,
+        hashed_password="",  # No password for OAuth users
+        role="member",
+        mitglied_id=None,
+    )
+    auth_db.add(user)
+    auth_db.commit()
+    is_admin = False
+
+# 5. Create session
+request.session["user"] = email
+request.session["mitglied_id"] = user.mitglied_id
+request.session["is_admin_capable"] = is_admin
+request.session["login_method"] = "oauth"
+request.session["admin_verified"] = is_admin  # Auto-verify for OAuth admins
+request.session["admin_verified_at"] = datetime.now(timezone.utc).isoformat() if is_admin else None
+request.session["last_activity"] = datetime.now(timezone.utc).isoformat()
+```
+
+**Important:** OAuth users with `role='admin'` are auto-verified (no password re-entry required). This is a security tradeoff for better UX. To disable, modify `backend/auth/oauth.py`.
+
+**Configuration:**
+```json
+{
+    "oauth_enabled": true,
+    "oauth_google_client_id": "your-client-id.apps.googleusercontent.com",
+    "oauth_google_client_secret": "your-client-secret",
+    "oauth_google_redirect_uri": "https://your-pi-ip:8443/auth/google/callback"
+}
+```
+
+**Setup:** See [OAuth Setup Guide](/docs/28-oauth-setup.en.md) for detailed instructions.
 
 ---
 
@@ -1274,6 +1337,131 @@ def record_failed_attempt(username: str, ip: str):
     key = f"{username}:{ip}"
     failed_attempts[key].append(time.time())
 ```
+
+---
+
+## OAuth Integration
+
+### Overview
+
+The system supports Google OAuth 2.0 as an alternative to password-based authentication. OAuth allows users to log in using their Google account without sharing passwords with the application.
+
+### OAuth Architecture
+
+```
+┌─────────────┐
+│  User       │  "Login with Google"
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Web UI     │  Redirect to /auth/google
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Google     │  User approves access
+│  OAuth      │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Web UI     │  Callback with code
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Backend    │  Exchange code for token
+│  OAuth      │  Get user info
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  auth.db    │  Get or create user
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Session    │  Create session
+└─────────────┘
+```
+
+### OAuth User Mapping
+
+OAuth users are mapped to the existing `auth.db` User model:
+
+| Field | OAuth Value | Notes |
+|---|---|---|
+| `username` | Google email | Used as unique identifier |
+| `hashed_password` | Empty | OAuth users don't have passwords |
+| `role` | `member` (default) | Can be manually set to `admin` |
+| `mitglied_id` | `None` (default) | Can be linked to member record |
+
+### OAuth vs Password Login
+
+| Feature | Password Login | OAuth Login |
+|---|---|---|
+| User creation | Manual | Automatic |
+| Password storage | Hashed in DB | None (tokens only) |
+| Session creation | Same | Same |
+| Admin verification | Password required | Auto-verified (configurable) |
+| Security | Password-based | Token-based |
+| UX | Password entry | One-click |
+
+### OAuth Security Considerations
+
+1. **HTTPS Required:** OAuth 2.0 requires HTTPS for all communications
+2. **State Parameter:** Validates OAuth callbacks to prevent CSRF attacks
+3. **Token Storage:** Tokens are not stored permanently, only session data
+4. **Scope Limitation:** Only requests minimal scopes (openid, email, profile)
+5. **Auto-Verify Tradeoff:** OAuth admins are auto-verified for UX (can be disabled)
+
+### Adding Additional OAuth Providers
+
+To add additional OAuth providers (e.g., GitHub, Facebook):
+
+1. Add provider configuration to `backend/config.py`
+2. Register provider in `backend/auth/oauth.py`
+3. Add provider-specific routes
+4. Update landing page with provider buttons
+5. Configure redirect URIs in provider's developer console
+
+Example for GitHub:
+```python
+# backend/config.py
+OAUTH_GITHUB_CLIENT_ID: str = _cfg.get("oauth_github_client_id", "")
+OAUTH_GITHUB_CLIENT_SECRET: str = _cfg.get("oauth_github_client_secret", "")
+
+# backend/auth/oauth.py
+oauth.register(
+    "github",
+    client_id=OAUTH_GITHUB_CLIENT_ID,
+    client_secret=OAUTH_GITHUB_CLIENT_SECRET,
+    authorize_url="https://github.com/login/oauth/authorize",
+    authorize_params={"scope": "user:email"},
+    access_token_url="https://github.com/login/oauth/access_token",
+)
+```
+
+### OAuth Configuration
+
+Enable OAuth in `config/config.json`:
+```json
+{
+    "oauth_enabled": true,
+    "oauth_google_client_id": "your-client-id.apps.googleusercontent.com",
+    "oauth_google_client_secret": "your-client-secret",
+    "oauth_google_redirect_uri": "https://your-pi-ip:8443/auth/google/callback"
+}
+```
+
+### OAuth Setup
+
+See [OAuth Setup Guide](/docs/28-oauth-setup.en.md) for detailed setup instructions including:
+- Google Cloud Console configuration
+- Redirect URI setup
+- Testing and troubleshooting
+- Security best practices
 
 ---
 

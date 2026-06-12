@@ -61,6 +61,9 @@ Copy `config.json.example` to `config/config.json` (gitignored). The app reads t
 | `admin_username` / `admin_password` | Seeded on first startup if no users exist |
 | `sumup_*` | Payment credentials (see Payment section) |
 | `easyverein_api_key` / `easyverein_org_id` | Member sync from easyVerein |
+| `oauth_enabled` | Enable Google OAuth login (default: `false`) |
+| `oauth_google_client_id` / `oauth_google_client_secret` | Google OAuth 2.0 credentials |
+| `oauth_google_redirect_uri` | OAuth callback URL (must match Google Cloud Console) |
 
 ## Architecture
 
@@ -102,7 +105,13 @@ Two-level auth using Starlette `SessionMiddleware`:
 - **Level 1 (any user):** `request.session["user"]` set → `check_auth()` passes. Members land on `/member`, admins on `/dashboard`.
 - **Level 2 (admin actions):** `is_admin_verified()` checks `session["admin_verified"]` with a 10-minute inactivity timeout. Admin re-enters password via `POST /api/auth/verify-admin` to escalate.
 
-Login accepts either admin users (from `auth.db`) or members with `login_username`/`login_password_hash` set in `members.db`. RFID tap login is handled separately via `POST /api/auth/login-rfid`.
+Login accepts:
+- Admin users (from `auth.db`) via password
+- Members with `login_username`/`login_password_hash` set in `members.db` via password
+- OAuth users (Google) via `/auth/google` → `/auth/google/callback`
+- RFID tap login via `POST /api/auth/login-rfid`
+
+OAuth users are created automatically in `auth.db` with their Google email as username. OAuth users with `role='admin'` are auto-verified (no password re-entry required). Password login remains functional alongside OAuth.
 
 ### MQTT Data Flow
 
