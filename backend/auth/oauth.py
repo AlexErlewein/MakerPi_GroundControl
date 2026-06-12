@@ -25,7 +25,7 @@ def get_oauth():
     global _oauth_instance
     if _oauth_instance is None:
         try:
-            from authlib.integrations.fastapi_oauthclient import OAuth
+            from authlib.integrations.starlette_client import OAuth
 
             _oauth_instance = OAuth()
             _oauth_instance.register(
@@ -35,10 +35,10 @@ def get_oauth():
                 server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
                 client_kwargs={"scope": "openid email profile"},
             )
-        except ImportError:
+        except ImportError as e:
             raise HTTPException(
                 status_code=503,
-                detail="OAuth dependencies not installed. Run: uv sync",
+                detail=f"OAuth dependencies not installed. Run: uv sync. Error: {str(e)}",
             )
     return _oauth_instance
 
@@ -64,7 +64,11 @@ async def auth_google_callback(request: Request):
     try:
         # Exchange authorization code for access token
         token = await oauth.google.authorize_access_token(request)
-        user_info = await oauth.google.parse_id_token(request, token)
+        user_info = token.get("userinfo")
+
+        # If userinfo not in token, parse ID token
+        if not user_info:
+            user_info = await oauth.google.parse_id_token(request, token)
 
         # Extract user information
         email = user_info.get("email")
