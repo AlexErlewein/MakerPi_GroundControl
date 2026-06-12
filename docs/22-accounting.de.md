@@ -102,10 +102,10 @@ Der Parameter `reference_date` (ISO-8601-String) verschiebt das Betrachtungsfens
 | Methode | Endpunkt | Beschreibung |
 |---|---|---|
 | `GET` | `/buchhaltung` | HTML-Seite (Login erforderlich) |
-| `GET` | `/api/buchhaltung/summary` | Aggregierte Auswertung für einen Zeitraum |
-| `GET` | `/api/buchhaltung/spenden-total` | Leichter Spenden-Endpunkt (öffentlich) |
-| `POST` | `/api/buchhaltung/spende` | Manuelle Spende erfassen |
-| `DELETE` | `/api/buchhaltung/spende/{id}` | Manuelle Spende löschen |
+| `GET` | `/api/buchhaltung/summary` | Aggregierte Auswertung für einen Zeitraum (Login erforderlich) |
+| `GET` | `/api/buchhaltung/spenden-total` | Leichter Spenden-Endpunkt (Login erforderlich) |
+| `POST` | `/api/buchhaltung/spende` | Manuelle Spende erfassen (Login erforderlich) |
+| `DELETE` | `/api/buchhaltung/spende/{id}` | Manuelle Spende löschen (Login erforderlich) |
 
 ### `GET /api/buchhaltung/summary`
 
@@ -185,7 +185,7 @@ curl "http://localhost:8000/api/buchhaltung/spenden-total?period=week"
 curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month&reference_date=2024-05-15"
 ```
 
-> **Hinweis:** Dieser Endpunkt ist öffentlich zugänglich und erfordert keine Authentifizierung.
+> **Hinweis:** Dieser Endpunkt erfordert Authentifizierung.
 
 ### `POST /api/buchhaltung/spende`
 

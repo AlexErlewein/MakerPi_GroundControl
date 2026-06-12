@@ -160,11 +160,15 @@ async def shopify_page(request: Request):
 
 
 @router.get("/api/shopify/gift-cards")
-async def list_gift_cards(status: str = "enabled", limit: int = 250):
+async def list_gift_cards(
+    status: str = "enabled", limit: int = 250, request: Request = None
+):
     """
     Fetch gift cards from Shopify.
     status: enabled | disabled | all
     """
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     token = await _get_access_token()
     headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
 
@@ -226,8 +230,10 @@ async def list_gift_cards(status: str = "enabled", limit: int = 250):
 
 
 @router.get("/api/shopify/physical-product")
-async def get_physical_product():
+async def get_physical_product(request: Request = None):
     """Fetch the physical gift card product with variant stock levels via GraphQL."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if not SHOPIFY_PHYSICAL_PRODUCT_ID:
         return {"configured": False, "product": None}
 
@@ -302,8 +308,10 @@ async def get_physical_product():
 
 
 @router.get("/api/shopify/physical-product/orders")
-async def list_physical_product_orders(limit: int = 50):
+async def list_physical_product_orders(limit: int = 50, request: Request = None):
     """Fetch orders containing the physical gift card product (summary for table)."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if not SHOPIFY_PHYSICAL_PRODUCT_ID:
         return {"configured": False, "orders": [], "has_next": False}
 
@@ -405,8 +413,10 @@ async def list_physical_product_orders(limit: int = 50):
 
 
 @router.get("/api/shopify/physical-product/orders/{order_id}")
-async def get_physical_product_order_detail(order_id: str):
+async def get_physical_product_order_detail(order_id: str, request: Request = None):
     """Fetch full order detail including events/chronik for a physical gift card order."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     gid = f"gid://shopify/Order/{order_id}"
 
     query = """
@@ -533,8 +543,12 @@ async def get_physical_product_order_detail(order_id: str):
 
 
 @router.put("/api/shopify/physical-product/orders/{order_id}/note")
-async def update_physical_product_order_note(order_id: str, body: NoteUpdate):
+async def update_physical_product_order_note(
+    order_id: str, body: NoteUpdate, request: Request = None
+):
     """Update the note on a Shopify order (requires write_orders scope)."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     gid = f"gid://shopify/Order/{order_id}"
 
     mutation = """
@@ -573,13 +587,15 @@ async def update_physical_product_order_note(order_id: str, body: NoteUpdate):
 
 
 @router.post("/api/shopify/physical-product/orders/{order_id}/issue-gift-card")
-async def issue_gift_card_for_order(order_id: str):
+async def issue_gift_card_for_order(order_id: str, request: Request = None):
     """Create a native Shopify gift card for a physical gift card order.
 
     Calculates value = (line item unit price − SHOPIFY_GC_CREATION_FEE) × quantity,
     creates the gift card via the REST API, and appends the reference to the order note.
     The full code is returned once and must be handed to the customer immediately.
     """
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if not _is_configured():
         raise HTTPException(status_code=503, detail="Shopify not configured")
 
@@ -657,8 +673,10 @@ async def issue_gift_card_for_order(order_id: str):
 
 
 @router.get("/api/shopify/gift-cards/lookup")
-async def lookup_gift_cards(last_chars: str):
+async def lookup_gift_cards(last_chars: str, request: Request = None):
     """Find enabled gift cards by the last 4 characters of their code."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if not _is_configured():
         raise HTTPException(status_code=503, detail="Shopify not configured")
     if not last_chars or len(last_chars) > 8:
@@ -733,9 +751,11 @@ async def lookup_gift_cards(last_chars: str):
 
 
 @router.get("/api/shopify/gift-cards/summary")
-async def gift_card_summary():
+async def gift_card_summary(request: Request = None):
     """Aggregate summary: total issued, total balance outstanding, total redeemed"""
-    all_cards_resp = await list_gift_cards(status="all", limit=250)
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    all_cards_resp = await list_gift_cards(status="all", limit=250, request=request)
     cards = all_cards_resp["gift_cards"]
 
     total_issued = sum(c["initial_value"] for c in cards)
@@ -789,8 +809,10 @@ fragment GiftCardDetail on GiftCard {
 
 
 @router.get("/api/shopify/gift-cards/{gift_card_id}")
-async def get_gift_card_detail(gift_card_id: int):
+async def get_gift_card_detail(gift_card_id: int, request: Request = None):
     """Fetch full gift card detail including customer and transactions via GraphQL."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     query = f"""
     {{ giftCard(id: "gid://shopify/GiftCard/{gift_card_id}") {{
       ...GiftCardDetail
@@ -853,8 +875,10 @@ async def get_gift_card_detail(gift_card_id: int):
 
 
 @router.get("/api/shopify/gift-cards/{gift_card_id}/transactions")
-async def get_gift_card_transactions(gift_card_id: int):
+async def get_gift_card_transactions(gift_card_id: int, request: Request = None):
     """Fetch transaction history for a specific gift card via GraphQL."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     query = """
     query($id: ID!) {
       giftCard(id: $id) {
@@ -905,8 +929,12 @@ async def get_gift_card_transactions(gift_card_id: int):
 
 
 @router.put("/api/shopify/gift-cards/{gift_card_id}/note")
-async def update_gift_card_note(gift_card_id: int, body: NoteUpdate):
+async def update_gift_card_note(
+    gift_card_id: int, body: NoteUpdate, request: Request = None
+):
     """Update the merchant note on a gift card via REST API."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     token = await _get_access_token()
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.put(
@@ -940,8 +968,12 @@ class BalanceAdjust(BaseModel):
 
 
 @router.post("/api/shopify/gift-cards/{gift_card_id}/adjust")
-async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
+async def adjust_gift_card_balance(
+    gift_card_id: int, body: BalanceAdjust, request: Request = None
+):
     """Adjust a gift card balance (positive = credit, negative = debit) via GraphQL."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     gid = f"gid://shopify/GiftCard/{gift_card_id}"
     note_val = body.note if body.note.strip() else None
 
@@ -996,8 +1028,10 @@ async def adjust_gift_card_balance(gift_card_id: int, body: BalanceAdjust):
 
 
 @router.post("/api/shopify/gift-cards/{gift_card_id}/toggle")
-async def toggle_gift_card_status(gift_card_id: int):
+async def toggle_gift_card_status(gift_card_id: int, request: Request = None):
     """Toggle a gift card between enabled and disabled via GraphQL."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     gid = f"gid://shopify/GiftCard/{gift_card_id}"
 
     # Determine current state by checking disabledAt via GraphQL

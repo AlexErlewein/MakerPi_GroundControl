@@ -37,10 +37,13 @@ async def buchhaltung_page(request: Request):
 
 @router.get("/api/buchhaltung/summary")
 async def get_summary(
+    request: Request,
     period: str = Query("month", pattern="^(week|month|year)$"),
     reference_date: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     now = datetime.now(timezone.utc)
     if reference_date:
         try:
@@ -160,11 +163,14 @@ async def get_summary(
 
 @router.get("/api/buchhaltung/spenden-total")
 async def get_spenden_total(
+    request: Request,
     period: str = Query("month", pattern="^(week|month|year)$"),
     reference_date: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Get total donations for a period (public endpoint)."""
+    """Get total donations for a period (requires authentication)."""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     now = datetime.now(timezone.utc)
     if reference_date:
         try:

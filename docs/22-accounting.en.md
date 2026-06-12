@@ -102,10 +102,10 @@ The `reference_date` parameter (ISO 8601 string) shifts the window into the past
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/buchhaltung` | HTML page (login required) |
-| `GET` | `/api/buchhaltung/summary` | Aggregated report for a time window |
-| `GET` | `/api/buchhaltung/spenden-total` | Lightweight donations-only endpoint (public) |
-| `POST` | `/api/buchhaltung/spende` | Record a manual donation |
-| `DELETE` | `/api/buchhaltung/spende/{id}` | Delete a manual donation |
+| `GET` | `/api/buchhaltung/summary` | Aggregated report for a time window (login required) |
+| `GET` | `/api/buchhaltung/spenden-total` | Lightweight donations-only endpoint (login required) |
+| `POST` | `/api/buchhaltung/spende` | Record a manual donation (login required) |
+| `DELETE` | `/api/buchhaltung/spende/{id}` | Delete a manual donation (login required) |
 
 ### `GET /api/buchhaltung/summary`
 
@@ -185,7 +185,7 @@ curl "http://localhost:8000/api/buchhaltung/spenden-total?period=week"
 curl "http://localhost:8000/api/buchhaltung/spenden-total?period=month&reference_date=2024-05-15"
 ```
 
-> **Note:** This endpoint is publicly accessible and does not require authentication.
+> **Note:** This endpoint requires authentication.
 
 ### `POST /api/buchhaltung/spende`
 
