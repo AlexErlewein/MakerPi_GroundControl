@@ -430,6 +430,10 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
 
                 # Device permission check: member must have permission for this device
                 # Skip check if device.requires_permission == False (e.g., Kaffeemaschine)
+                # We separate member validation (known member) from device permission (access to specific device)
+                device_validated = (
+                    validated  # Whether member has permission for this specific device
+                )
                 if validated and mitglied_db_id:
                     # Check if device requires permission
                     device_requires_permission = True  # default for safety
@@ -453,7 +457,9 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             )
 
                             if not has_permission:
-                                validated = 0
+                                device_validated = (
+                                    0  # Only device access denied, member still known
+                                )
                                 logger.warning(
                                     "[SCAN] uid=%r denied: member %s has no permission for device %s",
                                     uid,
@@ -560,7 +566,9 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 "member_id": str(mitglied_db_id)
                                 if mitglied_db_id
                                 else None,
-                                "validated": bool(validated),
+                                "validated": bool(
+                                    device_validated
+                                ),  # Use device_validated for access control
                                 "source": "REMOTE",
                             }
                         )
@@ -572,13 +580,15 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             "[SCAN] Published user_info to lilygo/user_info and %s/user_info: uid=%r validated=%s",
                             device_id,
                             uid,
-                            validated,
+                            device_validated,
                         )
                     except Exception as e:
                         logger.error(f"[SCAN] Failed to publish user_info: {e}")
 
-                # Auto-create Laufzettel for validated scans
-                if validated:
+                # Auto-create Laufzettel for known members (independent of device permission)
+                # Create Laufzettel if we identified the member, even if device permission was denied
+                # Device permission only controls whether the device is added to nodes, not Laufzettel creation
+                if mitglied_db_id or member_id_str:
                     from datetime import (
                         date as dt_date,
                     )
@@ -727,6 +737,8 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         elif open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
+                            # Only add device to nodes if member has permission for this device
+                            nodes_list = [device_id] if device_validated else []
                             new_lz = Laufzettel(
                                 uid=uid,
                                 date=today,
@@ -734,7 +746,7 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 owner_name=owner_name,
                                 member_id=member_id_str,
                                 mitglied_id=mitglied_db_id,
-                                nodes=json.dumps([device_id]),
+                                nodes=json.dumps(nodes_list),
                             )
                             lauf_db.add(new_lz)
                             lauf_db.commit()
@@ -768,9 +780,11 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 )
                         elif open_lz is not None:
                             # Update existing open Laufzettel (regular scanner, not Kaffeemaschine)
-                            nodes = json.loads(open_lz.nodes or "[]")
-                            if device_id not in nodes:
-                                nodes.append(device_id)
+                            # Only add device to nodes if member has permission for this device
+                            if device_validated:
+                                nodes = json.loads(open_lz.nodes or "[]")
+                                if device_id not in nodes:
+                                    nodes.append(device_id)
                                 open_lz.nodes = json.dumps(nodes)
                             if not open_lz.mitglied_id and mitglied_db_id:
                                 open_lz.mitglied_id = mitglied_db_id
