@@ -30,6 +30,11 @@ scan_subscribers: list = []
 _kaffeemaschine_last_scan: dict = {}
 KAFFEEMASCHINE_DEBOUNCE_S = 15  # seconds between Kaffee increments for same card
 
+# Kuehlschrank debounce: last scan timestamp per UID (to prevent accidental double-counting)
+# Format: {uid: datetime}
+_kuehlschrank_last_scan: dict = {}
+KUEHLSCHRANK_DEBOUNCE_S = 15  # seconds between Limo increments for same card
+
 # Scan deduplication: drop duplicate on_message calls for the same uid+device within 2s.
 # The paho-mqtt client can deliver messages twice when the connection is unstable.
 _scan_dedup: dict = {}  # {(device_id, uid): datetime}
@@ -651,6 +656,11 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             device.name and device.name.lower() == "kaffeemaschine"
                         )
 
+                        # Check if this is the Kuehlschrank device
+                        is_kuehlschrank = (
+                            device.name and device.name.lower() == "kuehlschrank"
+                        )
+
                         # Use locking to prevent race conditions when creating Laufzettel
 
                         # Lock any existing open Laufzettel for this UID today to prevent concurrent creation
@@ -734,6 +744,69 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                     open_lz.nodes = json.dumps(nodes)
                                 # Single commit for all Kaffeemaschine changes
                                 lauf_db.commit()
+                        elif is_kuehlschrank and open_lz:
+                            # Kuehlschrank flow: add/increment Limo entry
+                            # Debounce: check if enough time passed since last scan
+                            global _kuehlschrank_last_scan
+                            last_scan = _kuehlschrank_last_scan.get(uid)
+                            now_dt = _utcnow()
+                            if (
+                                last_scan
+                                and (now_dt - last_scan).total_seconds()
+                                < KUEHLSCHRANK_DEBOUNCE_S
+                            ):
+                                logger.info(
+                                    "[KUEHLSCHRANK] Debounced scan for uid=%s (%.1fs < %ds)",
+                                    uid,
+                                    (now_dt - last_scan).total_seconds(),
+                                    KUEHLSCHRANK_DEBOUNCE_S,
+                                )
+                                # Still update nodes but skip Limo increment
+                                nodes = json.loads(open_lz.nodes or "[]")
+                                if device_id not in nodes:
+                                    nodes.append(device_id)
+                                    open_lz.nodes = json.dumps(nodes)
+                                    lauf_db.commit()
+                            else:
+                                # Update last scan timestamp and process Limo
+                                _kuehlschrank_last_scan[uid] = now_dt
+                                existing_limo = (
+                                    lauf_db.query(LaufzettelMaterial)
+                                    .filter(
+                                        LaufzettelMaterial.laufzettel_id == open_lz.id,
+                                        LaufzettelMaterial.name == "Limo",
+                                    )
+                                    .first()
+                                )
+                                if existing_limo:
+                                    # Increment amount by 1
+                                    existing_limo.menge = (existing_limo.menge or 0) + 1
+                                    logger.info(
+                                        "[KUEHLSCHRANK] Incremented Limo count for laufzettel %s: now %s",
+                                        open_lz.id,
+                                        existing_limo.menge,
+                                    )
+                                else:
+                                    # Create new Limo entry under Spenden (tax_rate=0, price=0)
+                                    new_limo = LaufzettelMaterial(
+                                        laufzettel_id=open_lz.id,
+                                        name="Limo",
+                                        menge=1,
+                                        calculated_price=0.0,
+                                        tax_rate=0.0,
+                                    )
+                                    lauf_db.add(new_limo)
+                                    logger.info(
+                                        "[KUEHLSCHRANK] Added Limo entry to laufzettel %s",
+                                        open_lz.id,
+                                    )
+                                # Also update nodes to include kuehlschrank
+                                nodes = json.loads(open_lz.nodes or "[]")
+                                if device_id not in nodes:
+                                    nodes.append(device_id)
+                                    open_lz.nodes = json.dumps(nodes)
+                                # Single commit for all Kuehlschrank changes
+                                lauf_db.commit()
                         elif open_lz is None and not recently_created:
                             # No open Laufzettel – create a new one
                             # (covers first scan of day AND re-scan after all are paid)
@@ -776,6 +849,22 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 lauf_db.commit()
                                 logger.info(
                                     "[KAFFEEMASCHINE] Added first Kaffee entry to new laufzettel %s",
+                                    new_lz.id,
+                                )
+
+                            # If this is the Kuehlschrank, also add the first Limo entry
+                            if is_kuehlschrank:
+                                new_limo = LaufzettelMaterial(
+                                    laufzettel_id=new_lz.id,
+                                    name="Limo",
+                                    menge=1,
+                                    calculated_price=0.0,
+                                    tax_rate=0.0,
+                                )
+                                lauf_db.add(new_limo)
+                                lauf_db.commit()
+                                logger.info(
+                                    "[KUEHLSCHRANK] Added first Limo entry to new laufzettel %s",
                                     new_lz.id,
                                 )
                         elif open_lz is not None:
