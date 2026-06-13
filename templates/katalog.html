@@ -1,17 +1,9 @@
-{% extends "base-admin.html" %}
-
-{% set nav_active = 'buchhaltung' %}
-{% set sub_nav_active = 'katalog' %}
-
-{% block title %}Katalog - MakerPi GroundControl{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/tags.css">
-<link rel="stylesheet" href="/static/css/katalog.css?v=3">
-{% endblock %}
-
-{% block content %}
-<div class="section-header" style="margin-bottom: 12px;">
+{% extends "base-admin.html" %} {% set nav_active = 'buchhaltung' %} {% set sub_nav_active = 'katalog' %} {% block title
+%}Katalog - MakerPi GroundControl{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css" />
+<link rel="stylesheet" href="/static/css/katalog.css?v=3" />
+{% endblock %} {% block content %}
+<div class="section-header" style="margin-bottom: 12px">
     <h2>Material Katalog</h2>
     <div class="actions">
         <button id="edit-mode-btn" class="btn btn-primary">✎ Bearbeiten</button>
@@ -19,9 +11,22 @@
         <button id="add-location-btn" class="btn btn-success hidden">+ Standort</button>
     </div>
 </div>
-<div style="margin-bottom:16px;">
-    <input type="text" id="katalog-search" placeholder="Variante, Kategorie oder Standort suchen…"
-        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;">
+<div style="margin-bottom: 16px">
+    <input
+        type="text"
+        id="katalog-search"
+        placeholder="Variante, Kategorie oder Standort suchen…"
+        style="
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        "
+    />
 </div>
 <div id="katalog-tree" class="katalog-tree">
     <p class="empty">Lade Katalog...</p>
@@ -36,10 +41,10 @@
             <button class="modal-close" id="location-modal-close">✕</button>
         </div>
         <form id="location-form">
-            <input type="hidden" id="edit-location-id">
+            <input type="hidden" id="edit-location-id" />
             <div class="form-group">
                 <label for="field-location-name">Name</label>
-                <input type="text" id="field-location-name" placeholder="z.B. Töpferei" required>
+                <input type="text" id="field-location-name" placeholder="z.B. Töpferei" required />
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="location-cancel">Abbrechen</button>
@@ -58,11 +63,11 @@
             <button class="modal-close" id="kategorie-modal-close">✕</button>
         </div>
         <form id="kategorie-form">
-            <input type="hidden" id="edit-kategorie-id">
-            <input type="hidden" id="edit-kategorie-location-id">
+            <input type="hidden" id="edit-kategorie-id" />
+            <input type="hidden" id="edit-kategorie-location-id" />
             <div class="form-group">
                 <label for="field-kat-name">Name</label>
-                <input type="text" id="field-kat-name" placeholder="z.B. Ton, Holz" required>
+                <input type="text" id="field-kat-name" placeholder="z.B. Ton, Holz" required />
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="kategorie-cancel">Abbrechen</button>
@@ -81,11 +86,11 @@
             <button class="modal-close" id="unterkategorie-modal-close">✕</button>
         </div>
         <form id="unterkategorie-form">
-            <input type="hidden" id="edit-unterkategorie-id">
-            <input type="hidden" id="edit-unterkategorie-kategorie-id">
+            <input type="hidden" id="edit-unterkategorie-id" />
+            <input type="hidden" id="edit-unterkategorie-kategorie-id" />
             <div class="form-group">
                 <label for="field-ukat-name">Name</label>
-                <input type="text" id="field-ukat-name" placeholder="z.B. Standard, Fein, Grob" required>
+                <input type="text" id="field-ukat-name" placeholder="z.B. Standard, Fein, Grob" required />
             </div>
             <div class="form-group">
                 <label for="field-ukat-tax-rate">Steuersatz (MwSt.)</label>
@@ -95,9 +100,11 @@
                     <option value="0">0 % (steuerfrei)</option>
                 </select>
             </div>
-            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="field-ukat-is-spende" style="width:auto;">
-                <label for="field-ukat-is-spende" style="margin:0;">Als Spende zählen (nicht als Materialverkauf)</label>
+            <div class="form-group" style="display: flex; align-items: center; gap: 8px">
+                <input type="checkbox" id="field-ukat-is-spende" style="width: auto" />
+                <label for="field-ukat-is-spende" style="margin: 0"
+                    >Als Spende zählen (nicht als Materialverkauf)</label
+                >
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="unterkategorie-cancel">Abbrechen</button>
@@ -116,15 +123,15 @@
             <button class="modal-close" id="variante-modal-close">✕</button>
         </div>
         <form id="variante-form">
-            <input type="hidden" id="edit-variante-id">
-            <input type="hidden" id="edit-variante-unterkategorie-id">
+            <input type="hidden" id="edit-variante-id" />
+            <input type="hidden" id="edit-variante-unterkategorie-id" />
             <div class="form-group">
                 <label for="field-var-name">Name</label>
-                <input type="text" id="field-var-name" placeholder="z.B. fein, Eiche" required>
+                <input type="text" id="field-var-name" placeholder="z.B. fein, Eiche" required />
             </div>
             <div class="form-group">
                 <label for="field-var-price">Preis <span id="var-price-hint" class="optional"></span></label>
-                <input type="number" id="field-var-price" placeholder="z.B. 0.05" step="any" min="0" required>
+                <input type="number" id="field-var-price" placeholder="z.B. 0.05" step="any" min="0" required />
             </div>
             <div class="form-group">
                 <label for="field-var-pricing">Preismodell</label>
@@ -143,7 +150,7 @@
             </div>
             <div class="form-group">
                 <label for="field-var-unit">Einheit <span class="optional">(Anzeige, z.B. g, cm³, Stück)</span></label>
-                <input type="text" id="field-var-unit" placeholder="z.B. g">
+                <input type="text" id="field-var-unit" placeholder="z.B. g" />
             </div>
             <div class="form-group">
                 <label for="field-var-tax-rate">Steuersatz (MwSt.)</label>
@@ -153,9 +160,9 @@
                     <option value="0">0 % (steuerfrei)</option>
                 </select>
             </div>
-            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="field-var-is-spende" style="width:auto;">
-                <label for="field-var-is-spende" style="margin:0;">Als Spende zählen (nicht als Materialverkauf)</label>
+            <div class="form-group" style="display: flex; align-items: center; gap: 8px">
+                <input type="checkbox" id="field-var-is-spende" style="width: auto" />
+                <label for="field-var-is-spende" style="margin: 0">Als Spende zählen (nicht als Materialverkauf)</label>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="variante-cancel">Abbrechen</button>
@@ -181,18 +188,18 @@
 
         <!-- Eingabe Tab -->
         <div id="bulk-tab-entry" class="bulk-tab-panel">
-            <div class="form-group" style="margin-top:16px;">
+            <div class="form-group" style="margin-top: 16px">
                 <label for="bulk-standort-select">Standort</label>
                 <select id="bulk-standort-select"></select>
             </div>
-            <div class="form-group" id="bulk-new-standort-group" style="display:none;">
+            <div class="form-group" id="bulk-new-standort-group" style="display: none">
                 <label for="bulk-new-standort-name">Name des neuen Standorts</label>
-                <input type="text" id="bulk-new-standort-name" placeholder="z.B. Töpferei">
+                <input type="text" id="bulk-new-standort-name" placeholder="z.B. Töpferei" />
             </div>
 
             <div id="bulk-kat-list"></div>
 
-            <button type="button" class="btn btn-secondary" id="bulk-add-kat-btn" style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary" id="bulk-add-kat-btn" style="margin-top: 10px">
                 + Kategorie hinzufügen
             </button>
 
@@ -205,39 +212,87 @@
         <!-- CSV Tab -->
         <div id="bulk-tab-csv" class="bulk-tab-panel hidden">
             <div class="bulk-csv-info">
-                <p>Erwartet wird eine CSV- oder TSV-Datei (Komma oder Tab als Trennzeichen) mit folgenden Spalten (erste Zeile = Header):</p>
-                <code>standort	kategorie	unterkategorie	steuersatz	variante	preis	varianten_preismodell	varianten_einheit	varianten_steuersatz	varianten_spende	spende</code>
-                <p style="margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
-                    <strong>Pflichtspalten:</strong> standort, kategorie, variante, preis<br>
-                    <strong>Optionale Spalten:</strong><br>
-                    <em>unterkategorie</em>: Wird sie weggelassen, landen alle Varianten in einer "Standard"-Unterkategorie.<br>
-                    <em>steuersatz</em>: Steuersatz für die Unterkategorie (0, 7, 19). Standard: 19%.<br>
-                    <em>spende</em>: <code>1</code>, <code>true</code> oder <code>ja</code> markiert die Unterkategorie als Spende.<br>
-                    <strong>Pro-Variante Spalten (empfohlen):</strong><br>
-                    <em>varianten_preismodell</em>: Preismodell für die Variante (per_unit, per_gram, etc.).<br>
-                    <em>varianten_einheit</em>: Anzeigeeinheit für die Variante (g, cm³, Stück, etc.).<br>
-                    <em>varianten_steuersatz</em>: Steuersatz für die Variante (überschreibt Unterkategorie).<br>
-                    <em>varianten_spende</em>: <code>1</code>, <code>true</code> oder <code>ja</code> markiert die Variante als Spende.<br>
-                    <strong>Hinweis:</strong> Preismodelle und Einheiten gehören zu den Varianten, nicht zu den Unterkategorien!<br>
-                    <strong>Preismodell-Werte:</strong><br>
-                    &nbsp;&nbsp;<em>per_unit</em> — pro Einheit (Menge × Preis)<br>
-                    &nbsp;&nbsp;<em>per_gram</em> — pro Gramm<br>
-                    &nbsp;&nbsp;<em>per_kilogram</em> — pro Kilogramm<br>
-                    &nbsp;&nbsp;<em>per_volume_cm3</em> — pro cm³ (L × B × H)<br>
-                    &nbsp;&nbsp;<em>per_volume_l</em> — pro Liter (L × B × H / 1.000)<br>
-                    &nbsp;&nbsp;<em>per_volume_m3 / per_cubic_meter</em> — pro m³ (L × B × H / 1.000.000)<br>
-                    &nbsp;&nbsp;<em>per_cubic_deci_meter</em> — pro dm³ (L × B × H / 1.000)<br>
-                    &nbsp;&nbsp;<em>per_area_m2</em> — pro m² (L × B / 10.000)<br>
-                    &nbsp;&nbsp;<em>per_area_dm2</em> — pro dm² (L × B / 100)<br>
-                    &nbsp;&nbsp;<em>per_minute</em> — pro Minute<br>
-                    <strong>Steuersatz:</strong> <em>0, 7, 19</em><br>
-                    <strong>Einheit:</strong> leer lassen wenn nicht zutreffend.<br>
-                    <strong>Preis:</strong> Dezimalpunkt oder Komma, z.B. <em>0.05</em> oder <em>0,05</em>
-                </p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+                    <p style="margin: 0">CSV- oder TSV-Datei (Komma oder Tab als Trennzeichen) importieren</p>
+                    <button type="button" class="btn btn-sm btn-secondary" id="download-csv-example">
+                        📥 Beispiel herunterladen
+                    </button>
+                </div>
+
+                <details style="margin-bottom: 12px">
+                    <summary style="cursor: pointer; color: var(--accent); font-weight: 500">
+                        CSV-Format anzeigen
+                    </summary>
+                    <div
+                        style="
+                            margin-top: 8px;
+                            padding: 12px;
+                            background: var(--bg-secondary);
+                            border-radius: 6px;
+                            font-size: 0.85rem;
+                        "
+                    >
+                        <p style="margin: 0 0 8px 0"><strong>Header (erste Zeile):</strong></p>
+                        <code
+                            style="
+                                display: block;
+                                padding: 8px;
+                                background: var(--bg-primary);
+                                border-radius: 4px;
+                                overflow-x: auto;
+                            "
+                            >standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis</code
+                        >
+
+                        <p style="margin: 12px 0 8px 0"><strong>Optionale erweiterte Spalten:</strong></p>
+                        <code
+                            style="
+                                display: block;
+                                padding: 8px;
+                                background: var(--bg-primary);
+                                border-radius: 4px;
+                                overflow-x: auto;
+                            "
+                            >...varianten_preismodell,varianten_einheit,varianten_steuersatz,varianten_spende</code
+                        >
+
+                        <div style="margin-top: 12px">
+                            <p style="margin: 0 0 4px 0">
+                                <strong>Pflichtspalten:</strong> standort, kategorie, variante, preis
+                            </p>
+                            <p style="margin: 0 0 4px 0"><strong>Optionale Spalten:</strong></p>
+                            <ul style="margin: 4px 0; padding-left: 20px">
+                                <li><em>unterkategorie</em>: Wird weggelassen → "Standard"-Unterkategorie</li>
+                                <li>
+                                    <em>preismodell, einheit, steuersatz</em>: Für Unterkategorie (Standard: per_unit,
+                                    19%)
+                                </li>
+                                <li><em>varianten_*</em>: Pro-Variante Überschreibungen (empfohlen)</li>
+                            </ul>
+
+                            <p style="margin: 8px 0 4px 0"><strong>Preismodelle:</strong></p>
+                            <ul style="margin: 4px 0; padding-left: 20px">
+                                <li><em>per_unit</em> — pro Einheit (Menge × Preis)</li>
+                                <li><em>per_gram</em> / <em>per_kilogram</em> — nach Gewicht</li>
+                                <li>
+                                    <em>per_volume_cm3</em> / <em>per_volume_l</em> / <em>per_volume_m3</em> — nach
+                                    Volumen
+                                </li>
+                                <li><em>per_area_m2</em> / <em>per_area_dm2</em> — nach Fläche</li>
+                                <li><em>per_minute</em> — nach Zeit</li>
+                            </ul>
+
+                            <p style="margin: 8px 0 4px 0"><strong>Steuersätze:</strong> 0, 7, 19 (Standard: 19)</p>
+                            <p style="margin: 4px 0">
+                                <strong>Kommentare:</strong> Zeilen mit <code>#</code> werden ignoriert
+                            </p>
+                        </div>
+                    </div>
+                </details>
             </div>
-            <div class="form-group" style="margin-top:16px;">
+            <div class="form-group" style="margin-top: 16px">
                 <label for="bulk-csv-file">CSV-Datei auswählen</label>
-                <input type="file" id="bulk-csv-file" accept=".csv,text/csv">
+                <input type="file" id="bulk-csv-file" accept=".csv,text/csv" />
             </div>
             <div id="csv-preview" class="hidden"></div>
             <div class="modal-actions">
@@ -245,11 +300,8 @@
                 <button type="button" class="btn btn-success hidden" id="bulk-csv-save">CSV importieren</button>
             </div>
         </div>
-
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="/static/js/katalog.js?v=8"></script>
 {% endblock %}

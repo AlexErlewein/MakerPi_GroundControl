@@ -871,7 +871,7 @@ function parseCSVLine(line) {
 }
 
 function processCsvText(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "" && !l.trim().startsWith("#"));
   if (lines.length < 2) {
     alert("CSV ist leer oder enthält nur den Header.");
     return;
@@ -1112,6 +1112,29 @@ async function importFromCsvPreview() {
 // Event wiring
 document.getElementById("bulk-import-btn").addEventListener("click", openBulkModal);
 document.getElementById("bulk-modal-close").addEventListener("click", closeBulkModal);
+
+// Download CSV example
+document.getElementById("download-csv-example").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/examples/katalog-bulk-import.csv");
+    if (!res.ok) {
+      alert("Fehler beim Laden der Beispieldatei");
+      return;
+    }
+    const csvText = await res.text();
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "katalog-bulk-import-beispiel.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    alert("Fehler beim Herunterladen: " + error.message);
+  }
+});
 document.getElementById("bulk-overlay").addEventListener("click", closeBulkModal);
 document.getElementById("bulk-entry-cancel").addEventListener("click", closeBulkModal);
 document.getElementById("bulk-csv-cancel").addEventListener("click", closeBulkModal);

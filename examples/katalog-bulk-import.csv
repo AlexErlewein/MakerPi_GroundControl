@@ -1,26 +1,50 @@
+# MakerPi GroundControl - Katalog Bulk Import Beispiel
+#
+# Dieses Beispiel zeigt verschiedene Anwendungsfälle für den CSV-Import:
+# - Verschiedene Preismodelle (per_gram, per_unit, per_volume_*, per_area_*)
+# - Mehrere Standorte, Kategorien und Unterkategorien
+# - Unterschiedliche Steuersätze (0%, 7%, 19%)
+# - Spenden-Status für gemeinnützige Materialien
+#
+# Format: standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+#
+# Erweiterte Spalten (optional, für pro-Variante Einstellungen):
+# varianten_preismodell,varianten_einheit,varianten_steuersatz,varianten_spende
+#
+# Mehr Infos: docs/04-material-katalog.de.md
 standort,kategorie,unterkategorie,preismodell,einheit,steuersatz,variante,preis
+# Keramikwerkstatt - Ton nach Gewicht (per_kilogram)
 Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton weiss,16
 Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton rot,16
 Keramikwerkstatt,Verbrauchsmaterial,Ton,per_kilogram,kg,19,Drehton recycling,14
+# Keramikwerkstatt - Gießton nach Volumen (per_volume_l)
 Keramikwerkstatt,Verbrauchsmaterial,Giesston,per_volume_l,l,19,Giesston recycling,10
+# FabLab - 3D-Druck Filament nach Gewicht (per_gram)
 FabLab,Filament,PLA,per_gram,g,19,weiss,0.02
 FabLab,Filament,PLA,per_gram,g,19,schwarz,0.02
 FabLab,Filament,PETG,per_gram,g,19,transparent,0.025
 FabLab,Filament,TPU,per_gram,g,19,schwarz,0.035
+# FabLab - UV-Harz nach Gewicht (per_gram)
 FabLab,Harz,Standard,per_gram,g,19,Standard,0.04
 FabLab,Harz,Standard,per_gram,g,19,flexibel,0.06
+# FabLab - Kleinteile als Stück (per_unit)
 FabLab,Kleinteile,Schrauben,per_unit,Stueck,19,M3-Schraube 10mm,0.05
 FabLab,Kleinteile,Schrauben,per_unit,Stueck,19,M3-Mutter,0.03
 FabLab,Kleinteile,Klebstoff,per_unit,Stueck,19,Heissklebebstick,0.20
+# Holzwerkstatt - Massivholz nach Volumen (per_volume_m3)
 Holzwerkstatt,Massivholz,Weichholz,per_volume_m3,m3,19,Fichte,700
 Holzwerkstatt,Massivholz,Weichholz,per_volume_m3,m3,19,Kiefer,800
 Holzwerkstatt,Massivholz,Hartholz,per_volume_m3,m3,19,Eiche,2600
 Holzwerkstatt,Massivholz,Hartholz,per_volume_m3,m3,19,Nussbaum europ.,4000
+# Holzwerkstatt - Platten nach Fläche (per_area_m2)
 Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,9 mm,18
 Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,12 mm,28
 Holzwerkstatt,Plattenwerkstoffe,Sperrholz Buche,per_area_m2,m2,19,18 mm,36
+# Holzwerkstatt - Verbrauchsmaterial als Stück (per_unit)
 Holzwerkstatt,Verbrauchsmaterial,Holzschraube,per_unit,Stueck,19,20 mm,0.4
 Holzwerkstatt,Verbrauchsmaterial,Holzschraube,per_unit,Stueck,19,60 mm,0.6
 Holzwerkstatt,Verbrauchsmaterial,Schleifmittel,per_unit,Stueck,19,Schleifpapier Exzenterschleifer,1.5
+# Holzwerkstatt - Schleifpapier nach Fläche (per_area_dm2)
 Holzwerkstatt,Verbrauchsmaterial,Schleifmittel,per_area_dm2,dm2,19,Schleifpapier lose,1
+# Holzwerkstatt - Klebstoff nach Volumen (per_volume_l)
 Holzwerkstatt,Verbrauchsmaterial,Klebstoff,per_volume_l,l,19,Holzleim D3,20
