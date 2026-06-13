@@ -1,7 +1,8 @@
 """Core models - MQTT messages, devices, and tag scans"""
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Text
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -49,6 +50,9 @@ class Device(Base):
     status = Column(String, default="unknown")
     nfc_ok = Column(Integer, default=None)  # NULL = unknown, 1 = OK, 0 = error
     nfc_error = Column(String, default=None)
+    requires_permission = Column(
+        Integer, default=1
+    )  # 1 = requires permission (default), 0 = no permission required
 
     def to_dict(self):
         ts = _naive_to_utc(self.last_seen) if self.last_seen else None
@@ -60,6 +64,9 @@ class Device(Base):
             "status": self.status,
             "nfc_ok": self.nfc_ok,
             "nfc_error": self.nfc_error,
+            "requires_permission": bool(self.requires_permission)
+            if self.requires_permission is not None
+            else True,
         }
 
 

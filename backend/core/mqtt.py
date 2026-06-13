@@ -302,6 +302,10 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
     device_id = parts[0]
     subtopic = parts[1] if len(parts) > 1 else ""
 
+    # Skip our own outgoing publishes that echo back via the # subscription
+    if subtopic == "user_info":
+        return
+
     db = SessionLocal()
     try:
         # Update device last_seen - but skip auto-creation for retained messages.
@@ -324,6 +328,10 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                 nfc_ok = data.get("nfc_ok")
                 if nfc_ok is not None:
                     device.nfc_ok = 1 if nfc_ok else 0
+                # Update requires_permission from heartbeat if provided
+                requires_permission = data.get("requires_permission")
+                if requires_permission is not None:
+                    device.requires_permission = 1 if requires_permission else 0
             except json.JSONDecodeError:
                 device.status = payload
 
@@ -421,32 +429,45 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                     members_db.close()
 
                 # Device permission check: member must have permission for this device
+                # Skip check if device.requires_permission == False (e.g., Kaffeemaschine)
                 if validated and mitglied_db_id:
-                    from backend.members.db import SessionLocal as MembersSession
-                    from backend.members.models import DevicePermission
+                    # Check if device requires permission
+                    device_requires_permission = True  # default for safety
+                    if device and device.requires_permission is not None:
+                        device_requires_permission = bool(device.requires_permission)
 
-                    perm_db = MembersSession()
-                    try:
-                        # Check for specific device permission or wildcard ("*")
-                        has_permission = (
-                            perm_db.query(DevicePermission)
-                            .filter(
-                                DevicePermission.member_id == mitglied_db_id,
-                                DevicePermission.device_id.in_([device_id, "*"]),
+                    if device_requires_permission:
+                        from backend.members.db import SessionLocal as MembersSession
+                        from backend.members.models import DevicePermission
+
+                        perm_db = MembersSession()
+                        try:
+                            # Check for specific device permission or wildcard ("*")
+                            has_permission = (
+                                perm_db.query(DevicePermission)
+                                .filter(
+                                    DevicePermission.member_id == mitglied_db_id,
+                                    DevicePermission.device_id.in_([device_id, "*"]),
+                                )
+                                .first()
                             )
-                            .first()
+
+                            if not has_permission:
+                                validated = 0
+                                logger.warning(
+                                    "[SCAN] uid=%r denied: member %s has no permission for device %s",
+                                    uid,
+                                    mitglied_db_id,
+                                    device_id,
+                                )
+                        finally:
+                            perm_db.close()
+                    else:
+                        logger.info(
+                            "[SCAN] uid=%r allowed: device %s does not require permission",
+                            uid,
+                            device_id,
                         )
-
-                        if not has_permission:
-                            validated = 0
-                            logger.warning(
-                                "[SCAN] uid=%r denied: member %s has no permission for device %s",
-                                uid,
-                                mitglied_db_id,
-                                device_id,
-                            )
-                    finally:
-                        perm_db.close()
 
                 # 3VL signature verification (runs after DB lookup so mitglied.name
                 # is available as fallback when firmware omits name from payload)
