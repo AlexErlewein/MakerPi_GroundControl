@@ -2,93 +2,97 @@ let katalog = [];
 let editMode = false;
 
 const PRICING_LABELS = {
-    per_gram: "pro gr",
-    per_kilogram: "pro kg",
-    per_volume_cm3: "pro cm³",
-    per_volume_l: "pro Liter",
-    per_cubic_meter: "pro m³",
-    per_cubic_deci_meter: "pro dm³",
-    per_volume_m3: "pro m³",
-    per_area_m2: "pro m²",
-    per_area_dm2: "pro dm²",
-    per_minute: "pro Minute",
-    per_unit: "pro Stück",
+  per_gram: "pro gr",
+  per_kilogram: "pro kg",
+  per_volume_cm3: "pro cm³",
+  per_volume_l: "pro Liter",
+  per_cubic_meter: "pro m³",
+  per_cubic_deci_meter: "pro dm³",
+  per_volume_m3: "pro m³",
+  per_area_m2: "pro m²",
+  per_area_dm2: "pro dm²",
+  per_minute: "pro Minute",
+  per_unit: "pro Stück",
 };
 
 async function loadKatalog() {
-    try {
-        const res = await fetch("/api/katalog");
-        if (!res.ok) {
-            console.error("API error:", res.status, res.statusText);
-            const tree = document.getElementById("katalog-tree");
-            if (tree) tree.innerHTML = `<p class="empty" style="color:var(--error)">Fehler beim Laden: ${res.status} ${res.statusText}</p>`;
-            return;
-        }
-        katalog = await res.json();
-        console.log("Loaded catalog:", katalog);
-        renderTree();
-    } catch (error) {
-        console.error("Failed to load catalog:", error);
-        const tree = document.getElementById("katalog-tree");
-        if (tree) tree.innerHTML = `<p class="empty" style="color:var(--error)">Netzwerkfehler: ${error.message}</p>`;
+  try {
+    const res = await fetch("/api/katalog");
+    if (!res.ok) {
+      console.error("API error:", res.status, res.statusText);
+      const tree = document.getElementById("katalog-tree");
+      if (tree)
+        tree.innerHTML = `<p class="empty" style="color:var(--error)">Fehler beim Laden: ${res.status} ${res.statusText}</p>`;
+      return;
     }
+    katalog = await res.json();
+    console.log("Loaded catalog:", katalog);
+    renderTree();
+  } catch (error) {
+    console.error("Failed to load catalog:", error);
+    const tree = document.getElementById("katalog-tree");
+    if (tree) tree.innerHTML = `<p class="empty" style="color:var(--error)">Netzwerkfehler: ${error.message}</p>`;
+  }
 }
 
 function renderTree() {
-    const tree = document.getElementById("katalog-tree");
-    if (katalog.length === 0) {
-        tree.innerHTML = '<p class="empty">Noch keine Standorte. Klicke "+ Standort" um zu beginnen.</p>';
-        return;
-    }
-    tree.innerHTML = katalog.map((loc) => renderLocation(loc)).join("");
-    const searchInput = document.getElementById("katalog-search");
-    if (searchInput && searchInput.value.trim()) filterKatalog();
+  const tree = document.getElementById("katalog-tree");
+  if (katalog.length === 0) {
+    tree.innerHTML = '<p class="empty">Noch keine Standorte. Klicke "+ Standort" um zu beginnen.</p>';
+    return;
+  }
+  tree.innerHTML = katalog.map((loc) => renderLocation(loc)).join("");
+  const searchInput = document.getElementById("katalog-search");
+  if (searchInput && searchInput.value.trim()) filterKatalog();
 }
 
 function filterKatalog() {
-    const input = document.getElementById("katalog-search");
-    if (!input) return;
-    const needle = input.value.trim().toLowerCase();
+  const input = document.getElementById("katalog-search");
+  if (!input) return;
+  const needle = input.value.trim().toLowerCase();
 
-    if (!needle) {
-        renderTree();
-        return;
+  if (!needle) {
+    renderTree();
+    return;
+  }
+
+  // Expand all collapsed bodies so filtering can see everything
+  document.querySelectorAll(".location-body, .kategorie-body, .unterkategorie-body").forEach((b) => {
+    b.classList.remove("hidden");
+  });
+
+  // Show/hide variant rows
+  document.querySelectorAll("#katalog-tree tbody tr").forEach((tr) => {
+    if (tr.querySelector(".empty")) {
+      tr.style.display = "none";
+      return;
     }
+    tr.style.display = tr.textContent.toLowerCase().includes(needle) ? "" : "none";
+  });
 
-    // Expand all collapsed bodies so filtering can see everything
-    document.querySelectorAll(".location-body, .kategorie-body, .unterkategorie-body").forEach(b => {
-        b.classList.remove("hidden");
-    });
+  // Hide unterkategorie blocks with no visible rows
+  document.querySelectorAll(".unterkategorie-block").forEach((block) => {
+    const has = [...block.querySelectorAll("tbody tr")].some((tr) => tr.style.display !== "none");
+    block.style.display = has ? "" : "none";
+  });
 
-    // Show/hide variant rows
-    document.querySelectorAll("#katalog-tree tbody tr").forEach(tr => {
-        if (tr.querySelector(".empty")) { tr.style.display = "none"; return; }
-        tr.style.display = tr.textContent.toLowerCase().includes(needle) ? "" : "none";
-    });
+  // Hide kategorie blocks with no visible unterkategorie blocks
+  document.querySelectorAll(".kategorie-block").forEach((block) => {
+    const has = [...block.querySelectorAll(".unterkategorie-block")].some((b) => b.style.display !== "none");
+    block.style.display = has ? "" : "none";
+  });
 
-    // Hide unterkategorie blocks with no visible rows
-    document.querySelectorAll(".unterkategorie-block").forEach(block => {
-        const has = [...block.querySelectorAll("tbody tr")].some(tr => tr.style.display !== "none");
-        block.style.display = has ? "" : "none";
-    });
-
-    // Hide kategorie blocks with no visible unterkategorie blocks
-    document.querySelectorAll(".kategorie-block").forEach(block => {
-        const has = [...block.querySelectorAll(".unterkategorie-block")].some(b => b.style.display !== "none");
-        block.style.display = has ? "" : "none";
-    });
-
-    // Hide location blocks with no visible kategorie blocks
-    document.querySelectorAll(".location-block").forEach(block => {
-        const has = [...block.querySelectorAll(".kategorie-block")].some(b => b.style.display !== "none");
-        block.style.display = has ? "" : "none";
-    });
+  // Hide location blocks with no visible kategorie blocks
+  document.querySelectorAll(".location-block").forEach((block) => {
+    const has = [...block.querySelectorAll(".kategorie-block")].some((b) => b.style.display !== "none");
+    block.style.display = has ? "" : "none";
+  });
 }
 
 function renderLocation(loc) {
-    const kats = (loc.kategorien || []).map((k) => renderKategorie(k, loc)).join("");
-    const actionsClass = editMode ? '' : 'hidden';
-    return `
+  const kats = (loc.kategorien || []).map((k) => renderKategorie(k, loc)).join("");
+  const actionsClass = editMode ? "" : "hidden";
+  return `
     <div class="location-block" id="loc-${loc.id}">
         <div class="location-header" onclick="toggleLocation(${loc.id})">
             <div class="location-title">
@@ -109,9 +113,9 @@ function renderLocation(loc) {
 }
 
 function renderKategorie(kat, loc) {
-    const ukats = (kat.unterkategorien || []).map((u) => renderUnterkategorie(u, kat, loc)).join("");
-    const actionsClass = editMode ? '' : 'hidden';
-    return `
+  const ukats = (kat.unterkategorien || []).map((u) => renderUnterkategorie(u, kat, loc)).join("");
+  const actionsClass = editMode ? "" : "hidden";
+  return `
     <div class="kategorie-block" id="kat-${kat.id}">
         <div class="kategorie-header" onclick="toggleKategorie(${kat.id})">
             <div class="kategorie-title">
@@ -131,11 +135,11 @@ function renderKategorie(kat, loc) {
 }
 
 function renderUnterkategorie(ukat, kat, loc) {
-    const taxRate = ukat.tax_rate != null ? ukat.tax_rate : 19;
-    const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
-    const actionsClass = editMode ? '' : 'hidden';
-    const colSpan = editMode ? 3 : 2;
-    return `
+  const taxRate = ukat.tax_rate != null ? ukat.tax_rate : 19;
+  const rows = (ukat.varianten || []).map((v) => renderVariante(v, ukat)).join("");
+  const actionsClass = editMode ? "" : "hidden";
+  const colSpan = editMode ? 3 : 2;
+  return `
     <div class="unterkategorie-block" id="ukat-${ukat.id}">
         <div class="unterkategorie-header" onclick="toggleUnterkategorie(${ukat.id})">
             <div class="unterkategorie-title">
@@ -146,7 +150,7 @@ function renderUnterkategorie(ukat, kat, loc) {
             </div>
             <div class="unterkategorie-actions ${actionsClass}" onclick="event.stopPropagation()">
                 <button class="btn btn-sm btn-secondary" onclick="openEditUnterkategorie(${ukat.id}, ${kat.id})">Bearbeiten</button>
-                <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, 'per_unit', '', ${taxRate}, ${ukat.is_spende ? 'true' : 'false'})">+ Variante</button>
+                <button class="btn btn-sm btn-success" onclick="openAddVariante(${ukat.id}, 'per_unit', '', ${taxRate}, ${ukat.is_spende ? "true" : "false"})">+ Variante</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteUnterkategorie(${ukat.id})">Löschen</button>
             </div>
         </div>
@@ -155,9 +159,9 @@ function renderUnterkategorie(ukat, kat, loc) {
                 <thead>
                     <tr>
                         <th>Variante</th>
-                        <th class="${editMode ? 'hidden' : ''}">Preis</th>
-                        <th class="${editMode ? '' : 'hidden'}">Preis</th>
-                        <th class="${editMode ? '' : 'hidden'}">Aktionen</th>
+                        <th class="${editMode ? "hidden" : ""}">Preis</th>
+                        <th class="${editMode ? "" : "hidden"}">Preis</th>
+                        <th class="${editMode ? "" : "hidden"}">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -169,125 +173,133 @@ function renderUnterkategorie(ukat, kat, loc) {
 }
 
 function renderVariante(v, ukat) {
-    // Use variant's own pricing model, unit, tax rate, and spende status
-    const pricingModel = v.pricing_model || 'per_unit';
-    const unit = v.unit || '';
-    const taxRate = v.tax_rate != null ? v.tax_rate : (ukat.tax_rate != null ? ukat.tax_rate : 19);
-    const isSpende = v.is_spende != null ? v.is_spende : (ukat.is_spende || false);
+  // Use variant's own pricing model, unit, tax rate, and spende status
+  const pricingModel = v.pricing_model || "per_unit";
+  const unit = v.unit || "";
+  const taxRate = v.tax_rate != null ? v.tax_rate : ukat.tax_rate != null ? ukat.tax_rate : 19;
+  const isSpende = v.is_spende != null ? v.is_spende : ukat.is_spende || false;
 
-    const pricingLabel = PRICING_LABELS[pricingModel] || pricingModel;
-    const unitDisplay = unit ? `[${esc(unit)}]` : '';
-    const actionsClass = editMode ? '' : 'hidden';
+  const pricingLabel = PRICING_LABELS[pricingModel] || pricingModel;
+  const unitDisplay = unit ? `[${esc(unit)}]` : "";
+  const actionsClass = editMode ? "" : "hidden";
 
-    // Build badges
-    let badges = `<span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)} ${esc(unitDisplay)}</span>`;
-    if (isSpende) {
-        badges += ` <span style="background:var(--accent);color:#fff;font-size:0.75rem;padding:2px 6px;border-radius:4px;">Spende</span>`;
-    }
+  // Build badges
+  let badges = `<span style="color:var(--text-secondary);font-size:0.8rem;">${esc(pricingLabel)} ${esc(unitDisplay)}</span>`;
+  if (isSpende) {
+    badges += ` <span style="background:var(--accent);color:#fff;font-size:0.75rem;padding:2px 6px;border-radius:4px;">Spende</span>`;
+  }
 
-    return `
+  return `
     <tr id="var-${v.id}">
         <td>${esc(v.name)}</td>
-        <td class="price-cell ${editMode ? 'hidden' : ''}">${v.price.toFixed(4)} € ${badges}</td>
-        <td class="price-cell ${editMode ? '' : 'hidden'}">${v.price.toFixed(4)} € ${badges}</td>
+        <td class="price-cell ${editMode ? "hidden" : ""}">${v.price.toFixed(4)} € ${badges}</td>
+        <td class="price-cell ${editMode ? "" : "hidden"}">${v.price.toFixed(4)} € ${badges}</td>
         <td class="actions ${actionsClass}">
-            <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, 'per_unit', '')">Bearbeiten</button>
+            <button class="btn btn-sm btn-secondary" onclick="openEditVariante(${v.id}, ${ukat.id}, '${esc(v.pricing_model || "per_unit")}', '${esc(v.unit || "")}')">Bearbeiten</button>
             <button class="btn btn-sm btn-danger" onclick="deleteVariante(${v.id})">Löschen</button>
         </td>
     </tr>`;
 }
 
 function toggleLocation(id) {
-    const body = document.getElementById(`loc-body-${id}`);
-    const chev = document.getElementById(`chev-${id}`);
-    body.classList.toggle("hidden");
-    chev.classList.toggle("open");
+  const body = document.getElementById(`loc-body-${id}`);
+  const chev = document.getElementById(`chev-${id}`);
+  body.classList.toggle("hidden");
+  chev.classList.toggle("open");
 }
 
 function toggleKategorie(id) {
-    const body = document.getElementById(`kat-body-${id}`);
-    const chev = document.getElementById(`chev-kat-${id}`);
-    body.classList.toggle("hidden");
-    chev.classList.toggle("open");
+  const body = document.getElementById(`kat-body-${id}`);
+  const chev = document.getElementById(`chev-kat-${id}`);
+  body.classList.toggle("hidden");
+  chev.classList.toggle("open");
 }
 
 function toggleUnterkategorie(id) {
-    const body = document.getElementById(`ukat-body-${id}`);
-    const chev = document.getElementById(`chev-ukat-${id}`);
-    body.classList.toggle("hidden");
-    chev.classList.toggle("open");
+  const body = document.getElementById(`ukat-body-${id}`);
+  const chev = document.getElementById(`chev-ukat-${id}`);
+  body.classList.toggle("hidden");
+  chev.classList.toggle("open");
 }
 
 function toggleEditMode() {
-    editMode = !editMode;
-    const btn = document.getElementById("edit-mode-btn");
-    const bulkBtn = document.getElementById("bulk-import-btn");
-    const addLocBtn = document.getElementById("add-location-btn");
-    
-    if (editMode) {
-        btn.textContent = "✓ Fertig";
-        btn.classList.remove("btn-primary");
-        btn.classList.add("btn-success");
-        bulkBtn.classList.remove("hidden");
-        addLocBtn.classList.remove("hidden");
-    } else {
-        btn.textContent = "✎ Bearbeiten";
-        btn.classList.remove("btn-success");
-        btn.classList.add("btn-primary");
-        bulkBtn.classList.add("hidden");
-        addLocBtn.classList.add("hidden");
-    }
-    
-    renderTree();
+  editMode = !editMode;
+  const btn = document.getElementById("edit-mode-btn");
+  const bulkBtn = document.getElementById("bulk-import-btn");
+  const addLocBtn = document.getElementById("add-location-btn");
+
+  if (editMode) {
+    btn.textContent = "✓ Fertig";
+    btn.classList.remove("btn-primary");
+    btn.classList.add("btn-success");
+    bulkBtn.classList.remove("hidden");
+    addLocBtn.classList.remove("hidden");
+  } else {
+    btn.textContent = "✎ Bearbeiten";
+    btn.classList.remove("btn-success");
+    btn.classList.add("btn-primary");
+    bulkBtn.classList.add("hidden");
+    addLocBtn.classList.add("hidden");
+  }
+
+  renderTree();
 }
 
 function esc(str) {
-    return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Location Modal ─────────────────────────────────────────────
 
 function openAddLocation() {
-    document.getElementById("location-modal-title").textContent = "Neuer Standort";
-    document.getElementById("location-form").reset();
-    document.getElementById("edit-location-id").value = "";
-    document.getElementById("location-modal").classList.remove("hidden");
-    document.getElementById("field-location-name").focus();
+  document.getElementById("location-modal-title").textContent = "Neuer Standort";
+  document.getElementById("location-form").reset();
+  document.getElementById("edit-location-id").value = "";
+  document.getElementById("location-modal").classList.remove("hidden");
+  document.getElementById("field-location-name").focus();
 }
 
 function openEditLocation(id) {
-    const loc = katalog.find((l) => l.id === id);
-    if (!loc) return;
-    document.getElementById("location-modal-title").textContent = "Standort bearbeiten";
-    document.getElementById("edit-location-id").value = id;
-    document.getElementById("field-location-name").value = loc.name;
-    document.getElementById("location-modal").classList.remove("hidden");
+  const loc = katalog.find((l) => l.id === id);
+  if (!loc) return;
+  document.getElementById("location-modal-title").textContent = "Standort bearbeiten";
+  document.getElementById("edit-location-id").value = id;
+  document.getElementById("field-location-name").value = loc.name;
+  document.getElementById("location-modal").classList.remove("hidden");
 }
 
 function closeLocationModal() {
-    document.getElementById("location-modal").classList.add("hidden");
+  document.getElementById("location-modal").classList.add("hidden");
 }
 
 document.getElementById("location-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const id = document.getElementById("edit-location-id").value;
-    const body = { name: document.getElementById("field-location-name").value.trim() };
-    const url = id ? `/api/katalog/locations/${id}` : "/api/katalog/locations";
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { closeLocationModal(); await loadKatalog(); }
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen")); }
+  e.preventDefault();
+  const id = document.getElementById("edit-location-id").value;
+  const body = { name: document.getElementById("field-location-name").value.trim() };
+  const url = id ? `/api/katalog/locations/${id}` : "/api/katalog/locations";
+  const method = id ? "PUT" : "POST";
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.ok) {
+    closeLocationModal();
+    await loadKatalog();
+  } else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+  }
 });
 
 async function deleteLocation(id) {
-    if (!confirm("Standort und alle Kategorien/Unterkategorien/Varianten löschen?")) return;
-    const res = await fetch(`/api/katalog/locations/${id}`, { method: "DELETE" });
-    if (res.ok) await loadKatalog();
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
+  if (!confirm("Standort und alle Kategorien/Unterkategorien/Varianten löschen?")) return;
+  const res = await fetch(`/api/katalog/locations/${id}`, { method: "DELETE" });
+  if (res.ok) await loadKatalog();
+  else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen"));
+  }
 }
 
 document.getElementById("add-location-btn").addEventListener("click", openAddLocation);
@@ -299,49 +311,57 @@ document.getElementById("location-overlay").addEventListener("click", closeLocat
 // ── Kategorie Modal ────────────────────────────────────────────
 
 function openAddKategorie(locationId) {
-    document.getElementById("kategorie-modal-title").textContent = "Neue Kategorie";
-    document.getElementById("kategorie-form").reset();
-    document.getElementById("edit-kategorie-id").value = "";
-    document.getElementById("edit-kategorie-location-id").value = locationId;
-    document.getElementById("kategorie-modal").classList.remove("hidden");
-    document.getElementById("field-kat-name").focus();
+  document.getElementById("kategorie-modal-title").textContent = "Neue Kategorie";
+  document.getElementById("kategorie-form").reset();
+  document.getElementById("edit-kategorie-id").value = "";
+  document.getElementById("edit-kategorie-location-id").value = locationId;
+  document.getElementById("kategorie-modal").classList.remove("hidden");
+  document.getElementById("field-kat-name").focus();
 }
 
 function openEditKategorie(katId, locId) {
-    const loc = katalog.find((l) => l.id === locId);
-    const kat = (loc && loc.kategorien) ? loc.kategorien.find((k) => k.id === katId) : undefined;
-    if (!kat) return;
-    document.getElementById("kategorie-modal-title").textContent = "Kategorie bearbeiten";
-    document.getElementById("edit-kategorie-id").value = katId;
-    document.getElementById("edit-kategorie-location-id").value = locId;
-    document.getElementById("field-kat-name").value = kat.name;
-    document.getElementById("kategorie-modal").classList.remove("hidden");
+  const loc = katalog.find((l) => l.id === locId);
+  const kat = loc && loc.kategorien ? loc.kategorien.find((k) => k.id === katId) : undefined;
+  if (!kat) return;
+  document.getElementById("kategorie-modal-title").textContent = "Kategorie bearbeiten";
+  document.getElementById("edit-kategorie-id").value = katId;
+  document.getElementById("edit-kategorie-location-id").value = locId;
+  document.getElementById("field-kat-name").value = kat.name;
+  document.getElementById("kategorie-modal").classList.remove("hidden");
 }
 
 function closeKategorieModal() {
-    document.getElementById("kategorie-modal").classList.add("hidden");
+  document.getElementById("kategorie-modal").classList.add("hidden");
 }
 
 document.getElementById("kategorie-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const id = document.getElementById("edit-kategorie-id").value;
-    const locationId = document.getElementById("edit-kategorie-location-id").value;
-    const body = {
-        location_id: parseInt(locationId),
-        name: document.getElementById("field-kat-name").value.trim(),
-    };
-    const url = id ? `/api/katalog/kategorien/${id}` : "/api/katalog/kategorien";
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { closeKategorieModal(); await loadKatalog(); }
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen")); }
+  e.preventDefault();
+  const id = document.getElementById("edit-kategorie-id").value;
+  const locationId = document.getElementById("edit-kategorie-location-id").value;
+  const body = {
+    location_id: parseInt(locationId),
+    name: document.getElementById("field-kat-name").value.trim(),
+  };
+  const url = id ? `/api/katalog/kategorien/${id}` : "/api/katalog/kategorien";
+  const method = id ? "PUT" : "POST";
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.ok) {
+    closeKategorieModal();
+    await loadKatalog();
+  } else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+  }
 });
 
 async function deleteKategorie(id) {
-    if (!confirm("Kategorie und alle Unterkategorien/Varianten löschen?")) return;
-    const res = await fetch(`/api/katalog/kategorien/${id}`, { method: "DELETE" });
-    if (res.ok) await loadKatalog();
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
+  if (!confirm("Kategorie und alle Unterkategorien/Varianten löschen?")) return;
+  const res = await fetch(`/api/katalog/kategorien/${id}`, { method: "DELETE" });
+  if (res.ok) await loadKatalog();
+  else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen"));
+  }
 }
 
 document.getElementById("kategorie-modal-close").addEventListener("click", closeKategorieModal);
@@ -351,66 +371,74 @@ document.getElementById("kategorie-overlay").addEventListener("click", closeKate
 // ── Unterkategorie Modal ───────────────────────────────────────
 
 function openAddUnterkategorie(kategorieId) {
-    document.getElementById("unterkategorie-modal-title").textContent = "Neue Unterkategorie";
-    document.getElementById("unterkategorie-form").reset();
-    document.getElementById("edit-unterkategorie-id").value = "";
-    document.getElementById("edit-unterkategorie-kategorie-id").value = kategorieId;
-    document.getElementById("field-ukat-tax-rate").value = "19";
-    document.getElementById("field-ukat-is-spende").checked = false;
-    document.getElementById("unterkategorie-modal").classList.remove("hidden");
-    document.getElementById("field-ukat-name").focus();
+  document.getElementById("unterkategorie-modal-title").textContent = "Neue Unterkategorie";
+  document.getElementById("unterkategorie-form").reset();
+  document.getElementById("edit-unterkategorie-id").value = "";
+  document.getElementById("edit-unterkategorie-kategorie-id").value = kategorieId;
+  document.getElementById("field-ukat-tax-rate").value = "19";
+  document.getElementById("field-ukat-is-spende").checked = false;
+  document.getElementById("unterkategorie-modal").classList.remove("hidden");
+  document.getElementById("field-ukat-name").focus();
 }
 
 function findUnterkategorie(ukatId) {
-    for (const loc of katalog) {
-        for (const kat of (loc.kategorien || [])) {
-            for (const ukat of (kat.unterkategorien || [])) {
-                if (ukat.id === ukatId) return { ukat, kat, loc };
-            }
-        }
+  for (const loc of katalog) {
+    for (const kat of loc.kategorien || []) {
+      for (const ukat of kat.unterkategorien || []) {
+        if (ukat.id === ukatId) return { ukat, kat, loc };
+      }
     }
-    return null;
+  }
+  return null;
 }
 
 function openEditUnterkategorie(ukatId, katId) {
-    const found = findUnterkategorie(ukatId);
-    if (!found) return;
-    const { ukat } = found;
-    document.getElementById("unterkategorie-modal-title").textContent = "Unterkategorie bearbeiten";
-    document.getElementById("edit-unterkategorie-id").value = ukatId;
-    document.getElementById("edit-unterkategorie-kategorie-id").value = katId;
-    document.getElementById("field-ukat-name").value = ukat.name;
-    document.getElementById("field-ukat-tax-rate").value = String(ukat.tax_rate != null ? ukat.tax_rate : 19);
-    document.getElementById("field-ukat-is-spende").checked = !!ukat.is_spende;
-    document.getElementById("unterkategorie-modal").classList.remove("hidden");
+  const found = findUnterkategorie(ukatId);
+  if (!found) return;
+  const { ukat } = found;
+  document.getElementById("unterkategorie-modal-title").textContent = "Unterkategorie bearbeiten";
+  document.getElementById("edit-unterkategorie-id").value = ukatId;
+  document.getElementById("edit-unterkategorie-kategorie-id").value = katId;
+  document.getElementById("field-ukat-name").value = ukat.name;
+  document.getElementById("field-ukat-tax-rate").value = String(ukat.tax_rate != null ? ukat.tax_rate : 19);
+  document.getElementById("field-ukat-is-spende").checked = !!ukat.is_spende;
+  document.getElementById("unterkategorie-modal").classList.remove("hidden");
 }
 
 function closeUnterkategorieModal() {
-    document.getElementById("unterkategorie-modal").classList.add("hidden");
+  document.getElementById("unterkategorie-modal").classList.add("hidden");
 }
 
 document.getElementById("unterkategorie-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const id = document.getElementById("edit-unterkategorie-id").value;
-    const kategorieId = document.getElementById("edit-unterkategorie-kategorie-id").value;
-    const body = {
-        kategorie_id: parseInt(kategorieId),
-        name: document.getElementById("field-ukat-name").value.trim(),
-        tax_rate: parseFloat(document.getElementById("field-ukat-tax-rate").value),
-        is_spende: document.getElementById("field-ukat-is-spende").checked,
-    };
-    const url = id ? `/api/katalog/unterkategorien/${id}` : "/api/katalog/unterkategorien";
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { closeUnterkategorieModal(); await loadKatalog(); }
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen")); }
+  e.preventDefault();
+  const id = document.getElementById("edit-unterkategorie-id").value;
+  const kategorieId = document.getElementById("edit-unterkategorie-kategorie-id").value;
+  const body = {
+    kategorie_id: parseInt(kategorieId),
+    name: document.getElementById("field-ukat-name").value.trim(),
+    tax_rate: parseFloat(document.getElementById("field-ukat-tax-rate").value),
+    is_spende: document.getElementById("field-ukat-is-spende").checked,
+  };
+  const url = id ? `/api/katalog/unterkategorien/${id}` : "/api/katalog/unterkategorien";
+  const method = id ? "PUT" : "POST";
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.ok) {
+    closeUnterkategorieModal();
+    await loadKatalog();
+  } else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+  }
 });
 
 async function deleteUnterkategorie(id) {
-    if (!confirm("Unterkategorie und alle Varianten löschen?")) return;
-    const res = await fetch(`/api/katalog/unterkategorien/${id}`, { method: "DELETE" });
-    if (res.ok) await loadKatalog();
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
+  if (!confirm("Unterkategorie und alle Varianten löschen?")) return;
+  const res = await fetch(`/api/katalog/unterkategorien/${id}`, { method: "DELETE" });
+  if (res.ok) await loadKatalog();
+  else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen"));
+  }
 }
 
 document.getElementById("unterkategorie-modal-close").addEventListener("click", closeUnterkategorieModal);
@@ -423,88 +451,96 @@ let currentVariantePricingModel = "per_unit";
 let currentVarianteUnit = "";
 
 function openAddVariante(unterkategorieId, pricingModel, unit, taxRate = 19, isSpende = false) {
-    currentVariantePricingModel = pricingModel;
-    currentVarianteUnit = unit;
-    document.getElementById("variante-modal-title").textContent = "Neue Variante";
-    document.getElementById("variante-form").reset();
-    document.getElementById("edit-variante-id").value = "";
-    document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
-    // Pre-fill with unterkategorie defaults
-    document.getElementById("field-var-pricing").value = pricingModel || "per_unit";
-    document.getElementById("field-var-unit").value = unit || "";
-    document.getElementById("field-var-tax-rate").value = String(taxRate != null ? taxRate : 19);
-    document.getElementById("field-var-is-spende").checked = !!isSpende;
-    document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
-    document.getElementById("variante-modal").classList.remove("hidden");
-    document.getElementById("field-var-name").focus();
+  currentVariantePricingModel = pricingModel;
+  currentVarianteUnit = unit;
+  document.getElementById("variante-modal-title").textContent = "Neue Variante";
+  document.getElementById("variante-form").reset();
+  document.getElementById("edit-variante-id").value = "";
+  document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
+  // Pre-fill with unterkategorie defaults
+  document.getElementById("field-var-pricing").value = pricingModel || "per_unit";
+  document.getElementById("field-var-unit").value = unit || "";
+  document.getElementById("field-var-tax-rate").value = String(taxRate != null ? taxRate : 19);
+  document.getElementById("field-var-is-spende").checked = !!isSpende;
+  document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
+  document.getElementById("variante-modal").classList.remove("hidden");
+  document.getElementById("field-var-name").focus();
 }
 
 function openEditVariante(varId, unterkategorieId, ukatPricingModel, ukatUnit) {
-    const found = findUnterkategorie(unterkategorieId);
-    const ukat = found ? found.ukat : null;
-    const v = (ukat && ukat.varianten) ? ukat.varianten.find((v) => v.id === varId) : undefined;
-    if (!v) return;
+  const found = findUnterkategorie(unterkategorieId);
+  const ukat = found ? found.ukat : null;
+  const v = ukat && ukat.varianten ? ukat.varianten.find((v) => v.id === varId) : undefined;
+  if (!v) return;
 
-    // Use variant's own values, fall back to unterkategorie defaults if not set
-    const pricingModel = v.pricing_model || "per_unit";
-    const unit = v.unit || "";
-    const taxRate = v.tax_rate != null ? v.tax_rate : (ukat && ukat.tax_rate != null ? ukat.tax_rate : 19);
-    const isSpende = v.is_spende != null ? v.is_spende : (ukat && ukat.is_spende) || false;
+  // Use variant's own values, fall back to unterkategorie defaults if not set
+  const pricingModel = v.pricing_model || "per_unit";
+  const unit = v.unit || "";
+  const taxRate = v.tax_rate != null ? v.tax_rate : ukat && ukat.tax_rate != null ? ukat.tax_rate : 19;
+  const isSpende = v.is_spende != null ? v.is_spende : (ukat && ukat.is_spende) || false;
 
-    currentVariantePricingModel = pricingModel;
-    currentVarianteUnit = unit;
+  currentVariantePricingModel = pricingModel;
+  currentVarianteUnit = unit;
 
-    document.getElementById("variante-modal-title").textContent = "Variante bearbeiten";
-    document.getElementById("edit-variante-id").value = varId;
-    document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
-    document.getElementById("field-var-name").value = v.name;
-    document.getElementById("field-var-price").value = v.price;
-    document.getElementById("field-var-pricing").value = pricingModel;
-    document.getElementById("field-var-unit").value = unit;
-    document.getElementById("field-var-tax-rate").value = String(taxRate);
-    document.getElementById("field-var-is-spende").checked = !!isSpende;
-    document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
-    document.getElementById("variante-modal").classList.remove("hidden");
+  document.getElementById("variante-modal-title").textContent = "Variante bearbeiten";
+  document.getElementById("edit-variante-id").value = varId;
+  document.getElementById("edit-variante-unterkategorie-id").value = unterkategorieId;
+  document.getElementById("field-var-name").value = v.name;
+  document.getElementById("field-var-price").value = v.price;
+  document.getElementById("field-var-pricing").value = pricingModel;
+  document.getElementById("field-var-unit").value = unit;
+  document.getElementById("field-var-tax-rate").value = String(taxRate);
+  document.getElementById("field-var-is-spende").checked = !!isSpende;
+  document.getElementById("var-price-hint").textContent = getPriceHint(pricingModel, unit);
+  document.getElementById("variante-modal").classList.remove("hidden");
 }
 
 function getPriceHint(pricingModel, unit) {
-    if (pricingModel === "per_gram") return "€ pro Gramm";
-    if (pricingModel === "per_kilogram") return "€ pro Kilogramm";
-    if (pricingModel === "per_volume_cm3") return "€ pro cm³";
-    if (pricingModel === "per_volume_l") return "€ pro Liter";
-    if (pricingModel === "per_minute") return "€ pro Minute";
-    return unit ? `€ pro ${unit}` : "€ pro Einheit";
+  if (pricingModel === "per_gram") return "€ pro Gramm";
+  if (pricingModel === "per_kilogram") return "€ pro Kilogramm";
+  if (pricingModel === "per_volume_cm3") return "€ pro cm³";
+  if (pricingModel === "per_volume_l") return "€ pro Liter";
+  if (pricingModel === "per_minute") return "€ pro Minute";
+  return unit ? `€ pro ${unit}` : "€ pro Einheit";
 }
 
 function closeVarianteModal() {
-    document.getElementById("variante-modal").classList.add("hidden");
+  document.getElementById("variante-modal").classList.add("hidden");
 }
 
 document.getElementById("variante-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const id = document.getElementById("edit-variante-id").value;
-    const unterkategorieId = document.getElementById("edit-variante-unterkategorie-id").value;
-    const body = {
-        unterkategorie_id: parseInt(unterkategorieId),
-        name: document.getElementById("field-var-name").value.trim(),
-        price: parseFloat(document.getElementById("field-var-price").value),
-        pricing_model: document.getElementById("field-var-pricing").value,
-        unit: document.getElementById("field-var-unit").value.trim() || null,
-        tax_rate: parseFloat(document.getElementById("field-var-tax-rate").value),
-        is_spende: document.getElementById("field-var-is-spende").checked,
-    };
-    const url = id ? `/api/katalog/varianten/${id}` : "/api/katalog/varianten";
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) { closeVarianteModal(); await loadKatalog(); }
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen")); }
+  e.preventDefault();
+  const id = document.getElementById("edit-variante-id").value;
+  const unterkategorieId = document.getElementById("edit-variante-unterkategorie-id").value;
+  const body = {
+    unterkategorie_id: parseInt(unterkategorieId),
+    name: document.getElementById("field-var-name").value.trim(),
+    price: parseFloat(document.getElementById("field-var-price").value),
+    pricing_model: document.getElementById("field-var-pricing").value,
+    unit: document.getElementById("field-var-unit").value.trim() || null,
+    tax_rate: parseFloat(document.getElementById("field-var-tax-rate").value),
+    is_spende: document.getElementById("field-var-is-spende").checked,
+  };
+  const url = id ? `/api/katalog/varianten/${id}` : "/api/katalog/varianten";
+  const method = id ? "PUT" : "POST";
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.ok) {
+    closeVarianteModal();
+    await loadKatalog();
+  } else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Speichern fehlgeschlagen"));
+  }
 });
 
 async function deleteVariante(id) {
-    if (!confirm("Variante löschen?")) return;
-    const res = await fetch(`/api/katalog/varianten/${id}`, { method: "DELETE" });
-    if (res.ok) await loadKatalog();
-    else { const err = await res.json(); alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen")); }
+  if (!confirm("Variante löschen?")) return;
+  const res = await fetch(`/api/katalog/varianten/${id}`, { method: "DELETE" });
+  if (res.ok) await loadKatalog();
+  else {
+    const err = await res.json();
+    alert("Fehler: " + (err.detail || "Löschen fehlgeschlagen"));
+  }
 }
 
 document.getElementById("variante-modal-close").addEventListener("click", closeVarianteModal);
@@ -521,62 +557,57 @@ let bulkKatCounter = 0;
 let csvParsedData = null;
 
 const PRICING_OPTIONS = [
-    { value: "per_unit",       label: "pro Einheit" },
-    { value: "per_gram",       label: "pro Gramm" },
-    { value: "per_kilogram",   label: "pro Kilogramm" },
-    { value: "per_volume_cm3", label: "pro Volumen cm³" },
-    { value: "per_volume_l",   label: "pro Liter" },
-    { value: "per_minute",     label: "pro Minute" },
+  { value: "per_unit", label: "pro Einheit" },
+  { value: "per_gram", label: "pro Gramm" },
+  { value: "per_kilogram", label: "pro Kilogramm" },
+  { value: "per_volume_cm3", label: "pro Volumen cm³" },
+  { value: "per_volume_l", label: "pro Liter" },
+  { value: "per_minute", label: "pro Minute" },
 ];
 
 function openBulkModal() {
-    bulkKatCounter = 0;
-    csvParsedData = null;
+  bulkKatCounter = 0;
+  csvParsedData = null;
 
-    const sel = document.getElementById("bulk-standort-select");
-    sel.innerHTML = katalog.map(
-        (loc) => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`
-    ).join("");
-    sel.insertAdjacentHTML(
-        "beforeend",
-        `<option value="__new__">-- Neuen Standort erstellen --</option>`
-    );
+  const sel = document.getElementById("bulk-standort-select");
+  sel.innerHTML = katalog.map((loc) => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`).join("");
+  sel.insertAdjacentHTML("beforeend", `<option value="__new__">-- Neuen Standort erstellen --</option>`);
 
-    document.getElementById("bulk-new-standort-group").style.display = "none";
-    document.getElementById("bulk-new-standort-name").value = "";
-    document.getElementById("bulk-kat-list").innerHTML = "";
-    document.getElementById("csv-preview").classList.add("hidden");
-    document.getElementById("bulk-csv-save").classList.add("hidden");
-    document.getElementById("bulk-csv-file").value = "";
-    switchBulkTab("entry");
+  document.getElementById("bulk-new-standort-group").style.display = "none";
+  document.getElementById("bulk-new-standort-name").value = "";
+  document.getElementById("bulk-kat-list").innerHTML = "";
+  document.getElementById("csv-preview").classList.add("hidden");
+  document.getElementById("bulk-csv-save").classList.add("hidden");
+  document.getElementById("bulk-csv-file").value = "";
+  switchBulkTab("entry");
 
-    document.getElementById("bulk-modal").classList.remove("hidden");
+  document.getElementById("bulk-modal").classList.remove("hidden");
 }
 
 function closeBulkModal() {
-    document.getElementById("bulk-modal").classList.add("hidden");
+  document.getElementById("bulk-modal").classList.add("hidden");
 }
 
 function switchBulkTab(tabName) {
-    document.querySelectorAll(".bulk-tab-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.tab === tabName);
-    });
-    document.querySelectorAll(".bulk-tab-panel").forEach((panel) => {
-        panel.classList.toggle("hidden", panel.id !== `bulk-tab-${tabName}`);
-    });
+  document.querySelectorAll(".bulk-tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll(".bulk-tab-panel").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.id !== `bulk-tab-${tabName}`);
+  });
 }
 
 function buildPricingOptions(selectedValue) {
-    return PRICING_OPTIONS.map(
-        (o) => `<option value="${o.value}"${o.value === selectedValue ? " selected" : ""}>${o.label}</option>`
-    ).join("");
+  return PRICING_OPTIONS.map(
+    (o) => `<option value="${o.value}"${o.value === selectedValue ? " selected" : ""}>${o.label}</option>`,
+  ).join("");
 }
 
 function addKategorieRow(prefill = {}) {
-    const idx      = bulkKatCounter++;
-    const name     = prefill.name          || "";
+  const idx = bulkKatCounter++;
+  const name = prefill.name || "";
 
-    const html = `
+  const html = `
     <div class="bulk-kat-block" data-kat-index="${idx}">
         <div class="bulk-kat-header">
             <span class="bulk-kat-label">Kategorie ${idx + 1}</span>
@@ -592,32 +623,32 @@ function addKategorieRow(prefill = {}) {
         <button type="button" class="btn btn-sm btn-secondary bulk-add-ukat" data-kat-index="${idx}">+ Unterkategorie</button>
     </div>`;
 
-    document.getElementById("bulk-kat-list").insertAdjacentHTML("beforeend", html);
+  document.getElementById("bulk-kat-list").insertAdjacentHTML("beforeend", html);
 
-    if (prefill.unterkategorien) {
-        prefill.unterkategorien.forEach((u) => addUnterkategorieRow(idx, u));
-    } else if (prefill.varianten && prefill.varianten.length > 0) {
-        // Old-format backward compat: wrap in a "Standard" unterkategorie row
-        addUnterkategorieRow(idx, {
-            name: "Standard",
-            pricing_model: prefill.pricing_model || "per_unit",
-            unit: prefill.unit || "",
-            tax_rate: prefill.tax_rate != null ? prefill.tax_rate : 19,
-            varianten: prefill.varianten,
-        });
-    }
+  if (prefill.unterkategorien) {
+    prefill.unterkategorien.forEach((u) => addUnterkategorieRow(idx, u));
+  } else if (prefill.varianten && prefill.varianten.length > 0) {
+    // Old-format backward compat: wrap in a "Standard" unterkategorie row
+    addUnterkategorieRow(idx, {
+      name: "Standard",
+      pricing_model: prefill.pricing_model || "per_unit",
+      unit: prefill.unit || "",
+      tax_rate: prefill.tax_rate != null ? prefill.tax_rate : 19,
+      varianten: prefill.varianten,
+    });
+  }
 }
 
 let bulkUkatCounters = {};
 
 function addUnterkategorieRow(katIndex, prefill = {}) {
-    if (!bulkUkatCounters[katIndex]) bulkUkatCounters[katIndex] = 0;
-    const ukatIdx  = bulkUkatCounters[katIndex]++;
-    const name      = prefill.name          || "";
-    const tax       = prefill.tax_rate      != null ? prefill.tax_rate : 19;
-    const isSpende  = !!prefill.is_spende;
+  if (!bulkUkatCounters[katIndex]) bulkUkatCounters[katIndex] = 0;
+  const ukatIdx = bulkUkatCounters[katIndex]++;
+  const name = prefill.name || "";
+  const tax = prefill.tax_rate != null ? prefill.tax_rate : 19;
+  const isSpende = !!prefill.is_spende;
 
-    const html = `
+  const html = `
     <div class="bulk-ukat-block" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}">
         <div class="bulk-kat-header">
             <span class="bulk-kat-label" style="padding-left:16px;">↳ Unterkategorie ${ukatIdx + 1}</span>
@@ -632,8 +663,8 @@ function addUnterkategorieRow(katIndex, prefill = {}) {
                 <label>Steuersatz</label>
                 <select class="ukat-tax">
                     <option value="19"${tax == 19 ? " selected" : ""}>19 % (Regelsteuersatz)</option>
-                    <option value="7"${tax == 7  ? " selected" : ""}>7 % (ermäßigt)</option>
-                    <option value="0"${tax == 0  ? " selected" : ""}>0 % (steuerfrei)</option>
+                    <option value="7"${tax == 7 ? " selected" : ""}>7 % (ermäßigt)</option>
+                    <option value="0"${tax == 0 ? " selected" : ""}>0 % (steuerfrei)</option>
                 </select>
             </div>
             <div class="form-group" style="display:flex;align-items:center;gap:8px;">
@@ -645,23 +676,23 @@ function addUnterkategorieRow(katIndex, prefill = {}) {
         <button type="button" class="btn btn-sm btn-secondary bulk-add-var" data-kat-index="${katIndex}" data-ukat-index="${ukatIdx}" style="margin-left:16px;">+ Variante</button>
     </div>`;
 
-    const ukatList = document.querySelector(`.bulk-ukat-list[data-kat-index="${katIndex}"]`);
-    if (ukatList) ukatList.insertAdjacentHTML("beforeend", html);
+  const ukatList = document.querySelector(`.bulk-ukat-list[data-kat-index="${katIndex}"]`);
+  if (ukatList) ukatList.insertAdjacentHTML("beforeend", html);
 
-    if (prefill.varianten) {
-        prefill.varianten.forEach((v) => addVarianteRow(katIndex, ukatIdx, v));
-    }
+  if (prefill.varianten) {
+    prefill.varianten.forEach((v) => addVarianteRow(katIndex, ukatIdx, v));
+  }
 }
 
 function addVarianteRow(katIndex, ukatIdx, prefill = {}) {
-    const name        = prefill.name          || "";
-    const price       = prefill.price != null ? prefill.price : "";
-    const pricing     = prefill.pricing_model || "per_unit";
-    const unit        = prefill.unit          || "";
-    const tax         = prefill.tax_rate      != null ? prefill.tax_rate : 19;
-    const isSpende    = !!prefill.is_spende;
+  const name = prefill.name || "";
+  const price = prefill.price != null ? prefill.price : "";
+  const pricing = prefill.pricing_model || "per_unit";
+  const unit = prefill.unit || "";
+  const tax = prefill.tax_rate != null ? prefill.tax_rate : 19;
+  const isSpende = !!prefill.is_spende;
 
-    const html = `
+  const html = `
     <div class="bulk-var-row" style="padding-left:32px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px 40px;gap:8px;align-items:center;">
         <input type="text"   class="var-name"  placeholder="Varianten-Name" value="${esc(name)}">
         <input type="number" class="var-price" placeholder="Preis" step="any" min="0" value="${price !== "" ? price : ""}">
@@ -669,8 +700,8 @@ function addVarianteRow(katIndex, ukatIdx, prefill = {}) {
         <input type="text"   class="var-unit"  placeholder="Einheit" value="${esc(unit)}">
         <select class="var-tax">
             <option value="19"${tax == 19 ? " selected" : ""}>19 %</option>
-            <option value="7"${tax == 7  ? " selected" : ""}>7 %</option>
-            <option value="0"${tax == 0  ? " selected" : ""}>0 %</option>
+            <option value="7"${tax == 7 ? " selected" : ""}>7 %</option>
+            <option value="0"${tax == 0 ? " selected" : ""}>0 %</option>
         </select>
         <div style="display:flex;align-items:center;gap:4px;">
             <input type="checkbox" class="var-is-spende"${isSpende ? " checked" : ""} style="width:auto;" title="Spende">
@@ -678,329 +709,342 @@ function addVarianteRow(katIndex, ukatIdx, prefill = {}) {
         </div>
     </div>`;
 
-    const varList = document.querySelector(`.bulk-var-list[data-kat-index="${katIndex}"][data-ukat-index="${ukatIdx}"]`);
-    if (varList) varList.insertAdjacentHTML("beforeend", html);
+  const varList = document.querySelector(`.bulk-var-list[data-kat-index="${katIndex}"][data-ukat-index="${ukatIdx}"]`);
+  if (varList) varList.insertAdjacentHTML("beforeend", html);
 }
 
 // Event delegation for dynamic elements inside bulk-kat-list
 document.getElementById("bulk-kat-list").addEventListener("click", (e) => {
-    if (e.target.classList.contains("bulk-remove-kat")) {
-        e.target.closest(".bulk-kat-block").remove();
-    }
-    if (e.target.classList.contains("bulk-remove-ukat")) {
-        e.target.closest(".bulk-ukat-block").remove();
-    }
-    if (e.target.classList.contains("bulk-remove-var")) {
-        e.target.closest(".bulk-var-row").remove();
-    }
-    if (e.target.classList.contains("bulk-add-ukat")) {
-        addUnterkategorieRow(parseInt(e.target.dataset.katIndex, 10));
-    }
-    if (e.target.classList.contains("bulk-add-var")) {
-        addVarianteRow(
-            parseInt(e.target.dataset.katIndex, 10),
-            parseInt(e.target.dataset.ukatIndex, 10)
-        );
-    }
+  if (e.target.classList.contains("bulk-remove-kat")) {
+    e.target.closest(".bulk-kat-block").remove();
+  }
+  if (e.target.classList.contains("bulk-remove-ukat")) {
+    e.target.closest(".bulk-ukat-block").remove();
+  }
+  if (e.target.classList.contains("bulk-remove-var")) {
+    e.target.closest(".bulk-var-row").remove();
+  }
+  if (e.target.classList.contains("bulk-add-ukat")) {
+    addUnterkategorieRow(parseInt(e.target.dataset.katIndex, 10));
+  }
+  if (e.target.classList.contains("bulk-add-var")) {
+    addVarianteRow(parseInt(e.target.dataset.katIndex, 10), parseInt(e.target.dataset.ukatIndex, 10));
+  }
 });
 
 function collectBulkFormData() {
-    const sel = document.getElementById("bulk-standort-select");
-    let locationName;
-    if (sel.value === "__new__") {
-        locationName = document.getElementById("bulk-new-standort-name").value.trim();
-        if (!locationName) {
-            alert("Bitte den Namen des neuen Standorts eingeben.");
-            return null;
-        }
-    } else {
-        locationName = sel.value;
+  const sel = document.getElementById("bulk-standort-select");
+  let locationName;
+  if (sel.value === "__new__") {
+    locationName = document.getElementById("bulk-new-standort-name").value.trim();
+    if (!locationName) {
+      alert("Bitte den Namen des neuen Standorts eingeben.");
+      return null;
     }
+  } else {
+    locationName = sel.value;
+  }
 
-    const kategorien = [];
-    document.querySelectorAll(".bulk-kat-block").forEach((katBlock) => {
-        const name = katBlock.querySelector(".kat-name").value.trim();
-        if (!name) return;
+  const kategorien = [];
+  document.querySelectorAll(".bulk-kat-block").forEach((katBlock) => {
+    const name = katBlock.querySelector(".kat-name").value.trim();
+    if (!name) return;
 
-        const unterkategorien = [];
-        katBlock.querySelectorAll(".bulk-ukat-block").forEach((ukatBlock) => {
-            const ukatName = ukatBlock.querySelector(".ukat-name").value.trim();
-            if (!ukatName) return;
+    const unterkategorien = [];
+    katBlock.querySelectorAll(".bulk-ukat-block").forEach((ukatBlock) => {
+      const ukatName = ukatBlock.querySelector(".ukat-name").value.trim();
+      if (!ukatName) return;
 
-            const varianten = [];
-            ukatBlock.querySelectorAll(".bulk-var-row").forEach((row) => {
-                const vName     = row.querySelector(".var-name").value.trim();
-                const vPrice    = parseFloat(row.querySelector(".var-price").value);
-                const vPricing  = row.querySelector(".var-pricing").value;
-                const vUnit     = row.querySelector(".var-unit").value.trim() || null;
-                const vTax      = parseFloat(row.querySelector(".var-tax").value);
-                const vIsSpende = row.querySelector(".var-is-spende").checked;
-                if (!vName || isNaN(vPrice)) return;
-                varianten.push({ 
-                    name: vName, 
-                    price: vPrice,
-                    pricing_model: vPricing,
-                    unit: vUnit,
-                    tax_rate: vTax,
-                    is_spende: vIsSpende
-                });
-            });
-
-            unterkategorien.push({
-                name: ukatName,
-                tax_rate: parseFloat(ukatBlock.querySelector(".ukat-tax").value),
-                is_spende: ukatBlock.querySelector(".ukat-is-spende").checked,
-                varianten,
-            });
+      const varianten = [];
+      ukatBlock.querySelectorAll(".bulk-var-row").forEach((row) => {
+        const vName = row.querySelector(".var-name").value.trim();
+        const vPrice = parseFloat(row.querySelector(".var-price").value);
+        const vPricing = row.querySelector(".var-pricing").value;
+        const vUnit = row.querySelector(".var-unit").value.trim() || null;
+        const vTax = parseFloat(row.querySelector(".var-tax").value);
+        const vIsSpende = row.querySelector(".var-is-spende").checked;
+        if (!vName || isNaN(vPrice)) return;
+        varianten.push({
+          name: vName,
+          price: vPrice,
+          pricing_model: vPricing,
+          unit: vUnit,
+          tax_rate: vTax,
+          is_spende: vIsSpende,
         });
+      });
 
-        kategorien.push({ name, unterkategorien });
+      unterkategorien.push({
+        name: ukatName,
+        tax_rate: parseFloat(ukatBlock.querySelector(".ukat-tax").value),
+        is_spende: ukatBlock.querySelector(".ukat-is-spende").checked,
+        varianten,
+      });
     });
 
-    if (kategorien.length === 0) {
-        alert("Bitte mindestens eine Kategorie mit Namen hinzufügen.");
-        return null;
-    }
+    kategorien.push({ name, unterkategorien });
+  });
 
-    return { location_name: locationName, kategorien };
+  if (kategorien.length === 0) {
+    alert("Bitte mindestens eine Kategorie mit Namen hinzufügen.");
+    return null;
+  }
+
+  return { location_name: locationName, kategorien };
 }
 
 async function submitBulkImport(payload) {
-    const saveBtn = document.getElementById("bulk-entry-save");
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Speichert…";
+  const saveBtn = document.getElementById("bulk-entry-save");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Speichert…";
 
-    try {
-        const res = await fetch("/api/katalog/bulk-import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-            const data = await res.json();
-            closeBulkModal();
-            await loadKatalog();
-            alert(
-                `Erfolgreich importiert!\n` +
-                `Standort: ${data.location.name}\n` +
-                `Kategorien erstellt: ${data.created_kategorien}\n` +
-                `Varianten erstellt: ${data.created_varianten}`
-            );
-        } else {
-            const err = await res.json();
-            alert("Fehler: " + (err.detail || "Import fehlgeschlagen"));
-        }
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Alles speichern";
+  try {
+    const res = await fetch("/api/katalog/bulk-import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      closeBulkModal();
+      await loadKatalog();
+      alert(
+        `Erfolgreich importiert!\n` +
+          `Standort: ${data.location.name}\n` +
+          `Kategorien erstellt: ${data.created_kategorien}\n` +
+          `Varianten erstellt: ${data.created_varianten}`,
+      );
+    } else {
+      const err = await res.json();
+      alert("Fehler: " + (err.detail || "Import fehlgeschlagen"));
     }
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Alles speichern";
+  }
 }
 
 // CSV pricing model aliases: accept CSV names → internal names
 const PRICING_MODEL_ALIASES = {
-    per_volume_m3: "per_cubic_meter",
+  per_volume_m3: "per_cubic_meter",
 };
 function normalizePricingModel(pm) {
-    return PRICING_MODEL_ALIASES[pm] || pm;
+  return PRICING_MODEL_ALIASES[pm] || pm;
 }
 
 // Auto-detect tab vs comma separator from the first line
 function detectSeparator(firstLine) {
-    const tabs = (firstLine.match(/\t/g) || []).length;
-    const commas = (firstLine.match(/,/g) || []).length;
-    return tabs > commas ? "\t" : ",";
+  const tabs = (firstLine.match(/\t/g) || []).length;
+  const commas = (firstLine.match(/,/g) || []).length;
+  return tabs > commas ? "\t" : ",";
 }
 
 // Minimal RFC 4180-aware CSV line parser (comma only — tabs use simple split)
 function parseCSVLine(line) {
-    const result = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (inQuotes) {
-            if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-            else if (ch === '"') { inQuotes = false; }
-            else { current += ch; }
-        } else {
-            if (ch === '"') { inQuotes = true; }
-            else if (ch === ',') { result.push(current); current = ""; }
-            else { current += ch; }
-        }
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        result.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
     }
-    result.push(current);
-    return result;
+  }
+  result.push(current);
+  return result;
 }
 
 function processCsvText(text) {
-    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-    if (lines.length < 2) {
-        alert("CSV ist leer oder enthält nur den Header.");
-        return;
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (lines.length < 2) {
+    alert("CSV ist leer oder enthält nur den Header.");
+    return;
+  }
+
+  const sep = detectSeparator(lines[0]);
+  const splitLine = (l) => (sep === "\t" ? l.split("\t") : parseCSVLine(l));
+  const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
+
+  const requiredCols = ["standort", "kategorie", "preismodell", "einheit", "steuersatz", "variante", "preis"];
+  const missing = requiredCols.filter((c) => !header.includes(c));
+  if (missing.length > 0) {
+    alert("CSV-Header fehlt Spalten: " + missing.join(", "));
+    return;
+  }
+  const hasUnterkategorie = header.includes("unterkategorie");
+  const hasSpende = header.includes("spende");
+  // Optional per-variant columns (override unterkategorie values)
+  const hasVariantPreismodell = header.includes("varianten_preismodell");
+  const hasVariantEinheit = header.includes("varianten_einheit");
+  const hasVariantSteuersatz = header.includes("varianten_steuersatz");
+  const hasVariantSpende = header.includes("varianten_spende");
+
+  const col = (row, name) => {
+    const idx = header.indexOf(name);
+    return idx >= 0 ? (row[idx] || "").trim() : "";
+  };
+
+  const errors = [];
+  // Tree: standort → kategorie → ukatKey → ukatData
+  const tree = new Map();
+
+  lines.slice(1).forEach((line, i) => {
+    const row = splitLine(line);
+    const standort = col(row, "standort");
+    const kategorie = col(row, "kategorie");
+    const unterkategorie = hasUnterkategorie ? col(row, "unterkategorie") || "Standard" : "Standard";
+    const preismodell = normalizePricingModel(col(row, "preismodell") || "per_unit");
+    const einheit = col(row, "einheit") || null;
+    const steuersatzStr = col(row, "steuersatz");
+    const spendeStr = hasSpende ? col(row, "spende") : "";
+    const variante = col(row, "variante");
+    const preisStr = col(row, "preis");
+
+    // Skip stray header-like rows
+    if (!kategorie && !variante && standort.includes(",")) return;
+    if (preisStr.toLowerCase() === "preis" || preisStr.toLowerCase() === "price") return;
+
+    if (!standort || !kategorie || !variante) {
+      errors.push(`Zeile ${i + 2}: standort, kategorie und variante sind Pflicht.`);
+      return;
     }
 
-    const sep = detectSeparator(lines[0]);
-    const splitLine = (l) => sep === "\t" ? l.split("\t") : parseCSVLine(l);
-    const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
-
-    const requiredCols = ["standort", "kategorie", "preismodell", "einheit", "steuersatz", "variante", "preis"];
-    const missing = requiredCols.filter((c) => !header.includes(c));
-    if (missing.length > 0) {
-        alert("CSV-Header fehlt Spalten: " + missing.join(", "));
-        return;
+    const steuersatz = steuersatzStr !== "" ? parseFloat(steuersatzStr) : 19;
+    const isSpende = spendeStr === "1" || spendeStr.toLowerCase() === "true" || spendeStr.toLowerCase() === "ja";
+    const preis = parseFloat(preisStr.replace(",", "."));
+    if (isNaN(preis)) {
+      errors.push(`Zeile ${i + 2}: Ungültiger Preis "${preisStr}".`);
+      return;
     }
-    const hasUnterkategorie = header.includes("unterkategorie");
-    const hasSpende = header.includes("spende");
-    // Optional per-variant columns (override unterkategorie values)
-    const hasVariantPreismodell = header.includes("varianten_preismodell");
-    const hasVariantEinheit = header.includes("varianten_einheit");
-    const hasVariantSteuersatz = header.includes("varianten_steuersatz");
-    const hasVariantSpende = header.includes("varianten_spende");
 
-    const col = (row, name) => {
-        const idx = header.indexOf(name);
-        return idx >= 0 ? (row[idx] || "").trim() : "";
-    };
+    if (!tree.has(standort)) tree.set(standort, new Map());
+    const katMap = tree.get(standort);
+    if (!katMap.has(kategorie)) katMap.set(kategorie, new Map());
+    const ukatMap = katMap.get(kategorie);
 
-    const errors = [];
-    // Tree: standort → kategorie → ukatKey → ukatData
-    const tree = new Map();
+    // Check for per-variant overrides (variants must now have their own pricing)
+    const varPreismodell = hasVariantPreismodell
+      ? normalizePricingModel(col(row, "varianten_preismodell"))
+      : hasVariantPreismodell
+        ? "per_unit"
+        : preismodell;
+    const varEinheit = hasVariantEinheit ? col(row, "varianten_einheit") : hasVariantEinheit ? "" : einheit;
+    const varSteuersatz = hasVariantSteuersatz ? parseFloat(col(row, "varianten_steuersatz")) : steuersatz;
+    const varSpendeStr = hasVariantSpende ? col(row, "varianten_spende") : "";
+    const varIsSpende = varSpendeStr
+      ? varSpendeStr === "1" || varSpendeStr.toLowerCase() === "true" || varSpendeStr.toLowerCase() === "ja"
+      : isSpende;
 
-    lines.slice(1).forEach((line, i) => {
-        const row = splitLine(line);
-        const standort       = col(row, "standort");
-        const kategorie      = col(row, "kategorie");
-        const unterkategorie = hasUnterkategorie ? (col(row, "unterkategorie") || "Standard") : "Standard";
-        const preismodell    = normalizePricingModel(col(row, "preismodell") || "per_unit");
-        const einheit        = col(row, "einheit") || null;
-        const steuersatzStr  = col(row, "steuersatz");
-        const spendeStr      = hasSpende ? col(row, "spende") : "";
-        const variante       = col(row, "variante");
-        const preisStr       = col(row, "preis");
-
-        // Skip stray header-like rows
-        if (!kategorie && !variante && standort.includes(",")) return;
-        if (preisStr.toLowerCase() === "preis" || preisStr.toLowerCase() === "price") return;
-
-        if (!standort || !kategorie || !variante) {
-            errors.push(`Zeile ${i + 2}: standort, kategorie und variante sind Pflicht.`);
-            return;
-        }
-
-        const steuersatz = steuersatzStr !== "" ? parseFloat(steuersatzStr) : 19;
-        const isSpende = spendeStr === "1" || spendeStr.toLowerCase() === "true" || spendeStr.toLowerCase() === "ja";
-        const preis = parseFloat(preisStr.replace(",", "."));
-        if (isNaN(preis)) {
-            errors.push(`Zeile ${i + 2}: Ungültiger Preis "${preisStr}".`);
-            return;
-        }
-
-        if (!tree.has(standort)) tree.set(standort, new Map());
-        const katMap = tree.get(standort);
-        if (!katMap.has(kategorie)) katMap.set(kategorie, new Map());
-        const ukatMap = katMap.get(kategorie);
-
-        // Check for per-variant overrides (variants must now have their own pricing)
-        const varPreismodell = hasVariantPreismodell ? normalizePricingModel(col(row, "varianten_preismodell")) : (hasVariantPreismodell ? "per_unit" : preismodell);
-        const varEinheit = hasVariantEinheit ? col(row, "varianten_einheit") : (hasVariantEinheit ? "" : einheit);
-        const varSteuersatz = hasVariantSteuersatz ? parseFloat(col(row, "varianten_steuersatz")) : steuersatz;
-        const varSpendeStr = hasVariantSpende ? col(row, "varianten_spende") : "";
-        const varIsSpende = varSpendeStr ? (varSpendeStr === "1" || varSpendeStr.toLowerCase() === "true" || varSpendeStr.toLowerCase() === "ja") : isSpende;
-
-        const ukatKey = `${unterkategorie}|${steuersatz}|${isSpende}`;
-        if (!ukatMap.has(ukatKey)) {
-            ukatMap.set(ukatKey, { name: unterkategorie, steuersatz, isSpende, varianten: [] });
-        }
-        ukatMap.get(ukatKey).varianten.push({
-            name: variante,
-            price: preis,
-            pricing_model: varPreismodell,
-            unit: varEinheit,
-            tax_rate: varSteuersatz,
-            is_spende: varIsSpende,
-        });
+    const ukatKey = `${unterkategorie}|${steuersatz}|${isSpende}`;
+    if (!ukatMap.has(ukatKey)) {
+      ukatMap.set(ukatKey, { name: unterkategorie, steuersatz, isSpende, varianten: [] });
+    }
+    ukatMap.get(ukatKey).varianten.push({
+      name: variante,
+      price: preis,
+      pricing_model: varPreismodell,
+      unit: varEinheit,
+      tax_rate: varSteuersatz,
+      is_spende: varIsSpende,
     });
+  });
 
-    if (errors.length > 0) {
-        alert("CSV-Fehler:\n" + errors.join("\n"));
-        return;
+  if (errors.length > 0) {
+    alert("CSV-Fehler:\n" + errors.join("\n"));
+    return;
+  }
+
+  csvParsedData = [];
+  for (const [standort, katMap] of tree.entries()) {
+    const kategorien = [];
+    for (const [katName, ukatMap] of katMap.entries()) {
+      const unterkategorien = [];
+      for (const ukatData of ukatMap.values()) {
+        unterkategorien.push({
+          name: ukatData.name,
+          tax_rate: ukatData.steuersatz,
+          is_spende: ukatData.isSpende || false,
+          varianten: ukatData.varianten,
+        });
+      }
+      kategorien.push({ name: katName, unterkategorien });
     }
+    csvParsedData.push({ location_name: standort, kategorien });
+  }
 
-    csvParsedData = [];
-    for (const [standort, katMap] of tree.entries()) {
-        const kategorien = [];
-        for (const [katName, ukatMap] of katMap.entries()) {
-            const unterkategorien = [];
-            for (const ukatData of ukatMap.values()) {
-                unterkategorien.push({
-                    name: ukatData.name,
-                    tax_rate: ukatData.steuersatz,
-                    is_spende: ukatData.isSpende || false,
-                    varianten: ukatData.varianten,
-                });
-            }
-            kategorien.push({ name: katName, unterkategorien });
-        }
-        csvParsedData.push({ location_name: standort, kategorien });
-    }
-
-    renderCsvPreview(csvParsedData);
-    document.getElementById("bulk-csv-save").classList.remove("hidden");
+  renderCsvPreview(csvParsedData);
+  document.getElementById("bulk-csv-save").classList.remove("hidden");
 }
 
 function parseCsvAndPreview(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result.replace(/^﻿/, ""); // strip UTF-8 BOM
-        if (text.includes("�")) {
-            // UTF-8 produced replacement chars — retry as Windows-1252
-            const r2 = new FileReader();
-            r2.onload = (e2) => processCsvText(e2.target.result.replace(/^﻿/, ""));
-            r2.readAsText(file, "windows-1252");
-            return;
-        }
-        processCsvText(text);
-    };
-    reader.readAsText(file, "utf-8");
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result.replace(/^﻿/, ""); // strip UTF-8 BOM
+    if (text.includes("�")) {
+      // UTF-8 produced replacement chars — retry as Windows-1252
+      const r2 = new FileReader();
+      r2.onload = (e2) => processCsvText(e2.target.result.replace(/^﻿/, ""));
+      r2.readAsText(file, "windows-1252");
+      return;
+    }
+    processCsvText(text);
+  };
+  reader.readAsText(file, "utf-8");
 }
 
 function renderCsvPreview(payloads) {
-    const preview = document.getElementById("csv-preview");
-    let html = "";
-    for (const payload of payloads) {
-        html += `<h4 class="csv-preview-loc">📍 ${esc(payload.location_name)}</h4>`;
-        html += `<table class="csv-preview-table">
+  const preview = document.getElementById("csv-preview");
+  let html = "";
+  for (const payload of payloads) {
+    html += `<h4 class="csv-preview-loc">📍 ${esc(payload.location_name)}</h4>`;
+    html += `<table class="csv-preview-table">
             <thead>
                 <tr>
                     <th>Kategorie</th><th>Unterkategorie</th><th>Preismodell</th>
                     <th>Einheit</th><th>MwSt.</th><th>Variante</th><th>Preis</th>
                 </tr>
             </thead><tbody>`;
-        for (const kat of payload.kategorien) {
-            for (const ukat of (kat.unterkategorien || [])) {
-                if (ukat.varianten.length === 0) {
-                    html += `<tr>
+    for (const kat of payload.kategorien) {
+      for (const ukat of kat.unterkategorien || []) {
+        if (ukat.varianten.length === 0) {
+          html += `<tr>
                         <td>${esc(kat.name)}</td><td>${esc(ukat.name)}</td>
                         <td>—</td><td>—</td>
                         <td>${ukat.tax_rate} %</td>
                         <td colspan="2" style="color:var(--text-secondary)">Keine Varianten</td>
                     </tr>`;
-                } else {
-                    ukat.varianten.forEach((v, vi) => {
-                        // Build variant info with pricing details
-                        let variantInfo = esc(v.name);
-                        const variantParts = [];
-                        if (v.pricing_model) variantParts.push(v.pricing_model);
-                        if (v.unit) variantParts.push(`[${v.unit}]`);
-                        if (v.tax_rate != null) variantParts.push(`${v.tax_rate}%`);
-                        if (v.is_spende) variantParts.push("Spende");
-                        
-                        if (variantParts.length > 0) {
-                            variantInfo += ` <span style="color:var(--accent);font-size:0.8rem;">(${variantParts.join(", ")})</span>`;
-                        }
+        } else {
+          ukat.varianten.forEach((v, vi) => {
+            // Build variant info with pricing details
+            let variantInfo = esc(v.name);
+            const variantParts = [];
+            if (v.pricing_model) variantParts.push(v.pricing_model);
+            if (v.unit) variantParts.push(`[${v.unit}]`);
+            if (v.tax_rate != null) variantParts.push(`${v.tax_rate}%`);
+            if (v.is_spende) variantParts.push("Spende");
 
-                        if (vi === 0) {
-                            html += `<tr>
+            if (variantParts.length > 0) {
+              variantInfo += ` <span style="color:var(--accent);font-size:0.8rem;">(${variantParts.join(", ")})</span>`;
+            }
+
+            if (vi === 0) {
+              html += `<tr>
                                 <td rowspan="${ukat.varianten.length}">${esc(kat.name)}</td>
                                 <td rowspan="${ukat.varianten.length}">${esc(ukat.name)}</td>
                                 <td rowspan="${ukat.varianten.length}">—</td>
@@ -1008,62 +1052,61 @@ function renderCsvPreview(payloads) {
                                 <td rowspan="${ukat.varianten.length}">${ukat.tax_rate} %</td>
                                 <td>${variantInfo}</td><td>${v.price.toFixed(4)} €</td>
                             </tr>`;
-                        } else {
-                            html += `<tr><td>${variantInfo}</td><td>${v.price.toFixed(4)} €</td></tr>`;
-                        }
-                    });
-                }
+            } else {
+              html += `<tr><td>${variantInfo}</td><td>${v.price.toFixed(4)} €</td></tr>`;
             }
+          });
         }
-        html += `</tbody></table>`;
+      }
     }
-    preview.innerHTML = html;
-    preview.classList.remove("hidden");
+    html += `</tbody></table>`;
+  }
+  preview.innerHTML = html;
+  preview.classList.remove("hidden");
 }
 
 async function importFromCsvPreview() {
-    if (!csvParsedData || csvParsedData.length === 0) return;
+  if (!csvParsedData || csvParsedData.length === 0) return;
 
-    const saveBtn = document.getElementById("bulk-csv-save");
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Importiert…";
+  const saveBtn = document.getElementById("bulk-csv-save");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Importiert…";
 
-    let totalKat = 0, totalVar = 0;
-    const errors = [];
+  let totalKat = 0,
+    totalVar = 0;
+  const errors = [];
 
-    for (const payload of csvParsedData) {
-        try {
-            const res = await fetch("/api/katalog/bulk-import", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                totalKat += data.created_kategorien;
-                totalVar += data.created_varianten;
-            } else {
-                const err = await res.json();
-                errors.push(`${payload.location_name}: ${err.detail || "Fehler"}`);
-            }
-        } catch (_) {
-            errors.push(`${payload.location_name}: Netzwerkfehler`);
-        }
+  for (const payload of csvParsedData) {
+    try {
+      const res = await fetch("/api/katalog/bulk-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        totalKat += data.created_kategorien;
+        totalVar += data.created_varianten;
+      } else {
+        const err = await res.json();
+        errors.push(`${payload.location_name}: ${err.detail || "Fehler"}`);
+      }
+    } catch (_) {
+      errors.push(`${payload.location_name}: Netzwerkfehler`);
     }
+  }
 
-    saveBtn.disabled = false;
-    saveBtn.textContent = "CSV importieren";
+  saveBtn.disabled = false;
+  saveBtn.textContent = "CSV importieren";
 
-    if (errors.length > 0) {
-        alert("Einige Standorte konnten nicht importiert werden:\n" + errors.join("\n"));
-    }
-    if (totalKat > 0 || totalVar > 0) {
-        closeBulkModal();
-        await loadKatalog();
-        alert(
-            `CSV-Import abgeschlossen!\nKategorien erstellt: ${totalKat}\nVarianten erstellt: ${totalVar}`
-        );
-    }
+  if (errors.length > 0) {
+    alert("Einige Standorte konnten nicht importiert werden:\n" + errors.join("\n"));
+  }
+  if (totalKat > 0 || totalVar > 0) {
+    closeBulkModal();
+    await loadKatalog();
+    alert(`CSV-Import abgeschlossen!\nKategorien erstellt: ${totalKat}\nVarianten erstellt: ${totalVar}`);
+  }
 }
 
 // Event wiring
@@ -1074,29 +1117,29 @@ document.getElementById("bulk-entry-cancel").addEventListener("click", closeBulk
 document.getElementById("bulk-csv-cancel").addEventListener("click", closeBulkModal);
 
 document.querySelectorAll(".bulk-tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => switchBulkTab(btn.dataset.tab));
+  btn.addEventListener("click", () => switchBulkTab(btn.dataset.tab));
 });
 
 document.getElementById("bulk-add-kat-btn").addEventListener("click", () => addKategorieRow());
 
 document.getElementById("bulk-standort-select").addEventListener("change", (e) => {
-    const newGroup = document.getElementById("bulk-new-standort-group");
-    newGroup.style.display = e.target.value === "__new__" ? "block" : "none";
-    if (e.target.value === "__new__") {
-        document.getElementById("bulk-new-standort-name").focus();
-    }
+  const newGroup = document.getElementById("bulk-new-standort-group");
+  newGroup.style.display = e.target.value === "__new__" ? "block" : "none";
+  if (e.target.value === "__new__") {
+    document.getElementById("bulk-new-standort-name").focus();
+  }
 });
 
 document.getElementById("bulk-entry-save").addEventListener("click", async () => {
-    const payload = collectBulkFormData();
-    if (!payload) return;
-    await submitBulkImport(payload);
+  const payload = collectBulkFormData();
+  if (!payload) return;
+  await submitBulkImport(payload);
 });
 
 document.getElementById("bulk-csv-file").addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    parseCsvAndPreview(file);
+  const file = e.target.files[0];
+  if (!file) return;
+  parseCsvAndPreview(file);
 });
 
 document.getElementById("bulk-csv-save").addEventListener("click", importFromCsvPreview);
