@@ -1,15 +1,8 @@
-{% extends "base-admin.html" %}
-
-{% set nav_active = 'laufzettel' %}
-
-{% block title %}Laufzettel - MakerPi GroundControl{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/tags.css">
-<link rel="stylesheet" href="/static/css/laufzettel.css">
-{% endblock %}
-
-{% block content %}
+{% extends "base-admin.html" %} {% set nav_active = 'laufzettel' %} {% block title %}Laufzettel - MakerPi
+GroundControl{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css" />
+<link rel="stylesheet" href="/static/css/laufzettel.css" />
+{% endblock %} {% block content %}
 <section class="stats">
     <div class="stat-card">
         <h3>Laufzettel gesamt</h3>
@@ -35,11 +28,11 @@
 
 <section class="section">
     <div class="laufzettel-toolbar">
-        <h2>Laufzettel Entries</h2>
+        <h2>Laufzettel Einträge</h2>
         <button id="new-laufzettel-btn" class="btn btn-success">+ Neuer Laufzettel</button>
         <div class="filter-inputs">
-            <input type="text" id="filter-name" placeholder="Filter by name or UID...">
-            <input type="date" id="filter-date">
+            <input type="text" id="filter-name" placeholder="Filter by name or UID..." />
+            <input type="date" id="filter-date" />
         </div>
         <div class="filter-bar-row">
             <button id="filter-btn" class="btn btn-primary">Filter</button>
@@ -63,7 +56,9 @@
                 </tr>
             </thead>
             <tbody id="laufzettel-body">
-                <tr><td colspan="10">Loading...</td></tr>
+                <tr>
+                    <td colspan="10">Loading...</td>
+                </tr>
             </tbody>
         </table>
     </div>
@@ -80,13 +75,13 @@
         <form id="new-lz-form">
             <div class="form-group">
                 <label for="new-lz-uid">Tag UID</label>
-                <input type="text" id="new-lz-uid" placeholder="z.B. 9CF22507" required autocomplete="off">
+                <input type="text" id="new-lz-uid" placeholder="z.B. 9CF22507" required autocomplete="off" />
                 <datalist id="uid-suggestions"></datalist>
-                <small id="new-lz-tag-hint" style="color:var(--text-secondary);font-size:0.8rem;"></small>
+                <small id="new-lz-tag-hint" style="color: var(--text-secondary); font-size: 0.8rem"></small>
             </div>
             <div class="form-group">
                 <label for="new-lz-date">Datum</label>
-                <input type="date" id="new-lz-date" required>
+                <input type="date" id="new-lz-date" required />
             </div>
             <div class="form-group">
                 <label for="new-lz-member-select">Mitglied auswählen <span class="optional">(optional)</span></label>
@@ -96,15 +91,15 @@
             </div>
             <div class="form-group">
                 <label for="new-lz-owner">Name <span class="optional">(optional)</span></label>
-                <input type="text" id="new-lz-owner" placeholder="Wird aus Tag oder Mitglied übernommen">
+                <input type="text" id="new-lz-owner" placeholder="Wird aus Tag oder Mitglied übernommen" />
             </div>
             <div class="form-group">
                 <label for="new-lz-member-id">Member ID <span class="optional">(optional)</span></label>
-                <input type="text" id="new-lz-member-id" placeholder="z.B. M-001">
+                <input type="text" id="new-lz-member-id" placeholder="z.B. M-001" />
             </div>
             <div class="form-group">
                 <label for="new-lz-start">Start-Zeit <span class="optional">(optional)</span></label>
-                <input type="datetime-local" id="new-lz-start">
+                <input type="datetime-local" id="new-lz-start" />
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="new-lz-cancel">Abbrechen</button>
@@ -113,8 +108,6 @@
         </form>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="/static/js/laufzettel.js?v=3"></script>
 {% endblock %}

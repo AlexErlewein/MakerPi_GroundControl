@@ -1,175 +1,175 @@
-{% extends "base.html" %}
-
-{% block title %}Laufzettel #{{ laufzettel.id }} – H3cke MakerSpace{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=3">
-{% endblock %}
-
-{% block header %}
+{% extends "base.html" %} {% block title %}Laufzettel #{{ laufzettel.id }} – H3cke MakerSpace{% endblock %} {% block
+extra_css %}
+<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=3" />
+{% endblock %} {% block header %}
 <div class="container">
     <header>
         <div class="header-left">
-            <a href="/"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace"></a>
+            <a href="/"><img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace" /></a>
         </div>
         <div class="header-right">
-            <a href="/api/laufzettel/{{ laufzettel.id }}/pdf" class="btn btn-secondary btn-sm" title="PDF herunterladen">📄 PDF</a>
+            <a href="/api/laufzettel/{{ laufzettel.id }}/pdf" class="btn btn-secondary btn-sm" title="PDF herunterladen"
+                >📄 PDF</a
+            >
         </div>
     </header>
-{% endblock %}
+    {% endblock %} {% block content %}
+    <div class="container">
+        <main class="lz-detail-main">
+            <!-- Info Card -->
+            <section class="lz-info-card section">
+                <div class="section-header">
+                    <h2>Laufzettel <span class="lz-id-badge">#{{ laufzettel.id }}</span></h2>
+                </div>
 
-{% block content %}
-<div class="container">
-<main class="lz-detail-main">
-    <!-- Info Card -->
-    <section class="lz-info-card section">
-        <div class="section-header">
-            <h2>Laufzettel <span class="lz-id-badge">#{{ laufzettel.id }}</span></h2>
-        </div>
-
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">Datum</span>
-                <span class="info-value">{{ date_str }}</span>
-            </div>
-            {% if start_str %}
-            <div class="info-item">
-                <span class="info-label">Von</span>
-                <span class="info-value">{{ start_str }}</span>
-            </div>
-            {% endif %}
-            <div class="info-item">
-                <span class="info-label">Inhaber</span>
-                <span class="info-value">{{ laufzettel.owner_name or 'Gast' }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Status</span>
-                <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
-                    {% if laufzettel.payment_method == 'bar' %}Bezahlt – Barzahlung
-                    {% elif laufzettel.payment_method == 'karte' %}Bezahlt – Kartenzahlung
-                    {% elif laufzettel.payment_method == 'wero' %}Bezahlt – Wero
-                    {% elif laufzettel.payment_method == 'checkout' %}Bezahlt – Online
-                    {% elif laufzettel.payment_method %}Bezahlt
-                    {% else %}Offen
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Datum</span>
+                        <span class="info-value">{{ date_str }}</span>
+                    </div>
+                    {% if start_str %}
+                    <div class="info-item">
+                        <span class="info-label">Von</span>
+                        <span class="info-value">{{ start_str }}</span>
+                    </div>
                     {% endif %}
-                </span>
-            </div>
-            {% if laufzettel.guest_address %}
-            <div class="info-item" style="grid-column: 1 / -1;">
-                <span class="info-label">Adresse</span>
-                <span class="info-value" style="white-space: pre-line;">{{ laufzettel.guest_address }}</span>
-            </div>
-            {% endif %}
-            {% if laufzettel.guest_email %}
-            <div class="info-item">
-                <span class="info-label">E-Mail</span>
-                <span class="info-value">{{ laufzettel.guest_email }}</span>
-            </div>
-            {% endif %}
-        </div>
+                    <div class="info-item">
+                        <span class="info-label">Inhaber</span>
+                        <span class="info-value">{{ laufzettel.owner_name or 'Gast' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status</span>
+                        <span class="info-value {% if laufzettel.payment_method %}paid{% else %}open{% endif %}">
+                            {% if laufzettel.payment_method == 'bar' %}Bezahlt – Barzahlung {% elif
+                            laufzettel.payment_method == 'karte' %}Bezahlt – Kartenzahlung {% elif
+                            laufzettel.payment_method == 'wero' %}Bezahlt – Wero {% elif laufzettel.payment_method ==
+                            'checkout' %}Bezahlt – Online {% elif laufzettel.payment_method %}Bezahlt {% else %}Offen {%
+                            endif %}
+                        </span>
+                    </div>
+                    {% if laufzettel.guest_address %}
+                    <div class="info-item" style="grid-column: 1 / -1">
+                        <span class="info-label">Adresse</span>
+                        <span class="info-value" style="white-space: pre-line">{{ laufzettel.guest_address }}</span>
+                    </div>
+                    {% endif %} {% if laufzettel.guest_email %}
+                    <div class="info-item">
+                        <span class="info-label">E-Mail</span>
+                        <span class="info-value">{{ laufzettel.guest_email }}</span>
+                    </div>
+                    {% endif %}
+                </div>
 
-        {% if laufzettel.payment_method and paid_at_str %}
-        <div class="payment-locked-banner" style="margin-top:16px;">
-            ✓ Bezahlt am {{ paid_at_str }} Uhr
-        </div>
-        {% endif %}
-    </section>
+                {% if laufzettel.payment_method and paid_at_str %}
+                <div class="payment-locked-banner" style="margin-top: 16px">✓ Bezahlt am {{ paid_at_str }} Uhr</div>
+                {% endif %}
+            </section>
 
-    <!-- Material Section -->
-    <section class="section">
-        <div class="section-header">
-            <h2>Material</h2>
-        </div>
+            <!-- Material Section -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Material</h2>
+                </div>
 
-        <div class="table-container">
-            <table id="material-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Name</th>
-                        <th>Menge</th>
-                        <th>Einheit</th>
-                        <th>Preis (€)</th>
-                    </tr>
-                </thead>
-                <tbody id="material-body"></tbody>
-                <tfoot id="material-total">
-                    <tr>
-                        <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
-                        <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">
-                            {{ "%.2f"|format(materials | sum(attribute='price')) }} €
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    </section>
-</main>
-</div>
-{% endblock %}
+                <div class="table-container">
+                    <table id="material-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Menge</th>
+                                <th>Einheit</th>
+                                <th>Preis (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="material-body"></tbody>
+                        <tfoot id="material-total">
+                            <tr>
+                                <td colspan="4" style="text-align: right; font-weight: 600; padding: 10px 12px">
+                                    Gesamt
+                                </td>
+                                <td
+                                    style="
+                                        font-family: monospace;
+                                        font-weight: 700;
+                                        color: var(--success);
+                                        padding: 10px 12px;
+                                    "
+                                >
+                                    {{ "%.2f"|format(materials | sum(attribute='price')) }} €
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    {% endblock %} {% block footer %} {% endblock %} {% block extra_js %}
+    <script>
+        const MATERIALS_DATA = {{ materials | tojson | safe }};
 
-{% block footer %}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    const MATERIALS_DATA = {{ materials | tojson | safe }};
-
-    function esc(str) {
-        return String(str || '')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    function getGroupLabel(m) {
-        if (m.is_spende) return 'Spenden';
-        return m.location || 'Freitext';
-    }
-
-    function renderMaterials() {
-        const tbody = document.getElementById('material-body');
-        const tfoot = document.getElementById('material-total');
-        if (!MATERIALS_DATA.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
-            tfoot.classList.add('hidden');
-            return;
+        function esc(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // Sort: Spenden last, then by location, then by name
-        const sorted = [...MATERIALS_DATA].sort((a, b) => {
-            const sA = !!a.is_spende, sB = !!b.is_spende;
-            if (sA !== sB) return sA ? 1 : -1;
-            const locA = a.location || '￿';
-            const locB = b.location || '￿';
-            return locA.localeCompare(locB) || (a.name || '').localeCompare(b.name || '');
-        });
+        function getGroupLabel(m) {
+            if (m.is_spende) return 'Spenden';
+            if (m.location && m.category) return `${m.location} — ${m.category}`;
+            if (m.location) return m.location;
+            return m.category || 'Freitext';
+        }
 
-        let lastGroup = undefined;
-        let rowIndex = 0;
-        const rows = [];
-        for (const m of sorted) {
-            const group = getGroupLabel(m);
-            if (group !== lastGroup) {
-                rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(group)}</span></td></tr>`);
-                lastGroup = group;
+        function renderMaterials() {
+            const tbody = document.getElementById('material-body');
+            const tfoot = document.getElementById('material-total');
+            if (!MATERIALS_DATA.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px;">Keine Materialeinträge.</td></tr>';
+                tfoot.classList.add('hidden');
+                return;
             }
-            rowIndex++;
-            const qty = m.quantity != null ? String(m.quantity) : '—';
-            const price = m.price != null
-                ? `<span class="price-col">${m.price.toFixed(2)} €</span>`
-                : '<span style="color:var(--text-secondary)">—</span>';
-            rows.push(`<tr>
-                <td>${rowIndex}</td>
-                <td>${esc(m.name)}</td>
-                <td>${esc(qty)}</td>
-                <td>${esc(m.unit || '—')}</td>
-                <td>${price}</td>
-            </tr>`);
-        }
-        tbody.innerHTML = rows.join('');
-    }
 
-    renderMaterials();
-</script>
-<script src="/static/js/activity-tracker.js"></script>
-{% endblock %}
+            // Sort: Spenden last, then by location, then by category, then by name
+            const sorted = [...MATERIALS_DATA].sort((a, b) => {
+                const sA = !!a.is_spende, sB = !!b.is_spende;
+                if (sA !== sB) return sA ? 1 : -1;
+                const locA = a.location || '￿';
+                const locB = b.location || '￿';
+                const catA = a.category || '';
+                const catB = b.category || '';
+                return locA.localeCompare(locB) || catA.localeCompare(catB) || (a.name || '').localeCompare(b.name || '');
+            });
+
+            let lastGroup = undefined;
+            let rowIndex = 0;
+            const rows = [];
+            for (const m of sorted) {
+                const group = getGroupLabel(m);
+                const groupKey = (m.location || 'Freitext') + '|' + (m.category || '');
+                if (groupKey !== lastGroup) {
+                    rows.push(`<tr class="category-separator"><td colspan="5"><span>${esc(group)}</span></td></tr>`);
+                    lastGroup = groupKey;
+                }
+                rowIndex++;
+                const qty = m.quantity != null ? String(m.quantity) : '—';
+                const price = m.price != null
+                    ? `<span class="price-col">${m.price.toFixed(2)} €</span>`
+                    : '<span style="color:var(--text-secondary)">—</span>';
+                rows.push(`<tr>
+                    <td>${rowIndex}</td>
+                    <td>${esc(m.name)}</td>
+                    <td>${esc(qty)}</td>
+                    <td>${esc(m.unit || '—')}</td>
+                    <td>${price}</td>
+                </tr>`);
+            }
+            tbody.innerHTML = rows.join('');
+        }
+
+        renderMaterials();
+    </script>
+    <script src="/static/js/activity-tracker.js"></script>
+    {% endblock %}
+</div>

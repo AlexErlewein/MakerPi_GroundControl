@@ -1,20 +1,23 @@
-{% extends "base-member.html" %}
-
-{% block title %}Aktueller Auftrag - MakerPi GroundControl{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/tags.css?v=2">
-<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2">
-<link rel="stylesheet" href="/static/css/laufzettel.css?v=2">
+{% extends "base-member.html" %} {% block title %}Aktueller Auftrag - MakerPi GroundControl{% endblock %} {% block
+extra_css %}
+<link rel="stylesheet" href="/static/css/tags.css?v=2" />
+<link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=2" />
+<link rel="stylesheet" href="/static/css/laufzettel.css?v=2" />
 <style>
-@keyframes member-pulse {
-    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-    40% { transform: scale(1); opacity: 1; }
-}
+    @keyframes member-pulse {
+        0%,
+        80%,
+        100% {
+            transform: scale(0.6);
+            opacity: 0.5;
+        }
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <main class="lz-detail-main">
     {% if open_lz %}
 
@@ -24,9 +27,15 @@
             <h2>Aktueller Auftrag <span class="lz-id-badge">#{{ open_lz.id }}</span></h2>
         </div>
         <div id="info-view" class="info-grid">
-            <div class="info-item"><span class="info-label">Datum</span><span class="info-value">{{ open_lz.date }}</span></div>
-            <div class="info-item"><span class="info-label">Von</span><span class="info-value">{{ open_lz.start or "..." }}</span></div>
-            <div class="info-item"><span class="info-label">Status</span><span class="info-value open">Offen</span></div>
+            <div class="info-item">
+                <span class="info-label">Datum</span><span class="info-value">{{ open_lz.date }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Von</span><span class="info-value">{{ open_lz.start or "..." }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Status</span><span class="info-value open">Offen</span>
+            </div>
         </div>
     </section>
 
@@ -34,25 +43,44 @@
     <section class="section">
         <div class="section-header">
             <h2>Material</h2>
-            <div style="display:flex;gap:8px;">
-                <button id="add-spende-btn" class="btn btn-secondary" onclick="openSpendeModal()" style="color: var(--accent);">♥ Spende</button>
-                <button id="add-aufrunden-btn" class="btn btn-secondary" onclick="openAufrundenModal()">⬆ Aufrunden</button>
-                <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">+ Material hinzufügen</button>
+            <div style="display: flex; gap: 8px">
+                <button
+                    id="add-spende-btn"
+                    class="btn btn-secondary"
+                    onclick="openSpendeModal()"
+                    style="color: var(--accent)"
+                >
+                    ♥ Spende
+                </button>
+                <button id="add-aufrunden-btn" class="btn btn-secondary" onclick="openAufrundenModal()">
+                    ⬆ Aufrunden
+                </button>
+                <button id="add-material-btn" class="btn btn-success" onclick="openAddMaterial()">
+                    + Material hinzufügen
+                </button>
             </div>
         </div>
 
         <div class="table-container">
             <table id="material-table">
                 <thead>
-                    <tr><th>#</th><th>Name</th><th>Menge / Maße</th><th>Einheit</th><th>Preis (€)</th></tr>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Menge / Maße</th>
+                        <th>Einheit</th>
+                        <th>Preis (€)</th>
+                    </tr>
                 </thead>
                 <tbody id="material-body">
                     <!-- Dynamically rendered by JavaScript with location grouping -->
                 </tbody>
-                <tfoot id="material-total" {% if total == 0 %}class="hidden"{% endif %}>
+                <tfoot id="material-total" {% if total="" ="0" %}class="hidden" {% endif %}>
                     <tr>
-                        <td colspan="4" style="text-align:right;font-weight:600;padding:10px 12px;">Gesamt</td>
-                        <td style="font-family:monospace;font-weight:700;color:var(--success);padding:10px 12px;">{{ "%.2f"|format(total) }} €</td>
+                        <td colspan="4" style="text-align: right; font-weight: 600; padding: 10px 12px">Gesamt</td>
+                        <td style="font-family: monospace; font-weight: 700; color: var(--success); padding: 10px 12px">
+                            {{ "%.2f"|format(total) }} €
+                        </td>
                     </tr>
                 </tfoot>
             </table>
@@ -60,14 +88,29 @@
     </section>
 
     <!-- Payment Button -->
-    <section class="section" style="text-align:center;padding:24px 0;">
-        <button class="btn-pay" id="btn-member-pay" onclick="startMemberAdminUnlock()" style="
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            color: white; border: none; padding: 16px 32px; border-radius: 12px;
-            font-size: 1.15rem; font-weight: 700; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(34,197,94,0.3); transition: all 0.25s;
-            display: inline-flex; align-items: center; gap: 10px;
-        ">💳 Jetzt bezahlen</button>
+    <section class="section" style="text-align: center; padding: 24px 0">
+        <button
+            class="btn-pay"
+            id="btn-member-pay"
+            onclick="startMemberAdminUnlock()"
+            style="
+                background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                color: white;
+                border: none;
+                padding: 16px 32px;
+                border-radius: 12px;
+                font-size: 1.15rem;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+                transition: all 0.25s;
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+            "
+        >
+            💳 Jetzt bezahlen
+        </button>
     </section>
 
     {% else %}
@@ -83,8 +126,7 @@
     {% endif %}
 </main>
 
-{# Modals #}
-{% if open_lz %}
+{# Modals #} {% if open_lz %}
 <div id="material-modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-box modal-box-wide">
@@ -93,35 +135,39 @@
             <button class="modal-close" id="modal-close">✕</button>
         </div>
         <div class="mode-toggle">
-            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">&#128230; Aus Katalog</button>
-            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">&#9999;&#65039; Freitext</button>
+            <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">
+                &#128230; Aus Katalog
+            </button>
+            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">
+                &#9999;&#65039; Freitext
+            </button>
         </div>
         <form id="material-form" class="modal-form">
-            <input type="hidden" id="mat-id">
+            <input type="hidden" id="mat-id" />
             <!-- Freitext Mode -->
             <div id="freitext-fields">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="field-mat-name">Name</label>
-                        <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3">
+                        <input type="text" id="field-mat-name" placeholder="z.B. Schrauben M3" />
                     </div>
                     <div class="form-group">
                         <label for="field-mat-unit">Einheit</label>
-                        <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ...">
+                        <input type="text" id="field-mat-unit" placeholder="Stk, kg, m, ..." />
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="field-mat-menge">Menge</label>
-                        <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0">
+                        <input type="number" id="field-mat-menge" placeholder="1" step="any" min="0" />
                     </div>
                     <div class="form-group">
                         <label for="field-mat-unit-price">Einzelpreis (€)</label>
-                        <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0">
+                        <input type="number" id="field-mat-unit-price" placeholder="0.00" step="any" min="0" />
                     </div>
                     <div class="form-group">
                         <label for="field-mat-total-price">Gesamtpreis (€)</label>
-                        <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0">
+                        <input type="number" id="field-mat-total-price" placeholder="0.00" step="any" min="0" />
                     </div>
                 </div>
             </div>
@@ -155,16 +201,41 @@
                 </div>
                 <div id="kat-inputs" class="hidden">
                     <div class="form-row" id="kat-row-dim">
-                        <div class="form-group"><label for="kat-laenge">Länge (cm)</label><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-breite">Breite (cm)</label><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-hoehe">Höhe (cm)</label><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group">
+                            <label for="kat-laenge">Länge (cm)</label
+                            ><input type="number" id="kat-laenge" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-breite">Breite (cm)</label
+                            ><input type="number" id="kat-breite" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-hoehe">Höhe (cm)</label
+                            ><input type="number" id="kat-hoehe" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
                     </div>
                     <div class="form-row hidden" id="kat-row-area">
-                        <div class="form-group"><label for="kat-area-laenge">Länge (cm)</label><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()"></div>
-                        <div class="form-group"><label for="kat-area-breite">Breite (cm)</label><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()"></div>
+                        <div class="form-group">
+                            <label for="kat-area-laenge">Länge (cm)</label
+                            ><input type="number" id="kat-area-laenge" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
+                        <div class="form-group">
+                            <label for="kat-area-breite">Breite (cm)</label
+                            ><input type="number" id="kat-area-breite" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
                     </div>
-                    <div class="form-row hidden" id="kat-row-menge"><div class="form-group"><label for="kat-menge-unit" id="kat-menge-label">Menge</label><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()"></div></div>
-                    <div class="form-row hidden" id="kat-row-minute"><div class="form-group"><label for="kat-menge-minute">Dauer (Minuten)</label><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()"></div></div>
+                    <div class="form-row hidden" id="kat-row-menge">
+                        <div class="form-group">
+                            <label for="kat-menge-unit" id="kat-menge-label">Menge</label
+                            ><input type="number" id="kat-menge-unit" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
+                    </div>
+                    <div class="form-row hidden" id="kat-row-minute">
+                        <div class="form-group">
+                            <label for="kat-menge-minute">Dauer (Minuten)</label
+                            ><input type="number" id="kat-menge-minute" step="any" min="0" oninput="recalcPrice()" />
+                        </div>
+                    </div>
                     <div id="kat-price-preview" class="price-preview hidden"></div>
                 </div>
             </div>
@@ -179,27 +250,38 @@
 <div id="spende-modal" class="modal hidden">
     <div class="modal-overlay" id="spende-overlay"></div>
     <div class="modal-box">
-        <div class="modal-header"><h3>Spende / Trinkgeld</h3><button class="modal-close" id="spende-close">✕</button></div>
+        <div class="modal-header">
+            <h3>Spende / Trinkgeld</h3>
+            <button class="modal-close" id="spende-close">✕</button>
+        </div>
         <form id="spende-form" class="modal-form">
             <div class="form-group">
                 <label for="field-spende-name">Bezeichnung (optional)</label>
-                <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt">
+                <input type="text" id="field-spende-name" placeholder="z.B. Spende für das Projekt" />
             </div>
-            <div class="form-group" id="aufrunden-group" style="display:none;">
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 8px;">
+            <div class="form-group" id="aufrunden-group" style="display: none">
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 8px">
                     Aktuelle Summe: <strong><span id="current-total">–</span> €</strong>
                 </p>
                 <label for="field-spende-aufrunden-amount">Aufrunden auf (€)</label>
-                <input type="number" id="field-spende-aufrunden-amount" placeholder="z.B. 10.00" step="0.01" min="0.01">
-                <p style="color:var(--text-secondary);font-size:0.8rem;margin:4px 0 0;">
+                <input
+                    type="number"
+                    id="field-spende-aufrunden-amount"
+                    placeholder="z.B. 10.00"
+                    step="0.01"
+                    min="0.01"
+                />
+                <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 4px 0 0">
                     Spende: <span id="aufrunden-diff">–</span> €
                 </p>
             </div>
             <div class="form-group" id="direct-amount-group">
                 <label for="field-spende-amount">Betrag (€)</label>
-                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01">
+                <input type="number" id="field-spende-amount" placeholder="z.B. 5.00" step="0.01" min="0.01" />
             </div>
-            <p style="color:var(--text-secondary);font-size:0.85rem;margin:0 0 1rem;">Steuersatz: 0 % (steuerfrei)</p>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 1rem">
+                Steuersatz: 0 % (steuerfrei)
+            </p>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="spende-cancel">Abbrechen</button>
                 <button type="submit" class="btn btn-success">Erfassen</button>
@@ -208,39 +290,204 @@
     </div>
 </div>
 
-<div id="member-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:40px 30px;max-width:450px;width:90%;text-align:center;">
-        <div style="font-size:3rem;margin-bottom:16px;">&#128272;</div>
-        <h3 style="color:var(--text-primary);font-size:1.3rem;margin:0 0 12px 0;">Bitte von Admin freischalten lassen</h3>
-        <p style="color:var(--text-secondary);font-size:1rem;margin:0 0 24px 0;">Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.</p>
-        <div id="member-admin-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:10px 12px;border-radius:6px;font-size:0.9rem;border:1px solid var(--danger);margin-bottom:16px;"></div>
-        <div style="background:var(--bg-primary);border-radius:12px;padding:24px 16px;border:2px dashed rgba(99,102,241,0.4);margin-bottom:20px;">
-            <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:15px;height:30px;">
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.32s;"></span>
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;animation-delay:-0.16s;"></span>
-                <span style="width:12px;height:12px;background:#6366f1;border-radius:50%;animation:member-pulse 1.4s infinite ease-in-out both;"></span>
+<div
+    id="member-admin-modal"
+    style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    "
+>
+    <div
+        style="
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px 30px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+        "
+    >
+        <div style="font-size: 3rem; margin-bottom: 16px">&#128272;</div>
+        <h3 style="color: var(--text-primary); font-size: 1.3rem; margin: 0 0 12px 0">
+            Bitte von Admin freischalten lassen
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 1rem; margin: 0 0 24px 0">
+            Ein Administrator muss seine Karte scannen, um die Zahlung freizugeben.
+        </p>
+        <div
+            id="member-admin-error"
+            style="
+                display: none;
+                background: rgba(192, 57, 43, 0.15);
+                color: var(--danger);
+                padding: 10px 12px;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                border: 1px solid var(--danger);
+                margin-bottom: 16px;
+            "
+        ></div>
+        <div
+            style="
+                background: var(--bg-primary);
+                border-radius: 12px;
+                padding: 24px 16px;
+                border: 2px dashed rgba(99, 102, 241, 0.4);
+                margin-bottom: 20px;
+            "
+        >
+            <div
+                style="
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 15px;
+                    height: 30px;
+                "
+            >
+                <span
+                    style="
+                        width: 12px;
+                        height: 12px;
+                        background: #6366f1;
+                        border-radius: 50%;
+                        animation: member-pulse 1.4s infinite ease-in-out both;
+                        animation-delay: -0.32s;
+                    "
+                ></span>
+                <span
+                    style="
+                        width: 12px;
+                        height: 12px;
+                        background: #6366f1;
+                        border-radius: 50%;
+                        animation: member-pulse 1.4s infinite ease-in-out both;
+                        animation-delay: -0.16s;
+                    "
+                ></span>
+                <span
+                    style="
+                        width: 12px;
+                        height: 12px;
+                        background: #6366f1;
+                        border-radius: 50%;
+                        animation: member-pulse 1.4s infinite ease-in-out both;
+                    "
+                ></span>
             </div>
-            <div style="color:var(--text-secondary);font-size:1rem;font-weight:500;">Warte auf Admin-Karte...</div>
+            <div style="color: var(--text-secondary); font-size: 1rem; font-weight: 500">Warte auf Admin-Karte...</div>
         </div>
-        <button onclick="cancelMemberAdminUnlock()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;">Abbrechen</button>
+        <button
+            onclick="cancelMemberAdminUnlock()"
+            style="
+                background: transparent;
+                color: var(--text-secondary);
+                border: 1px solid var(--border-color);
+                padding: 10px 24px;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                cursor: pointer;
+            "
+        >
+            Abbrechen
+        </button>
     </div>
 </div>
-<div id="admin-pw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;">
-        <h3 style="color:var(--text-primary);font-size:1.2rem;margin:0 0 16px 0;">&#128275; Admin-Passwort</h3>
-        <div id="admin-pw-error" style="display:none;background:rgba(192,57,43,0.15);color:var(--danger);padding:8px 12px;border-radius:6px;font-size:0.85rem;border:1px solid var(--danger);margin-bottom:12px;"></div>
-        <input type="password" id="admin-pw-input" placeholder="Passwort eingeben" style="width:100%;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:1rem;box-sizing:border-box;margin-bottom:16px;">
-        <div style="display:flex;gap:10px;justify-content:center;">
-            <button onclick="closeAdminPwModal()" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);padding:10px 20px;border-radius:8px;cursor:pointer;">Abbrechen</button>
-            <button onclick="submitAdminPw()" id="admin-pw-submit" style="background:#827f77;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;">Bestätigen</button>
+<div
+    id="admin-pw-modal"
+    style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    "
+>
+    <div
+        style="
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px 28px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+        "
+    >
+        <h3 style="color: var(--text-primary); font-size: 1.2rem; margin: 0 0 16px 0">&#128275; Admin-Passwort</h3>
+        <div
+            id="admin-pw-error"
+            style="
+                display: none;
+                background: rgba(192, 57, 43, 0.15);
+                color: var(--danger);
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                border: 1px solid var(--danger);
+                margin-bottom: 12px;
+            "
+        ></div>
+        <input
+            type="password"
+            id="admin-pw-input"
+            placeholder="Passwort eingeben"
+            style="
+                width: 100%;
+                padding: 12px 16px;
+                background: var(--bg-primary);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                color: var(--text-primary);
+                font-size: 1rem;
+                box-sizing: border-box;
+                margin-bottom: 16px;
+            "
+        />
+        <div style="display: flex; gap: 10px; justify-content: center">
+            <button
+                onclick="closeAdminPwModal()"
+                style="
+                    background: transparent;
+                    color: var(--text-secondary);
+                    border: 1px solid var(--border-color);
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                "
+            >
+                Abbrechen
+            </button>
+            <button
+                onclick="submitAdminPw()"
+                id="admin-pw-submit"
+                style="
+                    background: #827f77;
+                    color: #fff;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                "
+            >
+                Bestätigen
+            </button>
         </div>
     </div>
 </div>
-{% endif %}
-{% endblock %}
-
-{% block extra_js %}
-{% if open_lz %}
+{% endif %} {% endblock %} {% block extra_js %} {% if open_lz %}
 <script>
     const LAUFZETTEL_ID = {{ open_lz.id }};
     const KATALOG_DATA = {{ katalog | tojson | safe }};
@@ -275,14 +522,37 @@
         return null;
     }
 
+    function getKategorieForVariante(varianteId) {
+        if (!varianteId) return null;
+        for (const loc of katalog) {
+            for (const kat of (loc.kategorien || [])) {
+                for (const v of (kat.varianten || [])) {
+                    if (v.id === varianteId) return kat.name;
+                }
+                for (const ukat of (kat.unterkategorien || [])) {
+                    for (const v of (ukat.varianten || [])) {
+                        if (v.id === varianteId) return kat.name;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     function getMatGroupKey(m) {
         if (m.is_spende) return '__spenden__';
-        return getLocationForVariante(m.variante_id);
+        const loc = getLocationForVariante(m.variante_id);
+        const cat = getKategorieForVariante(m.variante_id);
+        return `${loc || 'Freitext'}|${cat || ''}`;
     }
 
     function getMatGroupLabel(m) {
         if (m.is_spende) return 'Spenden';
-        return getLocationForVariante(m.variante_id) || 'Freitext';
+        const loc = getLocationForVariante(m.variante_id);
+        const cat = getKategorieForVariante(m.variante_id);
+        if (loc && cat) return `${loc} — ${cat}`;
+        if (loc) return loc;
+        return 'Freitext';
     }
 
     function sortMats(mats) {
@@ -291,7 +561,9 @@
             if (sA !== sB) return sA ? 1 : -1;
             const locA = getLocationForVariante(a.variante_id) || '\uffff';
             const locB = getLocationForVariante(b.variante_id) || '\uffff';
-            return locA.localeCompare(locB) || a.name.localeCompare(b.name);
+            const catA = getKategorieForVariante(a.variante_id) || '';
+            const catB = getKategorieForVariante(b.variante_id) || '';
+            return locA.localeCompare(locB) || catA.localeCompare(catB) || a.name.localeCompare(b.name);
         });
     }
 
@@ -315,7 +587,7 @@
         for (const m of sorted) {
             const groupKey = getMatGroupKey(m);
             if (groupKey !== lastGroupKey) {
-                rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
+                rows.push(`<tr class="category-separator"><td colspan="5"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
                 lastGroupKey = groupKey;
             }
             rowIndex++;
@@ -906,8 +1178,8 @@
                     errEl.textContent = result.error || 'Keine Admin-Berechtigung';
                     errEl.style.display = 'block';
                 }
-                setTimeout(() => { 
-                    if (errEl) errEl.style.display = 'none'; 
+                setTimeout(() => {
+                    if (errEl) errEl.style.display = 'none';
                 }, 4000);
                 if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
                 memberAdminScanSource = new EventSource('/api/scans/payment-stream');
@@ -941,4 +1213,3 @@
 
 <script src="/static/js/activity-tracker.js"></script>
 {% endblock %}
-

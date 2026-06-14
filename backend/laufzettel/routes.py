@@ -1,6 +1,7 @@
 """Laufzettel routes - API and pages for work orders"""
 
 import asyncio
+import json
 import logging
 from typing import Optional
 
@@ -8,18 +9,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-import json
 
 from backend.config import (
     PUBLIC_BASE_URL,
+    SUMUP_AFFILIATE_KEY,
     SUMUP_API_KEY,
     SUMUP_MERCHANT_CODE,
-    SUMUP_READER_ID,
-    SUMUP_AFFILIATE_KEY,
     SUMUP_MOCK,
+    SUMUP_READER_ID,
     WERO_ENABLED,
     WERO_MOCK,
 )
+
 from .db import get_db, init_db
 from .models import Laufzettel, LaufzettelGutschein, LaufzettelMaterial
 from .pdf import drive_folder_names, generate_pdf, pdf_filename
@@ -34,8 +35,8 @@ except Exception:
 
 # Email support (import at module level, calls wrapped in try/except)
 try:
-    from backend.email_utils import send_email as _send_email
     from backend.email_templates import easyverein_signup_html, laufzettel_receipt_html
+    from backend.email_utils import send_email as _send_email
 except Exception:
     _send_email = None
     laufzettel_receipt_html = None
@@ -191,6 +192,7 @@ async def startup():
 async def laufzettel_page(request: Request):
     """Render Laufzettel list page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
@@ -212,6 +214,7 @@ async def laufzettel_detail_page(
 ):
     """Render Laufzettel detail/edit page"""
     from fastapi.templating import Jinja2Templates
+
     from backend.auth.dependencies import check_auth
 
     templates = Jinja2Templates(directory="templates")
@@ -238,7 +241,8 @@ async def laufzettel_detail_page(
 @router.post("/api/laufzettel")
 async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db)):
     """Manually create a new Laufzettel entry"""
-    from datetime import datetime, date as dt_date
+    from datetime import date as dt_date
+    from datetime import datetime
 
     uid = data.uid.upper()
     if data.date:
@@ -746,8 +750,8 @@ _pending_payments: dict = {}
 @router.post("/api/laufzettel/{laufzettel_id}/pay/karte")
 async def pay_karte(laufzettel_id: int, db: Session = Depends(get_db)):
     """Initiate card payment - returns transaction ID for polling"""
-    from datetime import datetime, timezone, timedelta
     import uuid
+    from datetime import datetime, timedelta, timezone
 
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
@@ -1017,6 +1021,7 @@ _pending_checkouts: dict = {}
 async def pay_checkout_link(laufzettel_id: int, db: Session = Depends(get_db)):
     """Create a SumUp hosted checkout and return the customer-facing payment URL"""
     import uuid
+
     import httpx
 
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -1081,6 +1086,7 @@ async def get_checkout_status(
 ):
     """Poll SumUp for hosted checkout status; auto-confirms the Laufzettel when paid"""
     from datetime import datetime, timezone
+
     import httpx
 
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -1244,9 +1250,10 @@ async def create_guest_laufzettel(
     data: GuestLaufzettelCreate, request: Request, db: Session = Depends(get_db)
 ):
     """Create a new guest Laufzettel"""
-    from datetime import datetime, date as dt_date, timezone
-    import uuid
     import secrets
+    import uuid
+    from datetime import date as dt_date
+    from datetime import datetime, timezone
 
     # Generate guest_id (UUID)
     guest_id = str(uuid.uuid4())
@@ -1480,6 +1487,7 @@ async def apply_gutschein(
 ):
     """Apply a Shopify gift card credit to an open Laufzettel (partial or full payment)."""
     from datetime import datetime, timezone
+
     from backend.shopify.routes import _graphql_query
 
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
@@ -1696,8 +1704,8 @@ _pending_wero_payments: dict = {}
 @router.post("/api/laufzettel/{laufzettel_id}/pay/wero")
 async def pay_wero(laufzettel_id: int, request: Request, db: Session = Depends(get_db)):
     """Initiate Wero payment - returns QR code URL for customer scan"""
-    from datetime import datetime, timezone, timedelta
     import uuid
+    from datetime import datetime, timedelta, timezone
 
     if not WERO_ENABLED:
         raise HTTPException(status_code=503, detail="Wero payment not enabled")
@@ -1910,9 +1918,10 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
             .all()
         )
 
-        # Build variante_id -> location_name map from catalog DB
+        # Build variante_id -> location_name and category_name map from catalog DB
         variante_ids = [m.variante_id for m in materials if m.variante_id]
         location_map: dict[int, str] = {}
+        category_map: dict[int, str] = {}
         if variante_ids:
             try:
                 from backend.catalog.db import SessionLocal as CatalogSession
@@ -1934,8 +1943,9 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                         .filter(MaterialVariante.id.in_(variante_ids))
                         .all()
                     )
-                    for v, _k, loc in rows:
+                    for v, k, loc in rows:
                         location_map[v.id] = loc.name
+                        category_map[v.id] = k.name
                 finally:
                     cat_db.close()
             except Exception:
@@ -1956,13 +1966,17 @@ async def public_laufzettel_view(laufzettel_id: int, request: Request):
                     "location": location_map.get(mat.variante_id)
                     if mat.variante_id
                     else None,
+                    "category": category_map.get(mat.variante_id)
+                    if mat.variante_id
+                    else None,
                 }
             )
 
         # Pre-format datetimes — SQLite may return strings instead of datetime
         # objects for timezone-aware columns, so we normalise here.
-        from backend.laufzettel.models import _naive_to_utc as _lz_utc
         import datetime as _dt
+
+        from backend.laufzettel.models import _naive_to_utc as _lz_utc
 
         def _fmt(val, fmt):
             if val is None:
