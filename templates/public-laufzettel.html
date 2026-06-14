@@ -115,13 +115,6 @@ extra_css %}
                 .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        function getGroupLabel(m) {
-            if (m.is_spende) return 'Spenden';
-            if (m.location && m.category) return `${m.location} — ${m.category}`;
-            if (m.location) return m.location;
-            return m.category || 'Freitext';
-        }
-
         function renderMaterials() {
             const tbody = document.getElementById('material-body');
             const tfoot = document.getElementById('material-total');
@@ -142,15 +135,28 @@ extra_css %}
                 return locA.localeCompare(locB) || catA.localeCompare(catB) || (a.name || '').localeCompare(b.name || '');
             });
 
-            let lastGroup = undefined;
+            let lastLoc = undefined, lastCat = undefined;
             let rowIndex = 0;
             const rows = [];
             for (const m of sorted) {
-                const group = getGroupLabel(m);
-                const groupKey = (m.location || 'Freitext') + '|' + (m.category || '');
-                if (groupKey !== lastGroup) {
-                    rows.push(`<tr class="category-separator"><td colspan="5"><span>${esc(group)}</span></td></tr>`);
-                    lastGroup = groupKey;
+                if (m.is_spende) {
+                    if (lastLoc !== '__spenden__') {
+                        rows.push(`<tr class="location-separator"><td colspan="5"><span>Spenden</span></td></tr>`);
+                        lastLoc = '__spenden__';
+                        lastCat = undefined;
+                    }
+                } else {
+                    const loc = m.location || 'Freitext';
+                    const cat = m.category || '';
+                    if (loc !== lastLoc) {
+                        rows.push(`<tr class="location-separator"><td colspan="5"><span>${esc(loc)}</span></td></tr>`);
+                        lastLoc = loc;
+                        lastCat = undefined;
+                    }
+                    if (cat !== lastCat && cat) {
+                        rows.push(`<tr class="category-separator"><td colspan="5"><span>${esc(cat)}</span></td></tr>`);
+                        lastCat = cat;
+                    }
                 }
                 rowIndex++;
                 const qty = m.quantity != null ? String(m.quantity) : '—';

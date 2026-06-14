@@ -108,20 +108,12 @@ function toggleNodes() {
   }
 }
 
-// Groups: Spende items go to "Spenden" (rendered last); others group by location and category.
+// Groups: Spende items go to "Spenden" (rendered last); others group by location, then category within location.
 function getMatGroupKey(m) {
   if (m.is_spende) return "__spenden__";
   const loc = getLocationForVariante(m.variante_id);
   const cat = getKategorieForVariante(m.variante_id);
-  return `${loc || "Freitext"}|${cat || ""}`; // null = Freitext
-}
-function getMatGroupLabel(m) {
-  if (m.is_spende) return "Spenden";
-  const loc = getLocationForVariante(m.variante_id);
-  const cat = getKategorieForVariante(m.variante_id);
-  if (loc && cat) return `${loc} — ${cat}`;
-  if (loc) return loc;
-  return "Freitext";
+  return { loc: loc || "Freitext", cat: cat || "" };
 }
 function sortMats(mats) {
   return [...mats].sort((a, b) => {
@@ -145,13 +137,29 @@ function renderMaterial() {
   }
   const sorted = sortMats(mats);
   let rowIndex = 0;
-  let lastGroupKey = undefined;
+  let lastLoc = undefined;
+  let lastCat = undefined;
   const rows = [];
   for (const m of sorted) {
     const groupKey = getMatGroupKey(m);
-    if (groupKey !== lastGroupKey) {
-      rows.push(`<tr class="category-separator"><td colspan="7"><span>${esc(getMatGroupLabel(m))}</span></td></tr>`);
-      lastGroupKey = groupKey;
+    if (m.is_spende) {
+      if (lastLoc !== "__spenden__") {
+        rows.push(`<tr class="location-separator"><td colspan="7"><span>Spenden</span></td></tr>`);
+        lastLoc = "__spenden__";
+        lastCat = undefined;
+      }
+    } else {
+      const loc = groupKey.loc;
+      const cat = groupKey.cat;
+      if (loc !== lastLoc) {
+        rows.push(`<tr class="location-separator"><td colspan="7"><span>${esc(loc)}</span></td></tr>`);
+        lastLoc = loc;
+        lastCat = undefined;
+      }
+      if (cat !== lastCat && cat) {
+        rows.push(`<tr class="category-separator"><td colspan="7"><span>${esc(cat)}</span></td></tr>`);
+        lastCat = cat;
+      }
     }
     rowIndex++;
     const mengeCell = buildMengeDisplay(m);
