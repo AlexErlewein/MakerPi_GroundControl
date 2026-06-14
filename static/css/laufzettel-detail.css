@@ -215,7 +215,7 @@
 /* Location separator row in material table (main level) */
 .location-separator td {
     padding: 10px 12px;
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border-top: 2px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     text-align: left;
@@ -232,7 +232,7 @@
 /* Category separator row in material table (nested level) */
 .category-separator td {
     padding: 6px 12px 6px 20px;
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
     border-top: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     text-align: left;
