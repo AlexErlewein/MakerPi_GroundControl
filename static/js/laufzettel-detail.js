@@ -1,3 +1,22 @@
+/**
+ * Render a QR code into a container element using qrcode-generator.
+ * @param {HTMLElement} container
+ * @param {string} text
+ * @param {number} size  pixel size (width = height)
+ * @param {'L'|'M'|'Q'|'H'} ecLevel  error correction level (use 'L' for EPC)
+ */
+function makeQR(container, text, size, ecLevel) {
+  container.innerHTML = "";
+  const qr = qrcode(0, ecLevel || "M");  // typeNumber 0 = auto-detect
+  qr.addData(text);
+  qr.make();
+  const cellSize = Math.floor(size / (qr.getModuleCount() + 8));
+  const margin = Math.floor((size - cellSize * qr.getModuleCount()) / 2);
+  container.innerHTML = qr.createImgTag(cellSize, margin);
+  const img = container.querySelector("img");
+  if (img) { img.style.width = size + "px"; img.style.height = size + "px"; }
+}
+
 let currentData = null;
 let editingMaterialId = null;
 let katalog = [];
@@ -1431,15 +1450,8 @@ async function doKartePayment() {
             </p>`;
 
     // Generate QR code
-    if (typeof QRCode !== "undefined") {
-      new QRCode(document.getElementById("karte-qr-canvas"), {
-        text: initData.payment_url,
-        width: 200,
-        height: 200,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M,
-      });
+    if (typeof qrcode !== "undefined") {
+      makeQR(document.getElementById("karte-qr-canvas"), initData.payment_url, 200, "M");
     }
 
     actions.style.display = "";
@@ -1643,15 +1655,8 @@ async function doCheckoutPayment() {
         </p>`;
   body.appendChild(qrArea);
 
-  if (typeof QRCode !== "undefined") {
-    new QRCode(document.getElementById("checkout-qr-canvas"), {
-      text: initData.checkout_url,
-      width: 200,
-      height: 200,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M,
-    });
+  if (typeof qrcode !== "undefined") {
+    makeQR(document.getElementById("checkout-qr-canvas"), initData.checkout_url, 200, "M");
   }
 
   actions.style.display = "";
@@ -1771,15 +1776,8 @@ async function doWeroPayment() {
   qrSection.classList.remove("hidden");
 
   // Generate QR code for Wero payment URL
-  if (typeof QRCode !== "undefined") {
-    new QRCode(document.getElementById("wero-qr-container"), {
-      text: initData.payment_url,
-      width: 200,
-      height: 200,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M,
-    });
+  if (typeof qrcode !== "undefined") {
+    makeQR(document.getElementById("wero-qr-container"), initData.payment_url, 200, "M");
   }
 
   actions.style.display = "";
@@ -1943,22 +1941,8 @@ async function doBankTransferPayment() {
   document.getElementById("bank-detail-amount").textContent = fmtEur(data.amount);
   document.getElementById("bank-detail-reference").textContent = data.reference;
 
-  if (typeof QRCode !== "undefined") {
-    const epcStr = buildEpcQrString(data);
-    console.log("[EPC QR] payload length:", epcStr.length, "\n" + epcStr);
-    try {
-      new QRCode(document.getElementById("bank-qr-container"), {
-        text: epcStr,
-        width: 220,
-        height: 220,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.L,
-      });
-    } catch (qrErr) {
-      console.error("[EPC QR] generation failed:", qrErr);
-      document.getElementById("bank-qr-container").textContent = "QR-Fehler: " + qrErr.message;
-    }
+  if (typeof qrcode !== "undefined") {
+    makeQR(document.getElementById("bank-qr-container"), buildEpcQrString(data), 220, "L");
   }
 
   qrSection.classList.remove("hidden");
