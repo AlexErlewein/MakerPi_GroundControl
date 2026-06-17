@@ -1950,7 +1950,7 @@ async function doBankTransferPayment() {
       height: 220,
       colorDark: "#000000",
       colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M,
+      correctLevel: QRCode.CorrectLevel.L,
     });
   }
 
