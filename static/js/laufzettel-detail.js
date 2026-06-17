@@ -1222,26 +1222,6 @@ function renderPaymentSection(total, hasAnyPrice) {
   const locked = !!d.payment_method;
   const banner = document.getElementById("payment-locked-banner");
   const buttons = document.getElementById("payment-buttons");
-  const karteBtn = document.getElementById("pay-karte-btn");
-
-  if (!paymentConfig.sumup_configured) karteBtn.style.display = "none";
-
-  const checkoutBtn = document.getElementById("pay-checkout-btn");
-  if (!paymentConfig.checkout_link_available) checkoutBtn.style.display = "none";
-
-  const weroBtn = document.getElementById("pay-wero-btn");
-  if (paymentConfig.wero_configured) {
-    weroBtn.classList.remove("hidden");
-  } else {
-    weroBtn.classList.add("hidden");
-  }
-
-  const bankBtn = document.getElementById("pay-bank-btn");
-  if (paymentConfig.bank_transfer_configured) {
-    bankBtn.classList.remove("hidden");
-  } else {
-    bankBtn.classList.add("hidden");
-  }
 
   renderGutscheinCredits(locked);
 
@@ -1253,10 +1233,11 @@ function renderPaymentSection(total, hasAnyPrice) {
       karte: "Per Karte bezahlt",
       wero: "Per Wero bezahlt",
       gutschein: "Per Gutschein bezahlt",
+      bank_transfer: "Per \u00dcberweisung bezahlt",
     };
     const label = methodLabels[d.payment_method] || "Bezahlt";
     const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleString("de-DE") : "";
-    document.getElementById("payment-locked-text").textContent = `${label}${paidDate ? " – " + paidDate : ""}`;
+    document.getElementById("payment-locked-text").textContent = `${label}${paidDate ? " \u2013 " + paidDate : ""}`;
     const txnEl = document.getElementById("payment-locked-txn");
     if (d.payment_transaction_id) {
       txnEl.textContent = `TXN: ${d.payment_transaction_id}`;
@@ -1271,34 +1252,91 @@ function renderPaymentSection(total, hasAnyPrice) {
     } else {
       notesEl.style.display = "none";
     }
-    // Lock material table actions
     document.querySelectorAll("#material-body .btn-danger, #material-body .btn-secondary").forEach((btn) => {
       btn.disabled = true;
       btn.style.opacity = "0.4";
       btn.style.cursor = "not-allowed";
     });
   } else {
-    // Hide payment buttons if remaining amount is zero (fully covered by gift cards)
     const remaining = getRemaining();
     if (remaining <= 0.005 && (d.gutschein_credits || []).length > 0) {
       buttons.classList.add("hidden");
     } else {
       buttons.classList.remove("hidden");
+      document.getElementById("pay-now-amount").textContent = fmtEur(remaining);
     }
     banner.classList.add("hidden");
   }
 }
 
-// Bar modal
-function openBarModal() {
-  const total = getRemaining();
-  document.getElementById("bar-total-display").textContent = fmtEur(total);
-  document.getElementById("bar-notes-input").value = "";
-  document.getElementById("bar-modal").classList.remove("hidden");
+// ── Unified Payment Modal ────────────────────────────────────────────────────
+
+function _buildMethodSwitcher(defaultMethod) {
+  const switcher = document.getElementById("pay-method-switcher");
+  switcher.innerHTML = "";
+  const methods = [];
+  if (paymentConfig.bank_transfer_configured) methods.push({ id: "bank", label: "🏦 Banküberweisung" });
+  if (paymentConfig.sumup_configured) methods.push({ id: "sumup", label: "💳 EC-/Kreditkarte" });
+  methods.push({ id: "bar", label: "💵 Barzahlung" });
+  methods.forEach(({ id, label }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.method = id;
+    btn.className = "btn btn-secondary pay-method-btn";
+    btn.style.cssText = "flex:1;min-width:120px;font-size:0.82rem;padding:7px 10px;";
+    btn.textContent = label;
+    btn.onclick = () => switchPayMethod(id);
+    switcher.appendChild(btn);
+  });
+  _highlightMethodBtn(defaultMethod);
 }
-function closeBarModal() {
-  document.getElementById("bar-modal").classList.add("hidden");
+
+function _highlightMethodBtn(method) {
+  document.querySelectorAll(".pay-method-btn").forEach((b) => {
+    const active = b.dataset.method === method;
+    b.style.background = active ? "var(--primary,#3b82f6)" : "";
+    b.style.color = active ? "#fff" : "";
+    b.style.borderColor = active ? "var(--primary,#3b82f6)" : "";
+  });
 }
+
+function switchPayMethod(method) {
+  document.querySelectorAll(".pay-panel-view").forEach((p) => p.classList.add("hidden"));
+  const panel = document.getElementById("panel-" + method);
+  if (panel) panel.classList.remove("hidden");
+  _highlightMethodBtn(method);
+  if (method === "bank") loadBankPanel();
+  if (method === "bar") {
+    document.getElementById("bar-total-display").textContent = fmtEur(getRemaining());
+    document.getElementById("bar-notes-input").value = "";
+  }
+}
+
+async function openPayModal() {
+  const remaining = getRemaining();
+  document.getElementById("pay-modal-amount").textContent = fmtEur(remaining);
+  document.getElementById("pay-modal").classList.remove("hidden");
+  const defaultMethod = paymentConfig.bank_transfer_configured ? "bank"
+    : paymentConfig.sumup_configured ? "sumup" : "bar";
+  _buildMethodSwitcher(defaultMethod);
+  switchPayMethod(defaultMethod);
+}
+
+function closePayModal() {
+  document.getElementById("pay-modal").classList.add("hidden");
+  document.getElementById("bank-qr-container-inline").innerHTML = "";
+  document.getElementById("bank-qr-section-inline").classList.add("hidden");
+  document.getElementById("bank-spinner-inline").style.display = "";
+  document.getElementById("bank-actions-inline").style.display = "none";
+  const bc = document.getElementById("bank-confirm-btn-inline");
+  bc.disabled = false; bc.textContent = "✓ Bezahlt";
+  const barc = document.getElementById("bar-confirm-btn");
+  barc.disabled = false; barc.textContent = "Bezahlt ✓";
+}
+
+document.getElementById("pay-modal-close").addEventListener("click", closePayModal);
+document.getElementById("pay-modal-overlay").addEventListener("click", closePayModal);
+
 async function confirmBarPayment() {
   const btn = document.getElementById("bar-confirm-btn");
   btn.disabled = true;
@@ -1315,15 +1353,12 @@ async function confirmBarPayment() {
     currentData = await res.json();
     renderInfo();
     renderMaterial();
-    closeBarModal();
+    closePayModal();
   } else {
     const err = await res.json();
     alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
   }
 }
-document.getElementById("bar-modal-close").addEventListener("click", closeBarModal);
-document.getElementById("bar-cancel-btn").addEventListener("click", closeBarModal);
-document.getElementById("bar-modal-overlay").addEventListener("click", closeBarModal);
 
 // Reset payment modal
 function openResetPaymentModal() {
@@ -1874,7 +1909,7 @@ document.getElementById("wero-modal-close").addEventListener("click", closeWeroM
 document.getElementById("wero-cancel-btn").addEventListener("click", closeWeroModal);
 document.getElementById("wero-modal-overlay").addEventListener("click", closeWeroModal);
 
-// ── Bank Transfer / EPC QR Payment ──────────────────────────────────────────
+// ── Bank Transfer / EPC QR ─────────────────────────────────────────────────────────
 
 /**
  * Build the EPC QR string per GS1 / European Payments Council spec (Version 002).
@@ -1898,21 +1933,18 @@ function buildEpcQrString({ account_name, bic, iban, amount, reference }) {
   ].join("\n");
 }
 
-async function doBankTransferPayment() {
-  const modal = document.getElementById("bank-modal");
-  const spinner = document.getElementById("bank-spinner");
-  const statusText = document.getElementById("bank-status-text");
-  const qrSection = document.getElementById("bank-qr-section");
-  const actions = document.getElementById("bank-actions");
+async function loadBankPanel() {
+  const spinner = document.getElementById("bank-spinner-inline");
+  const statusText = document.getElementById("bank-status-text-inline");
+  const qrSection = document.getElementById("bank-qr-section-inline");
+  const actions = document.getElementById("bank-actions-inline");
 
-  // Reset state
   spinner.style.display = "";
   statusText.textContent = "Daten werden geladen\u2026";
   statusText.style.color = "";
   qrSection.classList.add("hidden");
   actions.style.display = "none";
-  document.getElementById("bank-qr-container").innerHTML = "";
-  modal.classList.remove("hidden");
+  document.getElementById("bank-qr-container-inline").innerHTML = "";
 
   let data;
   try {
@@ -1933,16 +1965,14 @@ async function doBankTransferPayment() {
   }
 
   spinner.style.display = "none";
-  statusText.textContent = "";
-
-  document.getElementById("bank-detail-name").textContent = data.account_name;
-  document.getElementById("bank-detail-iban").textContent = data.iban;
-  document.getElementById("bank-detail-bic").textContent = data.bic;
-  document.getElementById("bank-detail-amount").textContent = fmtEur(data.amount);
-  document.getElementById("bank-detail-reference").textContent = data.reference;
+  document.getElementById("bank-detail-name-inline").textContent = data.account_name;
+  document.getElementById("bank-detail-iban-inline").textContent = data.iban;
+  document.getElementById("bank-detail-bic-inline").textContent = data.bic;
+  document.getElementById("bank-detail-amount-inline").textContent = fmtEur(data.amount);
+  document.getElementById("bank-detail-reference-inline").textContent = data.reference;
 
   if (typeof qrcode !== "undefined") {
-    makeQR(document.getElementById("bank-qr-container"), buildEpcQrString(data), 220, "L");
+    makeQR(document.getElementById("bank-qr-container-inline"), buildEpcQrString(data), 220, "L");
   }
 
   qrSection.classList.remove("hidden");
@@ -1950,7 +1980,7 @@ async function doBankTransferPayment() {
 }
 
 async function confirmBankTransferPayment() {
-  const btn = document.getElementById("bank-confirm-btn");
+  const btn = document.getElementById("bank-confirm-btn-inline");
   btn.disabled = true;
   btn.textContent = "\u2026";
 
@@ -1964,7 +1994,7 @@ async function confirmBankTransferPayment() {
       currentData = await res.json();
       renderInfo();
       renderMaterial();
-      closeBankModal();
+      closePayModal();
     } else {
       const err = await res.json();
       btn.disabled = false;
@@ -1977,19 +2007,6 @@ async function confirmBankTransferPayment() {
     alert("Netzwerkfehler");
   }
 }
-
-function closeBankModal() {
-  document.getElementById("bank-modal").classList.add("hidden");
-  document.getElementById("bank-qr-container").innerHTML = "";
-  document.getElementById("bank-qr-section").classList.add("hidden");
-  const btn = document.getElementById("bank-confirm-btn");
-  btn.disabled = false;
-  btn.textContent = "\u2713 Bezahlt";
-}
-
-document.getElementById("bank-modal-close").addEventListener("click", closeBankModal);
-document.getElementById("bank-cancel-btn").addEventListener("click", closeBankModal);
-document.getElementById("bank-modal-overlay").addEventListener("click", closeBankModal);
 
 // ── Delete Laufzettel ─────────────────────────────────────────────────────────
 

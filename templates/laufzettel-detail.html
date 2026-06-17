@@ -170,21 +170,9 @@
         </div>
     </div>
 
-    <div id="payment-buttons" class="payment-buttons">
-        <button id="pay-bar-btn" class="btn btn-payment btn-payment-bar" onclick="openBarModal()">
-            💵 Bar bezahlen
-        </button>
-        <button id="pay-karte-btn" class="btn btn-payment btn-payment-karte" onclick="doKartePayment()">
-            💳 mit Karte bezahlen
-        </button>
-        <button id="pay-checkout-btn" class="btn btn-payment btn-payment-checkout" onclick="doCheckoutPayment()">
-            📱 SumUp<br><small>(Apple/Google Pay)</small>
-        </button>
-        <button id="pay-wero-btn" class="btn btn-payment btn-payment-wero hidden" onclick="doWeroPayment()">
-            ⚡ mit Wero bezahlen
-        </button>
-        <button id="pay-bank-btn" class="btn btn-payment btn-payment-bank hidden" onclick="doBankTransferPayment()">
-            🏦 Überweisung
+    <div id="payment-buttons">
+        <button id="pay-now-btn" class="btn btn-payment btn-payment-primary" onclick="openPayModal()" style="width:100%;font-size:1.1rem;padding:14px;">
+            💳 Jetzt bezahlen – <span id="pay-now-amount"></span>
         </button>
     </div>
 </div>
@@ -399,26 +387,86 @@
     </div>
 </div>
 
-<!-- Bar Modal -->
-<div id="bar-modal" class="modal hidden">
-    <div class="modal-overlay" id="bar-modal-overlay"></div>
-    <div class="modal-box modal-box-payment">
+<!-- Unified Payment Modal -->
+<div id="pay-modal" class="modal hidden">
+    <div class="modal-overlay" id="pay-modal-overlay"></div>
+    <div class="modal-box modal-box-payment" style="max-width:480px;">
         <div class="modal-header">
-            <h3>Bar bezahlen</h3>
-            <button class="modal-close" id="bar-modal-close">✕</button>
+            <h3>Zahlung – <span id="pay-modal-amount"></span></h3>
+            <button class="modal-close" id="pay-modal-close">✕</button>
         </div>
-        <div class="bar-payment-body">
-            <div class="bar-total-label">Zu zahlender Betrag</div>
-            <div class="bar-total-amount" id="bar-total-display">0,00 €</div>
-            <div style="margin-top:1rem;">
-                <label for="bar-notes-input" style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:4px;">Notiz (optional)</label>
-                <input type="text" id="bar-notes-input" placeholder="z.B. Kassenbon Nr. 42" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text);font-size:0.9rem;box-sizing:border-box;">
+
+        <!-- Bank Transfer Panel -->
+        <div id="panel-bank" class="pay-panel-view hidden">
+            <div style="padding: 12px 20px 0;">
+                <div id="bank-spinner-inline" style="text-align:center;padding:20px 0;">
+                    <div class="karte-spinner"></div>
+                    <p id="bank-status-text-inline" style="margin-top:8px;color:var(--text-secondary);">Daten werden geladen…</p>
+                </div>
+                <div id="bank-qr-section-inline" class="hidden">
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; text-align: left; font-size: 0.82rem; color: var(--text-secondary);">
+                        <strong style="color: var(--text); display: block; margin-bottom: 4px;">📱 So scannen:</strong>
+                        Banking-App öffnen → <strong>Überweisung</strong> → QR-Code Symbol antippen → Code scannen.<br>
+                        <span style="font-size: 0.78rem; opacity: 0.8;">Nicht mit der normalen Kamera-App scannen – nur Banking-Apps erkennen dieses Format (EPC/GiroCode).</span>
+                    </div>
+                    <div style="text-align:center;">
+                        <div id="bank-qr-container-inline" style="display: inline-block; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 8px;"></div>
+                    </div>
+                    <div style="font-size: 0.82rem; color: var(--text-secondary); text-align: left; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px;">
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                            <span>Empfänger</span><strong id="bank-detail-name-inline" style="font-family:monospace;"></strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                            <span>IBAN</span><strong id="bank-detail-iban-inline" style="font-family:monospace;"></strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                            <span>BIC</span><strong id="bank-detail-bic-inline" style="font-family:monospace;"></strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                            <span>Betrag</span><strong id="bank-detail-amount-inline" style="color:var(--success);"></strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:8px;">
+                            <span>Verwendungszweck</span><strong id="bank-detail-reference-inline" style="font-family:monospace;"></strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions" id="bank-actions-inline" style="display:none;">
+                <button type="button" class="btn btn-secondary" onclick="closePayModal()">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="bank-confirm-btn-inline" onclick="confirmBankTransferPayment()">✓ Bezahlt</button>
             </div>
         </div>
-        <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" id="bar-cancel-btn">Abbrechen</button>
-            <button type="button" class="btn btn-success" id="bar-confirm-btn" onclick="confirmBarPayment()">Bezahlt ✓</button>
+
+        <!-- SumUp Panel -->
+        <div id="panel-sumup" class="pay-panel-view hidden">
+            <div style="padding: 20px; display:flex; flex-direction:column; gap:12px;">
+                <button class="btn btn-payment btn-payment-karte" style="width:100%;padding:16px;font-size:1rem;" onclick="closePayModal(); doKartePayment();">
+                    💳 Karte (Terminal)
+                </button>
+                <button class="btn btn-payment btn-payment-checkout" style="width:100%;padding:16px;font-size:1rem;" onclick="closePayModal(); doCheckoutPayment();">
+                    📱 Apple / Google Pay
+                </button>
+            </div>
         </div>
+
+        <!-- Bar Panel -->
+        <div id="panel-bar" class="pay-panel-view hidden">
+            <div class="bar-payment-body">
+                <div class="bar-total-label">Zu zahlender Betrag</div>
+                <div class="bar-total-amount" id="bar-total-display">0,00 €</div>
+                <div style="margin-top:1rem;">
+                    <label for="bar-notes-input" style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:4px;">Notiz (optional)</label>
+                    <input type="text" id="bar-notes-input" placeholder="z.B. Kassenbon Nr. 42" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text);font-size:0.9rem;box-sizing:border-box;">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closePayModal()">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="bar-confirm-btn" onclick="confirmBarPayment()">Bezahlt ✓</button>
+            </div>
+        </div>
+
+        <!-- Method Switcher -->
+        <div id="pay-method-switcher" style="display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--border);flex-wrap:wrap;"></div>
     </div>
 </div>
 
@@ -482,49 +530,6 @@
     </div>
 </div>
 
-<!-- Bank Transfer QR Modal -->
-<div id="bank-modal" class="modal hidden">
-    <div class="modal-overlay" id="bank-modal-overlay"></div>
-    <div class="modal-box modal-box-payment">
-        <div class="modal-header">
-            <h3>Überweisung per QR-Code</h3>
-            <button class="modal-close" id="bank-modal-close">✕</button>
-        </div>
-        <div id="bank-body" style="padding: 16px 20px; text-align: center;">
-            <div class="karte-spinner" id="bank-spinner"></div>
-            <p id="bank-status-text">Daten werden geladen…</p>
-        </div>
-        <div id="bank-qr-section" class="hidden" style="padding: 4px 20px 16px; text-align: center;">
-            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; text-align: left; font-size: 0.82rem; color: var(--text-secondary);">
-                <strong style="color: var(--text); display: block; margin-bottom: 4px;">📱 So scannen:</strong>
-                Banking-App öffnen → <strong>Überweisung</strong> → QR-Code Symbol antippen → Code scannen.<br>
-                <span style="font-size: 0.78rem; opacity: 0.8;">Nicht mit der normalen Kamera-App scannen – nur Banking-Apps erkennen dieses Format (EPC/GiroCode).</span>
-            </div>
-            <div id="bank-qr-container" style="display: inline-block; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 8px;"></div>
-            <div id="bank-details" style="font-size: 0.82rem; color: var(--text-secondary); text-align: left; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
-                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <span>Empfänger</span><strong id="bank-detail-name" style="font-family:monospace;"></strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <span>IBAN</span><strong id="bank-detail-iban" style="font-family:monospace;"></strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <span>BIC</span><strong id="bank-detail-bic" style="font-family:monospace;"></strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <span>Betrag</span><strong id="bank-detail-amount" style="color:var(--success);"></strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;gap:8px;">
-                    <span>Verwendungszweck</span><strong id="bank-detail-reference" style="font-family:monospace;"></strong>
-                </div>
-            </div>
-        </div>
-        <div class="modal-actions" id="bank-actions" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="bank-cancel-btn">Abbrechen</button>
-            <button type="button" class="btn btn-success" id="bank-confirm-btn" onclick="confirmBankTransferPayment()">✓ Bezahlt</button>
-        </div>
-    </div>
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div id="delete-lz-modal" class="modal hidden">
@@ -555,5 +560,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=26"></script>
+<script src="/static/js/laufzettel-detail.js?v=27"></script>
 {% endblock %}
