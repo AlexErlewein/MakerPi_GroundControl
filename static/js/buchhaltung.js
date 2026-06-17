@@ -105,6 +105,7 @@ async function loadSummary() {
         renderVariantTable(tg['0']                || [], 'variant-tbody-0');
         renderVariantTable(tg['spende_katalog']   || [], 'variant-tbody-spende-katalog');
         renderVariantTable(tg['spende_laufzettel'] || [], 'variant-tbody-spende-laufzettel');
+        renderPaymentMethods(data.by_payment_method || []);
         renderSpendeTable(data.spenden || []);
     } catch (e) {
         console.error('Error loading summary:', e);
@@ -124,6 +125,32 @@ function renderVariantTable(variants, tbodyId) {
             <td>${escHtml(menge)}</td>
             <td>${formatEuro(v.revenue)}</td>
         </tr>`;
+    }).join('');
+}
+
+const PAYMENT_LABELS = {
+    bar: 'Barzahlung',
+    karte: 'Kartenzahlung',
+    wero: 'Wero',
+    gutschein: 'Gutschein',
+};
+
+function renderPaymentMethods(methods) {
+    const container = document.getElementById('payment-method-cards');
+    if (!methods || !methods.length) {
+        container.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem; padding: 8px 0;">Keine Zahlungen im gewählten Zeitraum.</div>';
+        return;
+    }
+    container.innerHTML = methods.map(m => {
+        const label = PAYMENT_LABELS[m.method] || m.method;
+        const cls = m.method || 'unbekannt';
+        return `<div class="summary-card" style="flex: 1 1 140px; position: relative;">
+            <h4 style="display:flex;align-items:center;gap:6px;">
+                <span class="payment-method-badge ${escHtml(cls)}">${escHtml(label)}</span>
+            </h4>
+            <div class="amount">${formatEuro(m.total)}</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">${m.count} Zahlung${m.count !== 1 ? 'en' : ''}</div>
+        </div>`;
     }).join('');
 }
 

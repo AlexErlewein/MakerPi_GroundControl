@@ -76,6 +76,14 @@ async def get_summary(
     material_total = sum(v.calculated_price for v in verkaufe)
     spende_total = sum(s.amount for s in spenden)
 
+    by_payment_method: dict = {}
+    for v in verkaufe:
+        method = v.payment_method or "unbekannt"
+        if method not in by_payment_method:
+            by_payment_method[method] = {"method": method, "total": 0.0, "count": 0}
+        by_payment_method[method]["total"] += v.calculated_price
+        by_payment_method[method]["count"] += 1
+
     by_variant: dict = {}
     for v in verkaufe:
         key = v.variante_name
@@ -156,6 +164,14 @@ async def get_summary(
         "spenden": [
             s.to_dict() for s in sorted(spenden, key=lambda x: x.date, reverse=True)
         ],
+        "by_payment_method": sorted(
+            [
+                {"method": m["method"], "total": round(m["total"], 2), "count": m["count"]}
+                for m in by_payment_method.values()
+            ],
+            key=lambda x: x["total"],
+            reverse=True,
+        ),
         "verkauf_count": len(verkaufe),
         "spende_count": len(spenden),
     }

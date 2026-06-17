@@ -183,6 +183,9 @@
         <button id="pay-wero-btn" class="btn btn-payment btn-payment-wero hidden" onclick="doWeroPayment()">
             ⚡ mit Wero bezahlen
         </button>
+        <button id="pay-bank-btn" class="btn btn-payment btn-payment-bank hidden" onclick="doBankTransferPayment()">
+            🏦 Überweisung
+        </button>
     </div>
 </div>
 
@@ -479,6 +482,46 @@
     </div>
 </div>
 
+<!-- Bank Transfer QR Modal -->
+<div id="bank-modal" class="modal hidden">
+    <div class="modal-overlay" id="bank-modal-overlay"></div>
+    <div class="modal-box modal-box-payment">
+        <div class="modal-header">
+            <h3>Überweisung per QR-Code</h3>
+            <button class="modal-close" id="bank-modal-close">✕</button>
+        </div>
+        <div id="bank-body" style="padding: 16px 20px; text-align: center;">
+            <div class="karte-spinner" id="bank-spinner"></div>
+            <p id="bank-status-text">Daten werden geladen…</p>
+        </div>
+        <div id="bank-qr-section" class="hidden" style="padding: 4px 20px 16px; text-align: center;">
+            <p style="margin-bottom: 4px; color: var(--text-secondary); font-size: 0.85rem;">Scanne diesen EPC-QR-Code mit deiner Banking-App:</p>
+            <div id="bank-qr-container" style="display: inline-block; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 8px;"></div>
+            <div id="bank-details" style="font-size: 0.82rem; color: var(--text-secondary); text-align: left; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span>Empfänger</span><strong id="bank-detail-name" style="font-family:monospace;"></strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span>IBAN</span><strong id="bank-detail-iban" style="font-family:monospace;"></strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span>BIC</span><strong id="bank-detail-bic" style="font-family:monospace;"></strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span>Betrag</span><strong id="bank-detail-amount" style="color:var(--success);"></strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <span>Verwendungszweck</span><strong id="bank-detail-reference" style="font-family:monospace;"></strong>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions" id="bank-actions" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="bank-cancel-btn">Abbrechen</button>
+            <button type="button" class="btn btn-success" id="bank-confirm-btn" onclick="confirmBankTransferPayment()">✓ Bezahlt</button>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Confirmation Modal -->
 <div id="delete-lz-modal" class="modal hidden">
     <div class="modal-overlay" id="delete-lz-overlay"></div>
@@ -508,5 +551,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=21"></script>
+<script src="/static/js/laufzettel-detail.js?v=22"></script>
 {% endblock %}

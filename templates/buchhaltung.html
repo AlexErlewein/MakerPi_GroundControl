@@ -73,6 +73,20 @@
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
     .btn-danger { background: var(--danger); color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
     .btn-danger:hover { opacity: 0.85; }
+    .payment-method-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+    .payment-method-badge.bar    { background: #1a3a1a; color: #4caf50; border-color: #2e5f2e; }
+    .payment-method-badge.karte  { background: #1a2a3a; color: #42a5f5; border-color: #1e3f5f; }
+    .payment-method-badge.wero   { background: #2a1a3a; color: #ab47bc; border-color: #4a2060; }
+    .payment-method-badge.gutschein { background: #3a2a1a; color: #ffa726; border-color: #6a4a1a; }
 </style>
 {% endblock %}
 
@@ -115,6 +129,13 @@
             <div class="amount" id="spende-revenue">–</div>
         </div>
     </div>
+</div>
+
+<div class="section-header" style="margin-top: 8px;">
+    <h2>Zahlungsarten</h2>
+</div>
+<div id="payment-method-cards" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px;">
+    <div style="color: var(--text-secondary); font-size: 0.9rem; padding: 8px 0;">Lade Daten…</div>
 </div>
 
 <div class="section-header">
@@ -239,5 +260,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/buchhaltung.js?v=4"></script>
+<script src="/static/js/buchhaltung.js?v=5"></script>
 {% endblock %}

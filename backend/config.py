@@ -32,6 +32,13 @@ SUMUP_MOCK: bool = _cfg.get(
     "sumup_mock", os.environ.get("SUMUP_MOCK", "false").lower() == "true"
 )
 
+# Bank transfer / EPC QR payment configuration
+BANK_IBAN: str = _cfg.get("bank_iban", os.environ.get("BANK_IBAN", ""))
+BANK_BIC: str = _cfg.get("bank_bic", os.environ.get("BANK_BIC", ""))
+BANK_ACCOUNT_NAME: str = _cfg.get(
+    "bank_account_name", os.environ.get("BANK_ACCOUNT_NAME", "")
+)
+
 # Wero payment configuration
 WERO_ENABLED: bool = _cfg.get(
     "wero_enabled", os.environ.get("WERO_ENABLED", "false").lower() == "true"

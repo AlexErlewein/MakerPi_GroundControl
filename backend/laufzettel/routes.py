@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.config import (
+    BANK_ACCOUNT_NAME,
+    BANK_BIC,
+    BANK_IBAN,
     PUBLIC_BASE_URL,
     SUMUP_AFFILIATE_KEY,
     SUMUP_API_KEY,
@@ -681,6 +684,7 @@ async def get_payment_config():
         payment_mode = "payment_switch"
     else:
         payment_mode = None
+    bank_transfer_configured = bool(BANK_IBAN and BANK_BIC and BANK_ACCOUNT_NAME)
     return {
         "sumup_configured": sumup_configured,
         "sumup_mock": SUMUP_MOCK,
@@ -689,6 +693,7 @@ async def get_payment_config():
         "checkout_link_available": sumup_configured and not SUMUP_MOCK,
         "wero_configured": WERO_ENABLED,
         "wero_mock": WERO_MOCK,
+        "bank_transfer_configured": bank_transfer_configured,
     }
 
 
@@ -1693,6 +1698,51 @@ async def remove_gutschein(
 
     db.commit()
     return {"success": True, "refunded": credit.amount_debited}
+
+
+# ── Bank Transfer / EPC QR API ──────────────────────────────────────────────
+
+
+@router.get("/api/laufzettel/{laufzettel_id}/pay/bank-transfer")
+async def get_bank_transfer_qr(
+    laufzettel_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return EPC QR payload data for a bank-transfer payment."""
+    if not (BANK_IBAN and BANK_BIC and BANK_ACCOUNT_NAME):
+        raise HTTPException(status_code=503, detail="Bank transfer not configured")
+
+    lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
+    if not lz:
+        raise HTTPException(status_code=404, detail="Laufzettel not found")
+    if lz.payment_method:
+        raise HTTPException(status_code=409, detail="Already paid")
+
+    materials = (
+        db.query(LaufzettelMaterial)
+        .filter(LaufzettelMaterial.laufzettel_id == laufzettel_id)
+        .all()
+    )
+    mat_total = sum(
+        m.calculated_price for m in materials if m.calculated_price is not None
+    )
+    _, credited = _calc_gutschein_totals(db, laufzettel_id)
+    total = round(max(0.0, mat_total - credited), 2)
+
+    # Reference: LZ-<id> padded, date, owner initials – fits in 140 chars (SEPA limit)
+    date_str = lz.date.strftime("%Y%m%d") if lz.date else "000000"
+    reference = f"LZ-{laufzettel_id:04d}-{date_str}"
+    if lz.member_id:
+        reference += f"-{lz.member_id}"
+
+    return {
+        "iban": BANK_IBAN,
+        "bic": BANK_BIC,
+        "account_name": BANK_ACCOUNT_NAME,
+        "amount": total,
+        "reference": reference,
+        "laufzettel_id": laufzettel_id,
+    }
 
 
 # ── Wero Payment API ────────────────────────────────────────────────────────

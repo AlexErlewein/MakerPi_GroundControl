@@ -1217,6 +1217,13 @@ function renderPaymentSection(total, hasAnyPrice) {
     weroBtn.classList.add("hidden");
   }
 
+  const bankBtn = document.getElementById("pay-bank-btn");
+  if (paymentConfig.bank_transfer_configured) {
+    bankBtn.classList.remove("hidden");
+  } else {
+    bankBtn.classList.add("hidden");
+  }
+
   renderGutscheinCredits(locked);
 
   if (locked) {
@@ -1868,6 +1875,130 @@ function closeWeroModal() {
 document.getElementById("wero-modal-close").addEventListener("click", closeWeroModal);
 document.getElementById("wero-cancel-btn").addEventListener("click", closeWeroModal);
 document.getElementById("wero-modal-overlay").addEventListener("click", closeWeroModal);
+
+// ── Bank Transfer / EPC QR Payment ──────────────────────────────────────────
+
+/**
+ * Build the EPC QR string per GS1 / European Payments Council spec (Version 002).
+ * Banking apps (Sparkasse, ING, DKB, N26, Commerzbank, …) parse this natively.
+ */
+function buildEpcQrString({ account_name, bic, iban, amount, reference }) {
+  const amountStr = "EUR" + Number(amount).toFixed(2);
+  return [
+    "BCD",          // Service Tag
+    "002",          // Version
+    "1",            // Encoding: UTF-8
+    "SCT",          // SEPA Credit Transfer
+    bic,
+    account_name,
+    iban,
+    amountStr,
+    "",             // Purpose (empty)
+    reference,      // Remittance info (structured)
+    "",             // Remittance info (unstructured) – leave empty
+    "",             // Beneficiary info
+  ].join("\n");
+}
+
+async function doBankTransferPayment() {
+  const modal = document.getElementById("bank-modal");
+  const spinner = document.getElementById("bank-spinner");
+  const statusText = document.getElementById("bank-status-text");
+  const qrSection = document.getElementById("bank-qr-section");
+  const actions = document.getElementById("bank-actions");
+
+  // Reset state
+  spinner.style.display = "";
+  statusText.textContent = "Daten werden geladen\u2026";
+  statusText.style.color = "";
+  qrSection.classList.add("hidden");
+  actions.style.display = "none";
+  document.getElementById("bank-qr-container").innerHTML = "";
+  modal.classList.remove("hidden");
+
+  let data;
+  try {
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/bank-transfer`);
+    if (!res.ok) {
+      const err = await res.json();
+      statusText.textContent = "Fehler: " + (err.detail || "Unbekannter Fehler");
+      statusText.style.color = "var(--danger)";
+      spinner.style.display = "none";
+      return;
+    }
+    data = await res.json();
+  } catch (e) {
+    statusText.textContent = "Netzwerkfehler.";
+    statusText.style.color = "var(--danger)";
+    spinner.style.display = "none";
+    return;
+  }
+
+  spinner.style.display = "none";
+  statusText.textContent = "";
+
+  document.getElementById("bank-detail-name").textContent = data.account_name;
+  document.getElementById("bank-detail-iban").textContent = data.iban;
+  document.getElementById("bank-detail-bic").textContent = data.bic;
+  document.getElementById("bank-detail-amount").textContent = fmtEur(data.amount);
+  document.getElementById("bank-detail-reference").textContent = data.reference;
+
+  if (typeof QRCode !== "undefined") {
+    new QRCode(document.getElementById("bank-qr-container"), {
+      text: buildEpcQrString(data),
+      width: 220,
+      height: 220,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
+
+  qrSection.classList.remove("hidden");
+  actions.style.display = "";
+}
+
+async function confirmBankTransferPayment() {
+  const btn = document.getElementById("bank-confirm-btn");
+  btn.disabled = true;
+  btn.textContent = "\u2026";
+
+  try {
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/pay/bar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: "Überweisung (EPC QR)" }),
+    });
+    if (res.ok) {
+      currentData = await res.json();
+      renderInfo();
+      renderMaterial();
+      closeBankModal();
+    } else {
+      const err = await res.json();
+      btn.disabled = false;
+      btn.textContent = "\u2713 Bezahlt";
+      alert("Fehler: " + (err.detail || "Unbekannter Fehler"));
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "\u2713 Bezahlt";
+    alert("Netzwerkfehler");
+  }
+}
+
+function closeBankModal() {
+  document.getElementById("bank-modal").classList.add("hidden");
+  document.getElementById("bank-qr-container").innerHTML = "";
+  document.getElementById("bank-qr-section").classList.add("hidden");
+  const btn = document.getElementById("bank-confirm-btn");
+  btn.disabled = false;
+  btn.textContent = "\u2713 Bezahlt";
+}
+
+document.getElementById("bank-modal-close").addEventListener("click", closeBankModal);
+document.getElementById("bank-cancel-btn").addEventListener("click", closeBankModal);
+document.getElementById("bank-modal-overlay").addEventListener("click", closeBankModal);
 
 // ── Delete Laufzettel ─────────────────────────────────────────────────────────
 

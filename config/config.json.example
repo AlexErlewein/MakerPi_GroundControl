@@ -19,6 +19,11 @@
     "sumup_affiliate_key": "",
     "sumup_mock": true,
 
+    "_comment_bank": "Bank transfer EPC QR: fill in IBAN, BIC and account name to enable the 'Überweisung' QR button on Laufzettel.",
+    "bank_iban": "",
+    "bank_bic": "",
+    "bank_account_name": "",
+
     "wero_enabled": false,
     "wero_mock": true,
     "wero_merchant_id": "",
