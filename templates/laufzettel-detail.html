@@ -495,7 +495,11 @@
             <p id="bank-status-text">Daten werden geladen…</p>
         </div>
         <div id="bank-qr-section" class="hidden" style="padding: 4px 20px 16px; text-align: center;">
-            <p style="margin-bottom: 4px; color: var(--text-secondary); font-size: 0.85rem;">Scanne diesen EPC-QR-Code mit deiner Banking-App:</p>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; text-align: left; font-size: 0.82rem; color: var(--text-secondary);">
+                <strong style="color: var(--text); display: block; margin-bottom: 4px;">📱 So scannen:</strong>
+                Banking-App öffnen → <strong>Überweisung</strong> → QR-Code Symbol antippen → Code scannen.<br>
+                <span style="font-size: 0.78rem; opacity: 0.8;">Nicht mit der normalen Kamera-App scannen – nur Banking-Apps erkennen dieses Format (EPC/GiroCode).</span>
+            </div>
             <div id="bank-qr-container" style="display: inline-block; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 8px;"></div>
             <div id="bank-details" style="font-size: 0.82rem; color: var(--text-secondary); text-align: left; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
                 <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
@@ -551,5 +555,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=25"></script>
+<script src="/static/js/laufzettel-detail.js?v=26"></script>
 {% endblock %}
