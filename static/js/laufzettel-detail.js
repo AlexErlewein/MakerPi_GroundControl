@@ -1944,14 +1944,21 @@ async function doBankTransferPayment() {
   document.getElementById("bank-detail-reference").textContent = data.reference;
 
   if (typeof QRCode !== "undefined") {
-    new QRCode(document.getElementById("bank-qr-container"), {
-      text: buildEpcQrString(data),
-      width: 220,
-      height: 220,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.L,
-    });
+    const epcStr = buildEpcQrString(data);
+    console.log("[EPC QR] payload length:", epcStr.length, "\n" + epcStr);
+    try {
+      new QRCode(document.getElementById("bank-qr-container"), {
+        text: epcStr,
+        width: 220,
+        height: 220,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.L,
+      });
+    } catch (qrErr) {
+      console.error("[EPC QR] generation failed:", qrErr);
+      document.getElementById("bank-qr-container").textContent = "QR-Fehler: " + qrErr.message;
+    }
   }
 
   qrSection.classList.remove("hidden");
