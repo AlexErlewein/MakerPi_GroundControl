@@ -4,7 +4,11 @@
     vertical-align: middle;
 }
 
-.actions {
+/* Override the generic ".actions { display:flex }" utility from style.css,
+   which otherwise makes this table cell a flex container and disables
+   vertical-align, pushing the View button to the top of tall rows. */
+#laufzettel-table td.actions {
+    display: table-cell;
     text-align: center;
     vertical-align: middle;
 }
