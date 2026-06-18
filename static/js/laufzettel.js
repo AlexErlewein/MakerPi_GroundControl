@@ -89,7 +89,7 @@ function renderTable() {
             const matCount = (lz.material || []).length;
             const matBadge = `<span class="material-count ${matCount === 0 ? "zero" : ""}">${matCount}</span>`;
             return `
-        <tr>
+        <tr style="vertical-align:middle;">
             <td>${lz.id}</td>
             <td>${esc(lz.date || "-")}</td>
             <td>${esc(lz.owner_name || "-")}</td>
@@ -99,7 +99,7 @@ function renderTable() {
             <td><div class="nodes-list">${nodes || '<span style="color:var(--text-secondary)">-</span>'}</div></td>
             <td>${matBadge}</td>
             <td>${paymentBadge(lz)}</td>
-            <td class="actions">
+            <td class="actions" style="text-align:center;">
                 <a href="/laufzettel/${lz.id}" class="btn btn-sm btn-secondary">View</a>
             </td>
         </tr>`;
