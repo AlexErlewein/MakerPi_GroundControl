@@ -1,7 +1,12 @@
 /* Laufzettel page styles */
 
+#laufzettel-table td {
+    vertical-align: middle;
+}
+
 .actions {
     text-align: center;
+    vertical-align: middle;
 }
 
 .pay-badge {
