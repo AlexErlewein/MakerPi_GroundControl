@@ -623,6 +623,7 @@ footer {
 .btn {
     display: inline-flex;
     align-items: center;
+    vertical-align: middle;
     gap: 8px;
     padding: 8px 16px;
     border: none;
