@@ -1592,6 +1592,95 @@ async def unlink_guest_nfc(request: Request, db: Session = Depends(get_db)):
     }
 
 
+class ResumeNfcRequest(BaseModel):
+    nfc_uid: str
+
+
+@router.post("/api/guest/resume-by-nfc")
+async def resume_guest_by_nfc(
+    data: ResumeNfcRequest, request: Request, db: Session = Depends(get_db)
+):
+    """Look up a guest Laufzettel linked to a scanned NFC tag and open it.
+
+    Used by the login terminal: when an unknown (non-member) tag is scanned but
+    a guest Laufzettel is linked to it, we set the guest session and return a
+    redirect to the guest Laufzettel detail page.
+    """
+    if not data.nfc_uid or len(data.nfc_uid.strip()) < 4:
+        return JSONResponse(
+            status_code=400, content={"success": False, "detail": "Invalid NFC UID"}
+        )
+
+    nfc_uid = data.nfc_uid.strip().upper()
+
+    # Require a recent physical scan of this tag (anti-spoof, mirrors member login)
+    try:
+        from datetime import datetime, timezone
+
+        from backend.core.db import SessionLocal as CoreSession
+        from backend.core.models import TagScan
+
+        core_db = CoreSession()
+        try:
+            recent_scan = (
+                core_db.query(TagScan)
+                .filter(TagScan.uid == nfc_uid)
+                .order_by(TagScan.id.desc())
+                .first()
+            )
+            if not recent_scan:
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "detail": "Kein Scan erkannt"},
+                )
+            scan_ts = recent_scan.timestamp
+            if scan_ts.tzinfo is not None:
+                scan_ts = scan_ts.replace(tzinfo=None)
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            if (now_naive - scan_ts).total_seconds() > 60:
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "detail": "Scan zu alt"},
+                )
+        finally:
+            core_db.close()
+    except Exception:
+        logger.exception("[GUEST_RESUME] Recent-scan check failed")
+
+    # Find the most recent unpaid Laufzettel linked to this tag
+    lz = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_nfc_uid == nfc_uid,
+            Laufzettel.payment_method.is_(None),
+        )
+        .order_by(Laufzettel.created_at.desc())
+        .first()
+    )
+
+    if not lz:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "detail": "No guest Laufzettel linked to this tag",
+            },
+        )
+
+    # Set the guest session so the detail page authorizes this browser
+    request.session["guest_id"] = lz.guest_id
+
+    logger.info(
+        "[GUEST_RESUME] Resumed guest Laufzettel %s via NFC tag %s", lz.id, nfc_uid
+    )
+
+    return {
+        "success": True,
+        "laufzettel_id": lz.id,
+        "redirect": f"/guest/laufzettel/{lz.id}",
+    }
+
+
 # ── Gutschein (Gift Card) Payment API ────────────────────────────────────────
 
 

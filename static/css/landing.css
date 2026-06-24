@@ -297,6 +297,30 @@
     color: var(--success);
 }
 
+.status-text.error {
+    color: var(--danger);
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.rfid-status.error {
+    border: 2px solid var(--danger);
+    background: rgba(192, 57, 43, 0.12);
+    animation: rfid-error-flash 0.4s ease-in-out;
+}
+
+.rfid-status .error-icon {
+    font-size: 2.75rem;
+    line-height: 1;
+    margin-bottom: 10px;
+}
+
+@keyframes rfid-error-flash {
+    0% { transform: scale(0.96); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
 .rfid-error {
     background: rgba(192, 57, 43, 0.15);
     color: var(--danger);
@@ -304,6 +328,34 @@
     border-radius: 8px;
     margin-bottom: 20px;
     border: 1px solid var(--danger);
+}
+
+/* Guest NFC link status (inline guest form) */
+.gi-nfc-status {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border: 1px dashed var(--border-color);
+}
+
+.gi-nfc-status.processing {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.gi-nfc-status.success {
+    color: var(--success);
+    background: rgba(39, 174, 96, 0.12);
+    border-style: solid;
+    border-color: var(--success);
+}
+
+.gi-nfc-status.error {
+    color: var(--danger);
+    background: rgba(192, 57, 43, 0.12);
+    border-style: solid;
+    border-color: var(--danger);
 }
 
 /* Buttons */

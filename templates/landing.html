@@ -509,6 +509,52 @@
         }
     }
 
+    // ── Guest NFC tag linking ──────────────────────────────────────────────
+    // After an inline guest Laufzettel is created, we enter "link mode": the
+    // next NFC scan from the paired reader is linked to that Laufzettel instead
+    // of triggering a member login.
+    let guestLinkMode = false;
+    let guestLinkLaufzettelId = null;
+
+    async function linkGuestTag(uid) {
+        var statusEl = document.getElementById("gi-nfc-status");
+        if (!statusEl) return;
+        statusEl.className = "gi-nfc-status processing";
+        statusEl.textContent = "Verknüpfe Tag …";
+        try {
+            var res = await fetch("/api/guest/link-nfc", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ nfc_uid: uid }),
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok && data.success) {
+                guestLinkMode = false;
+                statusEl.className = "gi-nfc-status success";
+                statusEl.innerHTML = "✅ Tag verknüpft: <strong>" + String(uid).replace(/</g, "&lt;") + "</strong>";
+            } else {
+                // Keep link mode active so another tag can be tried
+                statusEl.className = "gi-nfc-status error";
+                statusEl.textContent = "❌ " + (data.detail || "Verknüpfen fehlgeschlagen");
+            }
+        } catch (_) {
+            statusEl.className = "gi-nfc-status error";
+            statusEl.textContent = "Netzwerkfehler beim Verknüpfen.";
+        }
+    }
+
+    function finishGuestInline() {
+        guestLinkMode = false;
+        guestLinkLaufzettelId = null;
+        var success = document.getElementById("guest-inline-success");
+        success.classList.add("hidden");
+        success.innerHTML = "";
+        document.getElementById("guest-inline-fields").classList.remove("hidden");
+        document.getElementById("guest-card-intro").classList.remove("hidden");
+        document.getElementById("guest-inline-form").classList.add("hidden");
+    }
+
     async function submitGuestInline() {
         var name = document.getElementById("gi-name").value.trim();
         var street = document.getElementById("gi-street").value.trim();
@@ -558,12 +604,27 @@
                 var lz = await res.json();
                 fields.classList.add("hidden");
                 errorBox.classList.add("hidden");
+
+                // Enter NFC link mode: the next scan links to this Laufzettel
+                guestLinkMode = true;
+                guestLinkLaufzettelId = lz.id;
+
+                var nfcPrompt = "";
+                if (pairingToken || ipPaired) {
+                    nfcPrompt =
+                        '<div style="margin-top:14px;">' +
+                        '<p style="font-size:0.95rem;margin-bottom:8px;">Optional: Halte jetzt einen Gäste-Tag an den Leser, um ihn mit dem Laufzettel zu verknüpfen.</p>' +
+                        '<div id="gi-nfc-status" class="gi-nfc-status processing">📡 Warte auf Tag …</div>' +
+                        '</div>';
+                }
                 success.innerHTML =
                     "\u2705 Vielen Dank, <strong>" +
                     name.replace(/</g, "&lt;") +
                     "</strong>!<br>Laufzettel Nr. <strong>" +
                     lz.id +
-                    '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>';
+                    '</strong> wurde erstellt.<br><small style="color:var(--text-secondary)">Bitte wende dich an einen Admin.</small>' +
+                    nfcPrompt +
+                    '<div style="margin-top:14px;"><button type="button" class="btn btn-guest btn-full" onclick="finishGuestInline()">Fertig</button></div>';
                 success.classList.remove("hidden");
             } else {
                 var err = await res.json().catch(function () {
@@ -588,6 +649,72 @@
     const rfidStatus = document.getElementById("rfid-status");
     const rfidError = document.getElementById("rfid-error");
 
+    let rfidResetTimer = null;
+
+    // Map backend error messages to clear, localized German feedback
+    const RFID_ERROR_MESSAGES = {
+        "Unknown RFID card": "Unbekannte Karte – nicht registriert",
+        "No member associated with this card": "Karte ist keinem Mitglied zugeordnet",
+        "Scan zu alt — bitte erneut scannen": "Scan zu alt – bitte erneut scannen",
+        "Kein Scan vom gekoppelten Leser erkannt — bitte erneut scannen":
+            "Kein Scan vom Leser erkannt – bitte erneut scannen",
+        "Pairing abgelaufen": "Kopplung abgelaufen – bitte erneut verbinden",
+    };
+
+    function localizeRfidError(message) {
+        return RFID_ERROR_MESSAGES[message] || message || "Anmeldung fehlgeschlagen";
+    }
+
+    // Render the default "waiting for card" scanning state
+    function renderRfidScanning() {
+        rfidStatus.classList.remove("error");
+        rfidStatus.innerHTML = `
+            <div class="scanning-animation">
+                <span class="pulse"></span>
+                <span class="pulse"></span>
+                <span class="pulse"></span>
+            </div>
+            <span class="status-text">Warte auf Karte...</span>
+        `;
+    }
+
+    // When an unknown (non-member) tag is scanned, check whether a guest
+    // Laufzettel is linked to it and, if so, open that Laufzettel view.
+    async function tryGuestResume(uid) {
+        try {
+            const res = await fetch("/api/guest/resume-by-nfc", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ nfc_uid: uid }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success && data.redirect) {
+                if (rfidResetTimer) clearTimeout(rfidResetTimer);
+                rfidStatus.classList.remove("error");
+                rfidStatus.innerHTML = '<span class="status-text success">✓ Gäste-Laufzettel gefunden!</span>';
+                setTimeout(() => { window.location.href = data.redirect; }, 500);
+                return true;
+            }
+        } catch (e) {
+            console.error("[GUEST-RESUME] Error:", e);
+        }
+        return false;
+    }
+
+    // Show a prominent error state inside the status box, then auto-revert
+    function showRfidError(message, revertMs = 4000) {
+        if (rfidResetTimer) clearTimeout(rfidResetTimer);
+        const text = localizeRfidError(message);
+        rfidStatus.classList.add("error");
+        rfidStatus.innerHTML = `
+            <div class="error-icon">❌</div>
+            <span class="status-text error">${text}</span>
+        `;
+        rfidError.style.display = "none";
+        rfidResetTimer = setTimeout(renderRfidScanning, revertMs);
+    }
+
     // Polling is DISABLED for RFID login — only SSE with a valid pairing token
     // is allowed. This prevents any browser from picking up scans from any reader.
     // The function is kept as a dead stub in case other code references it.
@@ -597,6 +724,8 @@
 
     async function attemptRFIDLogin(rfidUid) {
         console.log("[NFC-LOGIN] Attempting login with UID:", rfidUid, "paired:", !!pairingToken);
+        if (rfidResetTimer) clearTimeout(rfidResetTimer);
+        rfidStatus.classList.remove("error");
         rfidStatus.innerHTML = '<span class="status-text processing">Karte erkannt...</span>';
         rfidError.style.display = "none";
 
@@ -645,35 +774,16 @@
                 }, 500);
             } else {
                 console.error("[NFC-LOGIN] Login failed:", data.error);
-                rfidStatus.innerHTML = `
-                    <div class="scanning-animation">
-                        <span class="pulse"></span>
-                        <span class="pulse"></span>
-                        <span class="pulse"></span>
-                    </div>
-                    <span class="status-text">Warte auf Karte...</span>
-                `;
-                rfidError.textContent = data.error || "Anmeldung fehlgeschlagen";
-                rfidError.style.display = "block";
-                setTimeout(() => {
-                    rfidError.style.display = "none";
-                }, 5000);
+                // Unknown member card: maybe it's a guest tag linked to a Laufzettel
+                if (data.error === "Unknown RFID card") {
+                    const handled = await tryGuestResume(rfidUid);
+                    if (handled) return;
+                }
+                showRfidError(data.error);
             }
         } catch (e) {
             console.error("[NFC-LOGIN] Network error:", e);
-            rfidStatus.innerHTML = `
-                <div class="scanning-animation">
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                    <span class="pulse"></span>
-                </div>
-                <span class="status-text">Warte auf Karte...</span>
-            `;
-            rfidError.textContent = "Verbindungsfehler. Bitte erneut versuchen.";
-            rfidError.style.display = "block";
-            setTimeout(() => {
-                rfidError.style.display = "none";
-            }, 3000);
+            showRfidError("Verbindungsfehler. Bitte erneut versuchen.", 3000);
         }
     }
 
@@ -1007,6 +1117,11 @@
                 const data = JSON.parse(e.data);
                 console.log("[SSE] Scan event received:", data);
                 if (data.uid) {
+                    if (guestLinkMode) {
+                        console.log("[SSE] Guest link mode — linking tag:", data.uid);
+                        linkGuestTag(data.uid);
+                        return;
+                    }
                     console.log("[SSE] Calling attemptRFIDLogin with UID:", data.uid);
                     attemptRFIDLogin(data.uid);
                 }
