@@ -63,13 +63,41 @@ function renderMaterials() {
         return;
     }
 
-    tbody.innerHTML = allMaterials.map((mat, index) => {
+    // Group by location, then category (same as member view)
+    const sorted = [...allMaterials].sort((a, b) => {
+        const locA = getLocationForVariante(a.variante_id) || '￿';
+        const locB = getLocationForVariante(b.variante_id) || '￿';
+        const catA = getKategorieForVariante(a.variante_id) || '';
+        const catB = getKategorieForVariante(b.variante_id) || '';
+        return locA.localeCompare(locB) || catA.localeCompare(catB) || a.name.localeCompare(b.name);
+    });
+
+    let lastLoc = undefined;
+    let lastCat = undefined;
+    const rows = [];
+    let rowIndex = 0;
+
+    for (const mat of sorted) {
+        const loc = getLocationForVariante(mat.variante_id) || 'Freitext';
+        const cat = getKategorieForVariante(mat.variante_id);
+
+        if (loc !== lastLoc) {
+            rows.push(`<tr class="location-separator"><td colspan="7"><span>${esc(loc)}</span></td></tr>`);
+            lastLoc = loc;
+            lastCat = undefined;
+        }
+        if (cat && cat !== lastCat) {
+            rows.push(`<tr class="category-separator"><td colspan="7"><span>${esc(cat)}</span></td></tr>`);
+            lastCat = cat;
+        }
+
+        rowIndex++;
         const mengeStr = buildMengeDisplay(mat);
         const priceStr = mat.calculated_price ? `${mat.calculated_price.toFixed(2)} €` : '-';
         const unitPriceLabel = getUnitPriceLabel(mat.variante_id);
-        return `
+        rows.push(`
             <tr>
-                <td>${index + 1}</td>
+                <td>${rowIndex}</td>
                 <td>${esc(mat.name)}</td>
                 <td>${mengeStr}</td>
                 <td>${esc(mat.unit || '-')}</td>
@@ -80,8 +108,10 @@ function renderMaterials() {
                     <button class="btn btn-sm btn-danger" onclick="deleteMaterial(${mat.id})">Löschen</button>
                 </td>
             </tr>
-        `;
-    }).join('');
+        `);
+    }
+
+    tbody.innerHTML = rows.join('');
 
     // Calculate and show total
     const total = allMaterials.reduce((sum, m) => sum + (m.calculated_price || 0), 0);
@@ -109,6 +139,34 @@ function getUkatAndVariante(varianteId) {
             for (const ukat of (kat.unterkategorien || [])) {
                 for (const v of (ukat.varianten || [])) {
                     if (v.id === varianteId) return { ukat, variante: v, loc };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function getLocationForVariante(varianteId) {
+    if (!varianteId) return null;
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const ukat of (kat.unterkategorien || [])) {
+                for (const v of (ukat.varianten || [])) {
+                    if (v.id === varianteId) return loc.name;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function getKategorieForVariante(varianteId) {
+    if (!varianteId) return null;
+    for (const loc of katalog) {
+        for (const kat of (loc.kategorien || [])) {
+            for (const ukat of (kat.unterkategorien || [])) {
+                for (const v of (ukat.varianten || [])) {
+                    if (v.id === varianteId) return kat.name;
                 }
             }
         }
