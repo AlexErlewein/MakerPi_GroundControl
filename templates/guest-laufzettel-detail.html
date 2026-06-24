@@ -11,13 +11,8 @@
     header {
         padding: 1.25rem 0;
     }
-    .guest-header-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        max-width: 860px;
-        margin: 0 auto;
-        padding: 0 24px;
+    .container {
+        max-width: 860px !important;
     }
     .site-logo {
         height: 56px;
@@ -27,6 +22,7 @@
     }
     .header-left {
         gap: 1.25rem;
+        flex: 1;
     }
     .header-actions {
         gap: 0.75rem;
@@ -53,15 +49,17 @@
 {% endblock %}
 
 {% block header %}
-<header>
-    <div class="guest-header-container">
-        <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
-        <span class="guest-info">Gast-Laufzettel</span>
+<div class="container">
+    <header>
+        <div class="header-left">
+            <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
+            <span class="guest-info">Gast-Laufzettel</span>
+        </div>
         <div class="header-actions">
             <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
         </div>
-    </div>
-</header>
+    </header>
+</div>
 {% endblock %}
 
 {% block content %}

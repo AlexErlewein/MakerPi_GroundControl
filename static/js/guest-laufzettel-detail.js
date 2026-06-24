@@ -64,8 +64,6 @@ function renderMaterials() {
     }
 
     // Group by location, then category (same as member view)
-    console.log('Materials before grouping:', allMaterials);
-    console.log('Katalog loaded:', katalog.length, 'locations');
     const sorted = [...allMaterials].sort((a, b) => {
         const locA = getLocationForVariante(a.variante_id) || '￿';
         const locB = getLocationForVariante(b.variante_id) || '￿';
