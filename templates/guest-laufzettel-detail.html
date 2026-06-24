@@ -11,15 +11,17 @@
     header {
         padding: 1.25rem 0;
     }
-    header > .site-logo {
-        margin-right: auto;
+    .guest-header {
+        max-width: 860px !important;
     }
-    header > .guest-info {
+    .guest-header header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .guest-header .guest-info {
         flex: 1;
         text-align: center;
-    }
-    header > .header-actions {
-        margin-left: auto;
     }
     .site-logo {
         height: 56px;
@@ -58,7 +60,7 @@
 {% endblock %}
 
 {% block header %}
-<div class="container">
+<div class="container guest-header">
     <header>
         <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
         <span class="guest-info">Gast-Laufzettel</span>
