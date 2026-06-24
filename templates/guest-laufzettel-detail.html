@@ -8,29 +8,23 @@
 <link rel="stylesheet" href="/static/css/laufzettel-detail.css?v=3">
 <style>
     /* Guest-specific overrides */
-    header {
+    .guest-custom-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         padding: 1.25rem 0;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
     }
-    .guest-header {
-        max-width: 860px !important;
-    }
-    .guest-header header {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-    }
-    .guest-header .header-left {
-        flex: 1 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 1.25rem !important;
-    }
-    .guest-header .guest-info {
-        flex: 1 !important;
-        text-align: center !important;
-    }
-    .site-logo {
+    .guest-custom-header .site-logo {
         height: 56px;
+    }
+    .guest-custom-header .guest-info {
+        flex: 1;
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 1.2rem;
+        font-weight: 500;
     }
     .nav {
         display: none; /* Hide navigation for guests */
@@ -40,11 +34,6 @@
     }
     .header-actions {
         gap: 0.75rem;
-    }
-    .guest-info {
-        color: var(--text-secondary);
-        font-size: 1.2rem;
-        font-weight: 500;
     }
     /* Constrain content container to match detail card width */
     main {
@@ -66,21 +55,16 @@
 {% endblock %}
 
 {% block header %}
-<div class="container guest-header">
-    <header>
-        <div class="header-left">
-            <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
-            <span class="guest-info">Gast-Laufzettel</span>
-        </div>
-        <div class="header-actions">
-            <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
-        </div>
-    </header>
-</div>
 {% endblock %}
 
 {% block content %}
 <div class="container">
+    <!-- Custom guest header -->
+    <div class="guest-custom-header">
+        <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
+        <span class="guest-info">Gast-Laufzettel</span>
+        <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
+    </div>
     <main>
         <!-- Info Card -->
         <section class="lz-info-card section">
