@@ -720,6 +720,7 @@ async def pay_bar(
     lz.paid_at = datetime.now(timezone.utc)
     if body.notes:
         lz.payment_notes = body.notes.strip()
+    _release_guest_nfc_tag(lz)
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
@@ -931,6 +932,7 @@ async def get_karte_status(
                             lz.payment_transaction_id = item.get(
                                 "transaction_code"
                             ) or item.get("id")
+                            _release_guest_nfc_tag(lz)
                             db.commit()
                             db.refresh(lz)
                         d = lz.to_dict()
@@ -981,6 +983,7 @@ async def confirm_mock_karte(
 
     lz.payment_method = "karte"
     lz.paid_at = datetime.now(timezone.utc)
+    _release_guest_nfc_tag(lz)
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
@@ -1125,6 +1128,7 @@ async def get_checkout_status(
         lz.payment_method = "karte"
         lz.paid_at = datetime.now(timezone.utc)
         lz.payment_transaction_id = checkout_id
+        _release_guest_nfc_tag(lz)
         db.commit()
         db.refresh(lz)
         d = lz.to_dict()
@@ -1194,6 +1198,13 @@ def _check_guest_access(request: Request, lz: Laufzettel) -> bool:
     if guest_id and lz.guest_id == guest_id:
         return True
     return False
+
+
+def _release_guest_nfc_tag(lz: Laufzettel) -> None:
+    """Clear guest_nfc_uid on payment or cleanup so the physical tag can be reused."""
+    if lz.guest_nfc_uid:
+        logger.info("Released guest NFC tag %s from Laufzettel %s", lz.guest_nfc_uid, lz.id)
+        lz.guest_nfc_uid = None
 
 
 def _calc_gutschein_totals(db: Session, laufzettel_id: int) -> tuple[list, float]:
@@ -1783,6 +1794,7 @@ async def apply_gutschein(
     if new_remaining <= 0.005:
         lz.payment_method = "gutschein"
         lz.paid_at = datetime.now(timezone.utc)
+        _release_guest_nfc_tag(lz)
 
     try:
         db.commit()
@@ -2068,6 +2080,7 @@ async def get_wero_status(
                 lz.payment_method = "wero"
                 lz.paid_at = datetime.now(timezone.utc)
                 lz.payment_transaction_id = f"WERO-MOCK-{checkout_id[:8]}"
+                _release_guest_nfc_tag(lz)
                 db.commit()
                 db.refresh(lz)
             d = lz.to_dict()
@@ -2124,6 +2137,7 @@ async def confirm_wero_payment(
     lz.payment_method = "wero"
     lz.paid_at = datetime.now(timezone.utc)
     lz.payment_transaction_id = f"WERO-{checkout_id[:8]}" if pending else None
+    _release_guest_nfc_tag(lz)
     db.commit()
     db.refresh(lz)
 

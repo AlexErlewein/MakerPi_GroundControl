@@ -93,6 +93,7 @@ async def cleanup_empty_laufzettel():
             .all()
         )
         deleted = 0
+        guest_tags_released = 0
         for lz in stale_empty:
             has_materials = (
                 db.query(LaufzettelMaterial)
@@ -102,9 +103,19 @@ async def cleanup_empty_laufzettel():
             if not has_materials:
                 db.delete(lz)
                 deleted += 1
+            elif lz.guest_nfc_uid:
+                logger.info(
+                    "[cleanup_empty_laufzettel] Released guest NFC tag %s from stale Laufzettel %s (has materials, kept open)",
+                    lz.guest_nfc_uid,
+                    lz.id,
+                )
+                lz.guest_nfc_uid = None
+                guest_tags_released += 1
         db.commit()
         logger.info(
-            "[cleanup_empty_laufzettel] Deleted %d empty stale laufzettel", deleted
+            "[cleanup_empty_laufzettel] Deleted %d empty stale laufzettel, released %d guest NFC tags",
+            deleted,
+            guest_tags_released,
         )
     except Exception:
         logger.exception("[cleanup_empty_laufzettel] Failed")

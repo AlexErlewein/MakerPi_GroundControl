@@ -410,7 +410,7 @@ select:focus {
 /* ── Bulk Import Modal ──────────────────────────────────────────────────────── */
 
 .modal-box.modal-wide {
-    max-width: 900px;
+    max-width: 1200px;
     max-height: 85vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
