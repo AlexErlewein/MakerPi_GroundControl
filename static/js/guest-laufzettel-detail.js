@@ -120,7 +120,7 @@ function getUnitPriceLabel(varianteId) {
     const found = getUkatAndVariante(varianteId);
     if (!found) return null;
     const { ukat, variante } = found;
-    const pm = ukat.pricing_model;
+    const pm = variante.pricing_model || ukat.pricing_model;
     const suffix = pm === "per_gram" ? "/gr"
         : pm === "per_kilogram" ? "/kg"
         : pm === "per_volume_cm3" ? "/cm³"
@@ -131,7 +131,7 @@ function getUnitPriceLabel(varianteId) {
         : pm === "per_area_m2" ? "/m²"
         : pm === "per_area_dm2" ? "/dm²"
         : pm === "per_minute" ? "/min"
-        : `/${ukat.unit || "Stück"}`;
+        : `/${variante.unit || ukat.unit || "Stück"}`;
     return `${variante.price.toFixed(2)} €${suffix}`;
 }
 
@@ -149,6 +149,18 @@ function esc(str) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+}
+
+// Sign out: clear the guest session and return to the login page.
+// Without clearing the session, navigating away just bounces back here
+// because the guest-form page auto-resumes the active session.
+async function guestLogout() {
+    try {
+        await fetch('/api/guest/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+        // Ignore network errors; still navigate away
+    }
+    window.location.href = '/';
 }
 
 // Open material modal

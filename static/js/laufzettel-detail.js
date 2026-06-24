@@ -252,7 +252,7 @@ function getUnitPriceLabel(varianteId) {
   const found = getUkatAndVariante(varianteId);
   if (!found) return null;
   const { ukat, variante } = found;
-  const pm = ukat.pricing_model;
+  const pm = variante.pricing_model || ukat.pricing_model;
   const suffix =
     pm === "per_gram"
       ? "/gr"
@@ -274,7 +274,7 @@ function getUnitPriceLabel(varianteId) {
                       ? "/dm²"
                       : pm === "per_minute"
                         ? "/min"
-                        : `/${ukat.unit || "Stück"}`;
+                        : `/${variante.unit || ukat.unit || "Stück"}`;
   return `${variante.price.toFixed(2)} €${suffix}`;
 }
 

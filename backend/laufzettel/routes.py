@@ -1250,6 +1250,13 @@ async def guest_session_check(request: Request):
     return {"guest_id": None}
 
 
+@router.post("/api/guest/logout")
+async def guest_logout(request: Request):
+    """Clear the current guest session so the terminal returns to login."""
+    request.session.pop("guest_id", None)
+    return {"success": True}
+
+
 @router.post("/api/guest/laufzettel")
 async def create_guest_laufzettel(
     data: GuestLaufzettelCreate, request: Request, db: Session = Depends(get_db)
