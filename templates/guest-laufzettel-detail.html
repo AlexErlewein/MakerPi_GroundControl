@@ -11,6 +11,11 @@
     header {
         padding: 1.25rem 0;
     }
+    header .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
     .site-logo {
         height: 56px;
     }
@@ -27,6 +32,8 @@
         color: var(--text-secondary);
         font-size: 1.2rem;
         font-weight: 500;
+        flex: 1;
+        text-align: center;
     }
     /* Hide delete button for guests */
     #delete-lz-btn {
@@ -44,12 +51,12 @@
 
 {% block header %}
 <header>
-    <div class="header-left">
+    <div class="container">
         <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
         <span class="guest-info">Gast-Laufzettel</span>
-    </div>
-    <div class="header-actions">
-        <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
+        <div class="header-actions">
+            <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
+        </div>
     </div>
 </header>
 {% endblock %}
