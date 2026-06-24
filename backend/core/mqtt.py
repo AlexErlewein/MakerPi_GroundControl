@@ -883,6 +883,77 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         # If recently_created is True, do nothing (dedup guard)
                     finally:
                         lauf_db.close()
+                
+                # Guest NFC Card Handling
+                # If no member was found, check if this is a guest NFC tag
+                if not mitglied_db_id and not member_id_str and validated == 0:
+                    from backend.laufzettel.db import SessionLocal as LaufzettelSession
+                    from backend.laufzettel.models import Laufzettel
+                    
+                    lauf_db = LaufzettelSession()
+                    try:
+                        from datetime import date as dt_date
+                        
+                        # Look for active guest Laufzettel with this NFC tag
+                        today = dt_date.today()
+                        guest_lz = (
+                            lauf_db.query(Laufzettel)
+                            .filter(
+                                Laufzettel.guest_nfc_uid == uid,
+                                Laufzettel.date == today,
+                                Laufzettel.payment_method.is_(None),
+                            )
+                            .order_by(Laufzettel.created_at.desc())
+                            .first()
+                        )
+                        
+                        if guest_lz:
+                            logger.info(
+                                "[GUEST_SCAN] Found guest Laufzettel %s for NFC tag %s", 
+                                guest_lz.id, uid
+                            )
+                            
+                            # Update existing guest Laufzettel
+                            nodes = json.loads(guest_lz.nodes or "[]")
+                            if device_id not in nodes:
+                                nodes.append(device_id)
+                                guest_lz.nodes = json.dumps(nodes)
+                            
+                            # Update timestamp if not set
+                            if not guest_lz.start:
+                                guest_lz.start = _utcnow()
+                            
+                            lauf_db.commit()
+                            
+                            # Update scan record to show guest info
+                            scan.owner_name = guest_lz.owner_name or "Guest"
+                            scan.validated = 1  # Mark as validated for guest access
+                            
+                            # Publish guest scan result
+                            if mqtt_client:
+                                try:
+                                    response_payload = json.dumps({
+                                        "uid": uid,
+                                        "owner_name": guest_lz.owner_name or "Guest",
+                                        "guest_id": guest_lz.guest_id,
+                                        "laufzettel_id": guest_lz.id,
+                                        "validated": True,
+                                        "source": "GUEST",
+                                    })
+                                    mqtt_client.publish("lilygo/user_info", response_payload)
+                                    mqtt_client.publish(f"{device_id}/user_info", response_payload)
+                                    logger.info(
+                                        "[GUEST_SCAN] Published guest user_info: uid=%r laufzettel_id=%s",
+                                        uid, guest_lz.id
+                                    )
+                                except Exception as e:
+                                    logger.error(f"[GUEST_SCAN] Failed to publish user_info: {e}")
+                        else:
+                            logger.info(
+                                "[GUEST_SCAN] NFC tag %s not linked to any active guest session", uid
+                            )
+                    finally:
+                        lauf_db.close()
             except json.JSONDecodeError:
                 pass
 

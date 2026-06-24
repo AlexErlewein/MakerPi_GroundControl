@@ -208,6 +208,61 @@
 
         <button type="submit" class="btn btn-success" id="submit-btn">Fertig ✓</button>
     </form>
+
+    <!-- NFC Card Section -->
+    <div id="nfc-section" class="nfc-section" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+        <h3 style="margin-bottom: 1rem; color: var(--text-primary);">🎯 NFC Gastkarte verknüpfen</h3>
+        <div id="nfc-status" class="info-message hidden"></div>
+        <div id="nfc-error" class="error-message hidden"></div>
+        
+        <div id="nfc-unlinked" style="display: block;">
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                Halte eine NFC-Karte an den Scanner, um sie mit deinem Laufzettel zu verknüpfen. 
+                So kannst du beim nächsten Besuch einfach die Karte scannen!
+            </p>
+            <div class="nfc-scanner" style="background: var(--bg-tertiary); border: 2px dashed var(--border-color); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">📱</div>
+                <div style="color: var(--text-secondary);">NFC-Karte hier halten</div>
+                <div id="scan-progress" class="hidden" style="margin-top: 1rem;">
+                    <div style="color: var(--accent);">Scanne...</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="manual-nfc-btn" style="width: 100%;">
+                NFC-ID manuell eingeben
+            </button>
+        </div>
+        
+        <div id="nfc-linked" style="display: none;">
+            <div class="success-message" style="background: var(--success-bg, #d1fae5); color: var(--success-text, #065f46); padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem;">
+                ✅ NFC-Karte verknüpft: <strong id="linked-nfc-id"></strong>
+            </div>
+            <button type="button" class="btn btn-secondary" id="unlink-nfc-btn" style="width: 100%;">
+                NFC-Karte entfernen
+            </button>
+        </div>
+        
+        <!-- Manual NFC Input Modal -->
+        <div id="manual-nfc-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>NFC-ID eingeben</h3>
+                    <button class="modal-close" id="manual-nfc-close">✕</button>
+                </div>
+                <div class="form-group">
+                    <label for="manual-nfc-input">NFC-Karten-ID</label>
+                    <input type="text" id="manual-nfc-input" placeholder="z.B. 04A3B5C2" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+                        Die ID findest du auf der NFC-Karte oder im Scanner-Log.
+                    </small>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="manual-nfc-cancel">Abbrechen</button>
+                    <button class="btn btn-primary" id="manual-nfc-submit">Verknüpfen</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Previous Unpaid Reminder Modal -->

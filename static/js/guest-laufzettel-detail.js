@@ -36,6 +36,20 @@ function renderInfo() {
     document.getElementById('view-start').textContent = formatTime(laufzettelData.start);
     document.getElementById('view-owner').textContent = laufzettelData.owner_name || '-';
     document.getElementById('view-email').textContent = laufzettelData.guest_email || '-';
+    
+    // Display NFC status
+    const nfcNotLinked = document.getElementById('nfc-not-linked');
+    const nfcLinked = document.getElementById('nfc-linked');
+    const nfcUidDisplay = document.getElementById('nfc-uid-display');
+    
+    if (laufzettelData.guest_nfc_uid) {
+        nfcNotLinked.classList.add('hidden');
+        nfcLinked.classList.remove('hidden');
+        nfcUidDisplay.textContent = laufzettelData.guest_nfc_uid;
+    } else {
+        nfcNotLinked.classList.remove('hidden');
+        nfcLinked.classList.add('hidden');
+    }
 }
 
 // Render materials table

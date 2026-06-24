@@ -33,6 +33,7 @@ class Laufzettel(Base):
     guest_id = Column(String, nullable=True, index=True)  # UUID for guest sessions
     guest_email = Column(String, nullable=True)  # Optional email for guests
     guest_address = Column(String, nullable=True)  # Full address for guests
+    guest_nfc_uid = Column(String, nullable=True, index=True)  # NFC tag linked to guest session
     nodes = Column(Text, default="[]")  # JSON array of device_ids
     payment_method = Column(
         String, nullable=True
@@ -58,6 +59,7 @@ class Laufzettel(Base):
             "guest_id": self.guest_id,
             "guest_email": self.guest_email,
             "guest_address": self.guest_address,
+            "guest_nfc_uid": self.guest_nfc_uid,
             "nodes": json.loads(self.nodes) if self.nodes else [],
             "payment_method": self.payment_method,
             "paid_at": paid_ts.isoformat() if paid_ts else None,

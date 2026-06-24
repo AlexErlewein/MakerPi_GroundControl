@@ -1473,6 +1473,125 @@ async def guest_laufzettel_detail_page(
     )
 
 
+# ── Guest NFC Card Linking API ──────────────────────────────────────────────────
+
+
+class LinkNfcRequest(BaseModel):
+    nfc_uid: str
+
+
+@router.post("/api/guest/link-nfc")
+async def link_guest_nfc(
+    data: LinkNfcRequest, request: Request, db: Session = Depends(get_db)
+):
+    """Link an NFC tag to the current guest session"""
+    guest_id = request.session.get("guest_id")
+    if not guest_id:
+        return JSONResponse(
+            status_code=401, content={"detail": "No active guest session"}
+        )
+    
+    # Validate NFC UID format
+    if not data.nfc_uid or len(data.nfc_uid.strip()) < 4:
+        return JSONResponse(
+            status_code=400, content={"detail": "Invalid NFC UID format"}
+        )
+    
+    nfc_uid = data.nfc_uid.strip().upper()
+    
+    # Check if NFC tag is already used by another guest
+    existing = (
+        db.query(Laufzettel)
+        .filter(Laufzettel.guest_nfc_uid == nfc_uid, Laufzettel.payment_method.is_(None))
+        .first()
+    )
+    if existing and existing.guest_id != guest_id:
+        return JSONResponse(
+            status_code=409, 
+            content={"detail": "NFC tag already linked to another guest session"}
+        )
+    
+    # Find the current guest's active Laufzettel
+    from datetime import date
+    today = date.today()
+    guest_laufzettel = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_id == guest_id,
+            Laufzettel.date == today,
+            Laufzettel.payment_method.is_(None),
+        )
+        .order_by(Laufzettel.created_at.desc())
+        .first()
+    )
+    
+    if not guest_laufzettel:
+        return JSONResponse(
+            status_code=404, 
+            content={"detail": "No active guest Laufzettel found for today"}
+        )
+    
+    # Link the NFC tag
+    guest_laufzettel.guest_nfc_uid = nfc_uid
+    db.commit()
+    
+    logger.info(
+        "Guest %s linked NFC tag %s to Laufzettel %s", 
+        guest_id, nfc_uid, guest_laufzettel.id
+    )
+    
+    return {
+        "success": True,
+        "nfc_uid": nfc_uid,
+        "laufzettel_id": guest_laufzettel.id,
+        "message": "NFC card linked successfully"
+    }
+
+
+@router.post("/api/guest/unlink-nfc")
+async def unlink_guest_nfc(request: Request, db: Session = Depends(get_db)):
+    """Unlink NFC tag from the current guest session"""
+    guest_id = request.session.get("guest_id")
+    if not guest_id:
+        return JSONResponse(
+            status_code=401, content={"detail": "No active guest session"}
+        )
+    
+    # Find the current guest's active Laufzettel
+    from datetime import date
+    today = date.today()
+    guest_laufzettel = (
+        db.query(Laufzettel)
+        .filter(
+            Laufzettel.guest_id == guest_id,
+            Laufzettel.date == today,
+            Laufzettel.payment_method.is_(None),
+        )
+        .order_by(Laufzettel.created_at.desc())
+        .first()
+    )
+    
+    if not guest_laufzettel:
+        return JSONResponse(
+            status_code=404, 
+            content={"detail": "No active guest Laufzettel found"}
+        )
+    
+    old_nfc_uid = guest_laufzettel.guest_nfc_uid
+    guest_laufzettel.guest_nfc_uid = None
+    db.commit()
+    
+    logger.info(
+        "Guest %s unlinked NFC tag %s from Laufzettel %s", 
+        guest_id, old_nfc_uid, guest_laufzettel.id
+    )
+    
+    return {
+        "success": True,
+        "message": "NFC card unlinked successfully"
+    }
+
+
 # ── Gutschein (Gift Card) Payment API ────────────────────────────────────────
 
 

@@ -198,6 +198,222 @@ document.getElementById('reminder-continue').addEventListener('click', () => {
     }
 });
 
+// NFC Functions
+let eventSource = null;
+let scanTimeout = null;
+
+function startNfcScanner() {
+    // Start listening for NFC scans via SSE
+    if (eventSource) {
+        eventSource.close();
+    }
+    
+    eventSource = new EventSource('/api/core/scan-events');
+    eventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        handleNfcScan(data.uid);
+    };
+    
+    eventSource.onerror = function() {
+        console.error('NFC scan SSE connection failed');
+        stopNfcScanner();
+    };
+    
+    // Show scanning progress
+    document.getElementById('scan-progress').classList.remove('hidden');
+}
+
+function stopNfcScanner() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+    document.getElementById('scan-progress').classList.add('hidden');
+}
+
+function handleNfcScan(uid) {
+    stopNfcScanner();
+    
+    if (!uid || uid.length < 4) {
+        showNfcError('Ungültige NFC-ID');
+        return;
+    }
+    
+    linkNfcCard(uid);
+}
+
+async function linkNfcCard(nfcUid) {
+    const statusContainer = document.getElementById('nfc-status');
+    const errorContainer = document.getElementById('nfc-error');
+    
+    hideMessages();
+    
+    try {
+        const response = await fetch('/api/guest/link-nfc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nfc_uid: nfcUid })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showNfcSuccess(result.nfc_uid);
+        } else {
+            showNfcError(result.detail || 'Fehler beim Verknüpfen der NFC-Karte');
+        }
+    } catch (e) {
+        showNfcError('Netzwerkfehler. Bitte versuche es erneut.');
+    }
+}
+
+async function unlinkNfcCard() {
+    const statusContainer = document.getElementById('nfc-status');
+    const errorContainer = document.getElementById('nfc-error');
+    
+    hideMessages();
+    
+    try {
+        const response = await fetch('/api/guest/unlink-nfc', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showNfcUnlinked();
+        } else {
+            showNfcError(result.detail || 'Fehler beim Entfernen der NFC-Karte');
+        }
+    } catch (e) {
+        showNfcError('Netzwerkfehler. Bitte versuche es erneut.');
+    }
+}
+
+function showNfcSuccess(nfcUid) {
+    document.getElementById('nfc-unlinked').style.display = 'none';
+    document.getElementById('nfc-linked').style.display = 'block';
+    document.getElementById('linked-nfc-id').textContent = nfcUid;
+    
+    const statusContainer = document.getElementById('nfc-status');
+    statusContainer.textContent = 'NFC-Karte erfolgreich verknüpft!';
+    statusContainer.classList.remove('hidden');
+    
+    setTimeout(() => {
+        statusContainer.classList.add('hidden');
+    }, 3000);
+}
+
+function showNfcUnlinked() {
+    document.getElementById('nfc-linked').style.display = 'none';
+    document.getElementById('nfc-unlinked').style.display = 'block';
+    
+    const statusContainer = document.getElementById('nfc-status');
+    statusContainer.textContent = 'NFC-Karte entfernt';
+    statusContainer.classList.remove('hidden');
+    
+    setTimeout(() => {
+        statusContainer.classList.add('hidden');
+    }, 3000);
+}
+
+function showNfcError(message) {
+    const errorContainer = document.getElementById('nfc-error');
+    errorContainer.textContent = message;
+    errorContainer.classList.remove('hidden');
+    
+    setTimeout(() => {
+        errorContainer.classList.add('hidden');
+    }, 5000);
+}
+
+function hideMessages() {
+    document.getElementById('nfc-status').classList.add('hidden');
+    document.getElementById('nfc-error').classList.add('hidden');
+}
+
+// Manual NFC Input Modal
+function showManualNfcModal() {
+    document.getElementById('manual-nfc-modal').classList.remove('hidden');
+    document.getElementById('manual-nfc-input').value = '';
+    document.getElementById('manual-nfc-input').focus();
+}
+
+function hideManualNfcModal() {
+    document.getElementById('manual-nfc-modal').classList.add('hidden');
+}
+
+function submitManualNfc() {
+    const input = document.getElementById('manual-nfc-input');
+    const nfcUid = input.value.trim();
+    
+    if (!nfcUid) {
+        showNfcError('Bitte gib eine NFC-ID ein');
+        return;
+    }
+    
+    hideManualNfcModal();
+    linkNfcCard(nfcUid);
+}
+
+// Check NFC status on page load
+async function checkNfcStatus() {
+    if (!guestId) return;
+    
+    try {
+        // Get current guest's Laufzettel to check NFC status
+        const response = await fetch(`/api/guest/laufzettel/${guestId}`);
+        if (response.ok) {
+            const lz = await response.json();
+            if (lz.guest_nfc_uid) {
+                showNfcSuccess(lz.guest_nfc_uid);
+            }
+        }
+    } catch (e) {
+        console.log('Could not check NFC status');
+    }
+}
+
+// Event listeners
+document.getElementById('guest-form').addEventListener('submit', submitForm);
+
+// NFC Event listeners
+document.getElementById('manual-nfc-btn').addEventListener('click', showManualNfcModal);
+document.getElementById('manual-nfc-close').addEventListener('click', hideManualNfcModal);
+document.getElementById('manual-nfc-cancel').addEventListener('click', hideManualNfcModal);
+document.getElementById('manual-nfc-submit').addEventListener('click', submitManualNfc);
+document.getElementById('unlink-nfc-btn').addEventListener('click', unlinkNfcCard);
+
+// Start NFC scanner when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Start scanner after a short delay to ensure page is ready
+    setTimeout(() => {
+        if (guestId) {
+            startNfcScanner();
+            checkNfcStatus();
+        }
+    }, 1000);
+});
+
+// Clean up SSE connection when page unloads
+window.addEventListener('beforeunload', () => {
+    stopNfcScanner();
+});
+
+document.getElementById('reminder-close').addEventListener('click', hideReminderModal);
+document.getElementById('reminder-modal').querySelector('.modal-overlay').addEventListener('click', hideReminderModal);
+
+document.getElementById('reminder-new').addEventListener('click', () => {
+    hideReminderModal();
+    // User wants to create a new Laufzettel, continue with form
+});
+
+document.getElementById('reminder-continue').addEventListener('click', () => {
+    if (previousUnpaid) {
+        window.location.href = `/guest/laufzettel/${previousUnpaid.id}`;
+    }
+});
+
 // Initialize
 isNewMode = checkNewMode();
 initForm();
