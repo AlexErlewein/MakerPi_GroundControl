@@ -11,11 +11,12 @@
     header {
         padding: 1.25rem 0;
     }
-    header .container {
+    .guest-header-container {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        max-width: 860px !important;
+        max-width: 860px;
+        margin: 0 auto;
     }
     .site-logo {
         height: 56px;
@@ -52,7 +53,7 @@
 
 {% block header %}
 <header>
-    <div class="container">
+    <div class="container guest-header-container">
         <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
         <span class="guest-info">Gast-Laufzettel</span>
         <div class="header-actions">
