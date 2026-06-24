@@ -491,8 +491,11 @@ function showKatInputFields(pricingModel, unit) {
     const minuteEl = document.getElementById('kat-fields-minute');
     const unitEl = document.getElementById('kat-fields-unit');
 
+    // per_volume_l also uses the single "Menge" field (volume in liters)
+    const usesGramField = isWeight || pricingModel === 'per_volume_l';
+
     // First remove hidden class, then set display style
-    if (isWeight) {
+    if (usesGramField) {
         gramEl.classList.remove('hidden');
         gramEl.style.display = 'block';
         gramEl.style.setProperty('display', 'block', 'important');
