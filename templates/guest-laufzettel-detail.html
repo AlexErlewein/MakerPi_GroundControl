@@ -10,12 +10,6 @@
     /* Guest-specific overrides */
     header {
         padding: 1.25rem 0;
-        border-bottom: 1px solid var(--border-color);
-    }
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
     }
     .site-logo {
         height: 56px;
@@ -23,9 +17,10 @@
     .nav {
         display: none; /* Hide navigation for guests */
     }
+    .header-left {
+        gap: 1.25rem;
+    }
     .header-actions {
-        display: flex;
-        align-items: center;
         gap: 0.75rem;
     }
     .guest-info {
