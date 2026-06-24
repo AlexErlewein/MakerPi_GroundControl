@@ -746,8 +746,7 @@ function closeSpendeModal() {
 }
 
 function getCurrentTotal() {
-    const materials = window.MATERIALS_DATA || [];
-    return materials.reduce((sum, m) => sum + (m.calculated_price || 0), 0);
+    return allMaterials.reduce((sum, m) => sum + (m.calculated_price || 0), 0);
 }
 
 function updateAufrundenDiff() {

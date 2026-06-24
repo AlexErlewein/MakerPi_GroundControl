@@ -1,6 +1,6 @@
 // ─── MakerPi GroundControl Service Worker ───────────────────────
 // Version: bump this to invalidate all caches on deploy
-const SW_VERSION = 'gc-v3';
+const SW_VERSION = 'gc-v4';
 
 // Cache names
 const CACHE_STATIC  = `${SW_VERSION}-static`;
@@ -19,7 +19,6 @@ const PRECACHE_URLS = [
 
 // API routes that should use stale-while-revalidate (data that changes rarely)
 const SWR_PATTERNS = [
-    '/api/katalog',
     '/api/mitglieder',
     '/api/tags',
     '/api/buchhaltung',
