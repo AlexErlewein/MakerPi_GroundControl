@@ -101,8 +101,9 @@
 {% endblock %} {% block extra_js %}
 <script>
     const MATERIALS_DATA = {{ materials | tojson | safe }};
+    const KATALOG_DATA = {{ katalog | tojson | safe }};
     let materials = MATERIALS_DATA || [];
-    let katalog = [];
+    let katalog = KATALOG_DATA || [];
 
     function esc(str) {
         return String(str || '')
@@ -232,11 +233,6 @@
         renderMaterials();
     }
 
-    // Use server-provided katalog for initial render
-    if (KATALOG_DATA && KATALOG_DATA.length) {
-        katalog = KATALOG_DATA;
-        populateLocationSelect();
-    }
     renderMaterials();
 
     async function checkSession() {
@@ -287,8 +283,6 @@
 {% if not read_only %}
 <script>
     const LAUFZETTEL_ID = {{ laufzettel.id }};
-    const KATALOG_DATA = {{ katalog | tojson | safe }};
-    if (KATALOG_DATA && KATALOG_DATA.length) katalog = KATALOG_DATA;
     let currentMatMode = 'freitext';
     let selectedVariante = null;
     let selectedKategorie = null;
