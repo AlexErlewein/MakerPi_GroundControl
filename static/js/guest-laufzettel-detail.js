@@ -811,6 +811,7 @@ async function submitSpendeForm(e) {
 }
 
 // Event listeners
+document.getElementById('guest-logout-btn').addEventListener('click', guestLogout);
 document.getElementById('add-material-btn').addEventListener('click', openMaterialModal);
 document.getElementById('modal-close').addEventListener('click', closeMaterialModal);
 document.getElementById('modal-overlay').addEventListener('click', closeMaterialModal);

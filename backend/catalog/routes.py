@@ -166,6 +166,24 @@ async def get_full_katalog(db: Session = Depends(get_db)):
                 )
                 ukat_dict["varianten"] = [v.to_dict() for v in varianten]
                 kat_dict["unterkategorien"].append(ukat_dict)
+            # Include legacy variantes (unterkategorie_id is NULL, only kategorie_id set)
+            # so the JS location/category lookup can still find them.
+            legacy_varianten = (
+                db.query(MaterialVariante)
+                .filter(
+                    MaterialVariante.kategorie_id == kat.id,
+                    MaterialVariante.unterkategorie_id.is_(None),
+                )
+                .order_by(MaterialVariante.id)
+                .all()
+            )
+            if legacy_varianten:
+                kat_dict["unterkategorien"].insert(0, {
+                    "id": None,
+                    "name": kat.name,
+                    "kategorie_id": kat.id,
+                    "varianten": [v.to_dict() for v in legacy_varianten],
+                })
             loc_dict["kategorien"].append(kat_dict)
         result.append(loc_dict)
     return result
