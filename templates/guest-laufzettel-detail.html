@@ -33,11 +33,6 @@
         font-size: 1.2rem;
         font-weight: 500;
     }
-    /* Constrain header to match content card width */
-    .container header {
-        max-width: 860px;
-        margin: 0 auto;
-    }
     /* Hide delete button for guests */
     #delete-lz-btn {
         display: none;
@@ -53,8 +48,8 @@
 {% endblock %}
 
 {% block header %}
-<div class="container">
-    <header>
+<header>
+    <div class="container">
         <div class="header-left">
             <img src="/graphics/H3ckeLogo.svg" class="site-logo" alt="H3cke MakerSpace">
             <span class="guest-info">Gast-Laufzettel</span>
@@ -62,8 +57,8 @@
         <div class="header-actions">
             <button type="button" class="btn btn-secondary" onclick="guestLogout()">← Abmelden</button>
         </div>
-    </header>
-</div>
+    </div>
+</header>
 {% endblock %}
 
 {% block content %}
