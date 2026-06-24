@@ -203,22 +203,32 @@ let eventSource = null;
 let scanTimeout = null;
 
 function startNfcScanner() {
-    // Start listening for NFC scans via SSE
+    // Start listening for NFC scans via SSE.
+    // The scan stream emits named "scan" events (event: scan), so we must use
+    // addEventListener('scan', ...) rather than onmessage.
     if (eventSource) {
         eventSource.close();
     }
-    
-    eventSource = new EventSource('/api/core/scan-events');
-    eventSource.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        handleNfcScan(data.uid);
-    };
-    
+
+    eventSource = new EventSource('/api/scans/stream');
+
+    eventSource.addEventListener('scan', function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data && data.uid) {
+                handleNfcScan(data.uid);
+            }
+        } catch (e) {
+            console.error('Failed to parse scan event', e);
+        }
+    });
+
     eventSource.onerror = function() {
-        console.error('NFC scan SSE connection failed');
-        stopNfcScanner();
+        // The stream times out after 30s server-side; EventSource auto-reconnects.
+        // Only log; do not tear down so reconnection keeps the scanner alive.
+        console.log('NFC scan SSE reconnecting...');
     };
-    
+
     // Show scanning progress
     document.getElementById('scan-progress').classList.remove('hidden');
 }
@@ -374,9 +384,6 @@ async function checkNfcStatus() {
     }
 }
 
-// Event listeners
-document.getElementById('guest-form').addEventListener('submit', submitForm);
-
 // NFC Event listeners
 document.getElementById('manual-nfc-btn').addEventListener('click', showManualNfcModal);
 document.getElementById('manual-nfc-close').addEventListener('click', hideManualNfcModal);
@@ -398,20 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Clean up SSE connection when page unloads
 window.addEventListener('beforeunload', () => {
     stopNfcScanner();
-});
-
-document.getElementById('reminder-close').addEventListener('click', hideReminderModal);
-document.getElementById('reminder-modal').querySelector('.modal-overlay').addEventListener('click', hideReminderModal);
-
-document.getElementById('reminder-new').addEventListener('click', () => {
-    hideReminderModal();
-    // User wants to create a new Laufzettel, continue with form
-});
-
-document.getElementById('reminder-continue').addEventListener('click', () => {
-    if (previousUnpaid) {
-        window.location.href = `/guest/laufzettel/${previousUnpaid.id}`;
-    }
 });
 
 // Initialize

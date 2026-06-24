@@ -46,9 +46,14 @@ def _migrate(conn):
         ("payment_notes", "ALTER TABLE laufzettel ADD COLUMN payment_notes VARCHAR"),
         ("guest_id", "ALTER TABLE laufzettel ADD COLUMN guest_id VARCHAR"),
         ("guest_email", "ALTER TABLE laufzettel ADD COLUMN guest_email VARCHAR"),
+        ("guest_address", "ALTER TABLE laufzettel ADD COLUMN guest_address VARCHAR"),
+        ("guest_nfc_uid", "ALTER TABLE laufzettel ADD COLUMN guest_nfc_uid VARCHAR"),
     ]:
         if col not in existing:
             cur.execute(sql)
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS ix_laufzettel_guest_nfc_uid ON laufzettel (guest_nfc_uid)"
+    )
 
     cur.execute("PRAGMA table_info(laufzettel_material)")
     existing_mat = {row[1] for row in cur.fetchall()}
