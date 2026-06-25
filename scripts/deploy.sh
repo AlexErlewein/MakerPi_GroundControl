@@ -16,7 +16,7 @@ if [ -f "$CONFIG_FILE" ] && command -v jq &> /dev/null; then
     PI_USER=$(jq -r '.pi_user // "alex"' "$CONFIG_FILE")
     PROJECT_DIR=$(jq -r '.project_dir // "/home/alex/MakerPi_GroundControl"' "$CONFIG_FILE")
 else
-    PI_HOST="192.168.178.47"
+    PI_HOST="ComputePi"
     TAILSCALE_IP=""
     PI_USER="dev"
     PROJECT_DIR="/home/alex/MakerPi_GroundControl"
