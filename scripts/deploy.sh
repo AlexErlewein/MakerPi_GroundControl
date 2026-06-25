@@ -18,7 +18,7 @@ if [ -f "$CONFIG_FILE" ] && command -v jq &> /dev/null; then
 else
     PI_HOST="192.168.178.47"
     TAILSCALE_IP=""
-    PI_USER="alex"
+    PI_USER="dev"
     PROJECT_DIR="/home/alex/MakerPi_GroundControl"
 fi
 
