@@ -265,6 +265,7 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
             Laufzettel.uid == uid,
             Laufzettel.date == entry_date,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .first()
     )
@@ -346,6 +347,7 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
                 Laufzettel.mitglied_id == resolved_mitglied_db_id,
                 Laufzettel.date == entry_date,
                 Laufzettel.payment_method.is_(None),
+                Laufzettel.deleted_at.is_(None),
             )
             .first()
         )
@@ -381,12 +383,26 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
 
 @router.get("/api/laufzettel")
 async def get_laufzettel(
-    uid: Optional[str] = None, date: Optional[str] = None, db: Session = Depends(get_db)
+    uid: Optional[str] = None,
+    date: Optional[str] = None,
+    include_deleted: Optional[str] = None,
+    only_open: Optional[str] = None,
+    db: Session = Depends(get_db),
 ):
     """List all Laufzettel entries, optionally filtered"""
     from datetime import date as dt_date
 
     query = db.query(Laufzettel)
+    # By default, exclude soft-deleted entries
+    if include_deleted:
+        pass  # show all, including deleted
+    elif only_open:
+        query = query.filter(
+            Laufzettel.deleted_at.is_(None),
+            Laufzettel.payment_method.is_(None),
+        )
+    else:
+        query = query.filter(Laufzettel.deleted_at.is_(None))
     if uid:
         query = query.filter(Laufzettel.uid == uid.upper())
     if date:
@@ -593,7 +609,9 @@ async def update_material(
 async def delete_laufzettel(
     laufzettel_id: int, request: Request, db: Session = Depends(get_db)
 ):
-    """Delete a Laufzettel and all its material entries"""
+    """Soft-delete a Laufzettel (mark as deleted without removing data)"""
+    from datetime import datetime, timezone
+
     from backend.auth.dependencies import is_admin_verified
 
     if not is_admin_verified(request):
@@ -601,10 +619,7 @@ async def delete_laufzettel(
     lz = db.query(Laufzettel).filter(Laufzettel.id == laufzettel_id).first()
     if not lz:
         raise HTTPException(status_code=404, detail="Laufzettel not found")
-    db.query(LaufzettelMaterial).filter(
-        LaufzettelMaterial.laufzettel_id == laufzettel_id
-    ).delete()
-    db.delete(lz)
+    lz.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return {"deleted": laufzettel_id}
 
@@ -1203,7 +1218,9 @@ def _check_guest_access(request: Request, lz: Laufzettel) -> bool:
 def _release_guest_nfc_tag(lz: Laufzettel) -> None:
     """Clear guest_nfc_uid on payment or cleanup so the physical tag can be reused."""
     if lz.guest_nfc_uid:
-        logger.info("Released guest NFC tag %s from Laufzettel %s", lz.guest_nfc_uid, lz.id)
+        logger.info(
+            "Released guest NFC tag %s from Laufzettel %s", lz.guest_nfc_uid, lz.id
+        )
         lz.guest_nfc_uid = None
 
 
@@ -1315,6 +1332,7 @@ async def create_guest_laufzettel(
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == entry_date,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .first()
     )
@@ -1418,6 +1436,7 @@ async def get_guest_laufzettel(guest_id: str, db: Session = Depends(get_db)):
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == today,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .first()
     )
@@ -1449,6 +1468,7 @@ async def get_guest_previous_unpaid(guest_id: str, db: Session = Depends(get_db)
             Laufzettel.guest_id == guest_id,
             Laufzettel.date < today,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .order_by(Laufzettel.date.desc())
         .first()
@@ -1508,29 +1528,34 @@ async def link_guest_nfc(
         return JSONResponse(
             status_code=401, content={"detail": "No active guest session"}
         )
-    
+
     # Validate NFC UID format
     if not data.nfc_uid or len(data.nfc_uid.strip()) < 4:
         return JSONResponse(
             status_code=400, content={"detail": "Invalid NFC UID format"}
         )
-    
+
     nfc_uid = data.nfc_uid.strip().upper()
-    
+
     # Check if NFC tag is already used by another guest
     existing = (
         db.query(Laufzettel)
-        .filter(Laufzettel.guest_nfc_uid == nfc_uid, Laufzettel.payment_method.is_(None))
+        .filter(
+            Laufzettel.guest_nfc_uid == nfc_uid,
+            Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
+        )
         .first()
     )
     if existing and existing.guest_id != guest_id:
         return JSONResponse(
-            status_code=409, 
-            content={"detail": "NFC tag already linked to another guest session"}
+            status_code=409,
+            content={"detail": "NFC tag already linked to another guest session"},
         )
-    
+
     # Find the current guest's active Laufzettel
     from datetime import date
+
     today = date.today()
     guest_laufzettel = (
         db.query(Laufzettel)
@@ -1538,31 +1563,34 @@ async def link_guest_nfc(
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == today,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .order_by(Laufzettel.created_at.desc())
         .first()
     )
-    
+
     if not guest_laufzettel:
         return JSONResponse(
-            status_code=404, 
-            content={"detail": "No active guest Laufzettel found for today"}
+            status_code=404,
+            content={"detail": "No active guest Laufzettel found for today"},
         )
-    
+
     # Link the NFC tag
     guest_laufzettel.guest_nfc_uid = nfc_uid
     db.commit()
-    
+
     logger.info(
-        "Guest %s linked NFC tag %s to Laufzettel %s", 
-        guest_id, nfc_uid, guest_laufzettel.id
+        "Guest %s linked NFC tag %s to Laufzettel %s",
+        guest_id,
+        nfc_uid,
+        guest_laufzettel.id,
     )
-    
+
     return {
         "success": True,
         "nfc_uid": nfc_uid,
         "laufzettel_id": guest_laufzettel.id,
-        "message": "NFC card linked successfully"
+        "message": "NFC card linked successfully",
     }
 
 
@@ -1574,9 +1602,10 @@ async def unlink_guest_nfc(request: Request, db: Session = Depends(get_db)):
         return JSONResponse(
             status_code=401, content={"detail": "No active guest session"}
         )
-    
+
     # Find the current guest's active Laufzettel
     from datetime import date
+
     today = date.today()
     guest_laufzettel = (
         db.query(Laufzettel)
@@ -1584,30 +1613,29 @@ async def unlink_guest_nfc(request: Request, db: Session = Depends(get_db)):
             Laufzettel.guest_id == guest_id,
             Laufzettel.date == today,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .order_by(Laufzettel.created_at.desc())
         .first()
     )
-    
+
     if not guest_laufzettel:
         return JSONResponse(
-            status_code=404, 
-            content={"detail": "No active guest Laufzettel found"}
+            status_code=404, content={"detail": "No active guest Laufzettel found"}
         )
-    
+
     old_nfc_uid = guest_laufzettel.guest_nfc_uid
     guest_laufzettel.guest_nfc_uid = None
     db.commit()
-    
+
     logger.info(
-        "Guest %s unlinked NFC tag %s from Laufzettel %s", 
-        guest_id, old_nfc_uid, guest_laufzettel.id
+        "Guest %s unlinked NFC tag %s from Laufzettel %s",
+        guest_id,
+        old_nfc_uid,
+        guest_laufzettel.id,
     )
-    
-    return {
-        "success": True,
-        "message": "NFC card unlinked successfully"
-    }
+
+    return {"success": True, "message": "NFC card unlinked successfully"}
 
 
 class ResumeNfcRequest(BaseModel):
@@ -1671,6 +1699,7 @@ async def resume_guest_by_nfc(
         .filter(
             Laufzettel.guest_nfc_uid == nfc_uid,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
         )
         .order_by(Laufzettel.created_at.desc())
         .first()

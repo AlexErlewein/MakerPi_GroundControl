@@ -1,7 +1,8 @@
 """Utility functions for laufzettel lifecycle management."""
 
 import logging
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from .models import Laufzettel, LaufzettelMaterial
@@ -37,6 +38,7 @@ def handle_stale_laufzettel(mitglied_id: int, db: Session, today: date = None) -
         .filter(
             Laufzettel.mitglied_id == mitglied_id,
             Laufzettel.payment_method.is_(None),
+            Laufzettel.deleted_at.is_(None),
             Laufzettel.date < today,
         )
         .order_by(Laufzettel.date.asc())
@@ -58,12 +60,12 @@ def handle_stale_laufzettel(mitglied_id: int, db: Session, today: date = None) -
 
         if not materials:
             logger.info(
-                "Deleting empty stale laufzettel id=%s (date=%s) for mitglied_id=%s",
+                "Soft-deleting empty stale laufzettel id=%s (date=%s) for mitglied_id=%s",
                 stale_lz.id,
                 stale_lz.date,
                 mitglied_id,
             )
-            db.delete(stale_lz)
+            stale_lz.deleted_at = datetime.now(timezone.utc)
             results.append({"action": "deleted", "laufzettel_id": stale_lz.id})
         else:
             # Ensure we have a today-laufzettel to carry into
@@ -73,6 +75,7 @@ def handle_stale_laufzettel(mitglied_id: int, db: Session, today: date = None) -
                     .filter(
                         Laufzettel.mitglied_id == mitglied_id,
                         Laufzettel.payment_method.is_(None),
+                        Laufzettel.deleted_at.is_(None),
                         Laufzettel.date == today,
                     )
                     .first()

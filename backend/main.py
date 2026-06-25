@@ -42,7 +42,13 @@ app = FastAPI(title="MakerPi GroundControl")
 # Enable CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:8081", "http://localhost:8082"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:8081",
+        "http://localhost:8082",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,8 +84,8 @@ async def start_scheduler():
 
 
 async def cleanup_empty_laufzettel():
-    """Nightly job: delete open laufzettel from previous days that have no materials."""
-    from datetime import date
+    """Nightly job: soft-delete open laufzettel from previous days that have no materials."""
+    from datetime import date, datetime, timezone
 
     today = date.today()
     db = LaufzettelSession()
@@ -88,12 +94,14 @@ async def cleanup_empty_laufzettel():
             db.query(Laufzettel)
             .filter(
                 Laufzettel.payment_method.is_(None),
+                Laufzettel.deleted_at.is_(None),
                 Laufzettel.date < today,
             )
             .all()
         )
         deleted = 0
         guest_tags_released = 0
+        now = datetime.now(timezone.utc)
         for lz in stale_empty:
             has_materials = (
                 db.query(LaufzettelMaterial)
@@ -101,7 +109,7 @@ async def cleanup_empty_laufzettel():
                 .first()
             )
             if not has_materials:
-                db.delete(lz)
+                lz.deleted_at = now
                 deleted += 1
             elif lz.guest_nfc_uid:
                 logger.info(
@@ -113,7 +121,7 @@ async def cleanup_empty_laufzettel():
                 guest_tags_released += 1
         db.commit()
         logger.info(
-            "[cleanup_empty_laufzettel] Deleted %d empty stale laufzettel, released %d guest NFC tags",
+            "[cleanup_empty_laufzettel] Soft-deleted %d empty stale laufzettel, released %d guest NFC tags",
             deleted,
             guest_tags_released,
         )

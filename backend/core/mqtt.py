@@ -641,7 +641,12 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         )
                         # Find the first open (unpaid) Laufzettel for today
                         open_lz = next(
-                            (lz for lz in today_lz if not lz.payment_method), None
+                            (
+                                lz
+                                for lz in today_lz
+                                if not lz.payment_method and not lz.deleted_at
+                            ),
+                            None,
                         )
                         # Dedup guard: skip if any laufzettel was created for this UID in last 5s
                         now_utc = dt_datetime.now(dt_timezone.utc).replace(tzinfo=None)
@@ -883,7 +888,7 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         # If recently_created is True, do nothing (dedup guard)
                     finally:
                         lauf_db.close()
-                
+
                 # Guest NFC Card Handling
                 # If no member was found, check if this is a guest NFC tag.
                 # Isolated in its own try/except so a failure here can never roll
@@ -907,6 +912,7 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                     Laufzettel.guest_nfc_uid == uid,
                                     Laufzettel.date == today,
                                     Laufzettel.payment_method.is_(None),
+                                    Laufzettel.deleted_at.is_(None),
                                 )
                                 .order_by(Laufzettel.created_at.desc())
                                 .first()
@@ -915,7 +921,8 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             if guest_lz:
                                 logger.info(
                                     "[GUEST_SCAN] Found guest Laufzettel %s for NFC tag %s",
-                                    guest_lz.id, uid
+                                    guest_lz.id,
+                                    uid,
                                 )
 
                                 # Update existing guest Laufzettel
@@ -937,25 +944,36 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 # Publish guest scan result
                                 if mqtt_client:
                                     try:
-                                        response_payload = json.dumps({
-                                            "uid": uid,
-                                            "owner_name": guest_lz.owner_name or "Guest",
-                                            "guest_id": guest_lz.guest_id,
-                                            "laufzettel_id": guest_lz.id,
-                                            "validated": True,
-                                            "source": "GUEST",
-                                        })
-                                        mqtt_client.publish("lilygo/user_info", response_payload)
-                                        mqtt_client.publish(f"{device_id}/user_info", response_payload)
+                                        response_payload = json.dumps(
+                                            {
+                                                "uid": uid,
+                                                "owner_name": guest_lz.owner_name
+                                                or "Guest",
+                                                "guest_id": guest_lz.guest_id,
+                                                "laufzettel_id": guest_lz.id,
+                                                "validated": True,
+                                                "source": "GUEST",
+                                            }
+                                        )
+                                        mqtt_client.publish(
+                                            "lilygo/user_info", response_payload
+                                        )
+                                        mqtt_client.publish(
+                                            f"{device_id}/user_info", response_payload
+                                        )
                                         logger.info(
                                             "[GUEST_SCAN] Published guest user_info: uid=%r laufzettel_id=%s",
-                                            uid, guest_lz.id
+                                            uid,
+                                            guest_lz.id,
                                         )
                                     except Exception as e:
-                                        logger.error(f"[GUEST_SCAN] Failed to publish user_info: {e}")
+                                        logger.error(
+                                            f"[GUEST_SCAN] Failed to publish user_info: {e}"
+                                        )
                             else:
                                 logger.info(
-                                    "[GUEST_SCAN] NFC tag %s not linked to any active guest session", uid
+                                    "[GUEST_SCAN] NFC tag %s not linked to any active guest session",
+                                    uid,
                                 )
                         finally:
                             lauf_db.close()

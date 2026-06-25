@@ -2,7 +2,9 @@
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+
 from backend.config import LAUFZETTEL_DB_URL
+
 from .models import Base
 
 engine = create_engine(LAUFZETTEL_DB_URL, connect_args={"check_same_thread": False})
@@ -48,6 +50,7 @@ def _migrate(conn):
         ("guest_email", "ALTER TABLE laufzettel ADD COLUMN guest_email VARCHAR"),
         ("guest_address", "ALTER TABLE laufzettel ADD COLUMN guest_address VARCHAR"),
         ("guest_nfc_uid", "ALTER TABLE laufzettel ADD COLUMN guest_nfc_uid VARCHAR"),
+        ("deleted_at", "ALTER TABLE laufzettel ADD COLUMN deleted_at DATETIME"),
     ]:
         if col not in existing:
             cur.execute(sql)
@@ -60,7 +63,9 @@ def _migrate(conn):
     if "tax_rate" not in existing_mat:
         cur.execute("ALTER TABLE laufzettel_material ADD COLUMN tax_rate REAL")
     if "is_spende" not in existing_mat:
-        cur.execute("ALTER TABLE laufzettel_material ADD COLUMN is_spende INTEGER DEFAULT 0")
+        cur.execute(
+            "ALTER TABLE laufzettel_material ADD COLUMN is_spende INTEGER DEFAULT 0"
+        )
 
     # ── 2. Drop UNIQUE(uid, date) constraint if present ────────────────────────
     # SQLite doesn't support DROP CONSTRAINT – requires table recreation.
@@ -85,15 +90,19 @@ def _migrate(conn):
                 paid_at                 DATETIME,
                 payment_transaction_id  VARCHAR,
                 payment_notes           VARCHAR,
+                deleted_at              DATETIME,
                 created_at              DATETIME,
                 guest_id                VARCHAR,
-                guest_email             VARCHAR
+                guest_email             VARCHAR,
+                guest_address           VARCHAR,
+                guest_nfc_uid           VARCHAR
             );
 
             INSERT INTO laufzettel_new
                 SELECT id, uid, date, start, owner_name, member_id, mitglied_id,
                        nodes, payment_method, paid_at, payment_transaction_id,
-                       payment_notes, created_at, guest_id, guest_email
+                       payment_notes, deleted_at, created_at, guest_id, guest_email,
+                       guest_address, guest_nfc_uid
                 FROM laufzettel;
 
             DROP TABLE laufzettel;
@@ -113,6 +122,7 @@ def _migrate(conn):
 
 def init_db():
     from backend.db_utils import check_and_recover_engine
+
     check_and_recover_engine(engine)
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:

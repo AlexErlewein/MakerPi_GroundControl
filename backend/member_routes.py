@@ -1,23 +1,16 @@
 """Member routes - member-only access to own laufzettel"""
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Form
-from fastapi.responses import RedirectResponse, JSONResponse, Response
-from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
-
-from backend.laufzettel.pdf import generate_pdf, pdf_filename
-
 import logging
 from datetime import datetime, timezone
 
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
 from backend.auth.db import get_db as get_auth_db
-from backend.auth.models import User
 from backend.auth.dependencies import is_member_session_valid
-from backend.laufzettel.db import get_db as get_laufzettel_db
-from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
-from backend.laufzettel.routes import MaterialCreate
-from backend.members.db import get_db as get_members_db
-from backend.members.models import Mitglied, RFIDTag
+from backend.auth.models import User
 from backend.catalog.db import get_db as get_catalog_db
 from backend.catalog.models import (
     Location,
@@ -25,7 +18,13 @@ from backend.catalog.models import (
     MaterialUnterkategorie,
     MaterialVariante,
 )
+from backend.laufzettel.db import get_db as get_laufzettel_db
+from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
+from backend.laufzettel.pdf import generate_pdf, pdf_filename
+from backend.laufzettel.routes import MaterialCreate
 from backend.laufzettel.utils import handle_stale_laufzettel
+from backend.members.db import get_db as get_members_db
+from backend.members.models import Mitglied, RFIDTag
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -106,6 +105,7 @@ async def member_laufzettel_open(
             .filter(
                 Laufzettel.mitglied_id == user.mitglied_id,
                 Laufzettel.payment_method.is_(None),
+                Laufzettel.deleted_at.is_(None),
             )
             .order_by(Laufzettel.created_at.desc())
             .first()
@@ -131,6 +131,7 @@ async def member_laufzettel_open(
                             Laufzettel.uid == mitglied.nfc_uid,
                             Laufzettel.mitglied_id.is_(None),
                             Laufzettel.payment_method.is_(None),
+                            Laufzettel.deleted_at.is_(None),
                         )
                         .order_by(Laufzettel.created_at.desc())
                         .first()
@@ -444,7 +445,7 @@ async def member_change_password(
             )
     else:
         # No password yet — verify the default "H3cke"
-        from backend.auth.dependencies import verify_password, get_password_hash
+        from backend.auth.dependencies import get_password_hash, verify_password
 
         default_hash = get_password_hash("H3cke")
         if current_password and not verify_password(current_password, default_hash):

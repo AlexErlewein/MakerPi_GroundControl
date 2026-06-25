@@ -2,7 +2,8 @@
 
 import json
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, Date, Text
+
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -33,7 +34,9 @@ class Laufzettel(Base):
     guest_id = Column(String, nullable=True, index=True)  # UUID for guest sessions
     guest_email = Column(String, nullable=True)  # Optional email for guests
     guest_address = Column(String, nullable=True)  # Full address for guests
-    guest_nfc_uid = Column(String, nullable=True, index=True)  # NFC tag linked to guest session
+    guest_nfc_uid = Column(
+        String, nullable=True, index=True
+    )  # NFC tag linked to guest session
     nodes = Column(Text, default="[]")  # JSON array of device_ids
     payment_method = Column(
         String, nullable=True
@@ -43,6 +46,7 @@ class Laufzettel(Base):
     payment_notes = Column(
         String, nullable=True
     )  # free-text note (e.g. for cash payments)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # soft-delete timestamp
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
     def to_dict(self):
@@ -65,6 +69,9 @@ class Laufzettel(Base):
             "paid_at": paid_ts.isoformat() if paid_ts else None,
             "payment_transaction_id": self.payment_transaction_id,
             "payment_notes": self.payment_notes,
+            "deleted_at": _naive_to_utc(self.deleted_at).isoformat()
+            if self.deleted_at
+            else None,
             "created_at": _naive_to_utc(self.created_at).isoformat()
             if self.created_at
             else None,
