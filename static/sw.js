@@ -1,6 +1,6 @@
 // ─── MakerPi GroundControl Service Worker ───────────────────────
 // Version: bump this to invalidate all caches on deploy
-const SW_VERSION = 'gc-v4';
+const SW_VERSION = 'gc-v5';
 
 // Cache names
 const CACHE_STATIC  = `${SW_VERSION}-static`;
@@ -36,6 +36,10 @@ const NETWORK_ONLY_PATTERNS = [
     '/api/guest/',
     '/api/kasse/',
     '/api/write-result',
+    // Sub-resources of SWR-cached list endpoints must always be fresh
+    // (e.g. /api/mitglieder/5/permissions) so mutations are reflected immediately
+    '/api/mitglieder/',
+    '/api/tags/',
 ];
 
 // ─── Install: pre-cache critical assets ─────────────────────────
