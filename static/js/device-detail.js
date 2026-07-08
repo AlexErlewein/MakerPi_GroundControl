@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[DeviceDetail] Page loaded, DEVICE_ID:', DEVICE_ID);
     loadAllData();
     loadDevicePricing();
+    loadPricingCatalogData();
     setupEventListeners();
     startAutoRefresh();
 });
@@ -234,6 +235,9 @@ function startAutoRefresh() {
 
 let eligibleVarianten = [];
 let currentPricing = null;
+let pricingEditMode = false;
+let pricingLocations = [];
+let allKategorien = [];
 
 async function loadDevicePricing() {
     try {
@@ -248,6 +252,19 @@ async function loadDevicePricing() {
     }
 }
 
+async function loadPricingCatalogData() {
+    try {
+        const [locs, kats] = await Promise.all([
+            fetch('/api/katalog/locations').then(r => r.json()),
+            fetch('/api/katalog/kategorien').then(r => r.json()),
+        ]);
+        pricingLocations = locs;
+        allKategorien = kats;
+    } catch (e) {
+        console.error('[DeviceDetail] Failed to load catalog data:', e);
+    }
+}
+
 function renderPricingConfig() {
     const container = getElement('pricing-config-container');
     if (!container) return;
@@ -257,19 +274,92 @@ function renderPricingConfig() {
         return;
     }
 
+    if (pricingEditMode) {
+        renderPricingEdit(container);
+    } else {
+        renderPricingView(container);
+    }
+}
+
+function renderPricingView(container) {
+    const p = currentPricing;
+
+    if (!p) {
+        container.innerHTML = '<p style="color:var(--text-secondary)">Keine Zeitabrechnung konfiguriert.</p><button type="button" id="pricing-edit-btn" class="btn btn-primary" style="margin-top:8px;padding:8px 20px">Bearbeiten</button>';
+        const editBtn = getElement('pricing-edit-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                pricingEditMode = true;
+                renderPricingConfig();
+            });
+        }
+        return;
+    }
+
+    const variante = eligibleVarianten.find(v => v.id === p.variante_id);
+    const suffix = variante?.pricing_model === 'per_hour' ? '/h' : '/min';
+    const priceStr = variante ? `${variante.price.toFixed(2)} €${suffix}` : '—';
+    const activeStr = p.is_active ? 'Ja' : 'Nein';
+    const permStr = p.requires_permission ? 'Ja' : 'Nein';
+
+    container.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:1.1em;font-weight:600;color:var(--success)">${escapeHtml(variante?.name || 'Unbekannt')} – ${priceStr}</div>
+            <div style="color:var(--text-secondary);font-size:0.9rem">Aktiv: ${activeStr} | Berechtigung erforderlich: ${permStr}</div>
+            <div>
+                <button type="button" id="pricing-edit-btn" class="btn btn-primary" style="padding:8px 20px">Bearbeiten</button>
+            </div>
+        </div>
+    `;
+
+    const editBtn = getElement('pricing-edit-btn');
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            pricingEditMode = true;
+            renderPricingConfig();
+        });
+    }
+}
+
+function renderPricingEdit(container) {
     const p = currentPricing;
     const isActive = p ? p.is_active : false;
     const reqPerm = p ? p.requires_permission : false;
-    const selectedVarId = p ? p.variante_id : '';
 
-    const options = eligibleVarianten.map(v => {
+    let currentVarId = p ? p.variante_id : '';
+    let currentKatId = '';
+    let currentLocId = '';
+
+    if (currentVarId) {
+        const variante = eligibleVarianten.find(v => v.id === currentVarId);
+        if (variante) {
+            currentKatId = variante.kategorie_id;
+            const kat = allKategorien.find(k => k.id === currentKatId);
+            if (kat) {
+                currentLocId = kat.location_id;
+            }
+        }
+    }
+
+    const filteredKats = currentLocId ? allKategorien.filter(k => k.location_id === currentLocId) : [];
+    const filteredVars = currentKatId ? eligibleVarianten.filter(v => v.kategorie_id === currentKatId) : [];
+
+    const locOptions = pricingLocations.map(l =>
+        `<option value="${l.id}" ${l.id === currentLocId ? 'selected' : ''}>${escapeHtml(l.name)}</option>`
+    ).join('');
+
+    const katOptions = filteredKats.map(k =>
+        `<option value="${k.id}" ${k.id === currentKatId ? 'selected' : ''}>${escapeHtml(k.name)}</option>`
+    ).join('');
+
+    const varOptions = filteredVars.map(v => {
         const suffix = v.pricing_model === 'per_hour' ? '/h' : '/min';
-        const sel = v.id === selectedVarId ? 'selected' : '';
+        const sel = v.id === currentVarId ? 'selected' : '';
         return `<option value="${v.id}" ${sel}>${escapeHtml(v.name)} – ${v.price.toFixed(2)} €${suffix}</option>`;
     }).join('');
 
     let priceDisplay = '';
-    if (p) {
+    if (p && currentVarId) {
         const variante = eligibleVarianten.find(v => v.id === p.variante_id);
         if (variante) {
             const suffix = variante.pricing_model === 'per_hour' ? '/h' : '/min';
@@ -280,10 +370,24 @@ function renderPricingConfig() {
     container.innerHTML = `
         <form id="pricing-form" style="display:flex;flex-direction:column;gap:12px">
             <div>
+                <label style="font-weight:600;display:block;margin-bottom:4px">Standort</label>
+                <select id="pricing-location" style="width:100%;max-width:500px;padding:8px">
+                    <option value="">-- Standort wählen --</option>
+                    ${locOptions}
+                </select>
+            </div>
+            <div>
+                <label style="font-weight:600;display:block;margin-bottom:4px">Kategorie</label>
+                <select id="pricing-kategorie" style="width:100%;max-width:500px;padding:8px">
+                    <option value="">-- Kategorie wählen --</option>
+                    ${katOptions}
+                </select>
+            </div>
+            <div>
                 <label style="font-weight:600;display:block;margin-bottom:4px">Abrechnung-Variante</label>
                 <select id="pricing-variante" style="width:100%;max-width:500px;padding:8px">
                     <option value="">-- Variante wählen --</option>
-                    ${options}
+                    ${varOptions}
                 </select>
             </div>
             <div style="display:flex;gap:24px;flex-wrap:wrap">
@@ -300,9 +404,40 @@ function renderPricingConfig() {
             <div style="display:flex;gap:8px">
                 <button type="submit" class="btn btn-success" style="padding:8px 20px">Speichern</button>
                 ${p ? '<button type="button" id="pricing-delete-btn" class="btn btn-danger" style="padding:8px 20px">Entfernen</button>' : ''}
+                <button type="button" id="pricing-cancel-btn" class="btn btn-secondary" style="padding:8px 20px">Abbrechen</button>
             </div>
         </form>
     `;
+
+    // ── Cascading dropdowns ──
+
+    const locSelect = getElement('pricing-location');
+    const katSelect = getElement('pricing-kategorie');
+    const varSelect = getElement('pricing-variante');
+
+    if (locSelect && katSelect) {
+        locSelect.addEventListener('change', () => {
+            const locId = parseInt(locSelect.value);
+            const katsForLoc = locId ? allKategorien.filter(k => k.location_id === locId) : [];
+            katSelect.innerHTML = '<option value="">-- Kategorie wählen --</option>' +
+                katsForLoc.map(k => `<option value="${k.id}">${escapeHtml(k.name)}</option>`).join('');
+            varSelect.innerHTML = '<option value="">-- Variante wählen --</option>';
+        });
+    }
+
+    if (katSelect && varSelect) {
+        katSelect.addEventListener('change', () => {
+            const katId = parseInt(katSelect.value);
+            const varsForKat = katId ? eligibleVarianten.filter(v => v.kategorie_id === katId) : [];
+            varSelect.innerHTML = '<option value="">-- Variante wählen --</option>' +
+                varsForKat.map(v => {
+                    const suffix = v.pricing_model === 'per_hour' ? '/h' : '/min';
+                    return `<option value="${v.id}">${escapeHtml(v.name)} – ${v.price.toFixed(2)} €${suffix}</option>`;
+                }).join('');
+        });
+    }
+
+    // ── Save handler ──
 
     const form = getElement('pricing-form');
     if (form) {
@@ -319,18 +454,39 @@ function renderPricingConfig() {
                     is_active: getElement('pricing-is-active').checked,
                 }),
             });
-            if (res.ok) { loadDevicePricing(); }
-            else { const err = await res.json(); alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen')); }
+            if (res.ok) {
+                pricingEditMode = false;
+                loadDevicePricing();
+            } else {
+                const err = await res.json();
+                alert('Fehler: ' + (err.detail || 'Speichern fehlgeschlagen'));
+            }
         });
     }
+
+    // ── Delete handler ──
 
     const delBtn = getElement('pricing-delete-btn');
     if (delBtn) {
         delBtn.addEventListener('click', async () => {
             if (!confirm('Zeitabrechnung für dieses Gerät entfernen?')) return;
             const res = await fetch(`/api/devices/${encodeURIComponent(DEVICE_ID)}/pricing`, { method: 'DELETE' });
-            if (res.ok) loadDevicePricing();
-            else alert('Fehler beim Löschen');
+            if (res.ok) {
+                pricingEditMode = false;
+                loadDevicePricing();
+            } else {
+                alert('Fehler beim Löschen');
+            }
+        });
+    }
+
+    // ── Cancel handler ──
+
+    const cancelBtn = getElement('pricing-cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            pricingEditMode = false;
+            renderPricingConfig();
         });
     }
 }

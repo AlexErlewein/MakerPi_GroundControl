@@ -513,6 +513,13 @@ async function addPermission(memberId) {
     });
     if (res.ok) {
       await loadPermissions(memberId);
+      select.value = "";
+      const addBtn = select.parentElement?.querySelector("button");
+      if (addBtn) {
+        const origText = addBtn.textContent;
+        addBtn.textContent = "✓ Hinzugefügt";
+        setTimeout(() => { addBtn.textContent = origText; }, 1500);
+      }
     } else {
       const err = await res.json();
       alert("Fehler: " + (err.detail || "Hinzufügen fehlgeschlagen"));
