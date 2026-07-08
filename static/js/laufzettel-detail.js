@@ -111,13 +111,10 @@ function renderInfo() {
     document.getElementById("view-guest-address").textContent = d.guest_address || "-";
     nfcItem.classList.remove("hidden");
     const nfcEl = document.getElementById("view-guest-nfc");
-    const canEdit = !d.payment_method;
     if (d.guest_nfc_uid) {
-      nfcEl.innerHTML = `<code class="uid">${esc(d.guest_nfc_uid)}</code> <span style="color: var(--success);">✅</span>` +
-        (canEdit ? ` <button type="button" class="btn btn-secondary btn-sm" onclick="removeGuestNfc()">Entfernen</button>` : "");
+      nfcEl.innerHTML = `<code class="uid">${esc(d.guest_nfc_uid)}</code> <span style="color: var(--success);">✅</span>`;
     } else {
-      nfcEl.innerHTML = '<span style="color: var(--text-secondary);">Nicht verknüpft</span>' +
-        (canEdit ? ` <button type="button" class="btn btn-secondary btn-sm" id="view-nfc-scan-btn" onclick="startGuestNfcScan('view')">📡 Scannen</button>` : "");
+      nfcEl.innerHTML = '<span style="color: var(--text-secondary);">Nicht verknüpft</span>';
     }
   } else {
     emailItem.classList.add("hidden");
@@ -419,51 +416,49 @@ document.getElementById("info-edit-form").addEventListener("submit", async (e) =
 
 let pendingGuestNfcUid = null;
 let nfcScanSource = null;
-let nfcScanMode = null; // "view" or "edit"
 
 function updateEditNfcDisplay() {
   const statusEl = document.getElementById("edit-guest-nfc-status");
-  const btn = document.getElementById("edit-guest-nfc-scan-btn");
+  const scanBtn = document.getElementById("edit-guest-nfc-scan-btn");
+  const removeBtn = document.getElementById("edit-guest-nfc-remove-btn");
   if (!statusEl) return;
   if (pendingGuestNfcUid) {
     statusEl.innerHTML = `<code class="uid">${esc(pendingGuestNfcUid)}</code> ✅`;
     statusEl.style.color = "var(--success)";
-    btn.textContent = "📡 Neu scannen";
+    scanBtn.textContent = "📡 Neu scannen";
+    if (removeBtn) removeBtn.style.display = "";
   } else {
     statusEl.textContent = "Nicht verknüpft";
     statusEl.style.color = "var(--text-secondary)";
-    btn.textContent = "📡 Tag scannen";
+    scanBtn.textContent = "📡 Tag scannen";
+    if (removeBtn) removeBtn.style.display = "none";
   }
 }
 
-function startGuestNfcScan(mode) {
-  nfcScanMode = mode;
+function clearPendingNfc() {
+  pendingGuestNfcUid = null;
+  updateEditNfcDisplay();
+}
+
+function startGuestNfcScan() {
   if (nfcScanSource) nfcScanSource.close();
   nfcScanSource = new EventSource("/api/scans/stream");
 
-  // Update button states to show "scanning" feedback
-  if (mode === "view") {
-    const btn = document.getElementById("view-nfc-scan-btn");
-    if (btn) {
-      btn.textContent = "📡 Warte auf Tag…";
-      btn.disabled = true;
-    }
-  } else {
-    const statusEl = document.getElementById("edit-guest-nfc-status");
-    const btn = document.getElementById("edit-guest-nfc-scan-btn");
-    if (statusEl) {
-      statusEl.textContent = "📡 Warte auf Tag…";
-      statusEl.style.color = "var(--accent)";
-    }
-    if (btn) btn.disabled = true;
+  const statusEl = document.getElementById("edit-guest-nfc-status");
+  const scanBtn = document.getElementById("edit-guest-nfc-scan-btn");
+  if (statusEl) {
+    statusEl.textContent = "📡 Warte auf Tag…";
+    statusEl.style.color = "var(--accent)";
   }
+  if (scanBtn) scanBtn.disabled = true;
 
   nfcScanSource.addEventListener("scan", function (event) {
     try {
       const data = JSON.parse(event.data);
       if (data && data.uid) {
         stopGuestNfcScan();
-        handleGuestNfcScan(data.uid);
+        pendingGuestNfcUid = data.uid;
+        updateEditNfcDisplay();
       }
     } catch (e) {
       console.error("[NFC-SCAN] Parse error:", e);
@@ -472,8 +467,7 @@ function startGuestNfcScan(mode) {
 
   nfcScanSource.addEventListener("timeout", function () {
     stopGuestNfcScan();
-    if (mode === "view") renderInfo();
-    else updateEditNfcDisplay();
+    updateEditNfcDisplay();
   });
 
   nfcScanSource.onerror = function () {
@@ -486,53 +480,12 @@ function stopGuestNfcScan() {
     nfcScanSource.close();
     nfcScanSource = null;
   }
-  const viewBtn = document.getElementById("view-nfc-scan-btn");
-  if (viewBtn) viewBtn.disabled = false;
-  const editBtn = document.getElementById("edit-guest-nfc-scan-btn");
-  if (editBtn) editBtn.disabled = false;
+  const scanBtn = document.getElementById("edit-guest-nfc-scan-btn");
+  if (scanBtn) scanBtn.disabled = false;
 }
 
-async function handleGuestNfcScan(uid) {
-  if (nfcScanMode === "edit") {
-    pendingGuestNfcUid = uid;
-    updateEditNfcDisplay();
-    return;
-  }
-
-  // View mode: save immediately
-  const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guest_nfc_uid: uid }),
-  });
-  if (res.ok) {
-    currentData = await res.json();
-    renderInfo();
-  } else {
-    const err = await res.json().catch(() => ({}));
-    alert("Fehler: " + (err.detail || "Tag konnte nicht verknüpft werden"));
-    renderInfo();
-  }
-}
-
-async function removeGuestNfc() {
-  const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guest_nfc_uid: "" }),
-  });
-  if (res.ok) {
-    currentData = await res.json();
-    renderInfo();
-  } else {
-    const err = await res.json().catch(() => ({}));
-    alert("Fehler: " + (err.detail || "Tag konnte nicht entfernt werden"));
-  }
-}
-
-document.getElementById("edit-guest-nfc-scan-btn").addEventListener("click", () => {
-  startGuestNfcScan("edit");
-});
+document.getElementById("edit-guest-nfc-scan-btn").addEventListener("click", startGuestNfcScan);
+document.getElementById("edit-guest-nfc-remove-btn").addEventListener("click", clearPendingNfc);
 
 window.addEventListener("beforeunload", stopGuestNfcScan);
 

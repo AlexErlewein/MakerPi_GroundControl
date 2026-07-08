@@ -89,6 +89,7 @@
                 <div id="edit-guest-nfc-display" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span id="edit-guest-nfc-status" style="color:var(--text-secondary);">Nicht verknüpft</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="edit-guest-nfc-scan-btn">📡 Tag scannen</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="edit-guest-nfc-remove-btn" style="display:none;">Entfernen</button>
                 </div>
             </div>
         </div>
@@ -599,5 +600,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=30"></script>
+<script src="/static/js/laufzettel-detail.js?v=31"></script>
 {% endblock %}
