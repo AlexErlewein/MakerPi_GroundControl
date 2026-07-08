@@ -117,6 +117,90 @@ class LaufzettelMaterial(Base):
         }
 
 
+class DevicePricing(Base):
+    """Links a device to a catalog MaterialVariante for time-based billing."""
+
+    __tablename__ = "device_pricing"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, unique=True, index=True)
+    variante_id = Column(
+        Integer, index=True, nullable=False
+    )  # ref catalog.MaterialVariante
+    requires_permission = Column(
+        Integer, default=0
+    )  # 1 = require DevicePermission, 0 = open
+    is_active = Column(Integer, default=1)  # enable/disable time billing
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "device_id": self.device_id,
+            "variante_id": self.variante_id,
+            "requires_permission": bool(self.requires_permission)
+            if self.requires_permission is not None
+            else False,
+            "is_active": bool(self.is_active) if self.is_active is not None else True,
+            "created_at": _naive_to_utc(self.created_at).isoformat()
+            if self.created_at
+            else None,
+            "updated_at": _naive_to_utc(self.updated_at).isoformat()
+            if self.updated_at
+            else None,
+        }
+
+
+class DeviceSession(Base):
+    """Active or historical device usage session for time-based billing."""
+
+    __tablename__ = "device_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    laufzettel_id = Column(Integer, index=True, nullable=False)  # link to Laufzettel
+    device_id = Column(String, index=True, nullable=False)
+    uid = Column(String, index=True, nullable=False)
+    mitglied_id = Column(Integer, index=True, nullable=True)  # member (if identified)
+    guest_id = Column(String, index=True, nullable=True)  # guest (if not member)
+    variante_id = Column(Integer, nullable=False)  # pricing snapshot
+    start_time = Column(DateTime(timezone=True), default=_utcnow)
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Integer, nullable=True)  # calculated on end
+    calculated_price = Column(Float, nullable=True)  # duration * unit price
+    tax_rate = Column(Float, nullable=True)  # snapshot from variante
+    is_active = Column(Integer, default=1)  # 1 = active, 0 = ended
+    ended_by = Column(
+        String, nullable=True
+    )  # "scan" | "member" | "admin" | "auto_2100"
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "laufzettel_id": self.laufzettel_id,
+            "device_id": self.device_id,
+            "uid": self.uid,
+            "mitglied_id": self.mitglied_id,
+            "guest_id": self.guest_id,
+            "variante_id": self.variante_id,
+            "start_time": _naive_to_utc(self.start_time).isoformat()
+            if self.start_time
+            else None,
+            "end_time": _naive_to_utc(self.end_time).isoformat()
+            if self.end_time
+            else None,
+            "duration_seconds": self.duration_seconds,
+            "calculated_price": self.calculated_price,
+            "tax_rate": self.tax_rate,
+            "is_active": bool(self.is_active) if self.is_active is not None else True,
+            "ended_by": self.ended_by,
+            "created_at": _naive_to_utc(self.created_at).isoformat()
+            if self.created_at
+            else None,
+        }
+
+
 class LaufzettelGutschein(Base):
     __tablename__ = "laufzettel_gutschein"
 

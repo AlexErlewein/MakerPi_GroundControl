@@ -79,6 +79,19 @@ async def start_scheduler():
         id="cleanup_empty_laufzettel",
         replace_existing=True,
     )
+
+    # Auto-logout all active device sessions at 21:00 Berlin time
+    def _run_auto_end_sessions():
+        from backend.laufzettel.utils import auto_end_sessions_at_2100
+
+        auto_end_sessions_at_2100()
+
+    scheduler.add_job(
+        _run_auto_end_sessions,
+        CronTrigger(hour=21, minute=0, timezone="Europe/Berlin"),
+        id="auto_end_sessions",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info("APScheduler started with daily easyVerein sync at 03:00")
 

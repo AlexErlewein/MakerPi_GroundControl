@@ -19,10 +19,10 @@ from backend.catalog.models import (
     MaterialVariante,
 )
 from backend.laufzettel.db import get_db as get_laufzettel_db
-from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
+from backend.laufzettel.models import DeviceSession, Laufzettel, LaufzettelMaterial
 from backend.laufzettel.pdf import generate_pdf, pdf_filename
 from backend.laufzettel.routes import MaterialCreate
-from backend.laufzettel.utils import handle_stale_laufzettel
+from backend.laufzettel.utils import end_device_session, handle_stale_laufzettel
 from backend.members.db import get_db as get_members_db
 from backend.members.models import Mitglied, RFIDTag
 
@@ -570,6 +570,105 @@ async def get_current_member_info(
         "mitglied_id": None,
         "mitglied": None,
     }
+
+
+# ── Member Device Sessions (self-service) ────────────────────────────────────
+
+
+@router.get("/api/member/device-sessions")
+async def get_member_device_sessions(
+    request: Request,
+    laufzettel_db: Session = Depends(get_laufzettel_db),
+    auth_db: Session = Depends(get_auth_db),
+):
+    """List the member's active device sessions across all devices."""
+    user_obj = (
+        auth_db.query(User).filter(User.username == request.session.get("user")).first()
+    )
+    if not user_obj or user_obj.role not in ["admin", "member"]:
+        raise HTTPException(401, "Not authenticated")
+
+    sessions = []
+    if user_obj.mitglied_id:
+        active = (
+            laufzettel_db.query(DeviceSession)
+            .filter(
+                DeviceSession.mitglied_id == user_obj.mitglied_id,
+                DeviceSession.is_active == 1,
+            )
+            .order_by(DeviceSession.start_time.desc())
+            .all()
+        )
+
+        # Enrich with variante pricing info
+        for s in active:
+            d = s.to_dict()
+            try:
+                from backend.catalog.db import SessionLocal as CatalogSession
+                from backend.catalog.models import MaterialVariante
+
+                cat_db = CatalogSession()
+                try:
+                    variante = (
+                        cat_db.query(MaterialVariante)
+                        .filter(MaterialVariante.id == s.variante_id)
+                        .first()
+                    )
+                    if variante:
+                        d["variante_name"] = variante.name
+                        d["unit_price"] = variante.price
+                        d["pricing_model"] = variante.pricing_model
+                finally:
+                    cat_db.close()
+            except Exception:
+                pass
+            sessions.append(d)
+
+    return {"active_sessions": sessions}
+
+
+@router.post("/api/member/device-sessions/{session_id}/stop")
+async def member_stop_device_session(
+    session_id: int,
+    request: Request,
+    laufzettel_db: Session = Depends(get_laufzettel_db),
+    auth_db: Session = Depends(get_auth_db),
+):
+    """Member self-logout: end their own device session."""
+    user_obj = (
+        auth_db.query(User).filter(User.username == request.session.get("user")).first()
+    )
+    if not user_obj or user_obj.role not in ["admin", "member"]:
+        raise HTTPException(401, "Not authenticated")
+
+    session = (
+        laufzettel_db.query(DeviceSession)
+        .filter(
+            DeviceSession.id == session_id,
+            DeviceSession.is_active == 1,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(404, "Active session not found")
+
+    # Security: can only end own session
+    if user_obj.mitglied_id and session.mitglied_id != user_obj.mitglied_id:
+        raise HTTPException(403, "Access denied")
+
+    result = end_device_session(laufzettel_db, session, ended_by="member")
+
+    # Release guest NFC tag if applicable
+    lz = (
+        laufzettel_db.query(Laufzettel)
+        .filter(Laufzettel.id == session.laufzettel_id)
+        .first()
+    )
+    if lz and lz.guest_nfc_uid:
+        lz.guest_nfc_uid = None
+        laufzettel_db.commit()
+
+    return result
 
 
 @router.post("/api/auth/login-rfid")

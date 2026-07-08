@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from .models import Laufzettel, LaufzettelMaterial
+from .models import DeviceSession, Laufzettel, LaufzettelMaterial
 
 logger = logging.getLogger(__name__)
 
@@ -152,3 +152,193 @@ def handle_stale_laufzettel(mitglied_id: int, db: Session, today: date = None) -
             "results": results,
         }
     return {"action": "deleted", "results": results}
+
+
+# ── Device Session / Time Tracking helpers ──────────────────────────────────
+
+
+def calculate_session_price(
+    duration_seconds: int, pricing_model: str, unit_price: float
+) -> tuple[float, float, str]:
+    """Calculate price for a device session based on duration and pricing model.
+
+    Returns (calculated_price, menge, unit).
+    """
+    if pricing_model == "per_hour":
+        hours = duration_seconds / 3600.0
+        price = round(hours * unit_price, 2)
+        return price, round(hours, 2), "h"
+    else:
+        # Default to per_minute (covers "per_minute" and any unknown model)
+        minutes = duration_seconds / 60.0
+        price = round(minutes * unit_price, 2)
+        return price, round(minutes, 2), "min"
+
+
+def end_device_session(
+    db: Session,
+    session: "DeviceSession",
+    ended_by: str = "scan",
+    end_time: datetime | None = None,
+) -> dict:
+    """End a device session: compute duration, price, and create/update LaufzettelMaterial.
+
+    Returns a dict with the session result.
+    """
+    from .models import Laufzettel
+
+    if end_time is None:
+        end_time = datetime.now(timezone.utc)
+
+    # Ensure start_time is timezone-aware
+    start = session.start_time
+    if start and start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=timezone.utc)
+
+    duration_seconds = int((end_time - start).total_seconds())
+    if duration_seconds < 0:
+        duration_seconds = 0
+
+    # Look up variante for pricing details
+    unit_price = 0.0
+    pricing_model = "per_minute"
+    variante_name = "Gerätenutzung"
+    try:
+        from backend.catalog.db import SessionLocal as CatalogSession
+        from backend.catalog.models import MaterialVariante
+
+        cat_db = CatalogSession()
+        try:
+            variante = (
+                cat_db.query(MaterialVariante)
+                .filter(MaterialVariante.id == session.variante_id)
+                .first()
+            )
+            if variante:
+                unit_price = variante.price or 0.0
+                pricing_model = variante.pricing_model or "per_minute"
+                variante_name = variante.name or "Gerätenutzung"
+        finally:
+            cat_db.close()
+    except Exception:
+        logger.exception(
+            "[DEVICE_SESSION] Failed to look up variante for session %s", session.id
+        )
+
+    calculated_price, menge, unit = calculate_session_price(
+        duration_seconds, pricing_model, unit_price
+    )
+
+    session.end_time = end_time
+    session.duration_seconds = duration_seconds
+    session.calculated_price = calculated_price
+    session.is_active = 0
+    session.ended_by = ended_by
+
+    # Create/update LaufzettelMaterial
+    lz = db.query(Laufzettel).filter(Laufzettel.id == session.laufzettel_id).first()
+    if lz and not lz.payment_method:
+        material_name = f"{variante_name} (Zeit)"
+        existing_mat = (
+            db.query(LaufzettelMaterial)
+            .filter(
+                LaufzettelMaterial.laufzettel_id == lz.id,
+                LaufzettelMaterial.name == material_name,
+                LaufzettelMaterial.variante_id == session.variante_id,
+            )
+            .first()
+        )
+        if existing_mat:
+            existing_mat.menge = (existing_mat.menge or 0) + menge
+            existing_mat.calculated_price = (
+                existing_mat.calculated_price or 0
+            ) + calculated_price
+        else:
+            new_mat = LaufzettelMaterial(
+                laufzettel_id=lz.id,
+                name=material_name,
+                menge=menge,
+                unit=unit,
+                variante_id=session.variante_id,
+                calculated_price=calculated_price,
+                tax_rate=session.tax_rate,
+            )
+            db.add(new_mat)
+
+    db.commit()
+    db.refresh(session)
+
+    logger.info(
+        "[DEVICE_SESSION] Ended session %s: device=%s duration=%ds price=%.2f ended_by=%s",
+        session.id,
+        session.device_id,
+        duration_seconds,
+        calculated_price,
+        ended_by,
+    )
+
+    return {
+        "session_id": session.id,
+        "duration_seconds": duration_seconds,
+        "calculated_price": calculated_price,
+        "ended_by": ended_by,
+    }
+
+
+def auto_end_sessions_at_2100():
+    """Auto-logout all active device sessions at 21:00 local time (Europe/Berlin).
+
+    Called by APScheduler cron job.
+    """
+    from .db import SessionLocal
+
+    db = SessionLocal()
+    ended_count = 0
+    try:
+        from datetime import datetime as dt_datetime
+        from zoneinfo import ZoneInfo
+
+        berlin = ZoneInfo("Europe/Berlin")
+        now_berlin = dt_datetime.now(berlin)
+        # Use 21:00 Berlin time, or now if already past
+        cutoff = now_berlin.replace(hour=21, minute=0, second=0, microsecond=0)
+        end_time_utc = cutoff.astimezone(timezone.utc)
+
+        active_sessions = (
+            db.query(DeviceSession).filter(DeviceSession.is_active == 1).all()
+        )
+
+        for session in active_sessions:
+            try:
+                end_device_session(
+                    db, session, ended_by="auto_2100", end_time=end_time_utc
+                )
+                ended_count += 1
+
+                # Release guest NFC tag if applicable
+                lz = (
+                    db.query(Laufzettel)
+                    .filter(Laufzettel.id == session.laufzettel_id)
+                    .first()
+                )
+                if lz and lz.guest_nfc_uid:
+                    logger.info(
+                        "[AUTO_2100] Released guest NFC tag %s from Laufzettel %s",
+                        lz.guest_nfc_uid,
+                        lz.id,
+                    )
+                    lz.guest_nfc_uid = None
+            except Exception:
+                logger.exception("[AUTO_2100] Failed to end session %s", session.id)
+
+        db.commit()
+        logger.info("[AUTO_2100] Auto-ended %d active device sessions", ended_count)
+    except Exception:
+        logger.exception("[AUTO_2100] Failed")
+        db.rollback()
+    finally:
+        db.close()
+
+    return ended_count

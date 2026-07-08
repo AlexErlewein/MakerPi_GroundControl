@@ -25,9 +25,15 @@ from backend.config import (
 )
 
 from .db import get_db, init_db
-from .models import Laufzettel, LaufzettelGutschein, LaufzettelMaterial
+from .models import (
+    DevicePricing,
+    DeviceSession,
+    Laufzettel,
+    LaufzettelGutschein,
+    LaufzettelMaterial,
+)
 from .pdf import drive_folder_names, generate_pdf, pdf_filename
-from .utils import handle_stale_laufzettel
+from .utils import end_device_session, handle_stale_laufzettel
 
 # Push notification support (import at module level, calls wrapped in try/except)
 try:
@@ -2318,3 +2324,243 @@ async def cancel_wero_payment(laufzettel_id: int, checkout_id: str):
     """Cancel pending Wero payment"""
     pending = _pending_wero_payments.pop(checkout_id, None)
     return {"cancelled": pending is not None}
+
+
+# ── Device Pricing API (time-based billing) ──────────────────────────────────
+
+
+class DevicePricingUpdate(BaseModel):
+    variante_id: int
+    requires_permission: bool = False
+    is_active: bool = True
+
+
+@router.get("/api/devices/{device_id}/pricing")
+async def get_device_pricing(
+    device_id: str, request: Request, db: Session = Depends(get_db)
+):
+    """Get device pricing config and eligible catalog varianten for time billing."""
+    from backend.auth.dependencies import check_auth
+
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    pricing = (
+        db.query(DevicePricing).filter(DevicePricing.device_id == device_id).first()
+    )
+
+    # Fetch eligible varianten (per_minute / per_hour pricing models)
+    eligible_varianten = []
+    try:
+        from backend.catalog.db import SessionLocal as CatalogSession
+        from backend.catalog.models import MaterialVariante
+
+        cat_db = CatalogSession()
+        try:
+            varianten = (
+                cat_db.query(MaterialVariante)
+                .filter(MaterialVariante.pricing_model.in_(["per_minute", "per_hour"]))
+                .order_by(MaterialVariante.name)
+                .all()
+            )
+            eligible_varianten = [v.to_dict() for v in varianten]
+        finally:
+            cat_db.close()
+    except Exception:
+        logger.exception("[DEVICE_PRICING] Failed to fetch eligible varianten")
+
+    result = pricing.to_dict() if pricing else None
+    return {
+        "pricing": result,
+        "eligible_varianten": eligible_varianten,
+    }
+
+
+@router.put("/api/devices/{device_id}/pricing")
+async def set_device_pricing(
+    device_id: str,
+    data: DevicePricingUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Create or update device pricing config (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    # Verify variante exists and has correct pricing model
+    try:
+        from backend.catalog.db import SessionLocal as CatalogSession
+        from backend.catalog.models import MaterialVariante
+
+        cat_db = CatalogSession()
+        try:
+            variante = (
+                cat_db.query(MaterialVariante)
+                .filter(MaterialVariante.id == data.variante_id)
+                .first()
+            )
+            if not variante:
+                raise HTTPException(
+                    status_code=404, detail="MaterialVariante not found"
+                )
+            if variante.pricing_model not in ("per_minute", "per_hour"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Variante pricing_model must be per_minute or per_hour (got {variante.pricing_model})",
+                )
+        finally:
+            cat_db.close()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to validate variante")
+
+    existing = (
+        db.query(DevicePricing).filter(DevicePricing.device_id == device_id).first()
+    )
+
+    if existing:
+        existing.variante_id = data.variante_id
+        existing.requires_permission = 1 if data.requires_permission else 0
+        existing.is_active = 1 if data.is_active else 0
+        db.commit()
+        db.refresh(existing)
+        return existing.to_dict()
+    else:
+        pricing = DevicePricing(
+            device_id=device_id,
+            variante_id=data.variante_id,
+            requires_permission=1 if data.requires_permission else 0,
+            is_active=1 if data.is_active else 0,
+        )
+        db.add(pricing)
+        db.commit()
+        db.refresh(pricing)
+        return pricing.to_dict()
+
+
+@router.delete("/api/devices/{device_id}/pricing")
+async def delete_device_pricing(
+    device_id: str, request: Request, db: Session = Depends(get_db)
+):
+    """Remove time billing from device (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    pricing = (
+        db.query(DevicePricing).filter(DevicePricing.device_id == device_id).first()
+    )
+    if not pricing:
+        raise HTTPException(status_code=404, detail="Device pricing not found")
+
+    db.delete(pricing)
+    db.commit()
+    return {"deleted": device_id}
+
+
+# ── Device Sessions API ─────────────────────────────────────────────────────
+
+
+@router.get("/api/devices/{device_id}/sessions")
+async def get_device_sessions(
+    device_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """List active + recent sessions for a device."""
+    from backend.auth.dependencies import check_auth
+
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    active = (
+        db.query(DeviceSession)
+        .filter(
+            DeviceSession.device_id == device_id,
+            DeviceSession.is_active == 1,
+        )
+        .order_by(DeviceSession.start_time.desc())
+        .all()
+    )
+
+    recent = (
+        db.query(DeviceSession)
+        .filter(
+            DeviceSession.device_id == device_id,
+            DeviceSession.is_active == 0,
+        )
+        .order_by(DeviceSession.end_time.desc())
+        .limit(50)
+        .all()
+    )
+
+    # Enrich with owner names from members DB
+    uid_set = {s.uid for s in active + recent}
+    uid_names: dict[str, str] = {}
+    if uid_set:
+        try:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import Mitglied
+
+            members_db = MembersSession()
+            try:
+                for m in (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.nfc_uid.in_(uid_set))
+                    .all()
+                ):
+                    uid_names[m.nfc_uid] = m.name
+            finally:
+                members_db.close()
+        except Exception:
+            pass
+
+    def _enrich(s):
+        d = s.to_dict()
+        d["owner_name"] = uid_names.get(s.uid)
+        return d
+
+    return {
+        "active": [_enrich(s) for s in active],
+        "recent": [_enrich(s) for s in recent],
+    }
+
+
+@router.post("/api/devices/{device_id}/sessions/{session_id}/stop")
+async def stop_device_session(
+    device_id: str,
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Manually stop a device session (admin only)."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    session = (
+        db.query(DeviceSession)
+        .filter(
+            DeviceSession.id == session_id,
+            DeviceSession.device_id == device_id,
+            DeviceSession.is_active == 1,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Active session not found")
+
+    result = end_device_session(db, session, ended_by="admin")
+
+    # Release guest NFC tag
+    lz = db.query(Laufzettel).filter(Laufzettel.id == session.laufzettel_id).first()
+    if lz and lz.guest_nfc_uid:
+        lz.guest_nfc_uid = None
+        db.commit()
+
+    return result

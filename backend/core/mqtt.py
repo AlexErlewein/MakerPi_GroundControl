@@ -95,6 +95,236 @@ def _notify_scan_subscribers(uid: str, device_id: str):
         scan_subscribers.remove(entry)
 
 
+def _handle_device_session_tracking(
+    device_id: str,
+    uid: str,
+    mitglied_db_id: int | None,
+    member_id_str: str | None,
+    device,
+):
+    """Handle time-based device session login/logout on NFC scan.
+
+    If the device has time billing configured (DevicePricing with is_active=1),
+    this function either starts a new session (login) or ends an existing one
+    (logout + bill to Laufzettel).
+    """
+    from backend.laufzettel.db import SessionLocal as LaufzettelSession
+    from backend.laufzettel.models import DevicePricing, DeviceSession, Laufzettel
+    from backend.laufzettel.utils import end_device_session
+
+    lauf_db = LaufzettelSession()
+    try:
+        # Look up device pricing configuration
+        pricing = (
+            lauf_db.query(DevicePricing)
+            .filter(
+                DevicePricing.device_id == device_id,
+                DevicePricing.is_active == 1,
+            )
+            .first()
+        )
+        if not pricing:
+            return  # No time billing for this device — fall through to existing behavior
+
+        # Permission check (per-device)
+        if pricing.requires_permission:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import DevicePermission
+
+            if mitglied_db_id:
+                perm_db = MembersSession()
+                try:
+                    has_permission = (
+                        perm_db.query(DevicePermission)
+                        .filter(
+                            DevicePermission.member_id == mitglied_db_id,
+                            DevicePermission.device_id.in_([device_id, "*"]),
+                        )
+                        .first()
+                    )
+                    if not has_permission:
+                        logger.info(
+                            "[DEVICE_SESSION] uid=%r denied: no permission for time-billed device %s",
+                            uid,
+                            device_id,
+                        )
+                        return
+                finally:
+                    perm_db.close()
+            else:
+                # Guest with requires_permission — deny time billing
+                logger.info(
+                    "[DEVICE_SESSION] uid=%r denied: guest on permission-required device %s",
+                    uid,
+                    device_id,
+                )
+                return
+
+        # Check for active session for this (device_id, uid)
+        active_session = (
+            lauf_db.query(DeviceSession)
+            .filter(
+                DeviceSession.device_id == device_id,
+                DeviceSession.uid == uid,
+                DeviceSession.is_active == 1,
+            )
+            .first()
+        )
+
+        if active_session:
+            # ── LOGOUT ──────────────────────────────────────────────
+            logger.info(
+                "[DEVICE_SESSION] Logout: session=%s device=%s uid=%s",
+                active_session.id,
+                device_id,
+                uid,
+            )
+            result = end_device_session(lauf_db, active_session, ended_by="scan")
+
+            # Release guest NFC tag
+            lz = (
+                lauf_db.query(Laufzettel)
+                .filter(Laufzettel.id == active_session.laufzettel_id)
+                .first()
+            )
+            if lz and lz.guest_nfc_uid:
+                logger.info(
+                    "[DEVICE_SESSION] Released guest NFC tag %s on logout",
+                    lz.guest_nfc_uid,
+                )
+                lz.guest_nfc_uid = None
+                lauf_db.commit()
+
+            # Publish logout result to device display
+            global mqtt_client
+            if mqtt_client:
+                try:
+                    logout_payload = json.dumps(
+                        {
+                            "uid": uid,
+                            "action": "device_logout",
+                            "device_id": device_id,
+                            "session_id": active_session.id,
+                            "duration_seconds": result["duration_seconds"],
+                            "calculated_price": result["calculated_price"],
+                        }
+                    )
+                    mqtt_client.publish(f"{device_id}/user_info", logout_payload)
+                except Exception as e:
+                    logger.error("[DEVICE_SESSION] Failed to publish logout: %s", e)
+        else:
+            # ── LOGIN ───────────────────────────────────────────────
+            # Find the right Laufzettel for this member/guest
+            from datetime import date as dt_date
+
+            today = dt_date.today()
+            target_lz = None
+
+            if mitglied_db_id or member_id_str:
+                # Member: find open Laufzettel for today
+                target_lz = (
+                    lauf_db.query(Laufzettel)
+                    .filter(
+                        Laufzettel.uid == uid,
+                        Laufzettel.date == today,
+                        Laufzettel.payment_method.is_(None),
+                        Laufzettel.deleted_at.is_(None),
+                    )
+                    .order_by(Laufzettel.created_at.desc())
+                    .first()
+                )
+            else:
+                # Guest: find by guest_nfc_uid
+                target_lz = (
+                    lauf_db.query(Laufzettel)
+                    .filter(
+                        Laufzettel.guest_nfc_uid == uid,
+                        Laufzettel.payment_method.is_(None),
+                        Laufzettel.deleted_at.is_(None),
+                    )
+                    .order_by(Laufzettel.created_at.desc())
+                    .first()
+                )
+
+            if not target_lz:
+                logger.info(
+                    "[DEVICE_SESSION] No Laufzettel found for uid=%r — skipping session start",
+                    uid,
+                )
+                return
+
+            # Snapshot tax_rate from the catalog variante
+            tax_rate = None
+            try:
+                from backend.catalog.db import SessionLocal as CatalogSession
+                from backend.catalog.models import MaterialVariante
+
+                cat_db = CatalogSession()
+                try:
+                    variante = (
+                        cat_db.query(MaterialVariante)
+                        .filter(MaterialVariante.id == pricing.variante_id)
+                        .first()
+                    )
+                    if variante:
+                        tax_rate = (
+                            variante.tax_rate if variante.tax_rate is not None else 19.0
+                        )
+                finally:
+                    cat_db.close()
+            except Exception:
+                pass
+
+            # Create new device session
+            new_session = DeviceSession(
+                laufzettel_id=target_lz.id,
+                device_id=device_id,
+                uid=uid,
+                mitglied_id=mitglied_db_id,
+                guest_id=target_lz.guest_id,
+                variante_id=pricing.variante_id,
+                start_time=_utcnow(),
+                tax_rate=tax_rate,
+                is_active=1,
+            )
+            lauf_db.add(new_session)
+
+            # Add device_id to Laufzettel nodes
+            nodes = json.loads(target_lz.nodes or "[]")
+            if device_id not in nodes:
+                nodes.append(device_id)
+                target_lz.nodes = json.dumps(nodes)
+
+            lauf_db.commit()
+            lauf_db.refresh(new_session)
+
+            logger.info(
+                "[DEVICE_SESSION] Login: session=%s device=%s uid=%r laufzettel=%s",
+                new_session.id,
+                device_id,
+                uid,
+                target_lz.id,
+            )
+
+            # Publish login result to device display
+            if mqtt_client:
+                try:
+                    login_payload = json.dumps(
+                        {
+                            "uid": uid,
+                            "action": "device_login",
+                            "device_id": device_id,
+                            "session_id": new_session.id,
+                            "laufzettel_id": target_lz.id,
+                        }
+                    )
+                    mqtt_client.publish(f"{device_id}/user_info", login_payload)
+                except Exception as e:
+                    logger.error("[DEVICE_SESSION] Failed to publish login: %s", e)
+    finally:
+        lauf_db.close()
+
+
 def init_mqtt():
     """Initialize and connect MQTT client"""
     global mqtt_client
@@ -979,6 +1209,17 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                             lauf_db.close()
                     except Exception as e:
                         logger.error("[GUEST_SCAN] Guest NFC handling failed: %s", e)
+
+                # ── Device Session Time Tracking ────────────────────────────
+                # If this device has time-based billing configured, handle
+                # login (start session) / logout (end session + bill).
+                try:
+                    _handle_device_session_tracking(
+                        device_id, uid, mitglied_db_id, member_id_str, device
+                    )
+                except Exception as e:
+                    logger.error("[DEVICE_SESSION] Time tracking failed: %s", e)
+
             except json.JSONDecodeError:
                 pass
 

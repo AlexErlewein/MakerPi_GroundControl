@@ -59,11 +59,41 @@
         <p>Loading messages...</p>
     </div>
 </section>
+
+<!-- Time Billing Configuration (admin only) -->
+<section class="section device-pricing-section" id="pricing-section">
+    <div class="section-header">
+        <h2>Zeitabrechnung (Time Billing)</h2>
+    </div>
+    <div id="pricing-config-container">
+        <p>Loading pricing configuration...</p>
+    </div>
+</section>
+
+<!-- Active Sessions -->
+<section class="section device-sessions-section">
+    <div class="section-header">
+        <h2>Aktive Sitzungen</h2>
+    </div>
+    <div id="active-sessions-container">
+        <p>Loading sessions...</p>
+    </div>
+</section>
+
+<!-- Session History -->
+<section class="section device-sessions-history-section">
+    <div class="section-header">
+        <h2>Sitzungsverlauf</h2>
+    </div>
+    <div id="session-history-container">
+        <p>Loading history...</p>
+    </div>
+</section>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     const DEVICE_ID = "{{ device_id }}";
 </script>
-<script src="/static/js/device-detail.js?v=1"></script>
+<script src="/static/js/device-detail.js?v=2"></script>
 {% endblock %}

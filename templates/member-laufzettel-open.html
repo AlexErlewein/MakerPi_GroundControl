@@ -39,6 +39,16 @@ extra_css %}
         </div>
     </section>
 
+    <!-- Active Device Sessions -->
+    <section class="section" id="device-sessions-card" style="display:none">
+        <div class="section-header">
+            <h2>Aktive Gerätenutzung</h2>
+        </div>
+        <div id="device-sessions-container">
+            <p style="color:var(--text-secondary)">Lade...</p>
+        </div>
+    </section>
+
     <!-- Material Section -->
     <section class="section">
         <div class="section-header">
@@ -1211,9 +1221,86 @@ extra_css %}
         if (memberAdminScanSource) { memberAdminScanSource.close(); memberAdminScanSource = null; }
     }
 
+    // ── Active Device Sessions ─────────────────────────────────
+    async function loadMemberDeviceSessions() {
+        try {
+            const res = await fetch('/api/member/device-sessions', { credentials: 'include' });
+            if (!res.ok) return;
+            const data = await res.json();
+            const sessions = data.active_sessions || [];
+            const card = document.getElementById('device-sessions-card');
+            const container = document.getElementById('device-sessions-container');
+            if (!card || !container) return;
+
+            if (!sessions.length) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+            container.innerHTML = sessions.map(s => {
+                const startMs = new Date(s.start_time).getTime();
+                const priceSuffix = s.pricing_model === 'per_hour' ? '/h' : '/min';
+                const estPrice = s.unit_price != null ?
+                    (s.pricing_model === 'per_hour'
+                        ? ((Date.now() - startMs) / 3600000 * s.unit_price)
+                        : ((Date.now() - startMs) / 60000 * s.unit_price)
+                    ).toFixed(2) : '—';
+                return `
+                    <div class="device-session-item" style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:8px">
+                        <div>
+                            <div style="font-weight:600">${esc(s.device_id)}</div>
+                            ${s.variante_name ? `<div style="color:var(--text-secondary);font-size:0.85rem">${esc(s.variante_name)} — ${s.unit_price != null ? s.unit_price.toFixed(2) + ' €' + priceSuffix : ''}</div>` : ''}
+                            <div style="font-size:0.85rem;color:var(--text-secondary)">Gestartet: ${new Date(s.start_time).toLocaleTimeString()}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:16px">
+                            <div style="text-align:right">
+                                <div class="member-session-duration" data-start-ms="${startMs}" style="font-family:monospace;font-size:1.1em;font-weight:600">—</div>
+                                <div style="font-size:0.8rem;color:var(--text-secondary)">~ ${estPrice} €</div>
+                            </div>
+                            <button class="btn btn-danger member-session-stop-btn" data-session-id="${s.id}" style="padding:8px 16px">Ausloggen</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.querySelectorAll('.member-session-stop-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const sid = btn.dataset.sessionId;
+                    if (!confirm('Gerätesitzung beenden und abrechnen?')) return;
+                    const stopRes = await fetch(`/api/member/device-sessions/${sid}/stop`, { method: 'POST', credentials: 'include' });
+                    if (stopRes.ok) {
+                        loadMemberDeviceSessions();
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        const err = await stopRes.json();
+                        alert('Fehler: ' + (err.detail || 'Beenden fehlgeschlagen'));
+                    }
+                });
+            });
+        } catch (e) {
+            console.error('Failed to load device sessions:', e);
+        }
+    }
+
+    // Live duration counter for member sessions
+    setInterval(() => {
+        document.querySelectorAll('.member-session-duration').forEach(el => {
+            const startMs = parseFloat(el.dataset.startMs);
+            if (isNaN(startMs)) return;
+            const elapsed = Math.floor((Date.now() - startMs) / 1000);
+            const h = Math.floor(elapsed / 3600);
+            const m = Math.floor((elapsed % 3600) / 60);
+            const s = Math.floor(elapsed % 60);
+            el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+        });
+    }, 1000);
+
     renderMaterials();
     loadKatalog();
     checkSession();
+    loadMemberDeviceSessions();
+    setInterval(loadMemberDeviceSessions, 10000);
 </script>
 {% endif %}
 
