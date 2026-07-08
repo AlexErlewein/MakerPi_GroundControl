@@ -609,13 +609,16 @@
                 guestLinkMode = true;
                 guestLinkLaufzettelId = lz.id;
 
-                var nfcPrompt = "";
-                if (pairingToken || ipPaired) {
-                    nfcPrompt =
-                        '<div style="margin-top:14px;">' +
-                        '<p style="font-size:0.95rem;margin-bottom:8px;">Optional: Halte jetzt einen Gäste-Tag an den Leser, um ihn mit dem Laufzettel zu verknüpfen.</p>' +
-                        '<div id="gi-nfc-status" class="gi-nfc-status processing">📡 Warte auf Tag …</div>' +
-                        '</div>';
+                // Always show the NFC tag-scan prompt (even without pairing)
+                var nfcPrompt =
+                    '<div style="margin-top:14px;">' +
+                    '<p style="font-size:0.95rem;margin-bottom:8px;">Optional: Halte jetzt einen Gäste-Tag an den Leser, um ihn mit dem Laufzettel zu verknüpfen.</p>' +
+                    '<div id="gi-nfc-status" class="gi-nfc-status processing">📡 Warte auf Tag …</div>' +
+                    '</div>';
+
+                // Start SSE scanner if not already connected (works without pairing)
+                if (!scanEventSource) {
+                    startScanStream();
                 }
                 success.innerHTML =
                     "\u2705 Vielen Dank, <strong>" +
@@ -1080,8 +1083,8 @@
     }
 
     function startScanStream() {
-        if (!pairingToken && !ipPaired) {
-            console.log("[SSE] No pairing (token or IP), skipping SSE connection");
+        if (!pairingToken && !ipPaired && !guestLinkMode) {
+            console.log("[SSE] No pairing (token or IP) and not in guest link mode, skipping SSE connection");
             return;
         }
 
