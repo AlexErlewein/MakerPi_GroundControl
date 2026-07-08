@@ -98,6 +98,29 @@ function renderInfo() {
   document.getElementById("view-owner").textContent = d.owner_name || "-";
   document.getElementById("view-member-id").textContent = d.member_id || "-";
   document.getElementById("view-uid").textContent = d.uid || "-";
+
+  // Guest-specific fields (email, address, NFC tag)
+  const isGuest = !!d.guest_id;
+  const emailItem = document.getElementById("guest-email-item");
+  const addressItem = document.getElementById("guest-address-item");
+  const nfcItem = document.getElementById("guest-nfc-item");
+  if (isGuest) {
+    emailItem.classList.remove("hidden");
+    document.getElementById("view-guest-email").textContent = d.guest_email || "-";
+    addressItem.classList.remove("hidden");
+    document.getElementById("view-guest-address").textContent = d.guest_address || "-";
+    nfcItem.classList.remove("hidden");
+    const nfcEl = document.getElementById("view-guest-nfc");
+    if (d.guest_nfc_uid) {
+      nfcEl.innerHTML = `<code class="uid">${esc(d.guest_nfc_uid)}</code> <span style="color: var(--success);">✅</span>`;
+    } else {
+      nfcEl.innerHTML = '<span style="color: var(--text-secondary);">Nicht verknüpft</span>';
+    }
+  } else {
+    emailItem.classList.add("hidden");
+    addressItem.classList.add("hidden");
+    nfcItem.classList.add("hidden");
+  }
   const locked = !!d.payment_method;
   document.getElementById("edit-info-btn").style.display = locked ? "none" : "";
   document.getElementById("delete-lz-btn").style.display = locked ? "none" : "";

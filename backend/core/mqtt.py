@@ -1128,7 +1128,7 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                         from backend.laufzettel.db import (
                             SessionLocal as LaufzettelSession,
                         )
-                        from backend.laufzettel.models import Laufzettel
+                        from backend.laufzettel.models import Laufzettel, LaufzettelMaterial
 
                         lauf_db = LaufzettelSession()
                         try:
@@ -1164,6 +1164,87 @@ def handle_device_message(topic: str, payload: str, retained: bool = False):
                                 # Update timestamp if not set
                                 if not guest_lz.start:
                                     guest_lz.start = _utcnow()
+
+                                # Auto-add material for special devices (same logic as members)
+                                is_kaffeemaschine = (
+                                    device.name and device.name.lower() == "kaffeemaschine"
+                                )
+                                is_kuehlschrank = (
+                                    device.name and device.name.lower() == "kuehlschrank"
+                                )
+
+                                if is_kaffeemaschine:
+                                    last_scan = _kaffeemaschine_last_scan.get(uid)
+                                    now_dt = _utcnow()
+                                    if not (
+                                        last_scan
+                                        and (now_dt - last_scan).total_seconds()
+                                        < KAFFEEMASCHINE_DEBOUNCE_S
+                                    ):
+                                        _kaffeemaschine_last_scan[uid] = now_dt
+                                        existing_kaffee = (
+                                            lauf_db.query(LaufzettelMaterial)
+                                            .filter(
+                                                LaufzettelMaterial.laufzettel_id == guest_lz.id,
+                                                LaufzettelMaterial.name == "Kaffee",
+                                            )
+                                            .first()
+                                        )
+                                        if existing_kaffee:
+                                            existing_kaffee.menge = (existing_kaffee.menge or 0) + 1
+                                            logger.info(
+                                                "[GUEST_SCAN][KAFFEEMASCHINE] Incremented Kaffee for guest laufzettel %s: now %s",
+                                                guest_lz.id,
+                                                existing_kaffee.menge,
+                                            )
+                                        else:
+                                            lauf_db.add(LaufzettelMaterial(
+                                                laufzettel_id=guest_lz.id,
+                                                name="Kaffee",
+                                                menge=1,
+                                                calculated_price=0.0,
+                                                tax_rate=0.0,
+                                            ))
+                                            logger.info(
+                                                "[GUEST_SCAN][KAFFEEMASCHINE] Added Kaffee to guest laufzettel %s",
+                                                guest_lz.id,
+                                            )
+                                elif is_kuehlschrank:
+                                    last_scan = _kuehlschrank_last_scan.get(uid)
+                                    now_dt = _utcnow()
+                                    if not (
+                                        last_scan
+                                        and (now_dt - last_scan).total_seconds()
+                                        < KUEHLSCHRANK_DEBOUNCE_S
+                                    ):
+                                        _kuehlschrank_last_scan[uid] = now_dt
+                                        existing_limo = (
+                                            lauf_db.query(LaufzettelMaterial)
+                                            .filter(
+                                                LaufzettelMaterial.laufzettel_id == guest_lz.id,
+                                                LaufzettelMaterial.name == "Limo",
+                                            )
+                                            .first()
+                                        )
+                                        if existing_limo:
+                                            existing_limo.menge = (existing_limo.menge or 0) + 1
+                                            logger.info(
+                                                "[GUEST_SCAN][KUEHLSCHRANK] Incremented Limo for guest laufzettel %s: now %s",
+                                                guest_lz.id,
+                                                existing_limo.menge,
+                                            )
+                                        else:
+                                            lauf_db.add(LaufzettelMaterial(
+                                                laufzettel_id=guest_lz.id,
+                                                name="Limo",
+                                                menge=1,
+                                                calculated_price=0.0,
+                                                tax_rate=0.0,
+                                            ))
+                                            logger.info(
+                                                "[GUEST_SCAN][KUEHLSCHRANK] Added Limo to guest laufzettel %s",
+                                                guest_lz.id,
+                                            )
 
                                 lauf_db.commit()
 

@@ -45,6 +45,18 @@
             <span class="info-label">Tag UID</span>
             <span class="info-value"><code class="uid" id="view-uid">-</code></span>
         </div>
+        <div class="info-item hidden" id="guest-email-item">
+            <span class="info-label">Gast E-Mail</span>
+            <span class="info-value" id="view-guest-email">-</span>
+        </div>
+        <div class="info-item hidden" id="guest-address-item">
+            <span class="info-label">Gast Adresse</span>
+            <span class="info-value" id="view-guest-address" style="white-space: pre-line;">-</span>
+        </div>
+        <div class="info-item hidden" id="guest-nfc-item">
+            <span class="info-label">Gast NFC-Tag</span>
+            <span class="info-value" id="view-guest-nfc">-</span>
+        </div>
     </div>
 
     <!-- Edit Mode -->
@@ -570,5 +582,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=27"></script>
+<script src="/static/js/laufzettel-detail.js?v=28"></script>
 {% endblock %}
