@@ -371,6 +371,7 @@
             : pm === "per_area_m2" ? "/m²"
             : pm === "per_area_dm2" ? "/dm²"
             : pm === "per_minute" ? "/min"
+            : pm === "per_hour" ? "/h"
             : `/${ukat.unit || "Stück"}`;
         varSel.innerHTML = '<option value="">-- Variante wählen --</option>' +
             (ukat.varianten || []).map((v) => `<option value="${v.id}">${esc(v.name)} (${v.price.toFixed(4)} €${suffix})</option>`).join('');
@@ -394,7 +395,7 @@
         document.getElementById('kat-fields-gram').classList.toggle('hidden', !isWeight && pricingModel !== 'per_volume_l');
         document.getElementById('kat-fields-volume').classList.toggle('hidden', !isVolume);
         document.getElementById('kat-fields-area').classList.toggle('hidden', !isArea);
-        document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute');
+        document.getElementById('kat-fields-minute').classList.toggle('hidden', pricingModel !== 'per_minute' && pricingModel !== 'per_hour');
         document.getElementById('kat-fields-unit').classList.toggle('hidden', pricingModel !== 'per_unit');
         const unitLabel = unit ? `(${unit})`
             : pricingModel === 'per_kilogram' ? '(kg)'
@@ -405,6 +406,7 @@
             : pricingModel === 'per_area_m2' ? '(m²)'
             : pricingModel === 'per_area_dm2' ? '(dm²)'
             : pricingModel === 'per_minute' ? '(min)'
+            : pricingModel === 'per_hour' ? '(h)'
             : pricingModel === 'per_volume_l' ? '(L)'
             : '';
         document.getElementById('kat-gram-label').textContent = unitLabel;
@@ -446,6 +448,9 @@
                 price = liters * selectedVariante.price;
             }
         } else if (pm === 'per_minute') {
+            const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+            if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+        } else if (pm === 'per_hour') {
             const menge = parseFloat(document.getElementById('kat-menge-minute').value);
             if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
         } else {
@@ -611,6 +616,12 @@
                     if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
                     body.menge = menge;
                     body.unit = 'min';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_hour') {
+                    const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
+                    body.menge = menge;
+                    body.unit = 'h';
                     body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
                 } else {
                     const menge = parseFloat(document.getElementById('kat-menge-unit').value);

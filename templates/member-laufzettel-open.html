@@ -686,6 +686,7 @@ extra_css %}
             : pm === "per_area_m2" ? "/m²"
             : pm === "per_area_dm2" ? "/dm²"
             : pm === "per_minute" ? "/min"
+            : pm === "per_hour" ? "/h"
             : `/${ukat.unit || "Stück"}`;
         varSel.innerHTML += ukat.varianten.map(v => `<option value="${v.id}">${esc(v.name)} - ${v.price.toFixed(2)} €${suffix}</option>`).join('');
         varSel.disabled = false;
@@ -727,6 +728,9 @@ extra_css %}
         } else if (pm === 'per_minute') {
             rowMinute.classList.remove('hidden');
             document.getElementById('kat-menge-label').textContent = unit || 'min';
+        } else if (pm === 'per_hour') {
+            rowMinute.classList.remove('hidden');
+            document.getElementById('kat-menge-label').textContent = unit || 'h';
         } else if (pm === 'per_gram') {
             rowMenge.classList.remove('hidden');
             document.getElementById('kat-menge-label').textContent = unit || 'Gramm';
@@ -794,6 +798,9 @@ extra_css %}
         } else if (pm === 'per_minute') {
             const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
             if (m > 0) { total = m * selectedVariante.price; preview = `${m} min × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
+        } else if (pm === 'per_hour') {
+            const m = parseFloat(document.getElementById('kat-menge-minute').value) || 0;
+            if (m > 0) { total = m * selectedVariante.price; preview = `${m} h × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
         } else {
             const m = parseFloat(document.getElementById('kat-menge-unit').value) || 0;
             if (m > 0) { total = m * selectedVariante.price; preview = `${m} × ${selectedVariante.price.toFixed(2)} € = ${total.toFixed(2)} €`; }
@@ -964,6 +971,11 @@ extra_css %}
                     const menge = parseFloat(document.getElementById('kat-menge-minute').value);
                     if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
                     body.menge = menge; body.unit = 'min';
+                    body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+                } else if (pm === 'per_hour') {
+                    const menge = parseFloat(document.getElementById('kat-menge-minute').value);
+                    if (isNaN(menge) || menge <= 0) { alert('Bitte gültige Dauer eingeben.'); return; }
+                    body.menge = menge; body.unit = 'h';
                     body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
                 } else {
                     const menge = parseFloat(document.getElementById('kat-menge-unit').value);

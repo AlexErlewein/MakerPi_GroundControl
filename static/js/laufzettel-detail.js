@@ -274,7 +274,9 @@ function getUnitPriceLabel(varianteId) {
                       ? "/dm²"
                       : pm === "per_minute"
                         ? "/min"
-                        : `/${variante.unit || ukat.unit || "Stück"}`;
+                        : pm === "per_hour"
+                          ? "/h"
+                          : `/${variante.unit || ukat.unit || "Stück"}`;
   return `${variante.price.toFixed(2)} €${suffix}`;
 }
 
@@ -544,7 +546,9 @@ function onKatUnterkategorieChange() {
                       ? "/dm²"
                       : pm === "per_minute"
                         ? "/min"
-                        : `/${ukat.unit || "Stück"}`;
+                        : pm === "per_hour"
+                          ? "/h"
+                          : `/${ukat.unit || "Stück"}`;
   varSel.innerHTML =
     '<option value="">-- Variante wählen --</option>' +
     (ukat.varianten || [])
@@ -581,7 +585,7 @@ function showKatInputFields(pricingModel, unit) {
   document.getElementById("kat-fields-gram").classList.toggle("hidden", !isWeight && pricingModel !== "per_volume_l");
   document.getElementById("kat-fields-volume").classList.toggle("hidden", !isVolume);
   document.getElementById("kat-fields-area").classList.toggle("hidden", !isArea);
-  document.getElementById("kat-fields-minute").classList.toggle("hidden", pricingModel !== "per_minute");
+  document.getElementById("kat-fields-minute").classList.toggle("hidden", pricingModel !== "per_minute" && pricingModel !== "per_hour");
   document.getElementById("kat-fields-unit").classList.toggle("hidden", pricingModel !== "per_unit");
   const unitLabel = unit
     ? `(${unit})`
@@ -601,7 +605,9 @@ function showKatInputFields(pricingModel, unit) {
                   ? "(dm²)"
                   : pricingModel === "per_minute"
                     ? "(min)"
-                    : pricingModel === "per_volume_l"
+                    : pricingModel === "per_hour"
+                      ? "(h)"
+                      : pricingModel === "per_volume_l"
                       ? "(L)"
                       : "";
   document.getElementById("kat-gram-label").textContent = unitLabel;
@@ -688,6 +694,9 @@ function recalcPrice() {
       price = ((l * b) / 100) * selectedVariante.price;
     }
   } else if (pm === "per_minute") {
+    const menge = parseFloat(document.getElementById("kat-menge-minute").value);
+    if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
+  } else if (pm === "per_hour") {
     const menge = parseFloat(document.getElementById("kat-menge-minute").value);
     if (!isNaN(menge) && menge > 0) price = menge * selectedVariante.price;
   } else if (pm === "per_unit") {
@@ -851,6 +860,15 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
       }
       body.menge = menge;
       body.unit = "min";
+      body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
+    } else if (pm === "per_hour") {
+      const menge = parseFloat(document.getElementById("kat-menge-minute").value);
+      if (isNaN(menge) || menge <= 0) {
+        alert("Bitte gültige Dauer eingeben.");
+        return;
+      }
+      body.menge = menge;
+      body.unit = "h";
       body.calculated_price = parseFloat((menge * selectedVariante.price).toFixed(4));
     } else {
       const menge = parseFloat(document.getElementById("kat-menge-unit").value);
