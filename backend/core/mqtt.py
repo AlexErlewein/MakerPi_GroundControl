@@ -181,20 +181,6 @@ def _handle_device_session_tracking(
             )
             result = end_device_session(lauf_db, active_session, ended_by="scan")
 
-            # Release guest NFC tag
-            lz = (
-                lauf_db.query(Laufzettel)
-                .filter(Laufzettel.id == active_session.laufzettel_id)
-                .first()
-            )
-            if lz and lz.guest_nfc_uid:
-                logger.info(
-                    "[DEVICE_SESSION] Released guest NFC tag %s on logout",
-                    lz.guest_nfc_uid,
-                )
-                lz.guest_nfc_uid = None
-                lauf_db.commit()
-
             # Publish logout result to device display
             global mqtt_client
             if mqtt_client:

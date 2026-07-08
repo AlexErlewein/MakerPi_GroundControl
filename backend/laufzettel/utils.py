@@ -316,20 +316,6 @@ def auto_end_sessions_at_2100():
                     db, session, ended_by="auto_2100", end_time=end_time_utc
                 )
                 ended_count += 1
-
-                # Release guest NFC tag if applicable
-                lz = (
-                    db.query(Laufzettel)
-                    .filter(Laufzettel.id == session.laufzettel_id)
-                    .first()
-                )
-                if lz and lz.guest_nfc_uid:
-                    logger.info(
-                        "[AUTO_2100] Released guest NFC tag %s from Laufzettel %s",
-                        lz.guest_nfc_uid,
-                        lz.id,
-                    )
-                    lz.guest_nfc_uid = None
             except Exception:
                 logger.exception("[AUTO_2100] Failed to end session %s", session.id)
 

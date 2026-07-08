@@ -161,6 +161,9 @@ class LaufzettelUpdate(BaseModel):
     owner_name: Optional[str] = None
     member_id: Optional[str] = None
     start: Optional[str] = None
+    guest_email: Optional[str] = None
+    guest_address: Optional[str] = None
+    guest_nfc_uid: Optional[str] = None
 
 
 class MaterialCreate(BaseModel):
@@ -504,6 +507,31 @@ async def update_laufzettel(
             lz.start = datetime.fromisoformat(data.start)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid start datetime format")
+    if data.guest_email is not None:
+        lz.guest_email = data.guest_email or None
+    if data.guest_address is not None:
+        lz.guest_address = data.guest_address or None
+    if data.guest_nfc_uid is not None:
+        uid = data.guest_nfc_uid.strip().upper()
+        if uid:
+            conflict = (
+                db.query(Laufzettel)
+                .filter(
+                    Laufzettel.guest_nfc_uid == uid,
+                    Laufzettel.payment_method.is_(None),
+                    Laufzettel.deleted_at.is_(None),
+                    Laufzettel.id != lz.id,
+                )
+                .first()
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"NFC tag {uid} is already linked to Laufzettel #{conflict.id}",
+                )
+            lz.guest_nfc_uid = uid
+        else:
+            lz.guest_nfc_uid = None
     db.commit()
     db.refresh(lz)
     d = lz.to_dict()
@@ -2556,12 +2584,6 @@ async def stop_device_session(
         raise HTTPException(status_code=404, detail="Active session not found")
 
     result = end_device_session(db, session, ended_by="admin")
-
-    # Release guest NFC tag
-    lz = db.query(Laufzettel).filter(Laufzettel.id == session.laufzettel_id).first()
-    if lz and lz.guest_nfc_uid:
-        lz.guest_nfc_uid = None
-        db.commit()
 
     return result
 

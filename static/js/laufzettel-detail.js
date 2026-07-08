@@ -361,6 +361,11 @@ document.getElementById("edit-info-btn").addEventListener("click", () => {
   } else {
     document.getElementById("edit-start").value = "";
   }
+  // Guest fields (only visible for guest laufzettel)
+  document.getElementById("edit-guest-email").value = d.guest_email || "";
+  document.getElementById("edit-guest-address").value = d.guest_address || "";
+  document.getElementById("edit-guest-nfc").value = d.guest_nfc_uid || "";
+  document.getElementById("guest-edit-fields").style.display = d.guest_id ? "" : "none";
   document.getElementById("info-view").classList.add("hidden");
   document.getElementById("info-edit-form").classList.remove("hidden");
   document.getElementById("edit-info-btn").classList.add("hidden");
@@ -383,6 +388,13 @@ document.getElementById("info-edit-form").addEventListener("submit", async (e) =
   if (owner) body.owner_name = owner;
   if (memberId) body.member_id = memberId;
   if (start) body.start = new Date(start).toISOString();
+
+  // Guest fields (only sent for guest laufzettel)
+  if (currentData.guest_id) {
+    body.guest_email = document.getElementById("edit-guest-email").value.trim();
+    body.guest_address = document.getElementById("edit-guest-address").value.trim();
+    body.guest_nfc_uid = document.getElementById("edit-guest-nfc").value.trim();
+  }
 
   const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
     method: "PUT",

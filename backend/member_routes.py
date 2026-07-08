@@ -658,16 +658,6 @@ async def member_stop_device_session(
 
     result = end_device_session(laufzettel_db, session, ended_by="member")
 
-    # Release guest NFC tag if applicable
-    lz = (
-        laufzettel_db.query(Laufzettel)
-        .filter(Laufzettel.id == session.laufzettel_id)
-        .first()
-    )
-    if lz and lz.guest_nfc_uid:
-        lz.guest_nfc_uid = None
-        laufzettel_db.commit()
-
     return result
 
 

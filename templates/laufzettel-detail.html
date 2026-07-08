@@ -75,6 +75,20 @@
                 <input type="datetime-local" id="edit-start">
             </div>
         </div>
+        <div class="form-row" id="guest-edit-fields" style="display:none;">
+            <div class="form-group">
+                <label for="edit-guest-email">Gast E-Mail</label>
+                <input type="email" id="edit-guest-email" placeholder="gast@email.de">
+            </div>
+            <div class="form-group">
+                <label for="edit-guest-address">Gast Adresse</label>
+                <textarea id="edit-guest-address" rows="2" placeholder="Straße, PLZ Ort"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit-guest-nfc">Gast NFC-Tag</label>
+                <input type="text" id="edit-guest-nfc" placeholder="z.B. 04A3B5C2 (leer = entfernen)">
+            </div>
+        </div>
         <div class="modal-actions">
             <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
             <button type="submit" class="btn btn-success">Save</button>
@@ -582,5 +596,5 @@
     const LAUFZETTEL_ID = {{ laufzettel_id }};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="/static/js/laufzettel-detail.js?v=28"></script>
+<script src="/static/js/laufzettel-detail.js?v=29"></script>
 {% endblock %}
