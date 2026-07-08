@@ -96,24 +96,38 @@ function hideReminderModal() {
     document.getElementById('reminder-modal').classList.add('hidden');
 }
 
-// Show Thank You message after successful creation (new mode from login page)
+// Show success view with NFC tag scanning after creation
 function showThankYou(laufzettelId) {
-    const container = document.querySelector('.guest-container');
     const name = document.getElementById('guest-name').value.trim();
-    
-    container.innerHTML = `
-        <div class="guest-header">
-            <h1>✅ Vielen Dank, ${esc(name)}!</h1>
-            <p>Dein Laufzettel wurde erfolgreich erstellt.</p>
-        </div>
-        <div class="info-message" style="text-align: center; margin: 2rem 0;">
-            <p><strong>Laufzettel Nr. ${laufzettelId}</strong></p>
-            <p style="margin-top: 1rem;">Bitte wende dich an einen Admin, um Material zu erfassen und zu bezahlen.</p>
-        </div>
-        <div style="text-align: center; margin-top: 2rem;">
-            <a href="/" class="btn btn-success">Zurück zur Startseite</a>
-        </div>
+
+    // Update header to success state with NFC prompt
+    const header = document.querySelector('.guest-header');
+    header.innerHTML = `
+        <h1>✅ Vielen Dank, ${esc(name)}!</h1>
+        <p>Dein Laufzettel (Nr. ${laufzettelId}) wurde erfolgreich erstellt.</p>
     `;
+
+    // Hide the form and error container
+    document.getElementById('guest-form').classList.add('hidden');
+    document.getElementById('error-container').classList.add('hidden');
+
+    // Reveal the NFC section so the guest can scan their tag
+    const nfcSection = document.getElementById('nfc-section');
+    nfcSection.classList.remove('hidden');
+
+    // Add a finish button after the NFC section (if not already present)
+    if (!document.getElementById('guest-finish-wrapper')) {
+        const finishDiv = document.createElement('div');
+        finishDiv.id = 'guest-finish-wrapper';
+        finishDiv.style.textAlign = 'center';
+        finishDiv.style.marginTop = '1.5rem';
+        finishDiv.innerHTML = `<a href="/" class="btn btn-success">Fertig ✓</a>`;
+        nfcSection.parentNode.appendChild(finishDiv);
+    }
+
+    // Start the NFC scanner now that the guest session is active
+    startNfcScanner();
+    checkNfcStatus();
 }
 
 // Escape HTML
@@ -161,13 +175,9 @@ async function submitForm(e) {
         
         if (response.ok) {
             const lz = await response.json();
-            if (isNewMode) {
-                // New mode: show Thank You message
-                showThankYou(lz.id);
-            } else {
-                // QR/Direct URL mode: redirect to detail page (cached behavior)
-                window.location.href = `/guest/laufzettel/${lz.id}`;
-            }
+            guestId = lz.guest_id;
+            // Show success view with NFC tag scanning (both new and QR/direct modes)
+            showThankYou(lz.id);
         } else {
             const error = await response.json();
             errorContainer.textContent = error.detail || 'Fehler beim Erstellen des Laufzettels';
@@ -396,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start scanner after a short delay to ensure page is ready
     setTimeout(() => {
         if (guestId) {
+            document.getElementById('nfc-section').classList.remove('hidden');
             startNfcScanner();
             checkNfcStatus();
         }
