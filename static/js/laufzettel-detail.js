@@ -66,6 +66,7 @@ async function loadDetail() {
     renderInfo();
     renderNodes();
     renderMaterial();
+    loadDeviceSessions();
   } catch (e) {
     console.error("loadDetail failed:", e);
     document.querySelector("main").innerHTML =
@@ -2102,6 +2103,130 @@ async function confirmDeleteLaufzettel() {
     confirmBtn.textContent = "Ja, endgültig löschen";
   }
 }
+
+// ── Device Sessions for Laufzettel ─────────────────────────────
+
+async function loadDeviceSessions() {
+  try {
+    const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}/sessions`);
+    if (!res.ok) return;
+    const data = await res.json();
+    renderDeviceSessions(data.active || [], data.completed || []);
+  } catch (e) {
+    console.error("loadDeviceSessions failed:", e);
+  }
+}
+
+function renderDeviceSessions(active, completed) {
+  const section = document.getElementById("device-sessions-section");
+  const container = document.getElementById("device-sessions-container");
+  if (!section || !container) return;
+
+  if (!active.length && !completed.length) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  const parts = [];
+
+  if (active.length) {
+    parts.push('<div style="margin-bottom:12px;"><h3 style="font-size:0.95rem;margin:0 0 8px;color:var(--success);">Aktiv</h3>');
+    parts.push(active.map(s => {
+      const startMs = new Date(s.start_time).getTime();
+      const priceSuffix = s.pricing_model === 'per_hour' ? '/h' : '/min';
+      const estPrice = s.unit_price != null
+        ? (s.pricing_model === 'per_hour'
+            ? ((Date.now() - startMs) / 3600000 * s.unit_price)
+            : ((Date.now() - startMs) / 60000 * s.unit_price)
+          ).toFixed(2)
+        : '—';
+      return `
+        <div class="device-session-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:6px;background:var(--card-bg, #2a2a2a);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:0.95rem;">${esc(s.device_name || s.device_id)}</div>
+            ${s.variante_name ? `<div style="color:var(--text-secondary);font-size:0.82rem;">${esc(s.variante_name)} ${s.unit_price != null ? `— ${s.unit_price.toFixed(2)}€${priceSuffix}` : ''}</div>` : ''}
+            <div style="font-size:0.82rem;color:var(--text-secondary);">Gestartet: ${new Date(s.start_time).toLocaleString()}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <div style="text-align:right;">
+              <div class="lz-detail-session-duration" data-start-ms="${startMs}" style="font-family:monospace;font-size:1rem;font-weight:600;">—</div>
+              <div style="font-size:0.78rem;color:var(--text-secondary);">~ ${estPrice} €</div>
+            </div>
+            <button class="btn btn-sm btn-danger lz-detail-session-stop-btn" data-device-id="${esc(s.device_id)}" data-session-id="${s.id}" style="padding:6px 12px;font-size:0.8rem;">Beenden</button>
+          </div>
+        </div>
+      `;
+    }).join(''));
+    parts.push('</div>');
+  }
+
+  if (completed.length) {
+    parts.push('<div><h3 style="font-size:0.95rem;margin:0 0 8px;color:var(--text-secondary);">Abgeschlossen</h3>');
+    parts.push(completed.map(s => {
+      const startStr = s.start_time ? new Date(s.start_time).toLocaleString() : '—';
+      const endStr = s.end_time ? new Date(s.end_time).toLocaleString() : '—';
+      const dur = s.duration_seconds != null
+        ? (s.duration_seconds >= 3600
+            ? `${Math.floor(s.duration_seconds / 3600)}h ${Math.floor((s.duration_seconds % 3600) / 60)}m`
+            : `${Math.floor(s.duration_seconds / 60)}m ${s.duration_seconds % 60}s`)
+        : '—';
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:6px;background:var(--bg-secondary, #1e1e1e);opacity:0.85;">
+          <div>
+            <div style="font-weight:600;font-size:0.9rem;">${esc(s.device_name || s.device_id)}</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary);">${startStr} → ${endStr}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:monospace;font-size:0.95rem;">${dur}</div>
+            ${s.calculated_price != null ? `<div style="font-size:0.82rem;color:var(--success);">${s.calculated_price.toFixed(2)} €</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join(''));
+    parts.push('</div>');
+  }
+
+  container.innerHTML = parts.join('');
+
+  // Stop buttons for active sessions
+  container.querySelectorAll('.lz-detail-session-stop-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const deviceId = btn.dataset.deviceId;
+      const sessionId = btn.dataset.sessionId;
+      if (!confirm('Gerätesitzung beenden und abrechnen?')) return;
+      try {
+        const stopRes = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/sessions/${sessionId}/stop`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (stopRes.ok) {
+          loadDeviceSessions();
+          loadDetail();
+        } else {
+          const err = await stopRes.json();
+          alert('Fehler: ' + (err.detail || 'Beenden fehlgeschlagen'));
+        }
+      } catch (e) {
+        alert('Fehler beim Beenden der Sitzung');
+      }
+    });
+  });
+}
+
+// Live duration counter for admin detail sessions
+setInterval(() => {
+  document.querySelectorAll('.lz-detail-session-duration').forEach(el => {
+    const startMs = parseFloat(el.dataset.startMs);
+    if (isNaN(startMs)) return;
+    const elapsed = Math.floor((Date.now() - startMs) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = Math.floor(elapsed % 60);
+    el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+  });
+}, 1000);
 
 document.getElementById("delete-lz-close").addEventListener("click", closeDeleteModal);
 document.getElementById("delete-lz-cancel").addEventListener("click", closeDeleteModal);

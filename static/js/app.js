@@ -2,10 +2,20 @@
 
 const API_BASE = '';
 
+function esc(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboardStats();
+    loadActiveSessions();
     checkDbHealth();
     setInterval(loadDashboardStats, 10000);
+    setInterval(loadActiveSessions, 10000);
 });
 
 async function loadDashboardStats() {
@@ -73,6 +83,97 @@ function updateStatusIndicator(name, statusData) {
         message.title = statusData.message || '';
     }
 }
+
+// ── Active Device Sessions ─────────────────────────────────────
+
+async function loadActiveSessions() {
+    try {
+        const response = await fetch('/api/dashboard/active-sessions');
+        if (!response.ok) return;
+        const data = await response.json();
+        renderActiveSessions(data.active_sessions || []);
+    } catch (error) {
+        console.error('Failed to load active sessions:', error);
+    }
+}
+
+function renderActiveSessions(sessions) {
+    const section = document.getElementById('active-sessions-section');
+    const container = document.getElementById('active-sessions-container');
+    const countEl = document.getElementById('active-sessions-count');
+    if (!section || !container) return;
+
+    if (!sessions.length) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+    if (countEl) countEl.textContent = `${sessions.length} aktiv`;
+
+    container.innerHTML = sessions.map(s => {
+        const startMs = new Date(s.start_time).getTime();
+        const priceSuffix = s.pricing_model === 'per_hour' ? '/h' : '/min';
+        const estPrice = s.unit_price != null
+            ? (s.pricing_model === 'per_hour'
+                ? ((Date.now() - startMs) / 3600000 * s.unit_price)
+                : ((Date.now() - startMs) / 60000 * s.unit_price)
+            ).toFixed(2)
+            : '—';
+        return `
+            <div class="device-session-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:8px;background:var(--card-bg, #2a2a2a);">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:0.95rem;">${esc(s.device_name || s.device_id)}</div>
+                    ${s.owner_name ? `<div style="color:var(--text-secondary);font-size:0.85rem;">${esc(s.owner_name)}</div>` : ''}
+                    ${s.variante_name ? `<div style="color:var(--text-secondary);font-size:0.8rem;">${esc(s.variante_name)} ${s.unit_price != null ? `— ${s.unit_price.toFixed(2)}€${priceSuffix}` : ''}</div>` : ''}
+                    <div style="font-size:0.8rem;color:var(--text-secondary);">Gestartet: ${new Date(s.start_time).toLocaleTimeString()}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                    <div style="text-align:right;">
+                        <div class="dash-session-duration" data-start-ms="${startMs}" style="font-family:monospace;font-size:1rem;font-weight:600;">—</div>
+                        <div style="font-size:0.78rem;color:var(--text-secondary);">~ ${estPrice} €</div>
+                    </div>
+                    <button class="btn btn-sm btn-danger dash-session-stop-btn" data-device-id="${esc(s.device_id)}" data-session-id="${s.id}" style="padding:6px 12px;font-size:0.8rem;">Beenden</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.dash-session-stop-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const deviceId = btn.dataset.deviceId;
+            const sessionId = btn.dataset.sessionId;
+            if (!confirm('Gerätesitzung beenden und abrechnen?')) return;
+            try {
+                const stopRes = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/sessions/${sessionId}/stop`, {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+                if (stopRes.ok) {
+                    loadActiveSessions();
+                } else {
+                    const err = await stopRes.json();
+                    alert('Fehler: ' + (err.detail || 'Beenden fehlgeschlagen'));
+                }
+            } catch (e) {
+                alert('Fehler beim Beenden der Sitzung');
+            }
+        });
+    });
+}
+
+// Live duration counter for dashboard sessions
+setInterval(() => {
+    document.querySelectorAll('.dash-session-duration').forEach(el => {
+        const startMs = parseFloat(el.dataset.startMs);
+        if (isNaN(startMs)) return;
+        const elapsed = Math.floor((Date.now() - startMs) / 1000);
+        const h = Math.floor(elapsed / 3600);
+        const m = Math.floor((elapsed % 3600) / 60);
+        const s = Math.floor(elapsed % 60);
+        el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+    });
+}, 1000);
 
 async function checkDbHealth() {
     const tiles = document.querySelectorAll('.db-tile');

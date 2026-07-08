@@ -437,6 +437,119 @@ async def get_db_health():
     return {"databases": results}
 
 
+@router.get("/api/dashboard/active-sessions")
+async def get_active_sessions(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Get all currently active device sessions across all devices."""
+    from backend.auth.dependencies import is_admin_verified
+
+    if not is_admin_verified(request):
+        raise HTTPException(status_code=403, detail="Admin verification required")
+
+    from backend.laufzettel.db import SessionLocal as LaufzettelSession
+    from backend.laufzettel.models import DeviceSession
+
+    lauf_db = LaufzettelSession()
+    try:
+        active = (
+            lauf_db.query(DeviceSession)
+            .filter(DeviceSession.is_active == 1)
+            .order_by(DeviceSession.start_time.desc())
+            .all()
+        )
+    finally:
+        lauf_db.close()
+
+    # Enrich with device names from core DB
+    device_ids = {s.device_id for s in active}
+    device_names: dict[str, str] = {}
+    if device_ids:
+        core_devices = db.query(Device).filter(Device.device_id.in_(device_ids)).all()
+        for d in core_devices:
+            device_names[d.device_id] = d.name or d.device_id
+
+    # Enrich with member names from members DB
+    mitglied_ids = {s.mitglied_id for s in active if s.mitglied_id}
+    mitglied_names: dict[int, str] = {}
+    if mitglied_ids:
+        try:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import Mitglied
+
+            members_db = MembersSession()
+            try:
+                for m in (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.id.in_(mitglied_ids))
+                    .all()
+                ):
+                    mitglied_names[m.id] = m.name
+            finally:
+                members_db.close()
+        except Exception:
+            pass
+
+    # Enrich with variante pricing info from catalog DB
+    variante_ids = {s.variante_id for s in active}
+    variante_info: dict[int, dict] = {}
+    if variante_ids:
+        try:
+            from backend.catalog.db import SessionLocal as CatalogSession
+            from backend.catalog.models import MaterialVariante
+
+            cat_db = CatalogSession()
+            try:
+                for v in (
+                    cat_db.query(MaterialVariante)
+                    .filter(MaterialVariante.id.in_(variante_ids))
+                    .all()
+                ):
+                    variante_info[v.id] = {
+                        "name": v.name,
+                        "price": v.price,
+                        "pricing_model": v.pricing_model,
+                    }
+            finally:
+                cat_db.close()
+        except Exception:
+            pass
+
+    # Also enrich with laufzettel owner names for guests
+    laufzettel_ids = {s.laufzettel_id for s in active}
+    lz_owners: dict[int, str] = {}
+    if laufzettel_ids:
+        lauf_db2 = LaufzettelSession()
+        try:
+            from backend.laufzettel.models import Laufzettel
+
+            for lz in (
+                lauf_db2.query(Laufzettel)
+                .filter(Laufzettel.id.in_(laufzettel_ids))
+                .all()
+            ):
+                if lz.owner_name:
+                    lz_owners[lz.id] = lz.owner_name
+        finally:
+            lauf_db2.close()
+
+    sessions = []
+    for s in active:
+        d = s.to_dict()
+        d["device_name"] = device_names.get(s.device_id, s.device_id)
+        d["variante_name"] = variante_info.get(s.variante_id, {}).get("name")
+        d["unit_price"] = variante_info.get(s.variante_id, {}).get("price")
+        d["pricing_model"] = variante_info.get(s.variante_id, {}).get("pricing_model")
+        if s.mitglied_id and mitglied_names.get(s.mitglied_id):
+            d["owner_name"] = mitglied_names[s.mitglied_id]
+        else:
+            d["owner_name"] = lz_owners.get(s.laufzettel_id)
+        sessions.append(d)
+
+    return {"active_sessions": sessions}
+
+
 @router.get("/api/devices")
 async def get_devices(db: Session = Depends(get_db)):
     """List all known devices"""

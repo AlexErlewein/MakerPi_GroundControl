@@ -2564,3 +2564,109 @@ async def stop_device_session(
         db.commit()
 
     return result
+
+
+@router.get("/api/laufzettel/{laufzettel_id}/sessions")
+async def get_laufzettel_sessions(
+    laufzettel_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """List all device sessions (active + completed) for a specific Laufzettel."""
+    from backend.auth.dependencies import check_auth
+
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    sessions = (
+        db.query(DeviceSession)
+        .filter(DeviceSession.laufzettel_id == laufzettel_id)
+        .order_by(DeviceSession.start_time.desc())
+        .all()
+    )
+
+    # Enrich with device names from core DB
+    device_ids = {s.device_id for s in sessions}
+    device_names: dict[str, str] = {}
+    if device_ids:
+        try:
+            from backend.core.db import SessionLocal as CoreSession
+            from backend.core.models import Device
+
+            core_db = CoreSession()
+            try:
+                for d in (
+                    core_db.query(Device).filter(Device.device_id.in_(device_ids)).all()
+                ):
+                    device_names[d.device_id] = d.name or d.device_id
+            finally:
+                core_db.close()
+        except Exception:
+            pass
+
+    # Enrich with member names from members DB
+    mitglied_ids = {s.mitglied_id for s in sessions if s.mitglied_id}
+    mitglied_names: dict[int, str] = {}
+    if mitglied_ids:
+        try:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import Mitglied
+
+            members_db = MembersSession()
+            try:
+                for m in (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.id.in_(mitglied_ids))
+                    .all()
+                ):
+                    mitglied_names[m.id] = m.name
+            finally:
+                members_db.close()
+        except Exception:
+            pass
+
+    # Enrich with variante pricing info from catalog DB
+    variante_ids = {s.variante_id for s in sessions}
+    variante_info: dict[int, dict] = {}
+    if variante_ids:
+        try:
+            from backend.catalog.db import SessionLocal as CatalogSession
+            from backend.catalog.models import MaterialVariante
+
+            cat_db = CatalogSession()
+            try:
+                for v in (
+                    cat_db.query(MaterialVariante)
+                    .filter(MaterialVariante.id.in_(variante_ids))
+                    .all()
+                ):
+                    variante_info[v.id] = {
+                        "name": v.name,
+                        "price": v.price,
+                        "pricing_model": v.pricing_model,
+                    }
+            finally:
+                cat_db.close()
+        except Exception:
+            pass
+
+    active_list = []
+    completed_list = []
+    for s in sessions:
+        d = s.to_dict()
+        d["device_name"] = device_names.get(s.device_id, s.device_id)
+        d["variante_name"] = variante_info.get(s.variante_id, {}).get("name")
+        d["unit_price"] = variante_info.get(s.variante_id, {}).get("price")
+        d["pricing_model"] = variante_info.get(s.variante_id, {}).get("pricing_model")
+        if s.mitglied_id and mitglied_names.get(s.mitglied_id):
+            d["owner_name"] = mitglied_names[s.mitglied_id]
+
+        if s.is_active:
+            active_list.append(d)
+        else:
+            completed_list.append(d)
+
+    return {
+        "active": active_list,
+        "completed": completed_list,
+    }
