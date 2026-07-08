@@ -102,13 +102,27 @@ async function loadMessages(topicFilter) {
             return;
         }
 
-        container.innerHTML = messages.map(msg => `
+        container.innerHTML = messages.map(msg => {
+            let badge = '';
+            if (msg.pairing_status) {
+                const name = msg.pairing_name ? escapeHtml(msg.pairing_name) : '';
+                if (msg.pairing_status === 'member') {
+                    badge = `<span class="pairing-badge pairing-member" title="${name}">✓ Member</span>`;
+                } else if (msg.pairing_status === 'guest') {
+                    const lzId = msg.pairing_laufzettel_id ? ' #' + msg.pairing_laufzettel_id : '';
+                    badge = `<span class="pairing-badge pairing-guest" title="${name}">👥 Guest${lzId}</span>`;
+                } else {
+                    badge = `<span class="pairing-badge pairing-unpaired">⚠ Unpaired</span>`;
+                }
+            }
+            return `
             <div class="message">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 <span class="message-topic">${escapeHtml(msg.topic)}</span>
+                ${badge}
                 <div class="message-payload">${escapeHtml(msg.payload)}</div>
             </div>
-        `).join('');
+        `}).join('');
     } catch (error) {
         console.error('Failed to load messages:', error);
     }

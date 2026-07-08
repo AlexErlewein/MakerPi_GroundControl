@@ -663,12 +663,103 @@ async def delete_device(
 async def get_messages(
     limit: int = 100, topic: Optional[str] = None, db: Session = Depends(get_db)
 ):
-    """List recent MQTT messages"""
+    """List recent MQTT messages, with pairing status for scan messages"""
     q = db.query(MQTTMessage)
     if topic:
         q = q.filter(MQTTMessage.topic.like(f"%{topic}%"))
     messages = q.order_by(MQTTMessage.timestamp.desc()).limit(limit).all()
-    return [m.to_dict() for m in messages]
+    results = [m.to_dict() for m in messages]
+
+    # Enrich scan messages with card pairing status
+    uid_to_results: dict[str, list] = {}
+    for r in results:
+        msg_topic = r.get("topic", "")
+        if msg_topic.endswith("/scan") or msg_topic.endswith("/tag"):
+            try:
+                payload = json.loads(r["payload"])
+                uid = payload.get("uid", "").upper()
+                if uid:
+                    uid_to_results.setdefault(uid, []).append(r)
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass
+
+    if uid_to_results:
+        uids = set(uid_to_results.keys())
+        uid_status: dict[str, dict] = {}
+        registered: set[str] = set()
+
+        # Check members.db for registered member cards
+        try:
+            from backend.members.db import SessionLocal as MembersSession
+            from backend.members.models import Mitglied
+            from backend.members.models import RFIDTag as MRFIDTag
+
+            members_db = MembersSession()
+            try:
+                for m in (
+                    members_db.query(Mitglied).filter(Mitglied.nfc_uid.in_(uids)).all()
+                ):
+                    registered.add(m.nfc_uid)
+                    uid_status[m.nfc_uid] = {"status": "member", "name": m.name}
+                remaining = uids - registered
+                if remaining:
+                    for tag in (
+                        members_db.query(MRFIDTag)
+                        .filter(MRFIDTag.uid.in_(remaining), MRFIDTag.active == 1)
+                        .all()
+                    ):
+                        registered.add(tag.uid)
+                        uid_status[tag.uid] = {
+                            "status": "member",
+                            "name": tag.owner_name,
+                        }
+            finally:
+                members_db.close()
+        except Exception:
+            pass
+
+        # Check laufzettel.db for guest-paired cards (only unregistered UIDs)
+        unregistered = uids - registered
+        if unregistered:
+            try:
+                from backend.laufzettel.db import SessionLocal as LaufzettelSession
+                from backend.laufzettel.models import Laufzettel
+
+                lauf_db = LaufzettelSession()
+                try:
+                    for lz in (
+                        lauf_db.query(Laufzettel)
+                        .filter(
+                            Laufzettel.guest_nfc_uid.in_(unregistered),
+                            Laufzettel.payment_method.is_(None),
+                            Laufzettel.deleted_at.is_(None),
+                        )
+                        .all()
+                    ):
+                        uid_status[lz.guest_nfc_uid] = {
+                            "status": "guest",
+                            "name": lz.owner_name,
+                            "laufzettel_id": lz.id,
+                        }
+                finally:
+                    lauf_db.close()
+            except Exception:
+                pass
+
+        # Apply status to all scan message results
+        for uid, info in uid_status.items():
+            for r in uid_to_results.get(uid, []):
+                r["pairing_status"] = info["status"]
+                r["pairing_name"] = info.get("name")
+                if "laufzettel_id" in info:
+                    r["pairing_laufzettel_id"] = info["laufzettel_id"]
+        # Mark remaining unregistered UIDs as unpaired
+        for uid in unregistered:
+            if uid not in uid_status:
+                for r in uid_to_results.get(uid, []):
+                    r["pairing_status"] = "unpaired"
+
+    return results
 
 
 @router.get("/api/messages/stats")
