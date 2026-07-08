@@ -111,10 +111,13 @@ function renderInfo() {
     document.getElementById("view-guest-address").textContent = d.guest_address || "-";
     nfcItem.classList.remove("hidden");
     const nfcEl = document.getElementById("view-guest-nfc");
+    const canEdit = !d.payment_method;
     if (d.guest_nfc_uid) {
-      nfcEl.innerHTML = `<code class="uid">${esc(d.guest_nfc_uid)}</code> <span style="color: var(--success);">✅</span>`;
+      nfcEl.innerHTML = `<code class="uid">${esc(d.guest_nfc_uid)}</code> <span style="color: var(--success);">✅</span>` +
+        (canEdit ? ` <button type="button" class="btn btn-secondary btn-sm" onclick="removeGuestNfc()">Entfernen</button>` : "");
     } else {
-      nfcEl.innerHTML = '<span style="color: var(--text-secondary);">Nicht verknüpft</span>';
+      nfcEl.innerHTML = '<span style="color: var(--text-secondary);">Nicht verknüpft</span>' +
+        (canEdit ? ` <button type="button" class="btn btn-secondary btn-sm" id="view-nfc-scan-btn" onclick="startGuestNfcScan('view')">📡 Scannen</button>` : "");
     }
   } else {
     emailItem.classList.add("hidden");
@@ -364,7 +367,8 @@ document.getElementById("edit-info-btn").addEventListener("click", () => {
   // Guest fields (only visible for guest laufzettel)
   document.getElementById("edit-guest-email").value = d.guest_email || "";
   document.getElementById("edit-guest-address").value = d.guest_address || "";
-  document.getElementById("edit-guest-nfc").value = d.guest_nfc_uid || "";
+  pendingGuestNfcUid = d.guest_nfc_uid || null;
+  updateEditNfcDisplay();
   document.getElementById("guest-edit-fields").style.display = d.guest_id ? "" : "none";
   document.getElementById("info-view").classList.add("hidden");
   document.getElementById("info-edit-form").classList.remove("hidden");
@@ -393,7 +397,7 @@ document.getElementById("info-edit-form").addEventListener("submit", async (e) =
   if (currentData.guest_id) {
     body.guest_email = document.getElementById("edit-guest-email").value.trim();
     body.guest_address = document.getElementById("edit-guest-address").value.trim();
-    body.guest_nfc_uid = document.getElementById("edit-guest-nfc").value.trim();
+    body.guest_nfc_uid = pendingGuestNfcUid || "";
   }
 
   const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
@@ -410,6 +414,127 @@ document.getElementById("info-edit-form").addEventListener("submit", async (e) =
     alert("Error: " + (err.detail || "Failed to save"));
   }
 });
+
+// ── Guest NFC tag scanning ────────────────────────────────────
+
+let pendingGuestNfcUid = null;
+let nfcScanSource = null;
+let nfcScanMode = null; // "view" or "edit"
+
+function updateEditNfcDisplay() {
+  const statusEl = document.getElementById("edit-guest-nfc-status");
+  const btn = document.getElementById("edit-guest-nfc-scan-btn");
+  if (!statusEl) return;
+  if (pendingGuestNfcUid) {
+    statusEl.innerHTML = `<code class="uid">${esc(pendingGuestNfcUid)}</code> ✅`;
+    statusEl.style.color = "var(--success)";
+    btn.textContent = "📡 Neu scannen";
+  } else {
+    statusEl.textContent = "Nicht verknüpft";
+    statusEl.style.color = "var(--text-secondary)";
+    btn.textContent = "📡 Tag scannen";
+  }
+}
+
+function startGuestNfcScan(mode) {
+  nfcScanMode = mode;
+  if (nfcScanSource) nfcScanSource.close();
+  nfcScanSource = new EventSource("/api/scans/stream");
+
+  // Update button states to show "scanning" feedback
+  if (mode === "view") {
+    const btn = document.getElementById("view-nfc-scan-btn");
+    if (btn) {
+      btn.textContent = "📡 Warte auf Tag…";
+      btn.disabled = true;
+    }
+  } else {
+    const statusEl = document.getElementById("edit-guest-nfc-status");
+    const btn = document.getElementById("edit-guest-nfc-scan-btn");
+    if (statusEl) {
+      statusEl.textContent = "📡 Warte auf Tag…";
+      statusEl.style.color = "var(--accent)";
+    }
+    if (btn) btn.disabled = true;
+  }
+
+  nfcScanSource.addEventListener("scan", function (event) {
+    try {
+      const data = JSON.parse(event.data);
+      if (data && data.uid) {
+        stopGuestNfcScan();
+        handleGuestNfcScan(data.uid);
+      }
+    } catch (e) {
+      console.error("[NFC-SCAN] Parse error:", e);
+    }
+  });
+
+  nfcScanSource.addEventListener("timeout", function () {
+    stopGuestNfcScan();
+    if (mode === "view") renderInfo();
+    else updateEditNfcDisplay();
+  });
+
+  nfcScanSource.onerror = function () {
+    // EventSource auto-reconnects; keep alive
+  };
+}
+
+function stopGuestNfcScan() {
+  if (nfcScanSource) {
+    nfcScanSource.close();
+    nfcScanSource = null;
+  }
+  const viewBtn = document.getElementById("view-nfc-scan-btn");
+  if (viewBtn) viewBtn.disabled = false;
+  const editBtn = document.getElementById("edit-guest-nfc-scan-btn");
+  if (editBtn) editBtn.disabled = false;
+}
+
+async function handleGuestNfcScan(uid) {
+  if (nfcScanMode === "edit") {
+    pendingGuestNfcUid = uid;
+    updateEditNfcDisplay();
+    return;
+  }
+
+  // View mode: save immediately
+  const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_nfc_uid: uid }),
+  });
+  if (res.ok) {
+    currentData = await res.json();
+    renderInfo();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    alert("Fehler: " + (err.detail || "Tag konnte nicht verknüpft werden"));
+    renderInfo();
+  }
+}
+
+async function removeGuestNfc() {
+  const res = await fetch(`/api/laufzettel/${LAUFZETTEL_ID}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_nfc_uid: "" }),
+  });
+  if (res.ok) {
+    currentData = await res.json();
+    renderInfo();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    alert("Fehler: " + (err.detail || "Tag konnte nicht entfernt werden"));
+  }
+}
+
+document.getElementById("edit-guest-nfc-scan-btn").addEventListener("click", () => {
+  startGuestNfcScan("edit");
+});
+
+window.addEventListener("beforeunload", stopGuestNfcScan);
 
 // ── Material modal ───────────────────────────────────────────
 
