@@ -54,6 +54,8 @@ def should_store_message(topic: str) -> bool:
     """Return False for heartbeat/availability/status noise, True for meaningful messages."""
     if topic.startswith("zigbee2mqtt"):
         return False
+    if topic.startswith("groundcontrol/"):
+        return False
     if "/heartbeat" in topic or "/availability" in topic:
         return False
     if "/status" in topic:
