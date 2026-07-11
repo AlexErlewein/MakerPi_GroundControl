@@ -298,7 +298,7 @@ body {
 
 .docs-content {
     min-width: 0;
-    max-width: 1200px;
+    max-width: var(--content-max-width);
     font-size: 0.975rem;
     line-height: 1.75;
 }
