@@ -50,8 +50,10 @@ body {
 
 .container {
     max-width: var(--content-max-width);
+    width: 100%;
     margin: 0 auto;
     padding: 20px;
+    align-self: center;
 }
 
 /* Header */
