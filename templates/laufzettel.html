@@ -88,15 +88,36 @@ title %}Laufzettel - MakerPi GroundControl{% endblock %} {% block extra_css %}
             <button class="modal-close" id="new-lz-close">✕</button>
         </div>
         <form id="new-lz-form">
+            <div class="form-group lz-name-group">
+                <label for="new-lz-owner">Name</label>
+                <div class="lz-name-row">
+                    <input
+                        type="text"
+                        id="new-lz-owner"
+                        placeholder="Name eingeben und Mitglied suchen …"
+                        autocomplete="off"
+                    />
+                    <span class="lz-mode-badge" id="new-lz-mode-badge" style="display:none;"></span>
+                </div>
+                <div class="lz-search-results hidden" id="new-lz-search-results"></div>
+                <small
+                    id="new-lz-guest-hint"
+                    class="lz-guest-hint"
+                    style="display:none;"
+                >Kein Mitglied gefunden — <a href="#" id="new-lz-force-guest">als Gast anlegen</a></small>
+                <a href="#" id="new-lz-switch-guest" class="lz-switch-link">Als Gast anlegen</a>
+            </div>
             <div class="form-group">
                 <label for="new-lz-uid">Tag UID</label>
-                <input
-                    type="text"
-                    id="new-lz-uid"
-                    placeholder="z.B. 9CF22507"
-                    required
-                    autocomplete="off"
-                />
+                <div class="lz-uid-row">
+                    <input
+                        type="text"
+                        id="new-lz-uid"
+                        placeholder="z.B. 9CF22507"
+                        autocomplete="off"
+                    />
+                    <button type="button" class="btn btn-secondary btn-sm" id="new-lz-uid-scan">📡 Scannen</button>
+                </div>
                 <datalist id="uid-suggestions"></datalist>
                 <small
                     id="new-lz-tag-hint"
@@ -108,39 +129,28 @@ title %}Laufzettel - MakerPi GroundControl{% endblock %} {% block extra_css %}
                 <input type="date" id="new-lz-date" required />
             </div>
             <div class="form-group">
-                <label for="new-lz-member-select"
-                    >Mitglied auswählen
-                    <span class="optional">(optional)</span></label
-                >
-                <select id="new-lz-member-select">
-                    <option value="">— Manuell eingeben —</option>
-                </select>
+                <label for="new-lz-start">Start-Zeit</label>
+                <input type="time" id="new-lz-start" />
             </div>
-            <div class="form-group">
-                <label for="new-lz-owner"
-                    >Name <span class="optional">(optional)</span></label
-                >
-                <input
-                    type="text"
-                    id="new-lz-owner"
-                    placeholder="Wird aus Tag oder Mitglied übernommen"
-                />
-            </div>
-            <div class="form-group">
-                <label for="new-lz-member-id"
-                    >Member ID <span class="optional">(optional)</span></label
-                >
-                <input
-                    type="text"
-                    id="new-lz-member-id"
-                    placeholder="z.B. M-001"
-                />
-            </div>
-            <div class="form-group">
-                <label for="new-lz-start"
-                    >Start-Zeit <span class="optional">(optional)</span></label
-                >
-                <input type="datetime-local" id="new-lz-start" />
+            <div class="lz-guest-fields hidden" id="new-lz-guest-fields">
+                <div class="form-group">
+                    <label for="new-lz-guest-address">Adresse</label>
+                    <textarea id="new-lz-guest-address" rows="2" placeholder="Straße, PLZ Ort"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="new-lz-guest-email"
+                        >E-Mail <span class="optional">(optional)</span></label
+                    >
+                    <input type="email" id="new-lz-guest-email" />
+                </div>
+                <div class="form-group">
+                    <label>Gästetag</label>
+                    <div class="lz-guest-nfc-row">
+                        <span id="new-lz-guest-nfc-status" class="lz-nfc-status">Nicht verknüpft</span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="new-lz-guest-nfc-scan">📡 Gästetag scannen</button>
+                        <button type="button" class="btn btn-danger btn-sm hidden" id="new-lz-guest-nfc-remove">Entfernen</button>
+                    </div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button
@@ -156,5 +166,5 @@ title %}Laufzettel - MakerPi GroundControl{% endblock %} {% block extra_css %}
     </div>
 </div>
 {% endblock %} {% block extra_js %}
-<script src="/static/js/laufzettel.js?v=4"></script>
+<script src="/static/js/laufzettel.js?v=5"></script>
 {% endblock %}

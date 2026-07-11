@@ -150,11 +150,16 @@ def _schedule_receipt_email(
 
 
 class LaufzettelCreate(BaseModel):
-    uid: str
+    uid: Optional[str] = None  # NFC tag UID; optional (guests get generated uid)
     date: Optional[str] = None  # ISO date string
     owner_name: Optional[str] = None
     member_id: Optional[str] = None
     start: Optional[str] = None  # ISO datetime
+    mitglied_db_id: Optional[int] = None  # admin selected a specific member
+    is_guest: bool = False
+    guest_address: Optional[str] = None
+    guest_email: Optional[str] = None
+    guest_nfc_uid: Optional[str] = None  # pre-scanned guest tag (optional)
 
 
 class LaufzettelUpdate(BaseModel):
@@ -252,11 +257,13 @@ async def laufzettel_detail_page(
 
 @router.post("/api/laufzettel")
 async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db)):
-    """Manually create a new Laufzettel entry"""
+    """Manually create a new Laufzettel entry (member or guest)"""
+    import secrets
+    import uuid
     from datetime import date as dt_date
     from datetime import datetime
 
-    uid = data.uid.upper()
+    # Parse date
     if data.date:
         try:
             entry_date = dt_date.fromisoformat(data.date)
@@ -267,6 +274,77 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
             )
     else:
         entry_date = dt_date.today()
+
+    # Parse start time
+    start_dt = None
+    if data.start:
+        try:
+            start_dt = datetime.fromisoformat(data.start)
+        except ValueError:
+            return JSONResponse(
+                status_code=400, content={"detail": "Invalid start datetime format"}
+            )
+
+    # ── Guest branch ──────────────────────────────────────────────────────
+    if data.is_guest:
+        if not data.owner_name or not data.owner_name.strip():
+            return JSONResponse(
+                status_code=400, content={"detail": "Name is required for a guest Laufzettel"}
+            )
+        if not data.guest_address or not data.guest_address.strip():
+            return JSONResponse(
+                status_code=400, content={"detail": "Address is required for a guest Laufzettel"}
+            )
+
+        guest_id = str(uuid.uuid4())
+        guest_uid = f"GUEST-{secrets.token_hex(3).upper()}"
+
+        guest_nfc_uid = None
+        if data.guest_nfc_uid:
+            guest_nfc_uid = data.guest_nfc_uid.strip().upper()
+            # Reject if the tag is already linked to another open guest sheet
+            existing_tag = (
+                db.query(Laufzettel)
+                .filter(
+                    Laufzettel.guest_nfc_uid == guest_nfc_uid,
+                    Laufzettel.payment_method.is_(None),
+                    Laufzettel.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if existing_tag:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "detail": "NFC tag already linked to another open guest Laufzettel"
+                    },
+                )
+
+        lz = Laufzettel(
+            uid=guest_uid,
+            date=entry_date,
+            start=start_dt,
+            owner_name=data.owner_name.strip(),
+            guest_id=guest_id,
+            guest_email=(data.guest_email.strip() if data.guest_email else None),
+            guest_address=data.guest_address.strip(),
+            guest_nfc_uid=guest_nfc_uid,
+            nodes=json.dumps([]),
+        )
+        db.add(lz)
+        db.commit()
+        db.refresh(lz)
+        d = lz.to_dict()
+        d["material"] = []
+        return d
+
+    # ── Member branch ─────────────────────────────────────────────────────
+    uid = (data.uid or "").upper()
+    if not uid:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Tag UID is required for a member Laufzettel"},
+        )
 
     existing_open = (
         db.query(Laufzettel)
@@ -286,15 +364,6 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
             },
         )
 
-    start_dt = None
-    if data.start:
-        try:
-            start_dt = datetime.fromisoformat(data.start)
-        except ValueError:
-            return JSONResponse(
-                status_code=400, content={"detail": "Invalid start datetime format"}
-            )
-
     # Auto-resolve owner_name and mitglied_id from Mitglied.nfc_uid if not provided
     resolved_mitglied_id = data.member_id  # keep string member_id for legacy
     resolved_mitglied_db_id = None
@@ -305,6 +374,20 @@ async def create_laufzettel(data: LaufzettelCreate, db: Session = Depends(get_db
 
         members_db = MembersSession()
         try:
+            # An explicitly selected member takes priority (covers cardless members)
+            if data.mitglied_db_id:
+                sel = (
+                    members_db.query(Mitglied)
+                    .filter(Mitglied.id == data.mitglied_db_id)
+                    .first()
+                )
+                if sel:
+                    resolved_mitglied_db_id = sel.id
+                    if not resolved_owner_name:
+                        resolved_owner_name = sel.name
+                    if not resolved_mitglied_id:
+                        resolved_mitglied_id = sel.member_id
+
             mitglied = (
                 members_db.query(Mitglied).filter(Mitglied.nfc_uid == uid).first()
             )

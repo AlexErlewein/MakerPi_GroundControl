@@ -1,22 +1,17 @@
 let allEntries = [];
 let allTags = [];
-let allMitglieder = [];
 
-async function loadMitglieder() {
-  try {
-    const res = await fetch("/api/mitglieder?status=active");
-    allMitglieder = await res.json();
-    const sel = document.getElementById("new-lz-member-select");
-    sel.innerHTML = '<option value="">— Manuell eingeben —</option>';
-    allMitglieder.forEach((m) => {
-      const opt = document.createElement("option");
-      opt.value = m.id;
-      opt.textContent = m.name + (m.member_id ? " (" + m.member_id + ")" : "");
-      sel.appendChild(opt);
-    });
-  } catch (e) {
-    console.warn("loadMitglieder failed", e);
-  }
+// ---- New-Laufzettel modal state ----
+let currentMode = "member"; // "member" | "guest"
+let selectedMember = null; // { id, member_id, name, nfc_uid, ... }
+let guestNfcUid = null; // scanned guest tag uid (string|null)
+
+function debounce(fn, wait) {
+  let t;
+  return function (...args) {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, args), wait);
+  };
 }
 
 async function loadTags() {
@@ -158,67 +153,343 @@ function formatTime(iso) {
   return d.toLocaleTimeString();
 }
 
+// ---- Local date/time helpers (avoid UTC off-by-one) ----
+function localDateStr(d) {
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
+}
+function localTimeStr(d) {
+  return (
+    String(d.getHours()).padStart(2, "0") +
+    ":" +
+    String(d.getMinutes()).padStart(2, "0")
+  );
+}
+
 // ---- Modal helpers ----
 function openNewLzModal() {
   document.getElementById("new-lz-form").reset();
   document.getElementById("new-lz-tag-hint").textContent = "";
   const now = new Date();
-  document.getElementById("new-lz-date").value = now.toISOString().slice(0, 10);
-  // Prefill datetime-local with current time (format: YYYY-MM-DDTHH:MM)
-  const localIso =
-    now.getFullYear() +
-    "-" +
-    String(now.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(now.getDate()).padStart(2, "0") +
-    "T" +
-    String(now.getHours()).padStart(2, "0") +
-    ":" +
-    String(now.getMinutes()).padStart(2, "0");
-  document.getElementById("new-lz-start").value = localIso;
-  document.getElementById("new-lz-member-select").value = "";
+  document.getElementById("new-lz-date").value = localDateStr(now);
+  document.getElementById("new-lz-start").value = localTimeStr(now);
+  // Reset mode + state
+  selectedMember = null;
+  guestNfcUid = null;
+  setMemberMode();
+  clearSearchResults();
+  updateGuestNfcDisplay();
   document.getElementById("new-lz-modal").classList.remove("hidden");
   // Defer focus so Safari has time to make the element interactable
   setTimeout(function () {
     try {
-      document.getElementById("new-lz-uid").focus();
+      document.getElementById("new-lz-owner").focus();
     } catch (e) {}
   }, 50);
 }
 
 function closeNewLzModal() {
   document.getElementById("new-lz-modal").classList.add("hidden");
+  if (nfcScanSource) {
+    nfcScanSource.close();
+    nfcScanSource = null;
+  }
 }
 
-// Auto-fill owner/member_id when a known UID is entered
+// ---- Mode switching (member vs guest) ----
+function setMemberMode() {
+  currentMode = "member";
+  document.getElementById("new-lz-guest-fields").classList.add("hidden");
+  const badge = document.getElementById("new-lz-mode-badge");
+  badge.style.display = "inline-block";
+  badge.textContent = "Mitglied";
+  badge.style.background = "var(--success)";
+  badge.style.color = "#fff";
+  document.getElementById("new-lz-switch-guest").style.display = "";
+}
+
+function setGuestMode() {
+  currentMode = "guest";
+  selectedMember = null;
+  document.getElementById("new-lz-guest-fields").classList.remove("hidden");
+  const badge = document.getElementById("new-lz-mode-badge");
+  badge.style.display = "inline-block";
+  badge.textContent = "Gast";
+  badge.style.background = "var(--warning)";
+  badge.style.color = "#fff";
+  document.getElementById("new-lz-switch-guest").style.display = "none";
+  clearSearchResults();
+  document.getElementById("new-lz-guest-hint").style.display = "none";
+}
+
+// ---- Live member search ----
+const doSearch = debounce(async (term) => {
+  const box = document.getElementById("new-lz-search-results");
+  if (currentMode === "guest") return;
+  if (!term || term.length < 2) {
+    clearSearchResults();
+    return;
+  }
+  try {
+    const res = await fetch(
+      "/api/mitglieder?status=active&search=" + encodeURIComponent(term),
+    );
+    const list = await res.json();
+    renderSearchResults(list);
+  } catch (e) {
+    console.warn("member search failed", e);
+    clearSearchResults();
+  }
+}, 300);
+
+function renderSearchResults(list) {
+  const box = document.getElementById("new-lz-search-results");
+  const hint = document.getElementById("new-lz-guest-hint");
+  if (!list || list.length === 0) {
+    clearSearchResults();
+    if (currentMode === "member") hint.style.display = "";
+    return;
+  }
+  hint.style.display = "none";
+  box.innerHTML = list
+    .slice(0, 8)
+    .map(
+      (m) =>
+        '<div class="lz-search-item" data-mid="' +
+        m.id +
+        '">' +
+        '<span class="lz-search-name">' +
+        esc(m.name) +
+        "</span>" +
+        '<span class="lz-search-meta">' +
+        (m.member_id ? esc(m.member_id) : "") +
+        (m.email ? " · " + esc(m.email) : "") +
+        "</span></div>",
+    )
+    .join("");
+  box.classList.remove("hidden");
+  Array.from(box.querySelectorAll(".lz-search-item")).forEach((el) => {
+    el.addEventListener("click", () => {
+      const mid = parseInt(el.getAttribute("data-mid"));
+      const m = list.find((x) => x.id === mid);
+      if (m) selectMember(m);
+    });
+  });
+}
+
+function clearSearchResults() {
+  const box = document.getElementById("new-lz-search-results");
+  box.innerHTML = "";
+  box.classList.add("hidden");
+}
+
+function selectMember(m) {
+  selectedMember = m;
+  setMemberMode();
+  document.getElementById("new-lz-owner").value = m.name;
+  document.getElementById("new-lz-uid").value = m.nfc_uid || "";
+  const hint = document.getElementById("new-lz-tag-hint");
+  if (m.nfc_uid) {
+    hint.textContent = "✓ NFC-UID aus Mitgliedskarte: " + m.nfc_uid;
+    hint.style.color = "var(--success)";
+  } else {
+    hint.textContent = "Keine Karte hinterlegt — bitte Tag scannen/eingeben.";
+    hint.style.color = "var(--warning)";
+  }
+  clearSearchResults();
+  document.getElementById("new-lz-guest-hint").style.display = "none";
+}
+
+// ---- NFC scan helper (SSE) ----
+let nfcScanSource = null;
+function scanNfc(onCaptured, onStatus) {
+  if (nfcScanSource) {
+    nfcScanSource.close();
+    nfcScanSource = null;
+  }
+  const url = "/api/scans/stream";
+  const src = new EventSource(url);
+  nfcScanSource = src;
+  if (onStatus) onStatus("Warte auf Scan …");
+  src.addEventListener("scan", (e) => {
+    const data = JSON.parse(e.data);
+    src.close();
+    nfcScanSource = null;
+    const uid = (data.uid || "").toUpperCase();
+    if (uid && onCaptured) onCaptured(uid);
+  });
+  src.addEventListener("timeout", () => {
+    src.close();
+    nfcScanSource = null;
+    if (onStatus) onStatus("Timeout – kein Scan empfangen.");
+  });
+  src.onerror = () => {
+    src.close();
+    nfcScanSource = null;
+    if (onStatus) onStatus("Verbindungsfehler beim Scan.");
+  };
+}
+
+// ---- Guest NFC tag capture ----
+function updateGuestNfcDisplay() {
+  const status = document.getElementById("new-lz-guest-nfc-status");
+  const removeBtn = document.getElementById("new-lz-guest-nfc-remove");
+  if (guestNfcUid) {
+    status.innerHTML =
+      '<code class="uid">' +
+      esc(guestNfcUid) +
+      '</code> <span style="color:var(--success);">✅</span>';
+    removeBtn.classList.remove("hidden");
+  } else {
+    status.innerHTML =
+      '<span style="color:var(--text-secondary);">Nicht verknüpft</span>';
+    removeBtn.classList.add("hidden");
+  }
+}
+
+// ---- Event wiring for the new modal ----
+document.getElementById("new-lz-owner").addEventListener("input", () => {
+  // Editing the name after a selection invalidates the selection
+  if (selectedMember) {
+    const cur = document.getElementById("new-lz-owner").value.trim();
+    if (cur !== selectedMember.name) {
+      selectedMember = null;
+      if (currentMode === "member") doSearch(cur);
+    }
+    return;
+  }
+  if (currentMode === "member") {
+    doSearch(document.getElementById("new-lz-owner").value.trim());
+  }
+});
+
+document.getElementById("new-lz-switch-guest").addEventListener("click", (e) => {
+  e.preventDefault();
+  setGuestMode();
+});
+document.getElementById("new-lz-force-guest").addEventListener("click", (e) => {
+  e.preventDefault();
+  setGuestMode();
+});
+
+document.getElementById("new-lz-uid-scan").addEventListener("click", () => {
+  const btn = document.getElementById("new-lz-uid-scan");
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "📡 Warte …";
+  scanNfc(
+    (uid) => {
+      document.getElementById("new-lz-uid").value = uid;
+      btn.disabled = false;
+      btn.textContent = orig;
+      // Trigger the existing uid hint logic
+      document.getElementById("new-lz-uid").dispatchEvent(new Event("input"));
+    },
+    (status) => {
+      btn.disabled = false;
+      btn.textContent = orig;
+      const hint = document.getElementById("new-lz-tag-hint");
+      hint.textContent = status;
+      hint.style.color = "var(--warning)";
+    },
+  );
+});
+
+// Auto-fill owner hint when a known UID is entered manually
 document.getElementById("new-lz-uid").addEventListener("input", () => {
   const uid = document.getElementById("new-lz-uid").value.trim().toUpperCase();
   const tag = allTags.find((t) => t.uid === uid);
   const hint = document.getElementById("new-lz-tag-hint");
   if (tag) {
-    document.getElementById("new-lz-owner").value = tag.owner_name || "";
-    document.getElementById("new-lz-member-id").value = tag.member_id || "";
-    hint.textContent = `✓ Bekannter Tag: ${tag.owner_name}`;
+    hint.textContent = "✓ Bekannter Tag: " + (tag.owner_name || "");
     hint.style.color = "var(--success)";
   } else if (uid.length > 0) {
-    hint.textContent =
-      "Unbekannter Tag — Name und Member ID bitte manuell eingeben.";
+    hint.textContent = "Unbekannter Tag.";
     hint.style.color = "var(--warning)";
   } else {
     hint.textContent = "";
   }
 });
 
+document.getElementById("new-lz-guest-nfc-scan").addEventListener("click", () => {
+  const btn = document.getElementById("new-lz-guest-nfc-scan");
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "📡 Warte …";
+  scanNfc(
+    (uid) => {
+      guestNfcUid = uid;
+      updateGuestNfcDisplay();
+      btn.disabled = false;
+      btn.textContent = orig;
+    },
+    (status) => {
+      btn.disabled = false;
+      btn.textContent = orig;
+      const el = document.getElementById("new-lz-guest-nfc-status");
+      el.innerHTML = '<span style="color:var(--warning);">' + esc(status) + "</span>";
+    },
+  );
+});
+document.getElementById("new-lz-guest-nfc-remove").addEventListener("click", () => {
+  guestNfcUid = null;
+  updateGuestNfcDisplay();
+});
+
 document.getElementById("new-lz-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const body = {
-    uid: document.getElementById("new-lz-uid").value.trim().toUpperCase(),
-    date: document.getElementById("new-lz-date").value || null,
-    owner_name: document.getElementById("new-lz-owner").value.trim() || null,
-    member_id: document.getElementById("new-lz-member-id").value.trim() || null,
-  };
-  const startVal = document.getElementById("new-lz-start").value;
-  if (startVal) body.start = new Date(startVal).toISOString();
+  const dateVal = document.getElementById("new-lz-date").value || null;
+  const owner = document.getElementById("new-lz-owner").value.trim();
+  const timeVal = document.getElementById("new-lz-start").value;
+  let startIso = null;
+  if (dateVal && timeVal) {
+    startIso = new Date(dateVal + "T" + timeVal).toISOString();
+  } else if (timeVal) {
+    startIso = new Date(localDateStr(new Date()) + "T" + timeVal).toISOString();
+  }
+
+  let body;
+  if (currentMode === "guest") {
+    if (!owner) {
+      alert("Bitte einen Namen eingeben.");
+      return;
+    }
+    const address = document
+      .getElementById("new-lz-guest-address")
+      .value.trim();
+    if (!address) {
+      alert("Bitte eine Adresse eingeben.");
+      return;
+    }
+    body = {
+      is_guest: true,
+      owner_name: owner,
+      guest_address: address,
+      guest_email: document.getElementById("new-lz-guest-email").value.trim() || null,
+      guest_nfc_uid: guestNfcUid || null,
+      date: dateVal,
+      start: startIso,
+    };
+  } else {
+    const uid = document.getElementById("new-lz-uid").value.trim().toUpperCase();
+    if (!uid) {
+      alert("Bitte eine Tag UID eingeben oder scannen.");
+      return;
+    }
+    body = {
+      uid: uid,
+      date: dateVal,
+      owner_name: owner || null,
+      member_id: selectedMember ? selectedMember.member_id || null : null,
+      mitglied_db_id: selectedMember ? selectedMember.id : null,
+      start: startIso,
+    };
+  }
 
   const res = await fetch("/api/laufzettel", {
     method: "POST",
@@ -261,24 +532,6 @@ document.getElementById("filter-name").addEventListener("keydown", (e) => {
   if (e.key === "Enter") loadLaufzettel();
 });
 
-document
-  .getElementById("new-lz-member-select")
-  .addEventListener("change", () => {
-    const sel = document.getElementById("new-lz-member-select");
-    const id = parseInt(sel.value);
-    if (!id) return;
-    const m = allMitglieder.find((x) => x.id === id);
-    if (!m) return;
-    document.getElementById("new-lz-owner").value = m.name;
-    document.getElementById("new-lz-member-id").value = m.member_id;
-    if (m.nfc_uid) {
-      document.getElementById("new-lz-uid").value = m.nfc_uid;
-      const hint = document.getElementById("new-lz-tag-hint");
-      hint.textContent = `✓ NFC-UID aus Mitgliedskarte: ${m.nfc_uid}`;
-      hint.style.color = "var(--success)";
-    }
-  });
-
 // ---- History / only-open toggle ----
 document.getElementById("history-btn").addEventListener("click", () => {
   if (mode === "history") {
@@ -306,6 +559,5 @@ document.getElementById("only-open-toggle").addEventListener("change", () => {
   loadLaufzettel();
 });
 
-loadMitglieder();
 loadTags();
 loadLaufzettel();
