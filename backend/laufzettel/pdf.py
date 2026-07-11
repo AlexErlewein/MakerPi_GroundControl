@@ -309,13 +309,16 @@ def generate_pdf(
 
     # ── Tax summary ──────────────────────────────────────────────────────────
     if tax_groups:
-        # Title on the left, Gesamtbetrag on the right of the same line.
-        pdf.set_font(_FONT_FAMILY, style="B", size=10)
-        pdf.set_text_color(*_CI_ACCENT)
-        pdf.cell(90, 7, "Steuerübersicht")
+        # Gesamtbetrag on its own line, then Steuerübersicht + table below it.
         pdf.set_font(_FONT_FAMILY, style="B", size=11)
+        pdf.set_text_color(*_CI_ACCENT)
         pdf.cell(0, 7, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R",
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(3)
+
+        pdf.set_font(_FONT_FAMILY, style="B", size=10)
+        pdf.set_text_color(*_CI_ACCENT)
+        pdf.cell(0, 7, "Steuerübersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         tw = [22, 35, 35, 35]
         pdf.set_fill_color(*_CI_HEADER_BG)
