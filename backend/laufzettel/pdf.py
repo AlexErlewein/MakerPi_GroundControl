@@ -12,6 +12,26 @@ from fpdf import FPDF, XPos, YPos
 if TYPE_CHECKING:
     from .models import Laufzettel, LaufzettelMaterial
 
+# Unicode TrueType font (DejaVuSans) so characters like €, ², ³, ×, –, " "
+# render natively instead of being replaced by "?" as they would be with the
+# Latin-1-only Helvetica core font.
+_FONT_DIR = Path(__file__).resolve().parent / "fonts"
+_FONT_FAMILY = "DejaVu"
+if not (_FONT_DIR / "DejaVuSans.ttf").exists() or not (
+    _FONT_DIR / "DejaVuSans-Bold.ttf"
+).exists():
+    # TTFs missing (e.g. incomplete checkout): fall back to the Latin-1-only
+    # built-in Helvetica family. _safe() still guards against unencodable
+    # characters in that case so PDF generation never crashes.
+    _FONT_FAMILY = "Helvetica"
+
+
+def _register_fonts(pdf: FPDF) -> None:
+    """Register the Unicode font family once per PDF document."""
+    if _FONT_FAMILY == "DejaVu":
+        pdf.add_font("DejaVu", "", str(_FONT_DIR / "DejaVuSans.ttf"))
+        pdf.add_font("DejaVu", "B", str(_FONT_DIR / "DejaVuSans-Bold.ttf"))
+
 
 # Corporate Identity Colors (from style.css)
 _CI_ACCENT = (208, 68, 23)  # #d04417 - orange/red
@@ -64,10 +84,18 @@ def _fmt_date(d) -> str:
 
 
 def _safe(text: str | None) -> str:
-    """Return Latin-1 safe string; German umlauts are supported natively."""
+    """Return a string safe to render for the active PDF font.
+
+    With the Unicode DejaVu font the text is returned as-is (€, ², ³, ×, … all
+    render natively). When the TTFs are unavailable and the document fell back
+    to the Latin-1-only Helvetica core font, unencodable characters are replaced
+    instead of crashing the PDF generation.
+    """
     if text is None:
         return "-"
-    return text.encode("latin-1", errors="replace").decode("latin-1")
+    if _FONT_FAMILY == "DejaVu":
+        return str(text)
+    return str(text).encode("latin-1", errors="replace").decode("latin-1")
 
 
 def generate_pdf(
@@ -78,6 +106,7 @@ def generate_pdf(
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_margins(12, 12, 12)
     pdf.set_auto_page_break(auto=True, margin=15)
+    _register_fonts(pdf)
     pdf.add_page()
 
     # ── Header with Logo ─────────────────────────────────────────────────────
@@ -94,11 +123,11 @@ def generate_pdf(
 
     # Title (positioned below logo)
     pdf.set_y(logo_y)
-    pdf.set_font("Helvetica", style="B", size=18)
+    pdf.set_font(_FONT_FAMILY, style="B", size=18)
     pdf.set_text_color(*_CI_ACCENT)
     pdf.cell(0, 10, f"Laufzettel #{lz.id}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    pdf.set_font("Helvetica", size=9)
+    pdf.set_font(_FONT_FAMILY, size=9)
     pdf.set_text_color(*_CI_TEXT_SECONDARY)
     now_str = datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M")
     pdf.cell(0, 5, f"Erstellt am {now_str} UTC", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -115,11 +144,11 @@ def generate_pdf(
     label_w = 38
 
     def info_row(label: str, value: str) -> None:
-        pdf.set_font("Helvetica", style="", size=9)
+        pdf.set_font(_FONT_FAMILY, style="", size=9)
         pdf.set_text_color(*_CI_TEXT_SECONDARY)
         pdf.cell(label_w, 6, _safe(label))
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
-        pdf.set_font("Helvetica", style="B", size=9)
+        pdf.set_font(_FONT_FAMILY, style="B", size=9)
         pdf.cell(0, 6, _safe(value), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     info_row("Name:", lz.owner_name or "-")
@@ -133,7 +162,7 @@ def generate_pdf(
     pdf.ln(4)
 
     # ── Material table ───────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", style="B", size=10)
+    pdf.set_font(_FONT_FAMILY, style="B", size=10)
     pdf.set_text_color(*_CI_ACCENT)
     pdf.cell(0, 7, "Material", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
@@ -143,7 +172,7 @@ def generate_pdf(
 
     # Header row with corporate colors
     pdf.set_fill_color(*_CI_HEADER_BG)
-    pdf.set_font("Helvetica", style="B", size=8)
+    pdf.set_font(_FONT_FAMILY, style="B", size=8)
     pdf.set_text_color(*_CI_TEXT_ON_DARK)
     for w, h in zip(col_w, headers):
         pdf.cell(w, 6, h, border="B", fill=True)
@@ -160,7 +189,7 @@ def generate_pdf(
     grand_total = 0.0
     row_index = 0
 
-    pdf.set_font("Helvetica", size=8)
+    pdf.set_font(_FONT_FAMILY, size=8)
     for m in sorted_mats:
         row_index += 1
         rate = m.tax_rate if m.tax_rate is not None else 19.0
@@ -207,13 +236,13 @@ def generate_pdf(
 
     # ── Tax summary ──────────────────────────────────────────────────────────
     if tax_groups:
-        pdf.set_font("Helvetica", style="B", size=10)
+        pdf.set_font(_FONT_FAMILY, style="B", size=10)
         pdf.set_text_color(*_CI_ACCENT)
         pdf.cell(0, 7, "Steuerübersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         tw = [22, 35, 35, 35]
         pdf.set_fill_color(*_CI_HEADER_BG)
-        pdf.set_font("Helvetica", style="B", size=8)
+        pdf.set_font(_FONT_FAMILY, style="B", size=8)
         pdf.set_text_color(*_CI_TEXT_ON_DARK)
         for w, h in zip(
             tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]
@@ -221,7 +250,7 @@ def generate_pdf(
             pdf.cell(w, 6, h, border="B", fill=True)
 
         # Gesamtbetrag aligned on same height as the header bar
-        pdf.set_font("Helvetica", style="B", size=11)
+        pdf.set_font(_FONT_FAMILY, style="B", size=11)
         pdf.set_text_color(*_CI_ACCENT)
         pdf.cell(0, 6, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R")
         pdf.ln()
@@ -230,7 +259,7 @@ def generate_pdf(
         total_tax = 0.0
         total_brutto = 0.0
 
-        pdf.set_font("Helvetica", size=8)
+        pdf.set_font(_FONT_FAMILY, size=8)
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
         for rate in sorted(tax_groups.keys(), reverse=True):
             brutto = tax_groups[rate]
@@ -246,7 +275,7 @@ def generate_pdf(
             pdf.ln()
 
         # Grey Gesamt bar at the bottom
-        pdf.set_font("Helvetica", style="B", size=8)
+        pdf.set_font(_FONT_FAMILY, style="B", size=8)
         pdf.set_draw_color(*_CI_BORDER)
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
         if len(tax_groups) > 1:
@@ -263,12 +292,12 @@ def generate_pdf(
         # Payment box with corporate colors
         pdf.set_fill_color(*_CI_SUCCESS)
         pdf.set_draw_color(*_CI_BORDER)
-        pdf.set_font("Helvetica", style="B", size=10)
+        pdf.set_font(_FONT_FAMILY, style="B", size=10)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 7, "Zahlung bestätigt", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         method_label = _PAYMENT_LABELS.get(lz.payment_method, lz.payment_method)
-        pdf.set_font("Helvetica", size=9)
+        pdf.set_font(_FONT_FAMILY, size=9)
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
         info_row("Methode:", method_label)
         info_row("Bezahlt am:", _fmt_dt(lz.paid_at) if lz.paid_at else "-")

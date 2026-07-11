@@ -93,7 +93,7 @@
                 <tbody id="material-body">
                     <!-- Dynamically rendered by JavaScript with location grouping -->
                 </tbody>
-                <tfoot id="material-total" {% if total="" ="0" %}class="hidden" {% endif %}>
+                <tfoot id="material-total" {% if total == 0 %}class="hidden" {% endif %}>
                     <tr>
                         <td colspan="4" style="text-align: right; font-weight: 600; padding: 10px 12px">Gesamt</td>
                         <td style="font-family: monospace; font-weight: 700; color: var(--success); padding: 10px 12px">
