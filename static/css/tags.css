@@ -221,24 +221,11 @@
     }
 }
 
-/* ── New-Laufzettel modal: name-first search + guest fields ── */
+/* ── New-Laufzettel modal: two-step wizard (name → member/guest form) ── */
+
+.lz-step.hidden { display: none; }
 
 .lz-name-group { position: relative; }
-.lz-name-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.lz-name-row input { flex: 1; }
-
-.lz-mode-badge {
-    flex: 0 0 auto;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
 
 .lz-search-results {
     position: absolute;
@@ -276,16 +263,15 @@
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
-.lz-guest-hint a { color: var(--accent); }
 
-.lz-switch-link {
-    display: inline-block;
-    margin-top: 6px;
-    font-size: 0.8rem;
-    color: var(--accent);
+.lz-selected-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
 }
-
-.lz-guest-fields.hidden { display: none; }
 
 .lz-uid-row {
     display: flex;
@@ -302,4 +288,5 @@
     flex-wrap: wrap;
 }
 .lz-nfc-status { font-size: 0.9rem; }
+ }
 

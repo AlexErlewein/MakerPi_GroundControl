@@ -2,8 +2,7 @@ let allEntries = [];
 let allTags = [];
 
 // ---- New-Laufzettel modal state ----
-let currentMode = "member"; // "member" | "guest"
-let selectedMember = null; // { id, member_id, name, nfc_uid, ... }
+let selectedMember = null; // { id, member_id, name, nfc_uid, ... } | null
 let guestNfcUid = null; // scanned guest tag uid (string|null)
 
 function debounce(fn, wait) {
@@ -175,15 +174,13 @@ function localTimeStr(d) {
 function openNewLzModal() {
   document.getElementById("new-lz-form").reset();
   document.getElementById("new-lz-tag-hint").textContent = "";
-  const now = new Date();
-  document.getElementById("new-lz-date").value = localDateStr(now);
-  document.getElementById("new-lz-start").value = localTimeStr(now);
-  // Reset mode + state
+  // Reset state
   selectedMember = null;
   guestNfcUid = null;
-  setMemberMode();
   clearSearchResults();
+  document.getElementById("new-lz-guest-hint").style.display = "none";
   updateGuestNfcDisplay();
+  showStep("lz-step-1");
   document.getElementById("new-lz-modal").classList.remove("hidden");
   // Defer focus so Safari has time to make the element interactable
   setTimeout(function () {
@@ -201,38 +198,58 @@ function closeNewLzModal() {
   }
 }
 
-// ---- Mode switching (member vs guest) ----
-function setMemberMode() {
-  currentMode = "member";
-  document.getElementById("new-lz-guest-fields").classList.add("hidden");
-  const badge = document.getElementById("new-lz-mode-badge");
-  badge.style.display = "inline-block";
-  badge.textContent = "Mitglied";
-  badge.style.background = "var(--success)";
-  badge.style.color = "#fff";
-  document.getElementById("new-lz-switch-guest").style.display = "";
+// ---- Step navigation ----
+function showStep(id) {
+  ["lz-step-1", "lz-step-member", "lz-step-guest"].forEach((s) => {
+    document.getElementById(s).classList.toggle("hidden", s !== id);
+  });
 }
 
-function setGuestMode() {
-  currentMode = "guest";
-  selectedMember = null;
-  document.getElementById("new-lz-guest-fields").classList.remove("hidden");
-  const badge = document.getElementById("new-lz-mode-badge");
-  badge.style.display = "inline-block";
-  badge.textContent = "Gast";
-  badge.style.background = "var(--warning)";
-  badge.style.color = "#fff";
-  document.getElementById("new-lz-switch-guest").style.display = "none";
-  clearSearchResults();
-  document.getElementById("new-lz-guest-hint").style.display = "none";
+function gotoStep2() {
+  const name = document.getElementById("new-lz-owner").value.trim();
+  if (!name) {
+    alert("Bitte einen Namen eingeben.");
+    document.getElementById("new-lz-owner").focus();
+    return;
+  }
+  if (selectedMember) {
+    // Member form
+    const now = new Date();
+    document.getElementById("new-lz-date").value = localDateStr(now);
+    document.getElementById("new-lz-start").value = localTimeStr(now);
+    document.getElementById("new-lz-uid").value = selectedMember.nfc_uid || "";
+    const hint = document.getElementById("new-lz-tag-hint");
+    if (selectedMember.nfc_uid) {
+      hint.textContent = "✓ NFC-UID aus Mitgliedskarte: " + selectedMember.nfc_uid;
+      hint.style.color = "var(--success)";
+    } else {
+      hint.textContent = "Keine Karte hinterlegt — bitte Tag scannen/eingeben.";
+      hint.style.color = "var(--warning)";
+    }
+    document.getElementById("lz-member-summary").textContent =
+      selectedMember.name +
+      (selectedMember.member_id ? " (" + selectedMember.member_id + ")" : "");
+    showStep("lz-step-member");
+  } else {
+    // Guest form — name was not matched to a member
+    const now = new Date();
+    document.getElementById("new-lz-date-g").value = localDateStr(now);
+    document.getElementById("new-lz-start-g").value = localTimeStr(now);
+    document.getElementById("lz-guest-summary").textContent = name + " (Gast)";
+    showStep("lz-step-guest");
+    setTimeout(() => {
+      try {
+        document.getElementById("new-lz-guest-address").focus();
+      } catch (e) {}
+    }, 50);
+  }
 }
 
 // ---- Live member search ----
 const doSearch = debounce(async (term) => {
-  const box = document.getElementById("new-lz-search-results");
-  if (currentMode === "guest") return;
   if (!term || term.length < 2) {
     clearSearchResults();
+    document.getElementById("new-lz-guest-hint").style.display = "none";
     return;
   }
   try {
@@ -252,7 +269,8 @@ function renderSearchResults(list) {
   const hint = document.getElementById("new-lz-guest-hint");
   if (!list || list.length === 0) {
     clearSearchResults();
-    if (currentMode === "member") hint.style.display = "";
+    // No match → this will be a guest
+    hint.style.display = "";
     return;
   }
   hint.style.display = "none";
@@ -290,19 +308,11 @@ function clearSearchResults() {
 
 function selectMember(m) {
   selectedMember = m;
-  setMemberMode();
   document.getElementById("new-lz-owner").value = m.name;
-  document.getElementById("new-lz-uid").value = m.nfc_uid || "";
-  const hint = document.getElementById("new-lz-tag-hint");
-  if (m.nfc_uid) {
-    hint.textContent = "✓ NFC-UID aus Mitgliedskarte: " + m.nfc_uid;
-    hint.style.color = "var(--success)";
-  } else {
-    hint.textContent = "Keine Karte hinterlegt — bitte Tag scannen/eingeben.";
-    hint.style.color = "var(--warning)";
-  }
   clearSearchResults();
   document.getElementById("new-lz-guest-hint").style.display = "none";
+  // Auto-advance to the member form
+  gotoStep2();
 }
 
 // ---- NFC scan helper (SSE) ----
@@ -359,23 +369,16 @@ document.getElementById("new-lz-owner").addEventListener("input", () => {
     const cur = document.getElementById("new-lz-owner").value.trim();
     if (cur !== selectedMember.name) {
       selectedMember = null;
-      if (currentMode === "member") doSearch(cur);
+      doSearch(cur);
     }
     return;
   }
-  if (currentMode === "member") {
-    doSearch(document.getElementById("new-lz-owner").value.trim());
-  }
+  doSearch(document.getElementById("new-lz-owner").value.trim());
 });
 
-document.getElementById("new-lz-switch-guest").addEventListener("click", (e) => {
-  e.preventDefault();
-  setGuestMode();
-});
-document.getElementById("new-lz-force-guest").addEventListener("click", (e) => {
-  e.preventDefault();
-  setGuestMode();
-});
+document.getElementById("new-lz-next").addEventListener("click", gotoStep2);
+document.getElementById("new-lz-back-member").addEventListener("click", () => showStep("lz-step-1"));
+document.getElementById("new-lz-back-guest").addEventListener("click", () => showStep("lz-step-1"));
 
 document.getElementById("new-lz-uid-scan").addEventListener("click", () => {
   const btn = document.getElementById("new-lz-uid-scan");
@@ -443,50 +446,54 @@ document.getElementById("new-lz-guest-nfc-remove").addEventListener("click", () 
 
 document.getElementById("new-lz-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const dateVal = document.getElementById("new-lz-date").value || null;
-  const owner = document.getElementById("new-lz-owner").value.trim();
-  const timeVal = document.getElementById("new-lz-start").value;
-  let startIso = null;
-  if (dateVal && timeVal) {
-    startIso = new Date(dateVal + "T" + timeVal).toISOString();
-  } else if (timeVal) {
-    startIso = new Date(localDateStr(new Date()) + "T" + timeVal).toISOString();
-  }
+  const name = document.getElementById("new-lz-owner").value.trim();
 
   let body;
-  if (currentMode === "guest") {
-    if (!owner) {
-      alert("Bitte einen Namen eingeben.");
-      return;
-    }
-    const address = document
-      .getElementById("new-lz-guest-address")
-      .value.trim();
-    if (!address) {
-      alert("Bitte eine Adresse eingeben.");
-      return;
-    }
-    body = {
-      is_guest: true,
-      owner_name: owner,
-      guest_address: address,
-      guest_email: document.getElementById("new-lz-guest-email").value.trim() || null,
-      guest_nfc_uid: guestNfcUid || null,
-      date: dateVal,
-      start: startIso,
-    };
-  } else {
+  if (selectedMember) {
+    // Member submit
     const uid = document.getElementById("new-lz-uid").value.trim().toUpperCase();
     if (!uid) {
       alert("Bitte eine Tag UID eingeben oder scannen.");
       return;
     }
+    const dateVal = document.getElementById("new-lz-date").value || null;
+    const timeVal = document.getElementById("new-lz-start").value;
+    let startIso = null;
+    if (dateVal && timeVal) {
+      startIso = new Date(dateVal + "T" + timeVal).toISOString();
+    } else if (timeVal) {
+      startIso = new Date(localDateStr(new Date()) + "T" + timeVal).toISOString();
+    }
     body = {
       uid: uid,
       date: dateVal,
-      owner_name: owner || null,
-      member_id: selectedMember ? selectedMember.member_id || null : null,
-      mitglied_db_id: selectedMember ? selectedMember.id : null,
+      owner_name: name || null,
+      member_id: selectedMember.member_id || null,
+      mitglied_db_id: selectedMember.id,
+      start: startIso,
+    };
+  } else {
+    // Guest submit
+    const address = document.getElementById("new-lz-guest-address").value.trim();
+    if (!address) {
+      alert("Bitte eine Adresse eingeben.");
+      return;
+    }
+    const dateVal = document.getElementById("new-lz-date-g").value || null;
+    const timeVal = document.getElementById("new-lz-start-g").value;
+    let startIso = null;
+    if (dateVal && timeVal) {
+      startIso = new Date(dateVal + "T" + timeVal).toISOString();
+    } else if (timeVal) {
+      startIso = new Date(localDateStr(new Date()) + "T" + timeVal).toISOString();
+    }
+    body = {
+      is_guest: true,
+      owner_name: name,
+      guest_address: address,
+      guest_email: document.getElementById("new-lz-guest-email").value.trim() || null,
+      guest_nfc_uid: guestNfcUid || null,
+      date: dateVal,
       start: startIso,
     };
   }
