@@ -98,6 +98,47 @@ def _safe(text: str | None) -> str:
     return str(text).encode("latin-1", errors="replace").decode("latin-1")
 
 
+def _fmt_qty(value) -> str:
+    """Format a quantity with up to 2 decimals, stripping trailing zeros.
+
+    Avoids floating-point noise such as 33.480000000000004 (accumulated device
+    session minutes) and redundant trailing zeros (36.0 -> 36, 568.08 stays).
+    """
+    if value is None:
+        return "-"
+    return f"{float(value):.2f}".rstrip("0").rstrip(".")
+
+
+def _wrapped_lines(pdf: FPDF, text: str, col_width: float) -> int:
+    """Estimate how many lines *text* occupies when word-wrapped in *col_width*.
+
+    Used to size material rows so long content wraps onto extra lines instead of
+    overflowing into the next column. Biased to over-estimate (safe direction:
+    a little extra whitespace beats clipping).
+    """
+    text = str(text)
+    if not text:
+        return 1
+    pad = 1.0  # mm breathing room inside the cell
+    total = 0
+    for segment in text.split("\n"):
+        if not segment.strip():
+            total += 1
+            continue
+        words = segment.split(" ")
+        lines = 1
+        cur = ""
+        for word in words:
+            cand = f"{cur} {word}".strip()
+            if pdf.get_string_width(cand) <= col_width - pad:
+                cur = cand
+            else:
+                lines += 1
+                cur = word
+        total += lines
+    return max(total, 1)
+
+
 def generate_pdf(
     lz: "Laufzettel",
     materials: list["LaufzettelMaterial"],
@@ -205,9 +246,12 @@ def generate_pdf(
             and m.hoehe_cm is not None
         ):
             vol = m.laenge_cm * m.breite_cm * m.hoehe_cm
-            menge_str = f"{m.laenge_cm}x{m.breite_cm}x{m.hoehe_cm} ({vol:.1f}cm3)"
+            menge_str = (
+                f"{_fmt_qty(m.laenge_cm)}x{_fmt_qty(m.breite_cm)}"
+                f"x{_fmt_qty(m.hoehe_cm)} ({vol:.0f}cm³)"
+            )
         elif m.menge is not None:
-            menge_str = str(m.menge)
+            menge_str = _fmt_qty(m.menge)
         else:
             menge_str = "-"
 
@@ -220,13 +264,42 @@ def generate_pdf(
             pdf.set_fill_color(255, 255, 255)
         pdf.set_text_color(*_CI_TEXT_PRIMARY)
 
-        pdf.cell(col_w[0], 6, str(row_index), fill=True)
-        pdf.cell(col_w[1], 6, _safe(m.name), fill=True)
-        pdf.cell(col_w[2], 6, _safe(menge_str), fill=True)
-        pdf.cell(col_w[3], 6, _safe(m.unit or "-"), fill=True)
-        pdf.cell(col_w[4], 6, f"{rate:.0f} %", fill=True)
-        pdf.cell(col_w[5], 6, price_str, fill=True, align="R")
-        pdf.ln()
+        # Size the row to fit the tallest wrapped cell so long names / dimensions
+        # wrap onto extra lines instead of overflowing into the next column.
+        cell_texts = [
+            str(row_index),
+            _safe(m.name),
+            _safe(menge_str),
+            _safe(m.unit or "-"),
+            f"{rate:.0f} %",
+            price_str,
+        ]
+        line_height = 4.6
+        lines_needed = max(
+            _wrapped_lines(pdf, t, w) for t, w in zip(cell_texts, col_w)
+        )
+        row_h = max(6.0, lines_needed * line_height)
+
+        row_top = pdf.get_y()
+        for w, txt, align in zip(
+            col_w, cell_texts, ["", "", "", "", "", "R"]
+        ):
+            # Vertical-center short cells in taller rows for a tidy look.
+            this_lines = _wrapped_lines(pdf, txt, w)
+            y_offset = max(0.0, (row_h - this_lines * line_height) / 2)
+            pdf.set_xy(pdf.get_x(), row_top + y_offset)
+            pdf.multi_cell(
+                w,
+                line_height,
+                txt,
+                border=0,
+                align=align or "L",
+                fill=True,
+                new_x=XPos.RIGHT,
+                new_y=YPos.TOP,
+            )
+        pdf.set_xy(12, row_top + row_h)
+        pdf.ln(0)
 
     if not sorted_mats:
         pdf.set_text_color(*_CI_TEXT_SECONDARY)
@@ -236,9 +309,13 @@ def generate_pdf(
 
     # ── Tax summary ──────────────────────────────────────────────────────────
     if tax_groups:
+        # Title on the left, Gesamtbetrag on the right of the same line.
         pdf.set_font(_FONT_FAMILY, style="B", size=10)
         pdf.set_text_color(*_CI_ACCENT)
-        pdf.cell(0, 7, "Steuerübersicht", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(90, 7, "Steuerübersicht")
+        pdf.set_font(_FONT_FAMILY, style="B", size=11)
+        pdf.cell(0, 7, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R",
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         tw = [22, 35, 35, 35]
         pdf.set_fill_color(*_CI_HEADER_BG)
@@ -248,11 +325,6 @@ def generate_pdf(
             tw, ["MwSt.-Satz", "Netto (EUR)", "MwSt. (EUR)", "Brutto (EUR)"]
         ):
             pdf.cell(w, 6, h, border="B", fill=True)
-
-        # Gesamtbetrag aligned on same height as the header bar
-        pdf.set_font(_FONT_FAMILY, style="B", size=11)
-        pdf.set_text_color(*_CI_ACCENT)
-        pdf.cell(0, 6, f"Gesamtbetrag: {grand_total:.2f} EUR", align="R")
         pdf.ln()
 
         total_netto = 0.0

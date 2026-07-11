@@ -251,10 +251,12 @@ def end_device_session(
             .first()
         )
         if existing_mat:
-            existing_mat.menge = (existing_mat.menge or 0) + menge
-            existing_mat.calculated_price = (
-                existing_mat.calculated_price or 0
-            ) + calculated_price
+            existing_mat.menge = round(
+                (existing_mat.menge or 0) + menge, 2
+            )
+            existing_mat.calculated_price = round(
+                (existing_mat.calculated_price or 0) + calculated_price, 2
+            )
         else:
             new_mat = LaufzettelMaterial(
                 laufzettel_id=lz.id,
