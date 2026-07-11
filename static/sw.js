@@ -1,6 +1,6 @@
 // ─── MakerPi GroundControl Service Worker ───────────────────────
 // Version: bump this to invalidate all caches on deploy
-const SW_VERSION = 'gc-v5';
+const SW_VERSION = 'gc-v6';
 
 // Cache names
 const CACHE_STATIC  = `${SW_VERSION}-static`;
