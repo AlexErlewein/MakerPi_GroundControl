@@ -457,10 +457,107 @@
         grid-template-columns: 1fr;
     }
 
-    /* Material table: hide Einheit on mobile, keep Preis visible */
-    #material-table th:nth-child(4),
-    #material-table td:nth-child(4) {
+    /* ── Material table → stacked cards on mobile ───────────────────
+       The JS renders rows as <tr> with 5 cells (#, Name, Menge, Einheit,
+       Preis) plus .location-separator / .category-separator group headers.
+       We turn each material row into a compact card so every field —
+       including Einheit and the Standort grouping — is visible without
+       horizontal scrolling. Desktop (table layout) is unaffected. */
+    #material-table,
+    #material-table tbody,
+    #material-total {
+        display: block;
+        width: 100%;
+    }
+
+    #material-table thead {
         display: none;
+    }
+
+    /* Every row is a flex container (cards + separator headers + total) */
+    #material-table tr,
+    #material-total tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        width: 100%;
+        gap: 2px 12px;
+    }
+
+    /* Material rows become cards */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+    }
+
+    /* Reset table-cell defaults on card cells */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td {
+        display: block;
+        padding: 1px 0;
+        border-bottom: none;
+        white-space: normal;
+    }
+
+    /* # index column — hidden (:not([colspan]) keeps the empty-state
+       message, which is a single colspan cell, visible) */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(1):not([colspan]) {
+        display: none;
+    }
+
+    /* Name — card title, top line (left), grows to push Preis right */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(2) {
+        flex: 1 1 60%;
+        order: 1;
+        font-weight: 600;
+    }
+
+    /* Preis — top line (right), same row as Name */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(5) {
+        flex: 0 0 auto;
+        order: 2;
+        text-align: right;
+        font-family: monospace;
+        font-weight: 700;
+        color: var(--success);
+        white-space: nowrap;
+    }
+
+    /* Menge — second line (left) */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(3) {
+        flex: 1 1 45%;
+        order: 3;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* Einheit — second line (right) */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(4) {
+        flex: 1 1 45%;
+        order: 4;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* Standort / category separator rows + empty-state → full-width bars */
+    #material-table tbody td[colspan] {
+        flex: 1 0 100%;
+        width: 100%;
+    }
+
+    /* Total footer → full-width summary row (Gesamt · price) */
+    #material-total tr {
+        background: var(--bg-secondary);
+        border-top: 2px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px;
+        justify-content: space-between;
+    }
+    #material-total td {
+        display: block;
+        border-bottom: none;
     }
 
     /* Payment buttons stack vertically */
@@ -506,20 +603,22 @@
         grid-template-columns: 1fr;
     }
 
-    /* On phones also hide the index (#) column */
-    #material-table th:nth-child(1),
-    #material-table td:nth-child(1) {
-        display: none;
+    /* Make the primary action full-width on small phones */
+    #add-material-btn {
+        width: 100%;
+        justify-content: center;
     }
 
-    /* Tighten up table cells on small phones */
-    #material-table th,
-    #material-table td {
-        padding: 8px 8px;
-        font-size: 0.88rem;
+    /* Tighten card spacing on small phones */
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) {
+        padding: 9px 10px;
     }
-
-    .price-col {
-        font-size: 0.9rem;
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(2),
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(5) {
+        font-size: 0.95rem;
+    }
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(3),
+    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(4) {
+        font-size: 0.8rem;
     }
 }
