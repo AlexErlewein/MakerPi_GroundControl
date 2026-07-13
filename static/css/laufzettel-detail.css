@@ -457,12 +457,13 @@
         grid-template-columns: 1fr;
     }
 
-    /* ── Material table → stacked cards on mobile ───────────────────
-       The JS renders rows as <tr> with 5 cells (#, Name, Menge, Einheit,
-       Preis) plus .location-separator / .category-separator group headers.
-       We turn each material row into a compact card so every field —
-       including Einheit and the Standort grouping — is visible without
-       horizontal scrolling. Desktop (table layout) is unaffected. */
+    /* ── Material table → grouped Standort tiles on mobile ──────────
+       The JS emits a tr.location-separator (Standort title) followed by
+       item rows, optionally with tr.category-separator sub-headers. We
+       visually group each Standort into ONE bordered tile: the separator
+       is the tile header, the following rows are the body, and the row
+       right before the next separator (or the end of tbody) closes it.
+       Desktop keeps its normal table layout. */
     #material-table,
     #material-table tbody,
     #material-total {
@@ -474,7 +475,7 @@
         display: none;
     }
 
-    /* Every row is a flex container (cards + separator headers + total) */
+    /* Every row is a flex container (headers + items + total) */
     #material-table tr,
     #material-total tr {
         display: flex;
@@ -484,64 +485,101 @@
         gap: 2px 12px;
     }
 
-    /* Material rows become cards */
-    #material-table tbody > tr:not(.location-separator):not(.category-separator) {
-        background: var(--bg-tertiary);
+    /* ── Tile header: the Standort row ─────────────────────────────── */
+    #material-table tbody > tr.location-separator {
+        background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 10px 12px;
-        margin-bottom: 8px;
+        border-radius: 8px 8px 0 0;
+        margin-top: 14px; /* gap above a new tile */
+    }
+    /* first tile of the list: no leading gap */
+    #material-table tbody > tr.location-separator:first-child {
+        margin-top: 0;
+    }
+    /* header cell fills the bar; base .location-separator td borders/bg reset */
+    #material-table tbody > tr.location-separator > td {
+        background: transparent;
+        border: none;
+        flex: 1 0 100%;
+        width: 100%;
     }
 
-    /* Reset table-cell defaults on card cells */
-    #material-table tbody > tr:not(.location-separator):not(.category-separator) > td {
+    /* ── Tile body: item rows + category sub-headers share the outline ── */
+    #material-table tbody > tr:not(.location-separator) {
+        background: var(--bg-tertiary);
+        border-left: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color); /* hairline between rows */
+        border-radius: 0;
+        margin-bottom: 0;
+        padding: 10px 12px;
+    }
+
+    /* category sub-header = recessed strip within the tile */
+    #material-table tbody > tr.category-separator {
+        background: var(--bg-primary);
+        padding: 6px 12px;
+    }
+    #material-table tbody > tr.category-separator > td {
+        background: transparent;
+        border: none;
+        flex: 1 0 100%;
+        width: 100%;
+    }
+
+    /* ── Tile closer: round the bottom of the last body row ──────────
+       :has() (Safari 15.4+) finds the row immediately before the next
+       Standort; :last-child covers the final group before the footer. */
+    #material-table tbody > tr:not(.location-separator):has(+ tr.location-separator),
+    #material-table tbody > tr:not(.location-separator):last-child {
+        border-radius: 0 0 8px 8px;
+    }
+    /* gap after the very last tile, before the Gesamt footer */
+    #material-table tbody > tr:not(.location-separator):last-child {
+        margin-bottom: 14px;
+    }
+
+    /* Reset table-cell defaults on body cells */
+    #material-table tbody > tr:not(.location-separator) > td {
         display: block;
         padding: 1px 0;
         border-bottom: none;
         white-space: normal;
     }
 
-    /* # index column — hidden (:not([colspan]) keeps the empty-state
-       message, which is a single colspan cell, visible) */
+    /* Item rows: two-line card layout (Name + Preis on top, Menge + Einheit below).
+       :not(.category-separator) keeps sub-header cells out of the nth-child grid. */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(1):not([colspan]) {
-        display: none;
+        display: none; /* # index */
     }
-
-    /* Name — card title, top line (left), grows to push Preis right */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(2) {
         flex: 1 1 60%;
-        order: 1;
+        order: 1; /* Name — top left */
         font-weight: 600;
     }
-
-    /* Preis — top line (right), same row as Name */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(5) {
         flex: 0 0 auto;
-        order: 2;
+        order: 2; /* Preis — top right */
         text-align: right;
         font-family: monospace;
         font-weight: 700;
         color: var(--success);
         white-space: nowrap;
     }
-
-    /* Menge — second line (left) */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(3) {
         flex: 1 1 45%;
-        order: 3;
+        order: 3; /* Menge — bottom left */
         font-size: 0.85rem;
         color: var(--text-secondary);
     }
-
-    /* Einheit — second line (right) */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) > td:nth-child(4) {
         flex: 1 1 45%;
-        order: 4;
+        order: 4; /* Einheit — bottom right */
         font-size: 0.85rem;
         color: var(--text-secondary);
     }
 
-    /* Standort / category separator rows + empty-state → full-width bars */
+    /* empty-state colspan cell → full-width */
     #material-table tbody td[colspan] {
         flex: 1 0 100%;
         width: 100%;
@@ -609,7 +647,7 @@
         justify-content: center;
     }
 
-    /* Tighten card spacing on small phones */
+    /* Tighten tile body rows on small phones */
     #material-table tbody > tr:not(.location-separator):not(.category-separator) {
         padding: 9px 10px;
     }
