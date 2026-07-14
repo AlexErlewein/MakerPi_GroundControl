@@ -146,14 +146,6 @@ EOF
 echo -e "${YELLOW}Checking for legacy issue tracker installations...${NC}"
 REMOVED_SOMETHING=false
 
-# Stop and remove YouTrack container
-if command -v docker &> /dev/null && docker ps -a --format '{{.Names}}' | grep -q 'youtrack-server'; then
-    echo "  Removing YouTrack container..."
-    docker stop youtrack-server 2>/dev/null || true
-    docker rm youtrack-server 2>/dev/null || true
-    REMOVED_SOMETHING=true
-fi
-
 # Remove Plane containers (various naming schemes)
 if command -v docker &> /dev/null; then
     for container in plane-web plane-api plane-worker plane-beat-worker plane-proxy plane-db plane-redis plane-mq plane-minio plane-space plane-admin; do
@@ -166,14 +158,12 @@ if command -v docker &> /dev/null; then
     done
 fi
 
-# Remove data directories
-for dir in /opt/plane /opt/youtrack; do
-    if [ -d "$dir" ]; then
-        echo "  Removing $dir..."
-        rm -rf "$dir"
-        REMOVED_SOMETHING=true
-    fi
-done
+# Remove Plane data directory
+if [ -d /opt/plane ]; then
+    echo "  Removing /opt/plane..."
+    rm -rf /opt/plane
+    REMOVED_SOMETHING=true
+fi
 
 if [ "$REMOVED_SOMETHING" = true ]; then
     echo "  ✅ Legacy issue trackers cleaned up (moved to cloud-hosted)"

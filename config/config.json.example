@@ -13,6 +13,9 @@
     "admin_username": "admin",
     "admin_password": "changeme",
 
+    "_comment_nfc": "NFC card security: 'permissive' accepts legacy unsigned cards (flagged unverified); 'strict' rejects cards without a valid HMAC signature.",
+    "nfc_signature_mode": "permissive",
+
     "sumup_api_key": "",
     "sumup_merchant_code": "",
     "sumup_reader_id": "",

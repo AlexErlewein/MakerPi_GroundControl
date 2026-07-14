@@ -12,8 +12,8 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
 - **easyVerein Sync**: Automatic daily member sync from easyVerein API
 - **Shopify Gift Cards**: Track and adjust gift card balances via API
 - **Buchhaltung (Accounting)**: Donation (Spende) and spending tracking
-- **Plane Issue Tracker**: Self-hosted bug report form integration (Docker, port 3000)
-- **YouTrack** (optional): Self-hosted project management (Docker, port 8081)
+- **Email Notifications**: SMTP-based email (e.g. signup confirmations) with Google OAuth login
+- **Cloud Backups**: Litestream replication of all SQLite DBs to Backblaze B2
 - **Guest Self-Service**: Public landing page for guest work-order creation
 - **Member Portal**: View own Laufzettel history and account
 - **Web Push Notifications**: Real-time alerts
@@ -36,23 +36,34 @@ Comprehensive Raspberry Pi management system for a makerspace — MQTT monitorin
                                    │  Main App    │
                                    │  (port 8000) │
                                    └──────────────┘
-                                            │
-           ┌────────────────┬───────────────┼──────────────┬─────────────┐
-           ▼                ▼               ▼              ▼             ▼
-    ┌────────────┐   ┌────────────┐  ┌────────────┐ ┌─────────┐ ┌──────────┐
-    │ auth.db    │   │ members.db │  │laufzettel.db│catalog.db│  core.db │
-    │ (users,    │   │ (Mitglied, │  │ (work      │ (materials,│ (MQTT,   │
-    │  sessions) │   │  RFIDTag)  │  │  orders)   │ pricing) │  devices)│
-    └────────────┘   └────────────┘  └────────────┘ └─────────┘ └──────────┘
-                                                      │
-                                              ┌───────┴───────┐
-                                              ▼               ▼
-                                        ┌─────────┐     ┌──────────┐
-                                        │Web UI   │     │Docs App │
-                                        │(HTML/JS)│     │(Markdown)│
-                                        └─────────┘     └──────────┘
-                                         port 8000      port 8001
+                                          │
+                 ┌────────────────────────┼────────────────────────┐
+                 ▼                                                  ▼
+        ┌─────────────────┐                                 ┌──────────────┐
+        │  7 SQLite DBs   │                                 │   Web UI     │
+        │ (WAL mode, see  │                                 │ (HTML/JS)    │
+        │  DB section)    │                                 └──────────────┘
+        └─────────────────┘                                          │
+                              ┌──────────────────────────────────────┘
+                              ▼
+                       ┌──────────────┐
+                       │   Docs App   │
+                       │ (Markdown)   │
+                       └──────────────┘
+                        port 8001
 ```
+
+The main app reads/writes **7 SQLite databases** (each in WAL mode for crash resilience):
+
+| Database | Purpose |
+|----------|---------|
+| `auth.db` | Users, bcrypt passwords, sessions |
+| `core.db` | MQTT messages, devices, tag scans |
+| `members.db` | Mitglied, RFIDTag, easyVerein sync data |
+| `laufzettel.db` | Laufzettel, material usage, payments |
+| `catalog.db` | Location, Kategorie, Unterkategorie, Variante |
+| `buchhaltung.db` | Spende (donations), spending |
+| `push.db` | Web push subscriptions |
 
 ## Quick Start
 
@@ -68,13 +79,15 @@ sudo bash scripts/setup.sh
 
 ### 2. Configure
 
-Copy `config/config.json.example` to `config/config.json` (done automatically by setup) and fill in your settings:
+Copy `config/config.json.example` to `config/config.json` (done automatically by setup) and fill in your settings. The example file is fully commented and documents every key; the essentials are:
 
 ```json
 {
     "mqtt_broker": "localhost",
     "mqtt_port": 1883,
     "secret_key": "change-me-to-a-random-secret",
+    "admin_username": "admin",
+    "admin_password": "changeme",
     "sumup_api_key": "sup_sk_...",
     "sumup_merchant_code": "XXXXXXXX",
     "easyverein_api_key": "...",
@@ -82,11 +95,12 @@ Copy `config/config.json.example` to `config/config.json` (done automatically by
 }
 ```
 
+See [Configuration Reference](#configuration-reference) for the full list, and `config/config.json.example` for authoritative comments.
+
 ### 3. Access the Dashboard
 
 - **Main Dashboard**: `http://<pi-ip>:8000`
 - **Documentation Site**: `http://<pi-ip>:8001`
-- **Plane** (if configured): `http://<pi-ip>:3000`
 
 ## Project Structure
 
@@ -94,7 +108,13 @@ Copy `config/config.json.example` to `config/config.json` (done automatically by
 MakerPi_GroundControl/
 ├── backend/
 │   ├── main.py              # Main FastAPI app (port 8000)
-│   ├── docs_app.py          # Docs FastAPI app (port 8000)
+│   ├── docs_app.py          # Docs FastAPI app (port 8001)
+│   ├── member_routes.py     # Member self-service portal + Kasse
+│   ├── middleware.py        # Request middleware
+│   ├── config.py            # DB engines, settings loader
+│   ├── db_utils.py          # Shared DB helpers
+│   ├── email_utils.py / email_templates.py  # SMTP email
+│   ├── gdrive.py            # Google Drive backups
 │   ├── auth/                # Authentication, users, sessions, admin escalation
 │   ├── core/                # MQTT client, devices, tag scans, SSE
 │   ├── members/             # Mitglied, RFIDTag, easyVerein sync, NFC signatures
@@ -102,24 +122,22 @@ MakerPi_GroundControl/
 │   ├── catalog/             # Material catalog (3-level hierarchy)
 │   ├── shopify/             # Gift card management
 │   ├── buchhaltung/         # Accounting (Spenden, spending)
-│   ├── plane/               # Issue tracker integration
-│   ├── push/                # Web push notifications
-│   └── member_routes.py     # Member self-service portal
+│   ├── plane/               # Issue tracker integration (bug-report form)
+│   └── push/                # Web push notifications
 ├── config/
 │   ├── config.json          # Local secrets (gitignored)
-│   ├── config.json.example  # Template
+│   ├── config.json.example  # Template (fully documented)
 │   └── mosquitto.conf       # MQTT broker config
-├── docs/
-│   ├── 00-overview.md       # Top-down documentation
-│   └── ...                  # Additional docs
+├── docs/                    # Markdown docs served by docs_app
 ├── scripts/
-│   ├── setup.sh             # Initial Pi setup
+│   ├── setup.sh             # Initial Pi setup (installs deps, Mosquitto, systemd, cron)
 │   ├── deploy.sh            # Deploy from dev machine
-│   └── check_db_integrity.py # Hourly DB health monitor
-├── static/
-│   ├── css/                 # Stylesheets
-│   └── js/                  # Frontend logic
+│   ├── check_db_integrity.py # Hourly DB health monitor
+│   ├── setup-https.sh       # Nginx + mkcert HTTPS
+│   └── ...                  # OAuth token gen, backups, dev helpers
+├── static/                  # CSS, JS, PWA icons, manifest.json, service worker
 ├── templates/               # HTML templates
+├── tests/                   # pytest suite
 └── pyproject.toml           # Dependencies (uv)
 ```
 
@@ -172,20 +190,29 @@ The main API is organized by module:
 | `/laufzettel/{id}` | Work order detail |
 | `/katalog` | Material catalog |
 | `/mitglieder` | Member management |
+| `/register` | Public member signup form |
 | `/tags` | RFID tag management |
 | `/shopify` | Gift card tracking |
+| `/kasse` | Point-of-sale (Kasse) cash register UI |
 | `/buchhaltung` | Accounting |
 | `/admin/users` | User management |
+| `/admin/device-pairings` | NFC reader pairing |
+| `/bug-report` | Public issue report form (Plane) |
 | `/member/` | Member self-service portal |
 | `/guest/` | Guest work order forms |
 | `/api/status` | System status |
-| `/api/devices` | Device list and details |
-| `/api/laufzettel` | Work order CRUD and payment flows |
+| `/api/devices`, `/api/messages`, `/api/scans`, `/api/topics` | Core MQTT data |
+| `/api/auth/*` | Login, logout, session |
+| `/api/laufzettel`, `/api/guest/*` | Work order CRUD and payment flows |
 | `/api/katalog` | Material catalog API |
-| `/api/mitglieder` | Member API, easyVerein sync |
+| `/api/mitglieder`, `/api/register` | Member API, easyVerein sync |
 | `/api/tags` | RFID tag CRUD |
-| `/api/shopify/gift-cards` | Gift card API |
+| `/api/member/*` | Member self-service API (own Laufzettel, account) |
+| `/api/kasse/*` | Kasse register API |
+| `/api/shopify/gift-cards`, `/api/shopify/physical-product/*` | Gift card + product API |
 | `/api/buchhaltung` | Accounting API |
+| `/api/push/*` | Web push subscribe/unsubscribe, VAPID key |
+| `/api/bug-report` | Issue report submission |
 
 See `CLAUDE.md` for detailed module architecture.
 
@@ -218,70 +245,32 @@ Configure in `config.json`:
 
 See [docs/13-payments.md](docs/13-payments.md) for full details.
 
-## Issue Trackers (Docker)
+## Configuration Reference
 
-GroundControl integrates with both [Plane](https://plane.so) and [YouTrack](https://www.jetbrains.com/youtrack/) for issue tracking. Both run as Docker containers on the Pi alongside GroundControl.
+All settings live in `config/config.json` (gitignored). Copy from `config/config.json.example` — every key is commented there. Keys are grouped by concern:
 
-### Plane (port 3000)
+| Group | Keys | Purpose |
+|-------|------|---------|
+| **Host / deploy** | `pi_host`, `pi_user`, `project_dir`, `tailscale_ip` | Where the Pi lives; used by `deploy.sh` |
+| **MQTT** | `mqtt_broker`, `mqtt_port` | Mosquitto connection |
+| **Core secrets** | `secret_key`, `admin_username`, `admin_password` | Session signing + initial admin login |
+| **SumUp** | `sumup_api_key`, `sumup_merchant_code`, `sumup_reader_id`, `sumup_affiliate_key`, `sumup_mock` | Card terminal + deep-link payments |
+| **Bank transfer** | `bank_iban`, `bank_bic`, `bank_account_name` | EPC/QR-code Überweisung button on Laufzettel |
+| **Wero** | `wero_enabled`, `wero_mock`, `wero_merchant_id`, `wero_api_key` | Wero payment flow |
+| **easyVerein** | `easyverein_api_key`, `easyverein_org_id`, `easyverein_key_expires_at`, `easyverein_registration_mock`, `easyverein_signup_url`, `membership_groups` | Member sync + public signup |
+| **Readers** | `enrollment_reader_id`, `payment_reader_id` | Specific NFC readers for enrollment / payment |
+| **Google Drive** | `google_drive_enabled`, `google_drive_client_secrets_file`, `google_drive_token_file`, `google_drive_root_folder_id` | DB/PDF backups to Drive |
+| **Plane** | `plane_url`, `plane_api_token`, `plane_workspace_slug`, `plane_project_id` | Cloud-hosted issue tracker (`/bug-report` form) |
+| **Google OAuth** | `oauth_enabled`, `oauth_google_client_id`, `oauth_google_client_secret`, `oauth_google_redirect_uri` | SSO login for members |
+| **SMTP / email** | `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_from_email`, `public_base_url`, `smtp_starttls`, `smtp_tls` | Outbound email |
+| **Shopify** | `shopify_store`, `shopify_client_id`, `shopify_client_secret`, `shopify_access_token` | Gift card balance tracking |
+| **Litestream / B2** | `litestream_enabled`, `backblaze_endpoint`, `backblaze_bucket`, `backblaze_key_id`, `backblaze_application_key` | Live SQLite replication to Backblaze B2 |
 
-Self-hosted issue tracker with a public bug report form. Setup is handled by `scripts/setup.sh` automatically. If you need to set it up manually:
-
-```bash
-mkdir -p /opt/plane && cd /opt/plane
-curl -fsSL -o setup.sh https://github.com/makeplane/plane/releases/latest/download/setup.sh
-chmod +x setup.sh
-bash setup.sh   # enter 8 to exit, then edit plane.env and re-run
-```
-
-Configure in `config.json`:
-```json
-{
-    "plane_url": "http://localhost:3000",
-    "plane_api_token": "your-personal-api-token",
-    "plane_workspace_slug": "your-workspace-slug",
-    "plane_project_id": "your-project-uuid"
-}
-```
-
-The bug report form is at `/bug-report`.
-
-### YouTrack (port 8081)
-
-[YouTrack](https://www.jetbrains.com/youtrack/) runs as a Docker container with ARM64 support (since 2025.1). Note: JetBrains does not fully guarantee ARM compatibility.
-
-**Requirements:** 4GB+ RAM recommended (8GB preferred). The 1GB/2GB CM5 variants are too tight.
-
-Setup is handled by `scripts/setup.sh`. Manual setup:
-
-```bash
-mkdir -p /opt/youtrack/{data,conf,logs,backups}
-docker run -d \
-    --name youtrack-server \
-    --restart unless-stopped \
-    -v /opt/youtrack/data:/opt/youtrack/data \
-    -v /opt/youtrack/conf:/opt/youtrack/conf \
-    -v /opt/youtrack/logs:/opt/youtrack/logs \
-    -v /opt/youtrack/backups:/opt/youtrack/backups \
-    -p 8081:8080 \
-    jetbrains/youtrack:latest
-```
-
-First-time setup wizard will be available at `http://<pi-ip>:8081`.
+**Note on issue trackers:** GroundControl previously self-hosted Plane and YouTrack in Docker on the Pi. Both have moved to cloud hosting — `scripts/setup.sh` now actively removes any leftover containers. Only the `plane_*` API keys (pointing at the cloud instance) are still used.
 
 ## Database Architecture
 
-The project uses **6 separate SQLite databases** (one per module), each with WAL mode enabled for crash resilience:
-
-| Database | Purpose |
-|----------|---------|
-| `auth.db` | Users, bcrypt passwords, sessions |
-| `members.db` | Mitglied, RFIDTag, easyVerein sync data |
-| `laufzettel.db` | Laufzettel, material usage, payments |
-| `catalog.db` | Location, Kategorie, Unterkategorie, Variante |
-| `core.db` | MQTT messages, devices, tag scans |
-| `buchhaltung.db` | Spende (donations), spending |
-
-All DBs are in the project root directory (e.g., `/home/alex/Code/MakerPi_GroundControl/`).
+All DBs are in the project root directory (e.g., `/home/alex/Code/MakerPi_GroundControl/`) and use SQLite WAL mode for crash resilience. See the table under [Architecture](#architecture) for the full list.
 
 ### DB Integrity Monitoring
 
@@ -362,11 +351,10 @@ Configure in `config.json`:
 
 ## Requirements
 
-- Raspberry Pi (3B+ or newer recommended)
+- Raspberry Pi (3B+ or newer recommended; 4GB+ RAM if running Litestream backups)
 - Raspberry Pi OS
 - Python 3.10+
 - Mosquitto MQTT Broker
-- Docker (for self-hosted Plane, optional)
 
 ## License
 
