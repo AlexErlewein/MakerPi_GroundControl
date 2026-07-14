@@ -248,8 +248,8 @@ function editMaterial(matId) {
         setMatMode('katalog');
         // TODO: Load catalog data and select appropriate options
     } else {
-        // Freitext mode (not used for guests, but kept for consistency)
-        setMatMode('freitext');
+        // Sonstiges mode (not used for guests, but kept for consistency)
+        setMatMode('sonstiges');
         document.getElementById('field-mat-name').value = mat.name;
         document.getElementById('field-mat-menge').value = mat.menge || '';
         document.getElementById('field-mat-unit').value = mat.unit || '';
@@ -415,25 +415,25 @@ async function deleteMaterial(matId) {
 
 // Mode toggle
 function setMatMode(mode) {
-    const freitextBtn = document.getElementById('mode-freitext-btn');
+    const sonstigesBtn = document.getElementById('mode-sonstiges-btn');
     const katalogBtn = document.getElementById('mode-katalog-btn');
-    const freitextFields = document.getElementById('freitext-fields');
+    const sonstigesFields = document.getElementById('sonstiges-fields');
     const katalogFields = document.getElementById('katalog-fields');
 
-    if (mode === 'freitext') {
-        freitextBtn.classList.add('active');
+    if (mode === 'sonstiges') {
+        sonstigesBtn.classList.add('active');
         katalogBtn.classList.remove('active');
-        freitextFields.classList.remove('hidden');
-        freitextFields.style.display = 'block';
+        sonstigesFields.classList.remove('hidden');
+        sonstigesFields.style.display = 'block';
         katalogFields.classList.add('hidden');
         katalogFields.style.display = 'none';
     } else {
         katalogBtn.classList.add('active');
-        freitextBtn.classList.remove('active');
+        sonstigesBtn.classList.remove('active');
         katalogFields.classList.remove('hidden');
         katalogFields.style.display = 'block';
-        freitextFields.classList.add('hidden');
-        freitextFields.style.display = 'none';
+        sonstigesFields.classList.add('hidden');
+        sonstigesFields.style.display = 'none';
         loadCatalogData();
     }
 }

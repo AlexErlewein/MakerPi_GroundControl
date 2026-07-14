@@ -20,7 +20,7 @@ function makeQR(container, text, size, ecLevel) {
 let currentData = null;
 let editingMaterialId = null;
 let katalog = [];
-let currentMatMode = "freitext";
+let currentMatMode = "sonstiges";
 let selectedVariante = null;
 let selectedKategorie = null;
 let logoDataUrl = null;
@@ -493,9 +493,9 @@ window.addEventListener("beforeunload", stopGuestNfcScan);
 
 function setMatMode(mode) {
   currentMatMode = mode;
-  document.getElementById("mode-freitext-btn").classList.toggle("active", mode === "freitext");
+  document.getElementById("mode-sonstiges-btn").classList.toggle("active", mode === "sonstiges");
   document.getElementById("mode-katalog-btn").classList.toggle("active", mode === "katalog");
-  document.getElementById("freitext-fields").classList.toggle("hidden", mode !== "freitext");
+  document.getElementById("sonstiges-fields").classList.toggle("hidden", mode !== "sonstiges");
   document.getElementById("katalog-fields").classList.toggle("hidden", mode !== "katalog");
   if (mode === "katalog") resetKatalogFields();
 }
@@ -526,8 +526,8 @@ function openEditMaterial(id) {
   document.getElementById("edit-material-id").value = id;
   document.getElementById("edit-mat-variante-id").value = mat.variante_id || "";
 
-  // Always open in freitext for editing (simpler)
-  setMatMode("freitext");
+  // Always open in sonstiges for editing (simpler)
+  setMatMode("sonstiges");
   document.getElementById("field-mat-name").value = mat.name || "";
   document.getElementById("field-mat-menge").value = mat.menge != null ? mat.menge : "";
   document.getElementById("field-mat-unit").value = mat.unit || "";
@@ -851,7 +851,7 @@ document.getElementById("material-form").addEventListener("submit", async (e) =>
   e.preventDefault();
   let body = {};
 
-  if (currentMatMode === "freitext") {
+  if (currentMatMode === "sonstiges") {
     const totalPrice = parseFloat(document.getElementById("field-mat-total-price").value);
     body = {
       name: document.getElementById("field-mat-name").value.trim(),
@@ -1030,9 +1030,9 @@ async function deleteMaterial(id) {
   }
 }
 
-// ── Freitext price auto-calculation ──────────────────────────
+// ── Sonstiges price auto-calculation ──────────────────────────
 
-function recalcFreitextTotal() {
+function recalcSonstigesTotal() {
   const menge = parseFloat(document.getElementById("field-mat-menge").value);
   const unitPrice = parseFloat(document.getElementById("field-mat-unit-price").value);
   if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
@@ -1040,7 +1040,7 @@ function recalcFreitextTotal() {
   }
 }
 
-function recalcFreitextUnitPrice() {
+function recalcSonstigesUnitPrice() {
   const menge = parseFloat(document.getElementById("field-mat-menge").value);
   const total = parseFloat(document.getElementById("field-mat-total-price").value);
   if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
@@ -1048,9 +1048,9 @@ function recalcFreitextUnitPrice() {
   }
 }
 
-document.getElementById("field-mat-menge").addEventListener("input", recalcFreitextTotal);
-document.getElementById("field-mat-unit-price").addEventListener("input", recalcFreitextTotal);
-document.getElementById("field-mat-total-price").addEventListener("input", recalcFreitextUnitPrice);
+document.getElementById("field-mat-menge").addEventListener("input", recalcSonstigesTotal);
+document.getElementById("field-mat-unit-price").addEventListener("input", recalcSonstigesTotal);
+document.getElementById("field-mat-total-price").addEventListener("input", recalcSonstigesUnitPrice);
 
 document.getElementById("add-material-btn").addEventListener("click", openAddMaterial);
 document.getElementById("add-aufrunden-btn").addEventListener("click", openAufrundenModal);

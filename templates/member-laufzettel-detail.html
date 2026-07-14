@@ -397,7 +397,7 @@ loadMemberLzSessions();
 {% if not read_only %}
 <script>
     const LAUFZETTEL_ID = {{ laufzettel.id }};
-    let currentMatMode = 'freitext';
+    let currentMatMode = 'sonstiges';
     let selectedVariante = null;
     let selectedKategorie = null;
 
@@ -586,9 +586,9 @@ loadMemberLzSessions();
 
     function setMatMode(mode) {
         currentMatMode = mode;
-        document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
+        document.getElementById('mode-sonstiges-btn').classList.toggle('active', mode === 'sonstiges');
         document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
-        document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
+        document.getElementById('sonstiges-fields').classList.toggle('hidden', mode !== 'sonstiges');
         document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
         if (mode === 'katalog') resetKatalogFields();
     }
@@ -679,7 +679,7 @@ loadMemberLzSessions();
         try {
             let body = {};
 
-            if (currentMatMode === 'freitext') {
+            if (currentMatMode === 'sonstiges') {
                 const totalPrice = parseFloat(document.getElementById('field-mat-total-price').value);
                 body = {
                     name: document.getElementById('field-mat-name').value.trim(),
@@ -812,7 +812,7 @@ loadMemberLzSessions();
         }
     });
 
-    function recalcFreitextTotal() {
+    function recalcSonstigesTotal() {
         const menge = parseFloat(document.getElementById('field-mat-menge').value);
         const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
         if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
@@ -821,7 +821,7 @@ loadMemberLzSessions();
         }
     }
 
-    function recalcFreitextUnitPrice() {
+    function recalcSonstigesUnitPrice() {
         const menge = parseFloat(document.getElementById('field-mat-menge').value);
         const total = parseFloat(document.getElementById('field-mat-total-price').value);
         if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
@@ -830,9 +830,9 @@ loadMemberLzSessions();
         }
     }
 
-    document.getElementById('field-mat-menge').addEventListener('input', recalcFreitextTotal);
-    document.getElementById('field-mat-unit-price').addEventListener('input', recalcFreitextTotal);
-    document.getElementById('field-mat-total-price').addEventListener('input', recalcFreitextUnitPrice);
+    document.getElementById('field-mat-menge').addEventListener('input', recalcSonstigesTotal);
+    document.getElementById('field-mat-unit-price').addEventListener('input', recalcSonstigesTotal);
+    document.getElementById('field-mat-total-price').addEventListener('input', recalcSonstigesUnitPrice);
 </script>
 {% else %}
 <script>
@@ -855,14 +855,14 @@ loadMemberLzSessions();
             <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">
                 📦 Aus Katalog
             </button>
-            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">
+            <button type="button" id="mode-sonstiges-btn" class="mode-btn" onclick="setMatMode('sonstiges')">
                 ✏️ Sonstiges
             </button>
         </div>
 
         <form id="material-form">
-            <!-- Freitext fields -->
-            <div id="freitext-fields">
+            <!-- Sonstiges fields -->
+            <div id="sonstiges-fields">
                 <div class="form-group">
                     <label for="field-mat-name">Name</label>
                     <input type="text" id="field-mat-name" placeholder="z.B. PLA, Holz, Resin" />

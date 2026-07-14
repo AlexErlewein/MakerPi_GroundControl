@@ -148,14 +148,14 @@ extra_css %}
             <button type="button" id="mode-katalog-btn" class="mode-btn active" onclick="setMatMode('katalog')">
                 &#128230; Aus Katalog
             </button>
-            <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">
+            <button type="button" id="mode-sonstiges-btn" class="mode-btn" onclick="setMatMode('sonstiges')">
                 &#9999;&#65039; Sonstiges
             </button>
         </div>
         <form id="material-form" class="modal-form">
             <input type="hidden" id="mat-id" />
-            <!-- Freitext Mode -->
-            <div id="freitext-fields">
+            <!-- Sonstiges Mode -->
+            <div id="sonstiges-fields">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="field-mat-name">Name</label>
@@ -504,7 +504,7 @@ extra_css %}
     const MATERIALS_DATA = {{ materials | tojson | safe }};
     let katalog = KATALOG_DATA || [];
     let materials = MATERIALS_DATA || [];
-    let currentMatMode = 'freitext';
+    let currentMatMode = 'sonstiges';
     let selectedVariante = null;
     let selectedKategorie = null;
 
@@ -812,9 +812,9 @@ extra_css %}
 
     function setMatMode(mode) {
         currentMatMode = mode;
-        document.getElementById('mode-freitext-btn').classList.toggle('active', mode === 'freitext');
+        document.getElementById('mode-sonstiges-btn').classList.toggle('active', mode === 'sonstiges');
         document.getElementById('mode-katalog-btn').classList.toggle('active', mode === 'katalog');
-        document.getElementById('freitext-fields').classList.toggle('hidden', mode !== 'freitext');
+        document.getElementById('sonstiges-fields').classList.toggle('hidden', mode !== 'sonstiges');
         document.getElementById('katalog-fields').classList.toggle('hidden', mode !== 'katalog');
     }
 
@@ -900,7 +900,7 @@ extra_css %}
         e.preventDefault();
         try {
             let body = { tax_rate: 19 };
-            if (currentMatMode === 'freitext') {
+            if (currentMatMode === 'sonstiges') {
                 body.name = document.getElementById('field-mat-name').value;
                 body.unit = document.getElementById('field-mat-unit').value;
                 body.menge = parseFloat(document.getElementById('field-mat-menge').value);
@@ -1035,7 +1035,7 @@ extra_css %}
     });
     }
 
-    function recalcFreitextTotal() {
+    function recalcSonstigesTotal() {
         const menge = parseFloat(document.getElementById('field-mat-menge').value);
         const unitPrice = parseFloat(document.getElementById('field-mat-unit-price').value);
         if (!isNaN(menge) && menge > 0 && !isNaN(unitPrice) && unitPrice >= 0) {
@@ -1043,7 +1043,7 @@ extra_css %}
         }
     }
 
-    function recalcFreitextUnitPrice() {
+    function recalcSonstigesUnitPrice() {
         const menge = parseFloat(document.getElementById('field-mat-menge').value);
         const total = parseFloat(document.getElementById('field-mat-total-price').value);
         if (!isNaN(menge) && menge > 0 && !isNaN(total) && total >= 0) {
@@ -1054,9 +1054,9 @@ extra_css %}
     const fieldMatMenge = document.getElementById('field-mat-menge');
     const fieldMatUnitPrice = document.getElementById('field-mat-unit-price');
     const fieldMatTotalPrice = document.getElementById('field-mat-total-price');
-    if (fieldMatMenge) fieldMatMenge.addEventListener('input', recalcFreitextTotal);
-    if (fieldMatUnitPrice) fieldMatUnitPrice.addEventListener('input', recalcFreitextTotal);
-    if (fieldMatTotalPrice) fieldMatTotalPrice.addEventListener('input', recalcFreitextUnitPrice);
+    if (fieldMatMenge) fieldMatMenge.addEventListener('input', recalcSonstigesTotal);
+    if (fieldMatUnitPrice) fieldMatUnitPrice.addEventListener('input', recalcSonstigesTotal);
+    if (fieldMatTotalPrice) fieldMatTotalPrice.addEventListener('input', recalcSonstigesUnitPrice);
 
     function esc(str) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
