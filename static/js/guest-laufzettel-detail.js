@@ -78,7 +78,7 @@ function renderMaterials() {
     let rowIndex = 0;
 
     for (const mat of sorted) {
-        const loc = getLocationForVariante(mat.variante_id) || 'Freitext';
+        const loc = getLocationForVariante(mat.variante_id) || 'Sonstiges';
         const cat = getKategorieForVariante(mat.variante_id);
 
         if (loc !== lastLoc) {

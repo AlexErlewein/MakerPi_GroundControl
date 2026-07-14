@@ -269,7 +269,7 @@ loadMemberLzSessions();
         if (m.is_spende) return { loc: '__spenden__', cat: '' };
         const loc = getLocationForVariante(m.variante_id);
         const cat = getKategorieForVariante(m.variante_id);
-        return { loc: loc || 'Freitext', cat: cat || '' };
+        return { loc: loc || 'Sonstiges', cat: cat || '' };
     }
 
     function sortMats(mats) {
@@ -856,7 +856,7 @@ loadMemberLzSessions();
                 📦 Aus Katalog
             </button>
             <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">
-                ✏️ Freitext
+                ✏️ Sonstiges
             </button>
         </div>
 

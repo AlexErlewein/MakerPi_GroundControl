@@ -68,7 +68,7 @@ Material is recorded on a Laufzettel in two modes:
 
 | Mode | When to use |
 |---|---|
-| **Freitext** | Quick one-off entry, no catalog needed |
+| **Sonstiges** | Quick one-off entry, no catalog needed |
 | **Aus Katalog** | Catalog-backed entry with automatic price calculation |
 
 ### Material catalog
@@ -97,7 +97,7 @@ flowchart LR
     D -->|"automatic"| E["Laufzettel\ncreated"]
     D -->|"manual fallback"| E
     E --> F["Review & edit\n/laufzettel/id"]
-    F --> G["Add material\n(Freitext or Katalog)"]
+    F --> G["Add material\n(Sonstiges or Katalog)"]
     G --> H["Done ✓"]
 ```
 

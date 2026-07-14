@@ -83,7 +83,7 @@ A Laufzettel can carry many material entries. Each entry has two possible origin
 ```mermaid
 flowchart LR
     M["Add Material\nto Laufzettel"] --> Mode{"Mode?"}
-    Mode -->|Freitext| FT["Name + Menge\n(free text)"]
+    Mode -->|Sonstiges| FT["Name + Menge\n(Sonstiges)"]
     Mode -->|Katalog| CAT["Location →\nKategorie →\nVariante"]
     CAT --> PRICE["Auto-calculate\nprice"]
     PRICE --> STORE["Store calculated_price\n(historical snapshot)"]

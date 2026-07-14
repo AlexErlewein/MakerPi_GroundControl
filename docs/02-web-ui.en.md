@@ -80,7 +80,7 @@ You can:
 
 Material entry modes:
 
-- **Freitext** — manual name + amount + optional unit
+- **Sonstiges** — manual name + amount + optional unit
 - **Aus Katalog** — select location/category/variant and let the system compute price
 
 ## Katalog page (`/katalog`)

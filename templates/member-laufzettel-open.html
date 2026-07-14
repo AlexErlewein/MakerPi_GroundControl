@@ -149,7 +149,7 @@ extra_css %}
                 &#128230; Aus Katalog
             </button>
             <button type="button" id="mode-freitext-btn" class="mode-btn" onclick="setMatMode('freitext')">
-                &#9999;&#65039; Freitext
+                &#9999;&#65039; Sonstiges
             </button>
         </div>
         <form id="material-form" class="modal-form">
@@ -553,7 +553,7 @@ extra_css %}
         if (m.is_spende) return { loc: '__spenden__', cat: '' };
         const loc = getLocationForVariante(m.variante_id);
         const cat = getKategorieForVariante(m.variante_id);
-        return { loc: loc || 'Freitext', cat: cat || '' };
+        return { loc: loc || 'Sonstiges', cat: cat || '' };
     }
 
     function sortMats(mats) {

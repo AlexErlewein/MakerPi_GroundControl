@@ -80,7 +80,7 @@ Sie können:
 
 Materialeintrag-Modi:
 
-- **Freitext** — manueller Name + Menge + optionale Einheit
+- **Sonstiges** — manueller Name + Menge + optionale Einheit
 - **Aus Katalog** — Standort/Kategorie/Variante auswählen und das System den Preis berechnen lassen
 
 ## Katalog-Seite (`/katalog`)

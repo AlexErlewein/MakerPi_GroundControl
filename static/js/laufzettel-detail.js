@@ -156,7 +156,7 @@ function getMatGroupKey(m) {
   if (m.is_spende) return "__spenden__";
   const loc = getLocationForVariante(m.variante_id);
   const cat = getKategorieForVariante(m.variante_id);
-  return { loc: loc || "Freitext", cat: cat || "" };
+  return { loc: loc || "Sonstiges", cat: cat || "" };
 }
 function sortMats(mats) {
   return [...mats].sort((a, b) => {

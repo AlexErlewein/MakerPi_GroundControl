@@ -68,7 +68,7 @@ Material wird auf einem Laufzettel in zwei Modi erfasst:
 
 | Modus | Wann verwenden |
 |---|---|
-| **Freitext** | Schnelle einmalige Eingabe, kein Katalog benötigt |
+| **Sonstiges** | Schnelle einmalige Eingabe, kein Katalog benötigt |
 | **Aus Katalog** | Katalog-basierte Eingabe mit automatischer Preisberechnung |
 
 ### Materialkatalog
@@ -97,7 +97,7 @@ flowchart LR
     D -->|"automatisch"| E["Laufzettel\nerstellt"]
     D -->|"manueller Fallback"| E
     E --> F["Überprüfen & bearbeiten\n/laufzettel/id"]
-    F --> G["Material hinzufügen\n(Freitext oder Katalog)"]
+    F --> G["Material hinzufügen\n(Sonstiges oder Katalog)"]
     G --> H["Fertig ✓"]
 ```
 

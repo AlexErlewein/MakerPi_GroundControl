@@ -83,7 +83,7 @@ Ein Laufzettel kann viele Materialeinträge tragen. Jeder Eintrag hat zwei mögl
 ```mermaid
 flowchart LR
     M["Material hinzufügen\nzu Laufzettel"] --> Mode{"Modus?"}
-    Mode -->|Freitext| FT["Name + Menge\n(Freitext)"]
+    Mode -->|Sonstiges| FT["Name + Menge\n(Sonstiges)"]
     Mode -->|Katalog| CAT["Standort →\nKategorie →\nVariante"]
     CAT --> PRICE["Preis automatisch\nberechnen"]
     PRICE --> STORE["Speichere calculated_price\n(historischer Snapshot)"]
@@ -92,7 +92,7 @@ flowchart LR
 
 ### Materialeintrag-Felder
 
-| Feld | Freitext | Katalog-basiert |
+| Feld | Sonstiges | Katalog-basiert |
 |---|---|---|
 | `name` | Erforderlich | Von Varianten-Name |
 | `menge` | Optional | Vom Operator gesetzt |
