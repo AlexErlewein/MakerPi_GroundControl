@@ -84,4 +84,4 @@ The current project setup script only installs the main FastAPI service. The doc
 - a second systemd service, or
 - a reverse-proxy setup that exposes it separately
 
-See [Operations and Deploy](./10-operations-and-deploy.md).
+See [Operations and Deploy](./10-operations-and-deploy.en.md).

@@ -128,14 +128,14 @@ flowchart LR
 
 ## Wohin als Nächstes
 
-- [Schnellstart](./01-quickstart.md) — In 2 Minuten zum Laufen bringen
-- [Web-UI Guide](./02-web-ui.md) — Was jede Seite tut
-- [Tags und Laufzettel](./03-tags-and-laufzettel.md) — Kern-User-Workflow im Detail
-- [Gast-Laufzettel](./17-guest-laufzettel.md) — Nicht-Mitglied-Nutzung über QR-Code
+- [Schnellstart](./01-quickstart.de.md) — In 2 Minuten zum Laufen bringen
+- [Web-UI Guide](./02-web-ui.de.md) — Was jede Seite tut
+- [Tags und Laufzettel](./03-tags-and-laufzettel.de.md) — Kern-User-Workflow im Detail
+- [Gast-Laufzettel](./17-guest-laufzettel.de.md) — Nicht-Mitglied-Nutzung über QR-Code
 - [Mitglied-Registrierung](./19-member-registration.de.md) — Öffentliche Mitglied-Anmeldung und easyVerein-Integration
 - [Konfigurationsreferenz](./18-configuration-reference.de.md) — Alle Konfigurationsschlüssel, wo man API-Zugangsdaten bekommt
-- [Gerätekopplung](./20-device-pairing.md) — NFC-Lesegeräte koppeln und Rollen zuweisen
-- [Shopify-Gutscheine](./21-shopify-gift-cards.md) — Gutschein-Verwaltung und Laufzettel-Zahlung
-- [Buchhaltung](./22-accounting.md) — Umsatz nach Steuersatz, Spenden
-- [Kasse & RFID-Login](./24-kasse.md) — Kassenseite und kartenbasierter Login
+- [Gerätekopplung](./20-device-pairing.de.md) — NFC-Lesegeräte koppeln und Rollen zuweisen
+- [Shopify-Gutscheine](./21-shopify-gift-cards.de.md) — Gutschein-Verwaltung und Laufzettel-Zahlung
+- [Buchhaltung](./22-accounting.de.md) — Umsatz nach Steuersatz, Spenden
+- [Kasse & RFID-Login](./24-kasse.de.md) — Kassenseite und kartenbasierter Login
 - [Changelog](./CHANGELOG.md) — Änderungen und neue Funktionen

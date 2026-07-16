@@ -213,7 +213,7 @@ aus dem Request gesetzt.
 | `PUT` | `/api/settings/card-writer` | Admin | `card_writer_id` | Card-Writer-ID setzen |
 
 > **Admin** = erfordert `is_admin_verified()` (aktive Admin-Session mit Passwortbestatigung).
-> Weitere Details: [Authentifizierung](./14-authentication.md).
+> Weitere Details: [Authentifizierung](./14-authentication.de.md).
 
 ## Konfigurationsschlussel
 
@@ -298,7 +298,7 @@ in `DevicePairing`). Selbst bei vollem Datenbankzugriff kann kein guliger Token 
 
 ## Verwandte Seiten
 
-- [Tags & Laufzettel](./03-tags-and-laufzettel.md) — wie ein RFID-Scan einen Laufzettel erzeugt
-- [NFC-Tag-Sicherheit](./16-nfc-tag-security.md) — HMAC-Signaturen und Kartenklonschutz
-- [Authentifizierung](./14-authentication.md) — Admin-Session und `is_admin_verified()`
-- [MQTT-Datenfluss](./06-mqtt-data-flow.md) — wie Scan-Nachrichten vom Pico W eintreffen
+- [Tags & Laufzettel](./03-tags-and-laufzettel.de.md) — wie ein RFID-Scan einen Laufzettel erzeugt
+- [NFC-Tag-Sicherheit](./16-nfc-tag-security.de.md) — HMAC-Signaturen und Kartenklonschutz
+- [Authentifizierung](./14-authentication.de.md) — Admin-Session und `is_admin_verified()`
+- [MQTT-Datenfluss](./06-mqtt-data-flow.de.md) — wie Scan-Nachrichten vom Pico W eintreffen

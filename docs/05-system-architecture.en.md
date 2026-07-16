@@ -185,7 +185,7 @@ sequenceDiagram
 
 ## Design principles
 
-> **Modular backend** — `backend/main.py` is now a lightweight app factory. Each domain (auth, members, laufzettel, catalog, core) has its own module with dedicated database, models, and routes. See [Extension Guide](./12-extension-guide.md).
+> **Modular backend** — `backend/main.py` is now a lightweight app factory. Each domain (auth, members, laufzettel, catalog, core) has its own module with dedicated database, models, and routes. See [Extension Guide](./12-extension-guide.en.md).
 
 > **Server-rendered UI** — Pages are Jinja2 templates. JavaScript enhances them but the HTML shell is always served from the backend. No separate SPA build step.
 

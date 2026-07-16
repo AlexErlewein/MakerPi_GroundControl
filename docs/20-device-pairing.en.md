@@ -213,7 +213,7 @@ The IP is either set explicitly in the `client_ip` field when creating the pairi
 | `PUT` | `/api/settings/card-writer` | Admin | `card_writer_id` | Set card writer ID |
 
 > **Admin** = requires `is_admin_verified()` (active admin session with password confirmation).
-> See [Authentication](./14-authentication.md) for details.
+> See [Authentication](./14-authentication.en.md) for details.
 
 ## Configuration keys
 
@@ -298,7 +298,7 @@ derive a valid token.
 
 ## Related pages
 
-- [Tags & Laufzettel](./03-tags-and-laufzettel.md) — how an RFID scan creates a Laufzettel
-- [NFC Tag Security](./16-nfc-tag-security.md) — HMAC signatures and card cloning protection
-- [Authentication](./14-authentication.md) — admin session and `is_admin_verified()`
-- [MQTT Data Flow](./06-mqtt-data-flow.md) — how scan messages arrive from the Pico W
+- [Tags & Laufzettel](./03-tags-and-laufzettel.en.md) — how an RFID scan creates a Laufzettel
+- [NFC Tag Security](./16-nfc-tag-security.en.md) — HMAC signatures and card cloning protection
+- [Authentication](./14-authentication.en.md) — admin session and `is_admin_verified()`
+- [MQTT Data Flow](./06-mqtt-data-flow.en.md) — how scan messages arrive from the Pico W

@@ -128,14 +128,14 @@ flowchart LR
 
 ## Where to go next
 
-- [Quickstart](./01-quickstart.md) — get running in 2 minutes
-- [Web UI Guide](./02-web-ui.md) — what each page does
-- [Tags and Laufzettel](./03-tags-and-laufzettel.md) — core user workflow in detail
-- [Guest Laufzettel](./17-guest-laufzettel.md) — non-member usage via QR code
+- [Quickstart](./01-quickstart.en.md) — get running in 2 minutes
+- [Web UI Guide](./02-web-ui.en.md) — what each page does
+- [Tags and Laufzettel](./03-tags-and-laufzettel.en.md) — core user workflow in detail
+- [Guest Laufzettel](./17-guest-laufzettel.en.md) — non-member usage via QR code
 - [Member Registration](./19-member-registration.en.md) — public signup form and easyVerein integration
 - [Configuration Reference](./18-configuration-reference.en.md) — all config keys, where to get API keys
-- [Device Pairing](./20-device-pairing.md) — pair NFC readers and assign roles
-- [Shopify Gift Cards](./21-shopify-gift-cards.md) — gift card management and Laufzettel payment
-- [Accounting](./22-accounting.md) — revenue by tax rate, donations
-- [Kasse & RFID Login](./24-kasse.md) — payment kiosk and card-based login
+- [Device Pairing](./20-device-pairing.en.md) — pair NFC readers and assign roles
+- [Shopify Gift Cards](./21-shopify-gift-cards.en.md) — gift card management and Laufzettel payment
+- [Accounting](./22-accounting.en.md) — revenue by tax rate, donations
+- [Kasse & RFID Login](./24-kasse.en.md) — payment kiosk and card-based login
 - [Changelog](./CHANGELOG.md) — recent changes and new features
