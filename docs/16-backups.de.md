@@ -4,13 +4,15 @@
 
 Der Raspberry Pi läuft 24/7 in der Werkstatt und speichert alle Mitgliederdaten, Laufzettel und Zahlungsbelege in lokalen SQLite-Datenbanken. Ein Hardwareausfall (SD-Karten sterben, Überspannungen passieren) kann alles vernichten. Mit einem guten Backup-System lässt sich das System innerhalb von Minuten wiederherstellen.
 
+> **Im Repo enthalten:** `scripts/backup_all_dbs.py` sichert alle sechs Datenbanken (`auth`, `core`, `members`, `laufzettel`, `catalog`, `buchhaltung`) auf Google Drive via SQLite-Online-Backup-API und behält jeweils 3 Backups pro Datenbank. Es ist für den Cron-Einsatz gedacht (z.B. `0 23 * * *`). Dies ist der einfachste im Repo enthaltene Backup-Mechanismus. Die folgenden Optionen (Litestream, rclone) sind robustere Alternativen.
+
 ---
 
 ## Primärlösung: Litestream + Backblaze B2 (empfohlen)
 
 [Litestream](https://litestream.io) ist ein schlankes Tool, das die SQLite Write-Ahead-Log (WAL) Änderungen **kontinuierlich** an einen S3-kompatiblen Objektspeicher streamt – ohne Cron-Job, ohne Ausfallzeiten, ohne Datenbanksperre.
 
-[Backblaze B2](https://www.backblaze.com/b2/) bietet **10 GB kostenlosen** Objektspeicher. Für die fünf kleinen SQLite-Datenbanken dieses Systems reicht das problemlos.
+[Backblaze B2](https://www.backblaze.com/b2/) bietet **10 GB kostenlosen** Objektspeicher. Für die kleinen SQLite-Datenbanken dieses Systems (`auth`, `core`, `members`, `laufzettel`, `catalog`, `buchhaltung`) reicht das problemlos.
 
 ### Einrichtung
 
@@ -51,14 +53,21 @@ Datei öffnen und alle Felder ausfüllen:
 
 #### 4. Litestream installieren (auf dem Pi als root)
 
-```bash
-sudo bash scripts/setup-litestream.sh
-```
+Es gibt kein Setup-Skript im Repo — Litestream wird manuell installiert:
 
-Das Skript:
-- Lädt das passende Litestream-Binary für die Pi-Architektur herunter (ARM64/ARMv7/AMD64)
-- Kopiert `config/litestream.yml` nach `/etc/litestream.yml`
-- Erstellt und startet einen systemd-Service `litestream.service`
+```bash
+# Binary für die Pi-Architektur herunterladen (Beispiel ARM64)
+wget https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-arm64-static.tar.gz
+tar -xzf litestream-v0.3.13-linux-arm64-static.tar.gz
+sudo install litestream /usr/local/bin/litestream
+
+# Konfiguration und Service installieren
+sudo cp config/litestream.yml /etc/litestream.yml
+# Eine litestream.service systemd-Unit erstellen, die Folgendes ausführt:
+#   /usr/local/bin/litestream replicate -config /etc/litestream.yml
+sudo systemctl daemon-reload
+sudo systemctl enable --now litestream
+```
 
 #### 5. Überprüfen
 
@@ -123,7 +132,7 @@ REMOTE="gdrive:MakerPi_Backups/$(date +%Y/%B)"
 mkdir -p "$BACKUP_DIR"
 
 # Sichere jede Datenbank mit dem SQLite Online-Backup-Mechanismus
-for DB in auth members laufzettel catalog core; do
+for DB in auth members laufzettel catalog core buchhaltung; do
     sqlite3 "$PROJECT_DIR/$DB.db" ".backup $BACKUP_DIR/$DB.db"
 done
 

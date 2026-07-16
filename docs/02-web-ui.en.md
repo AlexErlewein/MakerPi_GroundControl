@@ -15,8 +15,7 @@ Use it to:
 - view how many members are present today (based on open Laufzettel with member ID)
 - check system status for:
   - Docs server (port 8001)
-  - Zigbee bridge (port 8090 + USB connection)
-  - Databases/BackBlaze (Litestream + B2 connection)
+  - Google Drive backup
   - Google Drive connection
 
 The system status indicators show colored dots:
@@ -158,7 +157,7 @@ Revenue overview for accounting purposes.
 
 Shows: revenue split by tax rate (0%, 7%, 19%), donations (is_spende materials and manual entries), filtering by period (week/month/year).
 
-See [Accounting](./22-accounting.md) for full documentation.
+See [Accounting](./22-accounting.en.md) for full documentation.
 
 ## Docs site
 

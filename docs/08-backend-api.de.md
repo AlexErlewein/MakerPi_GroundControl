@@ -20,7 +20,8 @@ http://localhost:8000
 | Methode | Pfad | Body | Erfolg | Fehler |
 |---|---|---|---|---|
 | `POST` | `/api/auth/login` | `{"username":"...","password":"..."}` | `200` + Session-Cookie | `401` |
-| `POST` | `/api/auth/logout` | — | `200` | — |
+| `GET` | `/logout` | — | `200` (Session löschen) | — |
+| `POST` | `/api/auth/logout-admin` | — | `200` (Admin-Modus verlassen) | — |
 
 ## Endpunkte
 
@@ -30,7 +31,7 @@ http://localhost:8000
 |---|---|---|
 | `GET` | `/api/status` | System-Health + aktive Geräte |
 | `GET` | `/api/devices` | Alle bekannten Geräte |
-| `GET` | `/api/messages` | Letzte MQTT-Nachrichten (Query: `limit`, `offset`) |
+| `GET` | `/api/messages` | Letzte MQTT-Nachrichten (Query: `limit`, `topic`) |
 | `GET` | `/api/topics` | Alle gesehenen Topics |
 
 ### Tags
@@ -158,22 +159,19 @@ Häufige Status-Codes:
 | `409` | Konflikt (z.B. bereits bezahlt) |
 | `500` | Interner Serverfehler |
 
-## Paginierung
+## Listen-Endpunkte
 
-Für listenartige Endpunkte:
+Die listenartigen Endpunkte geben ein **flaches JSON-Array** zurück (kein Pagination-Envelope):
 
 ```
-GET /api/laufzettel?offset=0&limit=50
+GET /api/laufzettel
 ```
 
-Antwort:
 ```json
-{
-  "items": [...],
-  "total": 150,
-  "offset": 0,
-  "limit": 50
-}
+[
+  { "id": 1, "uid": "...", "date": "2026-07-15", "material": [...], ... },
+  ...
+]
 ```
 
 ## Filter
@@ -181,9 +179,10 @@ Antwort:
 Query-Parameter für Filter:
 
 ```
-GET /api/laufzettel?uid=A4B2C3D4&date=2025-01-15
+GET /api/laufzettel?uid=A4B2C3D4&date=2026-07-15
+GET /api/laufzettel?only_open=1
 GET /api/mitglieder?status=active
-GET /api/messages?topic=makerpi/devices/+/status
+GET /api/messages?limit=100&topic=lilygo/status
 ```
 
 ## Beispiel: Kompletter Flow

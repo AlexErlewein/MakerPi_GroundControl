@@ -254,9 +254,9 @@ Sessions are stored as HTTP-only cookies signed with a secret key. The session d
 
 1. **HTTP-Only Cookies** - Not accessible via JavaScript
 2. **Signed Cookies** - Cryptographically signed with secret key
-3. **Secure Flag** - Only transmitted over HTTPS (in production)
-4. **SameSite Protection** - CSRF protection
-5. **Automatic Expiration** - Server-side timeout enforcement
+3. **Network-Level Trust** - Cookie sent over HTTP (no `secure` flag); security relies on the trusted LAN/VPN
+4. **SameSite Omitted** - intentionally, for iOS PWA compatibility (see note above); CSRF surface is instead reduced by network trust
+5. **Automatic Expiration** - Server-side inactivity timeout enforcement
 
 ---
 
@@ -730,22 +730,24 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 **Cookie Properties:**
 ```python
+# PWASessionMiddleware (backend/middleware.py) subclasses SessionMiddleware and
+# drops samesite=lax so iOS PWA fetch() sends the cookie.
 app.add_middleware(
-    SessionMiddleware,
+    PWASessionMiddleware,
     secret_key=SECRET_KEY,
     session_cookie="session",
-    max_age=None,  # Browser session
-    httponly=True,  # Not accessible via JavaScript
-    secure=True,   # Only over HTTPS (production)
-    samesite="lax"  # CSRF protection
+    # max_age is not set -> browser-session cookie; duration is enforced server-side
 )
+# Inside PWASessionMiddleware.__init__:
+#   self.security_flags = "httponly"   # httponly only; samesite omitted, secure not set
 ```
 
 **Security Benefits:**
 - **HTTP-Only:** Prevents XSS cookie theft
-- **Secure:** Prevents man-in-the-middle attacks
-- **SameSite:** Prevents CSRF attacks
 - **Signed:** Prevents cookie tampering
+- **Server-side inactivity timeout:** 3 min (member) / 10 min (admin verification) enforced via `last_activity`, independent of cookie lifetime
+
+> **Note on SameSite/Secure:** SameSite is intentionally omitted because Starlette's default `samesite=lax` breaks cookies in iOS PWA standalone mode. `secure` is not set, so the cookie is sent over HTTP; the deployment relies on network-level trust (the Pi is on a trusted LAN/VPN). If you front the app with HTTPS and don't need iOS PWA support, you can switch to `samesite="lax"` and `secure=True`.
 
 ### 3. Activity Tracking
 
@@ -768,9 +770,8 @@ if (now - last_activity_dt).total_seconds() > TIMEOUT_SECONDS:
 ### 4. Defense in Depth
 
 **Layer 1: Network Security**
-- HTTPS encryption (production)
-- Secure cookie flags
-- SameSite protection
+- Network-level trust (trusted LAN/VPN; cookie sent over HTTP, no `secure` flag)
+- SameSite omitted intentionally for iOS PWA compatibility
 
 **Layer 2: Authentication**
 - Strong password hashing
@@ -1240,22 +1241,16 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 
 **Current Implementation:**
 ```python
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    session_cookie="session",
-    max_age=None,
-    httponly=True,
-    secure=True,  # Production only
-    samesite="lax"
-)
+app.add_middleware(PWASessionMiddleware, secret_key=SECRET_KEY)
+# PWASessionMiddleware omits samesite (iOS PWA compat) and does not set secure/max_age;
+# session duration is bounded by the server-side inactivity timeout.
 ```
 
 **Recommendations:**
 - Use strong, randomly generated `SECRET_KEY`
 - Rotate `SECRET_KEY` periodically (requires session invalidation)
-- Consider `max_age` for absolute session expiration
-- Use `samesite="strict"` for higher security (may break some integrations)
+- The server-side `last_activity` timeout already enforces absolute inactivity expiry
+- If you don't need iOS PWA support and run HTTPS, switch back to `SessionMiddleware` with `samesite="lax"` and `secure=True` for stronger CSRF/MITM protection
 
 ### 3. Rate Limiting
 

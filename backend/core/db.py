@@ -36,7 +36,28 @@ def init_db():
     # Auto-migrate: add card data columns to tag_scans if missing
     with engine.connect() as conn:
         cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tag_scans)"))]
-        for col in ("card_member_id", "card_name", "card_email"):
+        for col in ("card_member_id", "card_name", "card_email", "card_signature"):
             if col not in cols:
                 conn.execute(text(f"ALTER TABLE tag_scans ADD COLUMN {col} TEXT"))
+        if "card_verified" not in cols:
+            conn.execute(text("ALTER TABLE tag_scans ADD COLUMN card_verified INTEGER"))
+        conn.commit()
+
+        # Auto-migrate: add requires_permission to devices if missing (default 1,
+        # i.e. require permission, for backward compatibility with pre-existing rows).
+        device_cols = [
+            r[1] for r in conn.execute(text("PRAGMA table_info(devices)"))
+        ]
+        if "requires_permission" not in device_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE devices ADD COLUMN requires_permission INTEGER DEFAULT 1"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE devices SET requires_permission = 1 "
+                    "WHERE requires_permission IS NULL"
+                )
+            )
         conn.commit()

@@ -4,15 +4,17 @@ Diese Seite beschreibt die Zahlungsintegration auf der Laufzettel-Detailseite.
 
 ## Übersicht
 
-Sobald ein Laufzettel Materialeinträge mit einem Gesamtbetrag > 0 hat, erscheinen Zahlungsschaltflächen:
+Sobald ein Laufzettel Materialeinträge mit einem Gesamtbetrag > 0 hat, erscheint ein einzelner grüner **"Jetzt bezahlen – <Betrag>"**-Button. Ein Klick öffnet ein einheitliches Zahlungs-Pop-up, dessen Methoden-Switcher die in `config.json` aktivierten Methoden anbietet:
 
 | Methode | Integration | Ablauf |
 |---------|-------------|--------|
-| **Bar** | Nativ | Admin bestätigt Bareingang manuell, optionale Notiz möglich |
+| **Banküberweisung** | Natives EPC/GiroCode-QR | Zeigt EPC-QR-Code mit Bankverbindung + Betrag. Admin bestätigt nach Scan des Kunden. Nur sichtbar, wenn `bank_iban`/`bank_bic`/`bank_account_name` gesetzt sind. |
 | **Karte (Solo)** | SumUp Cloud API | Betrag wird direkt ans gepaarte Solo-Terminal gesendet |
 | **Karte (Payment Switch)** | SumUp URL-Scheme | QR-Code + App-Link, automatische Bestätigung per Polling |
 | **Karte (Hosted Checkout)** | SumUp Hosted Checkout | Web-Zahlungsseite (Apple/Google Pay, Karte), automatische Bestätigung per Polling |
-| **Wero** | Wero QR-Code | QR-Code, den der Kunde mit der Wero-App scannt |
+| **Bar** | Nativ | Admin bestätigt Bareingang manuell, optionale Notiz möglich |
+
+> **Wero** existiert im Backend (`/api/laufzettel/{id}/pay/wero`), ist aber heute **nicht im Zahlungs-Pop-up freigegeben** (der Wero-Tab wird dem Switcher nicht hinzugefügt) und damit über die UI nicht erreichbar. Es ist unten der Vollständigkeit halber dokumentiert.
 
 Nach jeder Zahlung wird der Laufzettel gesperrt: keine Bearbeitung mehr möglich. Die gespeicherten Zahlungsdetails (Methode, Zeitstempel, Transaktions-ID, Notiz) sind im Banner und im PDF-Export sichtbar.
 
@@ -203,16 +205,18 @@ sequenceDiagram
 
 ## Wero-Zahlung (QR-Code)
 
-Wero ist ein europäisches Instant-Payment-Netzwerk. Der Kunde scannt einen QR-Code mit der Wero-App und bestätigt die Zahlung auf seinem Gerät.
+> **Status:** Der Wero-Flow ist heute **rein backendseitig und nur Mock**. Die echte Wero-API-Integration ist nicht implementiert (`POST /pay/wero` liefert `501 Not Implemented`, wenn `wero_mock` false ist), und die Wero-Methode ist **nicht ins Zahlungs-Pop-up eingebunden**, lässt sich also derzeit vom Nutzer nicht auslösen. Endpunkte und Konfiguration werden für die Zukunft vorgehalten.
+
+Wero ist ein europäisches Instant-Payment-Netzwerk. Im Mock-Modus scannt der Kunde einen QR-Code (aus einer `wero://pay?...`-URL) und die Zahlung wird nach kurzen Polls automatisch bestätigt.
 
 **Konfiguration:**
 
 | Schlüssel | Env-Variable | Beschreibung |
 |-----------|--------------|--------------|
 | `wero_enabled` | `WERO_ENABLED` | Wero aktivieren (`true`/`false`) |
-| `wero_mock` | `WERO_MOCK` | Mock-Modus ohne echte API (Standard: `true`) |
-| `wero_merchant_id` | `WERO_MERCHANT_ID` | Wero Händler-ID |
-| `wero_api_key` | `WERO_API_KEY` | Wero API-Schlüssel |
+| `wero_mock` | `WERO_MOCK` | Mock-Modus ohne echte API (Standard: `true`). **Nur Mock-Modus ist funktional.** |
+| `wero_merchant_id` | `WERO_MERCHANT_ID` | Wero Händler-ID (reserviert — vom Code aktuell ungenutzt) |
+| `wero_api_key` | `WERO_API_KEY` | Wero API-Schlüssel (reserviert — vom Code aktuell ungenutzt) |
 
 > Solange `wero_mock: true` gesetzt ist, werden keine echten Wero-API-Calls durchgeführt. Im Mock-Modus wird die Zahlung nach ~3 Sekunden automatisch bestätigt.
 
@@ -372,12 +376,16 @@ Nach dem Reset ist der Laufzettel wieder offen: Materialeinträge können bearbe
   "sumup_mock": false,
   "payment_mode": "payment_switch",
   "checkout_link_available": true,
+  "reader_id": "xxx-xxx-xxx-xxx-xxx",
   "wero_configured": false,
-  "wero_mock": true
+  "wero_mock": true,
+  "bank_transfer_configured": true
 }
 ```
 
 Mögliche Werte für `payment_mode`: `"solo"`, `"payment_switch"`, `"mock"`, `null`.
+
+Das Frontend blendet die Tabs im Zahlungs-Pop-up entsprechend ein: **Banküberweisung** (bei `bank_transfer_configured`), **Karte** (bei `sumup_configured` und gesetztem `payment_mode`) und **Barzahlung** (immer). Wero wird derzeit unabhängig von `wero_configured` nicht in den Switcher aufgenommen.
 
 ---
 

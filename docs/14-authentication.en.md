@@ -8,7 +8,7 @@ GroundControl has a login-protected admin area. The public welcome page is acces
 - Passwords are stored as **bcrypt hashes** (`passlib`) in the `users` table in `auth.db`.
 - Only **HTML page routes** check for a session. `/api/` endpoints are left open — this is intentional for a local network deployment.
 - The `secret_key` in `config/config.json` signs the cookie. If you change this key, all existing sessions are invalidated.
-- Two login methods are supported: **password** and **RFID card**.
+- Three login methods are supported: **password**, **RFID card**, and **OAuth** (Google, when enabled — see docs 27/28).
 
 ## Password login flow
 
@@ -98,9 +98,11 @@ Content-Type: application/json
 Name: session
 Value: {session_data}.signature (itsdangerous)
 HttpOnly: true
-Secure: false (local) / true (production with HTTPS)
-SameSite: lax
+Secure: not set (cookie is sent over HTTP; gated by network trust)
+SameSite: omitted (falls back to browser default)
 ```
+
+> SameSite is intentionally omitted via a custom `PWASessionMiddleware`. Starlette's default `samesite=lax` breaks session cookies in iOS PWA standalone mode (the `fetch()` calls don't send the cookie). Omitting it works in both HTTP and iOS PWA contexts.
 
 ### Session fields
 
@@ -109,7 +111,7 @@ SameSite: lax
 | `user` | `str` | Username of the logged-in user |
 | `mitglied_id` | `int\|null` | Linked member ID |
 | `is_admin_capable` | `bool` | User has admin capability in principle |
-| `login_method` | `"password"\|"rfid"` | How the current session was established |
+| `login_method` | `"password"\|"rfid"\|"oauth"` | How the current session was established |
 | `admin_verified` | `bool` | Admin mode active (expires after 10 min inactivity) |
 | `admin_verified_at` | `ISO-8601\|null` | Timestamp of last admin verification |
 | `last_activity` | `ISO-8601` | Last activity timestamp (UTC) |
@@ -328,16 +330,11 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 In `backend/main.py`:
 
 ```python
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    max_age=3600 * 24 * 7,  # 7-day cookie lifetime
-    same_site="lax",
-    https_only=False,  # set True in production
-)
+# Uses PWASessionMiddleware to omit SameSite so iOS PWA fetch() calls send the cookie
+app.add_middleware(PWASessionMiddleware, secret_key=SECRET_KEY)
 ```
 
-Note: `max_age` is the maximum cookie lifetime. The effective session duration is further limited by the **3-minute inactivity timeout** (`MEMBER_TIMEOUT_MINUTES`) enforced server-side.
+`PWASessionMiddleware` (in `backend/middleware.py`) subclasses Starlette's `SessionMiddleware` and overrides `security_flags` to `"httponly"`, removing the `samesite=lax` flag that Starlette adds by default. No `max_age` is passed, so the cookie is a browser-session cookie; the effective session duration is limited by the **3-minute inactivity timeout** (`MEMBER_TIMEOUT_MINUTES`) enforced server-side via `last_activity`.
 
 ---
 

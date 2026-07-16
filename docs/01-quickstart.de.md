@@ -52,22 +52,19 @@ Dies installiert:
    ```bash
    git clone <repository-url>
    cd MakerPi_GroundControl
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
    ```
 
 3. **Konfiguration**
    ```bash
-   cp config/config.example.json config/config.json
+   cp config/config.json.example config/config.json
    # config.json nach Bedarf bearbeiten
    ```
 
 4. **Als Service ausführen**
    ```bash
-   sudo cp systemd/makerpi-groundcontrol.service /etc/systemd/system/
-   sudo systemctl enable makerpi-groundcontrol
-   sudo systemctl start makerpi-groundcontrol
+   # Erstellt groundcontrol.service + groundcontrol-docs.service und aktiviert sie
+   sudo bash scripts/setup.sh
    ```
 
 ## Zugriff auf die Anwendung
@@ -76,6 +73,6 @@ Nach dem Start ist die Anwendung unter `http://<pi-ip>:8000` erreichbar.
 
 ## Nächste Schritte
 
-- Konfiguriere [Tags und Laufzettel](./03-tags-and-laufzettel) für das NFC-System
-- Richte den [Material-Katalog](./04-material-katalog) ein
-- Verbinde [MQTT-Sensoren](./06-mqtt-data-flow) für Geräte-Monitoring
+- Konfiguriere [Tags und Laufzettel](./03-tags-and-laufzettel.de.md) für das NFC-System
+- Richte den [Material-Katalog](./04-material-katalog.de.md) ein
+- Verbinde [MQTT-Sensoren](./06-mqtt-data-flow.de.md) für Geräte-Monitoring

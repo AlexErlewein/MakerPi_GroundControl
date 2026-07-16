@@ -18,7 +18,7 @@ Most API endpoints require authentication via session cookie. Some endpoints are
 
 ### Authentication Required
 
-Most endpoints return `401 Unauthorized` if no valid session is present. Check authentication status by calling `/api/auth/me`.
+Most endpoints return `401 Unauthorized` if no valid session is present. Check authentication status by calling `/api/auth/session` (admin/auth session) or `/api/member/me` (member self-info).
 
 ---
 
@@ -26,58 +26,64 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 
 ### `GET /api/status`
 
-**Description:** Returns system status including MQTT connection, uptime, and database counts.
+**Description:** Returns device counts and MQTT message counts (24h and total).
 
 **Authentication:** Public
 
 **Response:**
 ```json
 {
-  "mqtt_connected": true,
-  "uptime_seconds": 12345,
-  "devices_count": 5,
-  "messages_count": 1234,
-  "scans_count": 567
+  "devices_total": 5,
+  "devices_online": 3,
+  "messages_24h": 1234,
+  "messages_total": 5678,
+  "status": "ok"
 }
 ```
 
 **Use Cases:**
 - Health monitoring
 - Dashboard status indicators
-- System uptime tracking
 
 ---
 
 ### `GET /api/database/stats`
 
-**Description:** Returns database file information and row counts for all databases.
+**Description:** Returns the core database file info plus aggregate device and message stats.
 
 **Authentication:** Public
 
 **Response:**
 ```json
 {
-  "databases": [
-    {
-      "name": "core.db",
-      "status": "ok",
-      "message": "156 KB",
-      "size": "156 KB"
-    },
-    {
-      "name": "members.db",
-      "status": "ok",
-      "message": "78 KB",
-      "size": "78 KB"
-    }
-  ]
+  "database": {
+    "file_path": "/path/to/core.db",
+    "size_human": "156.0 KB"
+  },
+  "devices": {
+    "total": 5,
+    "online": 3,
+    "offline": 2,
+    "nfc_ok": 4,
+    "nfc_error": 1,
+    "nfc_unknown": 0
+  },
+  "messages": {
+    "total": 1234,
+    "topics": 12,
+    "oldest": "2026-01-01T00:00:00",
+    "newest": "2026-07-15T12:00:00"
+  },
+  "devices_oldest_seen": "2026-01-01T00:00:00",
+  "devices_newest_seen": "2026-07-15T12:00:00"
 }
 ```
+
+> Per-database health status (ok/error per DB file) is returned by the separate `GET /api/dashboard/db-health` endpoint.
 
 **Use Cases:**
 - Database health monitoring
 - Storage usage tracking
-- Backup verification
 
 ---
 
@@ -884,11 +890,14 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 **Response:**
 ```json
 {
-  "success": true,
-  "transaction_id": "txn_123456",
-  "payment_mode": "solo"
+  "mock": false,
+  "mode": "solo",
+  "client_transaction_id": "gc-...",
+  "status": "PENDING"
 }
 ```
+
+For Payment Switch mode, the response also includes a `payment_url` (the SumUp mobile-app URL scheme).
 
 **Use Cases:**
 - Card payment processing
@@ -899,7 +908,7 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 
 ### `GET /api/laufzettel/{id}/pay/karte/status`
 
-**Description:** Polls the status of a pending card payment (Solo mode only).
+**Description:** Polls the status of a pending card payment. For Payment Switch mode, auto-confirms by matching the SumUp transaction history.
 
 **Authentication:** Required
 
@@ -909,11 +918,13 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 **Response:**
 ```json
 {
-  "status": "SUCCESS",
+  "status": "SUCCESSFUL",
   "transaction_id": "txn_123456",
   "amount": 25.00
 }
 ```
+
+`status` is one of `SUCCESSFUL`, `NOT_FOUND`, `TIMEOUT`, or `PENDING`.
 
 **Use Cases:**
 - Payment status monitoring
@@ -933,10 +944,15 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 **Request Body:**
 ```json
 {
-  "guest_name": "Guest User",
-  "guest_email": "guest@example.com"
+  "name": "Guest User",
+  "address": "Musterstraße 1, 12345 Stadt",
+  "email": "guest@example.com",
+  "date": "2026-07-15",
+  "start": "2026-07-15T10:00:00"
 }
 ```
+
+`name` and `address` are required; `email`, `date`, and `start` are optional.
 
 **Response:** Returns the created guest work order with session token.
 
@@ -956,8 +972,7 @@ Most endpoints return `401 Unauthorized` if no valid session is present. Check a
 **Response:**
 ```json
 {
-  "has_session": true,
-  "laufzettel_id": 123
+  "guest_id": "<uuid-or-null>"
 }
 ```
 

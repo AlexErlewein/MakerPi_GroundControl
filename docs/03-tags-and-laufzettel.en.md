@@ -106,11 +106,13 @@ flowchart LR
 
 ## Payment flow
 
-Once all material has been added, the detail page shows payment buttons:
+Once all material has been added, the detail page shows a single green **"Jetzt bezahlen – <amount>"** button. Clicking it opens a unified payment modal with a method switcher offering the methods configured in `config.json`:
 
-- **Bar bezahlen** — displays the total amount in a large pop-up. Confirm to lock.
-- **mit Wero bezahlen** — shows a Wero QR code for the amount. Confirm after the customer scans. Requires `wero_enabled: true` in config.
-- **mit Karte bezahlen** — sends a checkout request to the paired SumUp card reader (Solo Cloud API) or generates a `sumupmerchant://` deep-link for the SumUp app (Payment Switch). Locks on success.
+- **🏦 Banküberweisung** — shows an EPC/GiroCode QR code with the bank details and amount (`bank_iban` / `bank_bic` / `bank_account_name`). Confirm after the customer scans. Shown only when `bank_transfer` is configured.
+- **💳 EC-/Kreditkarte** — sends a checkout request to the paired SumUp card reader (Solo Cloud API) or generates a `sumupmerchant://` deep-link for the SumUp app (Payment Switch). Locks on success. Shown only when SumUp is configured.
+- **💵 Barzahlung** — always available; displays the total amount for a cash payment. Confirm to lock.
+
+> The Wero payment flow exists in the backend (`/api/laufzettel/{id}/pay/wero`) but is currently **not exposed** in the payment modal (the Wero method is not added to the switcher). It is therefore not reachable from the UI today.
 
 After any successful payment:
 - `payment_method` and `paid_at` are written to the Laufzettel.

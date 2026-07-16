@@ -63,10 +63,7 @@ The device ID is the first segment of any MQTT topic the PicoW publishes to, e.g
 3. Monitor the scan log — enrolled cards show `card_verified = 1`
 4. Once all active cards are re-enrolled, switch to `"strict"` and restart
 
-**DB migration** — run once on the Pi before the first deployment with NFC security:
-```bash
-uv run python scripts/migrate_nfc_security.py
-```
+**DB migration** — automatic. The `tag_scans` columns (`card_member_id`, `card_name`, `card_email`, `card_signature`, `card_verified`) are added on the first startup after deploy by the inline migration in `init_db()`; no manual command is needed.
 
 See [NFC Tag Security](./16-nfc-tag-security.en.md) for the full threat model and card data layout.
 

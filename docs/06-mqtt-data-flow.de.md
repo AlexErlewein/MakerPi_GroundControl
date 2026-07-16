@@ -14,17 +14,20 @@ flowchart LR
 
 ## Topic-Struktur
 
-Alle Topics folgen dem Muster:
+Geräte publishen auf Topics nach folgenden Mustern:
 
-```
-makerpi/devices/{device_id}/{type}
-```
+| Muster | Zweck |
+|-----|-------|
+| `{device_id}/status` | Online/Offline-Heartbeat |
+| `{device_id}/data` | Generische Sensor-Daten |
+| `{device_id}/temp` | Temperaturmessung |
+| `{device_id}/humidity` | Luftfeuchtigkeit |
+| `{device_id}/alert` | Alarm oder Schwellwert-Auslösung |
+| `{device_id}/scan` | NFC-/RFID-Scan-Ereignis (primär) |
+| `{device_id}/tag` | NFC-/RFID-Scan-Ereignis (Alias) |
+| `{device_id}/material` | Material-Verbrauchsmeldung |
 
-| Typ | Zweck | Beispiel-Payload |
-|-----|-------|------------------|
-| `status` | Geräte-Heartbeat | `{"uid":"A4B2...","state":"printing"}` |
-| `event` | NFC-Scan-Ereignis | `{"uid":"A4B2...","action":"checkin"}` |
-| `sensors` | Umgebungsdaten | `{"temp":22.5,"humidity":45}` |
+> Alle eingehenden Topics werden ungeachtet ihres Typs in `mqtt_messages` gespeichert. Die Topic-spezifische Logik läuft darauf auf.
 
 ## Nachrichtenverarbeitung
 
@@ -166,9 +169,8 @@ CREATE TABLE devices (
 
 ## Performance
 
-- **Buffer-Größe:** 1000 Nachrichten im Speicher
-- **Flush-Intervall:** Alle 5 Sekunden zu SQLite
-- **Retention:** Alte Nachrichten können manuell gelöscht werden
+- Jede Nachricht wird beim Empfang direkt in SQLite geschrieben (`on_message`), ohne In-Memory-Buffer oder Flush-Intervall.
+- **Retention:** Alte Nachrichten können manuell gelöscht werden.
 
 ## Sicherheit
 

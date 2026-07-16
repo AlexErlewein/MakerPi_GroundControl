@@ -4,15 +4,17 @@ This page describes the payment integration on the Laufzettel detail page.
 
 ## Overview
 
-Once a Laufzettel has material entries with a non-zero total, payment buttons appear below the total row:
+Once a Laufzettel has material entries with a non-zero total, a single green **"Jetzt bezahlen – <amount>"** button appears below the total. Clicking it opens a unified payment modal whose method switcher offers the methods enabled in `config.json`:
 
 | Method | Integration | What happens |
 |---|---|---|
-| **Bar bezahlen** (Cash) | Native | Operator confirms receipt of cash manually |
+| **Banküberweisung** (Bank transfer) | Native EPC/GiroCode QR | Shows an EPC QR code with the bank details + amount. Operator confirms after the customer scans. Shown only when `bank_iban`/`bank_bic`/`bank_account_name` are set. |
 | **Karte – Solo** | SumUp Cloud API | Checkout is pushed directly to the paired Solo terminal |
 | **Karte – Payment Switch** | SumUp URL scheme | Deep-link opens the SumUp app on the cashier's phone with the amount pre-filled |
 | **Karte – Hosted Checkout** | SumUp Hosted Checkout | Web-based payment page (Apple/Google Pay, card entry); auto-confirmed by polling |
-| **Wero** | Wero QR code | Customer scans a QR code with the Wero app |
+| **Bar bezahlen** (Cash) | Native | Operator confirms receipt of cash manually |
+
+> **Wero** exists in the backend (`/api/laufzettel/{id}/pay/wero`) but is **not exposed** in the payment modal today (the Wero tab is not added to the switcher), so it is not reachable from the UI. It is documented further below for completeness.
 
 After any payment is confirmed:
 - `payment_method` and `paid_at` are written to the Laufzettel record.
@@ -87,7 +89,7 @@ Copy the `id` value into `sumup_reader_id`.
 ### Important SumUp notes
 
 - **Solo:** The target reader must be online when the checkout is sent. SumUp gives 60 seconds to start the transaction.
-- **Payment Switch:** The SumUp app must be installed on the cashier's phone. After tapping the link, the cashier completes the payment on the terminal and then manually confirms in GroundControl.
+- **Payment Switch:** The SumUp app must be installed on the cashier's phone. After tapping the link, the cashier completes the payment on the terminal. GroundControl **auto-confirms** by polling the SumUp transaction history (`GET /me/transactions/history`) and matching entries whose `product_summary` starts with `Laufzettel #{id}`; a manual confirm endpoint exists only as a fallback.
 - **Air / 3G / Air Lite terminals** do not support the Cloud API — use Payment Switch mode.
 
 ---
@@ -140,20 +142,21 @@ sequenceDiagram
     participant API
     participant SumUpApp
 
-    Admin->>UI: click "Mit Karte zahlen"
+    Admin->>UI: click "Jetzt bezahlen" → Karte
     UI->>API: POST /pay/karte
     API-->>UI: payment_url (sumupmerchant://...)
     UI->>UI: show "SumUp App öffnen" button
     Admin->>SumUpApp: tap link → app opens
     SumUpApp->>SumUpApp: amount pre-filled, complete payment
     Note over Admin: complete payment on terminal
-    Admin->>UI: click "Zahlung bestätigen"
-    UI->>API: POST /pay/karte/confirm-mock
-    API->>DB: payment_method="karte"
+    UI->>API: GET /pay/karte/status (polled)
+    API->>SumUpApp: GET /me/transactions/history
+    API->>API: match by product_summary prefix "Laufzettel #{id}"
+    API->>DB: payment_method="karte" (auto-locked)
     UI->>UI: Laufzettel locked
 ```
 
-> Manual confirmation is required because SumUp does not provide a server-side callback for the mobile app URL scheme.
+> The status poll auto-confirms by matching the SumUp transaction history (by `product_summary` prefix). SumUp does not provide a server-side callback for the mobile-app URL scheme, so polling is used instead; a manual `POST /pay/karte/confirm-mock` endpoint exists only as a fallback.
 
 ---
 
@@ -225,18 +228,20 @@ sequenceDiagram
 
 ## Wero payment (QR code)
 
-Wero is a European instant-payment network. The customer scans a QR code with the Wero app and confirms the payment on their device.
+> **Status:** The Wero flow is **backend-only and mock-only today**. The real Wero API integration is not implemented (`POST /pay/wero` returns `501 Not Implemented` when `wero_mock` is false), and the Wero method is **not wired into the payment modal** UI, so it cannot currently be triggered by a user. The endpoints and config are kept for future use.
+
+Wero is a European instant-payment network. In mock mode the customer scans a QR code (rendered from a `wero://pay?...` URL) and the payment auto-confirms after polling.
 
 **Configuration:**
 
 | Key | Env var | Description |
 |---|---|---|
 | `wero_enabled` | `WERO_ENABLED` | Enable Wero (`true`/`false`) |
-| `wero_mock` | `WERO_MOCK` | Mock mode without a real API call (default: `true`) |
-| `wero_merchant_id` | `WERO_MERCHANT_ID` | Wero merchant ID |
-| `wero_api_key` | `WERO_API_KEY` | Wero API key |
+| `wero_mock` | `WERO_MOCK` | Mock mode without a real API call (default: `true`). **Only mock mode is functional.** |
+| `wero_merchant_id` | `WERO_MERCHANT_ID` | Wero merchant ID (reserved — currently unused by the code) |
+| `wero_api_key` | `WERO_API_KEY` | Wero API key (reserved — currently unused by the code) |
 
-> While `wero_mock: true` is set, no real Wero API calls are made. In mock mode the payment auto-confirms after ~3 seconds of polling.
+> While `wero_mock: true` is set, no real Wero API calls are made. In mock mode the payment auto-confirms after ~3 seconds of polling. Turning mock off will cause the API to return `501 Not Implemented`.
 
 ```mermaid
 sequenceDiagram
@@ -386,14 +391,16 @@ After the reset the Laufzettel is open again: material entries can be edited and
     "sumup_mock": false,
     "payment_mode": "payment_switch",
     "checkout_link_available": true,
+    "reader_id": "xxx-xxx-xxx-xxx-xxx",
     "wero_configured": false,
-    "wero_mock": true
+    "wero_mock": true,
+    "bank_transfer_configured": true
 }
 ```
 
 Possible values for `payment_mode`: `"solo"`, `"payment_switch"`, `"mock"`, `null`.
 
-The frontend uses this to show/hide the **Karte** button (hidden if `sumup_configured` is false or `payment_mode` is null) and the **Wero** button (hidden if `wero_configured` is false).
+The frontend uses this to show/hide the payment modal's method tabs: **Banküberweisung** (shown if `bank_transfer_configured`), **Karte** (shown if `sumup_configured` and `payment_mode` is set), and **Barzahlung** (always shown). Wero is not currently added to the switcher regardless of `wero_configured`.
 
 ---
 

@@ -28,19 +28,11 @@ The repository already includes:
 
 - `scripts/setup.sh`
 
-That script currently installs a systemd service for the main app on port `8000`.
+That script installs **both** systemd services: `groundcontrol.service` (main app on port `8000`) and `groundcontrol-docs.service` (docs app on port `8001` with `--root-path /docs`). For HTTPS, `scripts/setup-https.sh` reverse-proxies both under nginx on port `8443` (the docs under `/docs/`).
 
-## Recommended docs deployment approach
+## Deploy script
 
-Add a second service for the docs app, for example:
-
-- `groundcontrol-docs.service`
-
-with an `ExecStart` like:
-
-```bash
-uvicorn backend.docs_app:app --host 0.0.0.0 --port 8001
-```
+The repository also includes `scripts/deploy.sh` (git-based deploy: commit, push, the Pi resets to the current branch's upstream and restarts the services). Use `--update-deps` to run `uv sync` on the Pi after a dependency change. Auto-deploy runs every 5 minutes via a systemd timer (`groundcontrol-autodeploy.timer`).
 
 ## Deploy script
 
@@ -53,8 +45,9 @@ Because the docs app lives in the same repo, normal deployment of the codebase s
 Useful operations already present in the repo:
 
 - reset database script
-- earlier migration helper scripts
 - sqlite-web support for browsing data manually
+
+Schema migrations (new columns) are applied automatically on service startup: each module's `init_db()` introspects the existing tables and runs `ALTER TABLE ... ADD COLUMN` for any missing columns — no manual migration scripts are needed.
 
 ## Production note
 

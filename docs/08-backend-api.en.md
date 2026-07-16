@@ -8,10 +8,10 @@ API endpoints are split across module route files (`backend/laufzettel/routes.py
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/status` | MQTT connection status, uptime, counts |
+| `GET` | `/api/status` | Device counts, message counts (24h + total) |
 | `GET` | `/api/topics` | All seen MQTT topics |
-| `GET` | `/api/messages` | Recent MQTT messages (`?limit=N`) |
-| `GET` | `/api/database/stats` | Row counts, DB file size |
+| `GET` | `/api/messages` | Recent MQTT messages (`?limit=N&topic=...`) |
+| `GET` | `/api/database/stats` | core DB file info, device + message stats |
 
 ### Device management
 

@@ -15,9 +15,8 @@ Verwenden Sie es, um:
 - anzuzeigen, wie viele Mitglieder heute anwesend sind (basierend auf offenen Laufzettel mit Mitglied-ID)
 - den Systemstatus zu prüfen für:
   - Docs-Server (Port 8001)
-  - Zigbee-Bridge (Port 8090 + USB-Verbindung)
-  - Datenbanken/BackBlaze (Litestream + B2-Verbindung)
-  - Google Drive-Verbindung
+  - Google-Drive-Backup
+  - Google-Drive-Verbindung
 
 Die Systemstatus-Indikatoren zeigen farbige Punkte:
 - **Grün** = OK/verbunden
@@ -158,7 +157,7 @@ Umsatz-Übersicht für Buchhaltungszwecke.
 
 Zeigt: Umsatz aufgeschlüsselt nach Steuersatz (0 %, 7 %, 19 %), Spenden (is_spende-Materialien und manuelle Einträge), Filterung nach Zeitraum (Woche / Monat / Jahr).
 
-Siehe [Buchhaltung](./22-accounting.md) für vollständige Dokumentation.
+Siehe [Buchhaltung](./22-accounting.de.md) für vollständige Dokumentation.
 
 ## Docs-Site
 

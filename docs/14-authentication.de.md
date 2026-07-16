@@ -8,7 +8,7 @@ Diese Seite beschreibt das Login- und Session-System.
 - **Passwort-Hashing:** bcrypt durch passlib
 - **Session-Speicher:** Client-seitig (Cookie)
 - **Server-Storage:** SQLite `auth.db` → `users` Tabelle
-- **Zwei Login-Wege:** Passwort-Login und RFID-Karten-Login
+- **Drei Login-Wege:** Passwort-Login, RFID-Karten-Login und OAuth (Google, falls aktiviert — siehe Docs 27/28)
 
 ## Login-Flow (Passwort)
 
@@ -98,9 +98,11 @@ Content-Type: application/json
 Name: session
 Value: {session_data}.signatur (itsdangerous)
 HttpOnly: true
-Secure: false (lokal) / true (Produktion mit HTTPS)
-SameSite: lax
+Secure: nicht gesetzt (Cookie wird über HTTP gesendet; abgesichert durch Netzwerkvertrauen)
+SameSite: weggelassen (fällt auf Browser-Standard zurück)
 ```
+
+> SameSite wird bewusst über ein eigenes `PWASessionMiddleware` weggelassen. Starlettes Standard `samesite=lax` bricht Session-Cookies im iOS-PWA-Standalone-Modus (die `fetch()`-Aufrufe senden das Cookie nicht). Weglassen funktioniert sowohl im HTTP- als auch im iOS-PWA-Kontext.
 
 ### Session-Felder
 
@@ -109,7 +111,7 @@ SameSite: lax
 | `user` | `str` | Username des eingeloggten Nutzers |
 | `mitglied_id` | `int\|null` | Verknüpfte Mitglieds-ID |
 | `is_admin_capable` | `bool` | Nutzer hat grundsätzlich Admin-Berechtigung |
-| `login_method` | `"password"\|"rfid"` | Wie die aktuelle Session erstellt wurde |
+| `login_method` | `"password"\|"rfid"\|"oauth"` | Wie die aktuelle Session erstellt wurde |
 | `admin_verified` | `bool` | Admin-Modus aktiv (läuft nach 10 Min. ohne Aktivität ab) |
 | `admin_verified_at` | `ISO-8601\|null` | Zeitpunkt der letzten Admin-Bestätigung |
 | `last_activity` | `ISO-8601` | Letzter Aktivitätszeitpunkt (UTC) |
@@ -314,16 +316,11 @@ db.commit()
 In `backend/main.py`:
 
 ```python
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    max_age=3600 * 24 * 7,  # 7 Tage Cookie-Lebensdauer
-    same_site="lax",
-    https_only=False,  # True in Produktion
-)
+# Verwendet PWASessionMiddleware, damit SameSite weggelassen wird und iOS-PWA fetch() das Cookie sendet
+app.add_middleware(PWASessionMiddleware, secret_key=SECRET_KEY)
 ```
 
-Hinweis: `max_age` ist die maximale Cookie-Lebensdauer. Die effektive Session-Laufzeit wird durch den **3-Minuten-Inaktivitäts-Timeout** (`MEMBER_TIMEOUT_MINUTES`) serverseitig begrenzt.
+`PWASessionMiddleware` (in `backend/middleware.py`) leitet sich von Starlettes `SessionMiddleware` ab und überschreibt `security_flags` auf `"httponly"`, wodurch das von Starlette standardmäßig hinzugefügte `samesite=lax` entfernt wird. Es wird kein `max_age` übergeben, das Cookie ist also ein Browser-Session-Cookie; die effektive Session-Laufzeit wird durch den **3-Minuten-Inaktivitäts-Timeout** (`MEMBER_TIMEOUT_MINUTES`) serverseitig via `last_activity` begrenzt.
 
 ---
 

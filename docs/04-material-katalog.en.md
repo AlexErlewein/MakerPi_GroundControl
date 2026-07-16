@@ -51,20 +51,19 @@ Logical grouping of materials within a location.
 
 ### Unterkategorie
 
-Defines the pricing model, input unit, and tax rate for a group of materials. This is where pricing configuration lives.
+Groups materials under a Kategorie. Carries the tax rate and a donation flag; the pricing model and unit live on each Variante, not here.
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | int | Primary key |
 | `kategorie_id` | int | FK → Kategorie |
 | `name` | string | Subcategory name |
-| `pricing_model` | string | `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
-| `unit` | string | Display unit, e.g. `g`, `cm³`, `Stk` |
 | `tax_rate` | float | Tax rate: `0`, `7`, or `19` |
+| `is_spende` | bool | Count all variants in this subcategory as donations |
 
 ### Variante
 
-A concrete selectable option with a unit price. Each variant can have its own pricing model, unit, tax rate, and donation flag — or inherit values from its parent subcategory.
+A concrete selectable option with a unit price. Each variant carries its own pricing model, unit, tax rate, and donation flag.
 
 | Field | Type | Description |
 |---|---|---|
@@ -73,10 +72,10 @@ A concrete selectable option with a unit price. Each variant can have its own pr
 | `unterkategorie_id` | int | FK → Unterkategorie |
 | `name` | string | Variant name, e.g. `fein` |
 | `price` | float | Price per unit (€) |
-| `pricing_model` | string | Optional: `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` (overrides subcategory) |
-| `unit` | string | Optional: Display unit (overrides subcategory) |
-| `tax_rate` | float | Optional: Tax rate 0/7/19 (overrides subcategory) |
-| `is_spende` | bool | Optional: Count as donation (overrides subcategory) |
+| `pricing_model` | string | `per_unit` (default), `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
+| `unit` | string | Display unit, e.g. `g`, `cm³`, `Stk` |
+| `tax_rate` | float | Tax rate 0/7/19 (default 19) |
+| `is_spende` | bool | Default false. Count as donation |
 
 ## Pricing models
 
@@ -89,7 +88,7 @@ flowchart LR
     PM -->|"per_unit"| PU["Input: Count (pcs)\n────────────────\nprice = count × price"]
 ```
 
-> **Note:** If a variant has no own `pricing_model`, the subcategory's value is used. The same applies to `unit`, `tax_rate`, and `is_spende`.
+> **Note:** Each variant carries its own `pricing_model`, `unit`, `tax_rate`, and `is_spende`. Pricing model and unit default to `per_unit` if unset; tax rate defaults to `19`.
 
 ### Model comparison table
 
@@ -278,21 +277,17 @@ Content-Type: application/json
       "unterkategorien": [
         {
           "name": "Rot",
-          "pricing_model": "per_gram",
-          "unit": "g",
           "tax_rate": 19,
           "varianten": [
-            { "name": "fein", "price": 0.05 },
-            { "name": "grob", "price": 0.03 }
+            { "name": "fein", "price": 0.05, "pricing_model": "per_gram", "unit": "g" },
+            { "name": "grob", "price": 0.03, "pricing_model": "per_gram", "unit": "g" }
           ]
         },
         {
           "name": "Weiß",
-          "pricing_model": "per_gram",
-          "unit": "g",
           "tax_rate": 19,
           "varianten": [
-            { "name": "weiß-fein", "price": 0.04 }
+            { "name": "weiß-fein", "price": 0.04, "pricing_model": "per_gram", "unit": "g" }
           ]
         }
       ]

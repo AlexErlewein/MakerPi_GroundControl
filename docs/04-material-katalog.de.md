@@ -51,20 +51,19 @@ Logische Gruppierung von Materialien innerhalb eines Standorts.
 
 ### Unterkategorie
 
-Definiert das Preismodell, die Eingabeeinheit und den Steuersatz für eine Gruppe von Materialien. Hier befindet sich die Preiskonfiguration.
+Gruppiert Materialien unter einer Kategorie. Trägt den Steuersatz und ein Spende-Flag; Preismodell und Einheit liegen auf der jeweiligen Variante, nicht hier.
 
 | Feld | Typ | Beschreibung |
 |---|---|---|
 | `id` | int | Primärschlüssel |
 | `kategorie_id` | int | FK → Kategorie |
 | `name` | string | Unterkategoriename |
-| `pricing_model` | string | `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
-| `unit` | string | Anzeigeeinheit, z.B. `g`, `cm³`, `Stk` |
 | `tax_rate` | float | Steuersatz: `0`, `7` oder `19` |
+| `is_spende` | bool | Alle Varianten dieser Unterkategorie als Spenden zählen |
 
 ### Variante
 
-Eine konkrete auswählbare Option mit einem Einheitspreis. Jede Variante kann ihr eigenes Preismodell, Einheit, Steuersatz und Spende-Status haben – oder die Werte der übergeordneten Unterkategorie erben.
+Eine konkrete auswählbare Option mit einem Einheitspreis. Jede Variante trägt ihr eigenes Preismodell, ihre Einheit, ihren Steuersatz und ihr Spende-Flag.
 
 | Feld | Typ | Beschreibung |
 |---|---|---|
@@ -73,10 +72,10 @@ Eine konkrete auswählbare Option mit einem Einheitspreis. Jede Variante kann ih
 | `unterkategorie_id` | int | FK → Unterkategorie |
 | `name` | string | Variantenname, z.B. `fein` |
 | `price` | float | Preis pro Einheit (€) |
-| `pricing_model` | string | Optional: `per_unit`, `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` (überschreibt Unterkategorie) |
-| `unit` | string | Optional: Anzeigeeinheit (überschreibt Unterkategorie) |
-| `tax_rate` | float | Optional: Steuersatz 0/7/19 (überschreibt Unterkategorie) |
-| `is_spende` | bool | Optional: Als Spende zählen (überschreibt Unterkategorie) |
+| `pricing_model` | string | `per_unit` (Standard), `per_gram`, `per_kilogram`, `per_volume_cm3`, `per_volume_l`, `per_minute` |
+| `unit` | string | Anzeigeeinheit, z.B. `g`, `cm³`, `Stk` |
+| `tax_rate` | float | Steuersatz 0/7/19 (Standard 19) |
+| `is_spende` | bool | Standard false. Als Spende zählen |
 
 ## Preismodelle
 
@@ -89,7 +88,7 @@ flowchart LR
     PM -->|"per_unit"| PU["Eingabe: Menge (Stk)\n────────────────\nprice = menge × price"]
 ```
 
-> **Hinweis:** Hat eine Variante kein eigenes `pricing_model`, wird das der Unterkategorie verwendet. Das gleiche gilt für `unit`, `tax_rate` und `is_spende`.
+> **Hinweis:** Jede Variante trägt ihr eigenes `pricing_model`, ihre `unit`, ihren `tax_rate` und ihr `is_spende`. Preismodell und Einheit Standard `per_unit`, wenn nicht gesetzt; Steuersatz Standard `19`.
 
 ### Modell-Vergleichstabelle
 

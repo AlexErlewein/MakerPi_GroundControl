@@ -8,7 +8,7 @@ Diese Seite beschreibt den laufenden Betrieb, Deployment und Wartung des Produkt
 |--------|------|--------------|--------------|
 | GroundControl App | 8000 | `groundcontrol.service` | Haupt-Webanwendung (FastAPI) |
 | Docs | 8001 | `groundcontrol-docs.service` | Dokumentationsseite |
-| SQLite Web | 8002 | `sqlite-web.service` | Datenbank-Browser (intern) |
+| SQLite Web | extern | `sqlite-web.service` | Datenbank-Browser (wird vom Auto-Deploy mitgestartet; separat zu installieren/konfigurieren) |
 | Auto-Deploy Timer | — | `groundcontrol-autodeploy.timer` | Pollt alle 5 min git, deployed automatisch |
 
 **Projektpfad auf dem Pi:** `/home/dev/Code/MakerPi_GroundControl`
@@ -17,26 +17,25 @@ Diese Seite beschreibt den laufenden Betrieb, Deployment und Wartung des Produkt
 
 ## Deploy-Workflow
 
-Das Deploy-Script (`scripts/deploy.sh`) ist **git-basiert**: Änderungen werden lokal committed, gepusht, und der Pi führt einen `git reset --hard` auf `origin/main` aus – keine rsync-Konflikte mehr.
+Das Deploy-Script (`scripts/deploy.sh`) ist **git-basiert**: Änderungen werden lokal committed, gepusht, und der Pi führt einen `git reset --hard` auf den Upstream des aktuellen Branchs aus – keine rsync-Konflikte mehr.
 
 ```bash
 # Normaler Deploy (committed + pushed + Pi aktualisiert + Service neugestartet)
 ./scripts/deploy.sh
 
-# Mit DB-Migration (neue Spalten hinzufügen)
-./scripts/deploy.sh --migrate
-
-# Mit Dependency-Update (nach requirements.txt Änderungen)
+# Mit Dependency-Update (nach pyproject.toml Änderungen)
 ./scripts/deploy.sh --update-deps
 ```
+
+> Schema-Migrationen (neue Spalten) laufen automatisch beim Start des Dienstes über die Inline-Migration in jeder `init_db()` — es gibt kein `--migrate`-Flag und kein separates Skript mehr.
 
 ### Was das Script tut
 
 1. Prüft auf uncommitted Changes → fragt nach Commit-Message → `git commit` + `git push`
 2. Stellt Verbindung her (Tailscale bevorzugt, Fallback auf lokale IP)
-3. Auf Pi: `git fetch && git reset --hard origin/main`
-4. Optional: Migrations-Script, pip install
-5. `sudo systemctl restart groundcontrol`
+3. Auf Pi: `git fetch && git reset --hard origin/<aktueller Branch>`
+4. Optional (nur mit `--update-deps`): `uv sync` auf dem Pi
+5. WAL-Checkpoint der Datenbanken, dann `sudo systemctl restart groundcontrol groundcontrol-docs`
 
 ### Auto-Deploy
 

@@ -64,23 +64,41 @@ MakerPi_GroundControl/
 │   │   ├── db.py
 │   │   ├── routes.py
 │   │   └── dependencies.py
-│   ├── members/          ← Members-Modul (Mitglieder, Tags)
+│   ├── members/          ← Members-Modul (Mitglieder, Tags, easyVerein-Sync)
 │   │   ├── models.py
 │   │   ├── db.py
-│   │   └── routes.py
+│   │   ├── routes.py
+│   │   ├── easyverein.py ← easyVerein-API-Sync
+│   │   └── signature.py  ← HMAC-Karten-Signatur + Mifare-Sektor-Schlüsselableitung
 │   ├── laufzettel/       ← Laufzettel-Modul (Aufträge)
 │   │   ├── models.py
 │   │   ├── db.py
-│   │   └── routes.py
+│   │   ├── routes.py
+│   │   └── pdf.py        ← PDF-Erzeugung + Google-Drive-Upload
 │   ├── catalog/          ← Catalog-Modul (Materialkatalog)
 │   │   ├── models.py
 │   │   ├── db.py
 │   │   └── routes.py
-│   └── core/             ← Core-Modul (MQTT, Geräte, Scans)
-│       ├── models.py
-│       ├── db.py
-│       ├── mqtt.py
-│       └── routes.py
+│   ├── core/             ← Core-Modul (MQTT, Geräte, Scans)
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   ├── mqtt.py
+│   │   └── routes.py
+│   ├── buchhaltung/      ← Buchhaltungs-Modul
+│   │   ├── models.py
+│   │   ├── db.py
+│   │   ├── routes.py
+│   │   └── accounting.py
+│   ├── push/             ← Web-Push-Benachrichtigungen
+│   │   └── routes.py
+│   ├── shopify/          ← Shopify-Integration
+│   │   └── routes.py
+│   ├── plane/            ← Plane-Bugtracker-Integration (öffentliches Bug-Report-Formular)
+│   │   └── routes.py
+│   ├── email_utils.py    ← Async SMTP-E-Mail-Versand (aiosmtplib)
+│   ├── email_templates.py ← HTML-E-Mail-Templates (Quittung, easyVerein-Anmeldung)
+│   ├── gdrive.py         ← Google-Drive-OAuth + Upload-Helper
+│   └── member_routes.py  ← Modulübergreifende Mitglied-Self-Service-Routen (auth+laufzettel+members+catalog)
 │
 ├── templates/
 │   ├── login.html        ← Öffentliche Login-/Willkommensseite
@@ -90,8 +108,12 @@ MakerPi_GroundControl/
 │   ├── laufzettel.html   ← Laufzettel-Liste
 │   ├── laufzettel-detail.html  ← Laufzettel-Editor + Material-Modal
 │   ├── katalog.html      ← Materialkatalog-Manager
-│   ├── mitglieder.html   ← Mitgliedsdatenbank
-│   ├── admin-users.html  ← Benutzerverwaltung
+│   ├── mitglieder.html              ← Mitgliedsdatenbank
+│   ├── admin-users.html             ← Benutzerverwaltung
+│   ├── member-laufzettel-open.html  ← Offene Laufzettel des Mitglieds
+│   ├── member-laufzettel-historie.html ← Zahlungshistorie des Mitglieds
+│   ├── member-laufzettel-detail.html   ← Mitglied-Laufzettel-Detail (nur Lesezugriff)
+│   ├── member-konto.html              ← Mitglied-Kontoinfo
 │   └── docs-layout.html  ← Docs-Site-Shell-Template
 │
 ├── static/
@@ -130,12 +152,15 @@ sequenceDiagram
     APP->>DB5: create_all (core.db)
     APP->>DB1: seed_admin_user() – Standard-User erstellen falls keiner existiert
     UV->>APP: lifespan startup
+    APP->>APP: APScheduler starten
+    APP->>APP: easyVerein-Sync einplanen (täglich 03:00)
     APP->>MQ: paho-mqtt connect (localhost:1883)
     MQ-->>APP: on_connect callback
     APP->>MQ: subscribe "#" (alle Topics)
     Note over APP: App ist bereit
     UV->>APP: lifespan shutdown
     APP->>MQ: paho-mqtt disconnect
+    APP->>APP: Scheduler herunterfahren
 ```
 
 ## Technologie-Stack
@@ -149,11 +174,13 @@ sequenceDiagram
 | ORM | SQLAlchemy | latest |
 | Datenbank | SQLite | bundled |
 | MQTT-Client | paho-mqtt | latest |
+| Job-Scheduler | APScheduler | latest |
 | Template-Engine | Jinja2 | latest |
 | Docs-Rendering | markdown | 3.7 |
 | Pydantic | pydantic | v2 |
 | Passwort-Hashing | passlib + bcrypt | 1.7.4 / 3.x |
 | Session-Signierung | itsdangerous | 2.x |
+| E-Mail (async SMTP) | aiosmtplib | latest |
 
 ## Design-Prinzipien
 

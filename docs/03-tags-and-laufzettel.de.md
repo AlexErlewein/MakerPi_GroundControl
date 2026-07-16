@@ -106,11 +106,13 @@ flowchart LR
 
 ## Zahlungs-Flow
 
-Sobald das gesamte Material hinzugefügt wurde, zeigt die Detailseite drei Zahlungs-Buttons:
+Sobald das gesamte Material hinzugefügt wurde, zeigt die Detailseite einen einzelnen grünen **"Jetzt bezahlen – <Betrag>"**-Button. Ein Klick öffnet ein einheitliches Zahlungs-Pop-up mit einem Methoden-Switcher, der die in `config.json` konfigurierten Methoden anbietet:
 
-- **Bar bezahlen** — zeigt den Gesamtbetrag in einem großen Pop-up. Bestätigen zum Sperren.
-- **mit PayPal bezahlen** — zeigt einen QR-Code, der auf Ihre PayPal.me-URL + Betrag verlinkt. Bestätigen, nachdem der Kunde gescannt hat.
-- **mit Karte bezahlen** — sendet eine Checkout-Anfrage an den gekoppelten SumUp-Kartenleser. Sperrt bei Erfolg.
+- **🏦 Banküberweisung** — zeigt einen EPC/GiroCode-QR-Code mit Bankverbindung und Betrag an (`bank_iban` / `bank_bic` / `bank_account_name`). Bestätigen, nachdem der Kunde gescannt hat. Nur sichtbar, wenn `bank_transfer` konfiguriert ist.
+- **💳 EC-/Kreditkarte** — sendet eine Checkout-Anfrage an den gekoppelten SumUp-Kartenleser (Solo Cloud API) oder erzeugt einen `sumupmerchant://`-Deep-Link für die SumUp-App (Payment Switch). Sperrt bei Erfolg. Nur sichtbar, wenn SumUp konfiguriert ist.
+- **💵 Barzahlung** — immer verfügbar; zeigt den Gesamtbetrag für eine Barzahlung. Bestätigen zum Sperren.
+
+> Der Wero-Zahlungsflow existiert im Backend (`/api/laufzettel/{id}/pay/wero`), ist aber aktuell **nicht** im Zahlungs-Pop-up freigegeben (die Wero-Methode wird dem Switcher nicht hinzugefügt). Er ist daher heute über die UI nicht erreichbar.
 
 Nach jeder erfolgreichen Zahlung:
 - `payment_method` und `paid_at` werden in den Laufzettel geschrieben.

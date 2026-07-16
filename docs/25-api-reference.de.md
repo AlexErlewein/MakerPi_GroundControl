@@ -18,7 +18,7 @@ Die meisten API-Endpunkte erfordern eine Authentifizierung per Session-Cookie. E
 
 ### Authentifizierung erforderlich
 
-Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Session vorhanden ist. Überprüfen Sie den Authentifizierungsstatus durch Aufruf von `/api/auth/me`.
+Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Session vorhanden ist. Überprüfen Sie den Authentifizierungsstatus durch Aufruf von `/api/auth/session` (Admin-/Auth-Session) oder `/api/member/me` (Mitglied-Selbstauskunft).
 
 ---
 
@@ -26,58 +26,64 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 
 ### `GET /api/status`
 
-**Beschreibung:** Gibt den Systemstatus zurück einschließlich MQTT-Verbindung, Uptime und Datenbank-Zählern.
+**Beschreibung:** Gibt Geräte-Zähler und MQTT-Nachrichten-Zähler (24h und gesamt) zurück.
 
 **Authentifizierung:** Öffentlich
 
 **Antwort:**
 ```json
 {
-  "mqtt_connected": true,
-  "uptime_seconds": 12345,
-  "devices_count": 5,
-  "messages_count": 1234,
-  "scans_count": 567
+  "devices_total": 5,
+  "devices_online": 3,
+  "messages_24h": 1234,
+  "messages_total": 5678,
+  "status": "ok"
 }
 ```
 
 **Anwendungsfälle:**
 - Systemüberwachung
 - Dashboard-Status-Indikatoren
-- System-Uptime-Tracking
 
 ---
 
 ### `GET /api/database/stats`
 
-**Beschreibung:** Gibt Datenbank-Datei-Informationen und Zeilenzahlen für alle Datenbanken zurück.
+**Beschreibung:** Gibt Datei-Info der core-Datenbank sowie aggregierte Geräte- und Nachrichten-Statistiken zurück.
 
 **Authentifizierung:** Öffentlich
 
 **Antwort:**
 ```json
 {
-  "databases": [
-    {
-      "name": "core.db",
-      "status": "ok",
-      "message": "156 KB",
-      "size": "156 KB"
-    },
-    {
-      "name": "members.db",
-      "status": "ok",
-      "message": "78 KB",
-      "size": "78 KB"
-    }
-  ]
+  "database": {
+    "file_path": "/pfad/zu/core.db",
+    "size_human": "156.0 KB"
+  },
+  "devices": {
+    "total": 5,
+    "online": 3,
+    "offline": 2,
+    "nfc_ok": 4,
+    "nfc_error": 1,
+    "nfc_unknown": 0
+  },
+  "messages": {
+    "total": 1234,
+    "topics": 12,
+    "oldest": "2026-01-01T00:00:00",
+    "newest": "2026-07-15T12:00:00"
+  },
+  "devices_oldest_seen": "2026-01-01T00:00:00",
+  "devices_newest_seen": "2026-07-15T12:00:00"
 }
 ```
+
+> Per-Datenbank-Health-Status (ok/error pro DB-Datei) wird vom separaten Endpunkt `GET /api/dashboard/db-health` zurückgegeben.
 
 **Anwendungsfälle:**
 - Datenbank-Health-Monitoring
 - Speicherplatz-Tracking
-- Backup-Verifizierung
 
 ---
 
@@ -884,11 +890,14 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 **Antwort:**
 ```json
 {
-  "success": true,
-  "transaction_id": "txn_123456",
-  "payment_mode": "solo"
+  "mock": false,
+  "mode": "solo",
+  "client_transaction_id": "gc-...",
+  "status": "PENDING"
 }
 ```
+
+Im Payment-Switch-Modus enthält die Antwort zusätzlich eine `payment_url` (das URL-Schema der SumUp-App).
 
 **Anwendungsfälle:**
 - Kartenzahlungs-Verarbeitung
@@ -899,7 +908,7 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 
 ### `GET /api/laufzettel/{id}/pay/karte/status`
 
-**Beschreibung:** Pollt den Status einer ausstehenden Kartenzahlung (nur Solo-Modus).
+**Beschreibung:** Pollt den Status einer ausstehenden Kartenzahlung. Im Payment-Switch-Modus erfolgt die Bestätigung automatisch durch Abgleich der SumUp-Transaktionshistorie.
 
 **Authentifizierung:** Erforderlich
 
@@ -909,11 +918,13 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 **Antwort:**
 ```json
 {
-  "status": "SUCCESS",
+  "status": "SUCCESSFUL",
   "transaction_id": "txn_123456",
   "amount": 25.00
 }
 ```
+
+`status` ist einer von `SUCCESSFUL`, `NOT_FOUND`, `TIMEOUT` oder `PENDING`.
 
 **Anwendungsfälle:**
 - Zahlungsstatus-Überwachung
@@ -933,10 +944,15 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 **Request Body:**
 ```json
 {
-  "guest_name": "Gast Benutzer",
-  "guest_email": "gast@example.com"
+  "name": "Gast Benutzer",
+  "address": "Musterstraße 1, 12345 Stadt",
+  "email": "gast@example.com",
+  "date": "2026-07-15",
+  "start": "2026-07-15T10:00:00"
 }
 ```
+
+`name` und `address` sind erforderlich; `email`, `date` und `start` sind optional.
 
 **Antwort:** Gibt den erstellten Gast-Laufzettel mit Session-Token zurück.
 
@@ -956,8 +972,7 @@ Die meisten Endpunkte geben `401 Unauthorized` zurück, wenn keine gültige Sess
 **Antwort:**
 ```json
 {
-  "has_session": true,
-  "laufzettel_id": 123
+  "guest_id": "<uuid-oder-null>"
 }
 ```
 
